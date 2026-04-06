@@ -35,7 +35,7 @@ const RedirectToFood = () => {
   return <Navigate to={`/food${location.pathname}${location.search}`} replace />;
 };
 
-const MasterLandingPage = lazy(() => import('./MasterLandingPage'))
+
 const AdminRouter = lazy(() => import('../modules/Food/components/admin/AdminRouter'))
 
 const AppRoutes = () => {
@@ -64,7 +64,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Root → Master Landing Page */}
-      <Route path="/" element={<Suspense fallback={<PageLoader />}><MasterLandingPage /></Suspense>} />
+      <Route path="/" element={<Navigate to="/food/user" replace />} />
 
       {/* Auth Module */}
       <Route path="/user/auth/*" element={<AuthApp />} />
