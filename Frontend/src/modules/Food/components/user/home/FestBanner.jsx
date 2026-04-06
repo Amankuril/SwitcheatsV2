@@ -8,7 +8,7 @@ const platterImg = "https://images.unsplash.com/photo-1544025162-d76694265947?w=
 
 export default function FestBanner() {
   return (
-    <div className="relative bg-gradient-to-b from-[#ef4f5f] to-[#d63a4a] px-4 pt-4 pb-10 overflow-hidden">
+    <div className="relative bg-gradient-to-b from-[#FA0272] to-[#d63a4a] px-4 pt-4 pb-10 overflow-hidden">
       {/* Decorative Background Elements */}
       <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">

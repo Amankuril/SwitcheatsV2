@@ -108,7 +108,7 @@ export default function HomeHeader({
   };
 
   return (
-    <div className="relative bg-gradient-to-b from-[#f36371] to-[#ef4f5f] pt-5 pb-5 px-4 space-y-5 shadow-xl overflow-hidden dark:from-[#141414] dark:to-[#0a0a0a] dark:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+    <div className="relative bg-gradient-to-b from-[#FF3390] to-[#FA0272] pt-5 pb-5 px-4 space-y-5 shadow-xl overflow-hidden dark:from-[#141414] dark:to-[#0a0a0a] dark:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
       {/* Abstract Background Design */}
       <div className="absolute inset-0 opacity-10 pointer-events-none overflow-hidden">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
@@ -148,7 +148,7 @@ export default function HomeHeader({
             <div className="h-11 w-11 relative flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-lg cursor-pointer active:scale-95 transition-all dark:bg-white/5 dark:border-white/10">
               <Bell className="h-6 w-6 text-white" />
               {unreadCount > 0 && (
-                <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-yellow-400 rounded-full border-2 border-[#ef4f5f] animate-pulse dark:border-[#111111]" />
+                <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-yellow-400 rounded-full border-2 border-[#FA0272] animate-pulse dark:border-[#111111]" />
               )}
             </div>
           </PopoverTrigger>
@@ -222,48 +222,6 @@ export default function HomeHeader({
         </Popover>
       </div>
 
-      {/* Main Category Grid (4 Items) - Compact & Centered */}
-      <div className="relative z-10 flex justify-center pb-1">
-        <div className="grid grid-cols-4 gap-3 w-full max-w-[340px]">
-          {festCategories.map((cat) => (
-            <div 
-              key={cat.id}
-              className={`flex flex-col items-center gap-2 cursor-pointer group relative`}
-              onClick={() => setActiveTab(cat.id)}
-            >
-              <motion.div 
-                whileTap={{ scale: 0.9 }}
-                whileHover={{ scale: 1.05 }}
-                className={`w-full aspect-square ${cat.bgColor} rounded-xl flex items-center justify-center p-0 overflow-hidden transition-all duration-300 ${activeTab === cat.id ? 'bg-white scale-105 shadow-[0_0_20px_rgba(255,255,255,0.4)] dark:bg-[#1f1f1f] dark:shadow-[0_0_24px_rgba(255,255,255,0.08)]' : 'bg-white/90 shadow-sm dark:bg-[#161616] dark:shadow-[0_10px_24px_rgba(0,0,0,0.28)]'}`}
-              >
-                <img src={cat.icon} alt={cat.name} className={`w-full h-full object-cover transition-transform duration-700 ${activeTab === cat.id ? 'scale-105' : 'scale-100 group-hover:scale-110'}`} />
-              </motion.div>
-              <span className={`text-[10px] font-bold tracking-wider uppercase transition-all ${activeTab === cat.id ? 'text-white translate-y-0 opacity-100' : 'text-white/40 group-hover:text-white/60'}`}>
-                {cat.name}
-              </span>
-              
-              {activeTab === cat.id && (
-                <>
-                  <motion.div 
-                    layoutId="activeTabBadge"
-                    className="absolute -top-1 -right-0.5 z-30"
-                    initial={{ scale: 0, rotate: -45 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                  >
-                    <div className="bg-yellow-400 text-[6px] font-black text-red-600 w-4 h-4 flex items-center justify-center rounded-full border border-white leading-none shadow-xl dark:border-[#1a1a1a]">
-                      {"\u2605"}
-                    </div>
-                  </motion.div>
-                  <motion.div 
-                    layoutId="indicator"
-                    className="absolute -bottom-1.5 w-1 h-1 bg-yellow-400 rounded-full"
-                  />
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Search Bar - More Normal & Clean */}
       <div 

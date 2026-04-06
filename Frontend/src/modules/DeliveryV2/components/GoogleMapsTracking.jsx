@@ -42,7 +42,7 @@ const getDeliveryIconUrl = () => {
     return '/assets/deliveryboy/deliveryIcon.png'
   } catch {
     // Fallback to bikelogo if delivery icon not found
-    return '/src/assets/bikelogo.png'
+    return '/src/assets/bikeswitcheats-logo.png'
   }
 }
 

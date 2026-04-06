@@ -86,7 +86,7 @@ import {
 } from "@food/components/ui/dropdown-menu";
 import { useLocation } from "@food/hooks/useLocation";
 import { useZone } from "@food/hooks/useZone";
-import quickSpicyLogo from "@food/assets/quicky-spicy-logo.png";
+import quickSpicyLogo from "@food/assets/switcheats-logo.png";
 import offerImage from "@food/assets/offerimage.png";
 import api, { publicGetOnce, restaurantAPI, adminAPI } from "@food/api";
 import { API_BASE_URL } from "@food/api/config";
@@ -2471,8 +2471,8 @@ export default function Home() {
             }
           }
           .red-header-bg {
-            background-color: #ef4f5f;
-            background-image: linear-gradient(180deg, #ef4f5f 0%, #e03546 100%);
+            background-color: #FA0272;
+            background-image: linear-gradient(180deg, #FA0272 0%, #e03546 100%);
           }
         `}</style>
         </div>
@@ -2931,7 +2931,7 @@ export default function Home() {
                                 {/* Restaurant Name & Rating */}
                                 <div className="flex items-start justify-between gap-2 mb-2 lg:mb-3">
                                   <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg lg:text-2xl font-medium text-gray-950 dark:text-white line-clamp-1 leading-tight tracking-tight transition-colors duration-300 group-hover:text-[#ef4f5f]">
+                                    <h3 className="text-lg lg:text-2xl font-medium text-gray-950 dark:text-white line-clamp-1 leading-tight tracking-tight transition-colors duration-300 group-hover:text-[#FA0272]">
                                       {restaurant.name}
                                     </h3>
                                     <div className="flex flex-wrap items-center gap-2 mt-2">
