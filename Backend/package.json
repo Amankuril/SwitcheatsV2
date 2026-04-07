@@ -1,8 +1,8 @@
 {
-  "name": "appzeto-backend",
+  "name": "switcheats-backend",
   "version": "1.0.0",
   "type": "module",
-  "description": "AppZeto Master Product Backend",
+  "description": "Switcheats Product Backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

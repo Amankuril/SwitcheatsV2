@@ -23,84 +23,72 @@ export default function BottomNavigation() {
 
   return (
     <div
-      className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1a1a1a] border-t border-gray-200 dark:border-gray-800 z-50 shadow-lg"
+      className="md:hidden fixed bottom-6 left-5 right-5 z-50 pointer-events-none"
     >
-      <div className="flex items-center justify-around h-auto px-2 sm:px-4">
+      <div className="flex items-center justify-around h-auto px-2 py-1.5 bg-white/85 dark:bg-[#1a1a1a]/85 backdrop-blur-[20px] border border-white/50 dark:border-white/10 rounded-full shadow-[0_20px_40px_rgba(0,0,0,0.15)] pointer-events-auto">
+        
         {/* Delivery Tab */}
         <Link
           to="/food/user"
-          className={`flex flex-1 flex-col items-center gap-1.5 px-2 sm:px-3 py-2 transition-all duration-200 relative ${isDelivery
-              ? "text-green-700 dark:text-green-500"
-              : "text-gray-600 dark:text-gray-400"
+          className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-all duration-300 relative rounded-full ${isDelivery
+              ? "text-[#FA0272] bg-[#FA0272]/10"
+              : "text-gray-500 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
             }`}
         >
-          < Truck className={`h-5 w-5 ${isDelivery ? "text-green-700 dark:text-green-500 fill-green-700 dark:fill-green-500" : "text-gray-600 dark:text-gray-400"}`} strokeWidth={2} />
-          <span className={`text-xs sm:text-sm font-medium ${isDelivery ? "text-green-700 dark:text-green-500 font-semibold" : "text-gray-600 dark:text-gray-400"}`}>
+          <div className="relative">
+            <Truck className={`h-5 w-5 transition-transform duration-300 ${isDelivery ? "text-[#FA0272] fill-[#FA0272]/20 scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isDelivery ? 2.5 : 2} />
+          </div>
+          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isDelivery ? "text-[#FA0272]" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
             Delivery
           </span>
-          {isDelivery && (
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-green-700 dark:bg-green-500 rounded-b-full" />
-          )}
         </Link>
-
-        {/* Divider */}
-        <div className="h-8 w-px bg-gray-300 dark:bg-gray-700" />
 
         {/* Dining Tab */}
         <Link
           to="/food/user/dining"
-          className={`flex flex-1 flex-col items-center gap-1.5 px-2 sm:px-3 py-2 transition-all duration-200 relative ${isDining
-              ? "text-green-700 dark:text-green-500"
-              : "text-gray-600 dark:text-gray-400"
+          className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-all duration-300 relative rounded-full ${isDining
+              ? "text-[#FA0272] bg-[#FA0272]/10"
+              : "text-gray-500 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
             }`}
         >
-          <UtensilsCrossed className={`h-5 w-5 ${isDining ? "text-green-700 dark:text-green-500" : "text-gray-600 dark:text-gray-400"}`} strokeWidth={2} />
-          <span className={`text-xs sm:text-sm font-medium ${isDining ? "text-green-700 dark:text-green-500 font-semibold" : "text-gray-600 dark:text-gray-400"}`}>
+          <div className="relative">
+            <UtensilsCrossed className={`h-5 w-5 transition-transform duration-300 ${isDining ? "text-[#FA0272] scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isDining ? 2.5 : 2} />
+          </div>
+          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isDining ? "text-[#FA0272]" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
             Dining
           </span>
-          {isDining && (
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-green-700 dark:bg-green-500 rounded-b-full" />
-          )}
         </Link>
-
-        {/* Divider */}
-        <div className="h-8 w-px bg-gray-300 dark:bg-gray-700" />
 
         {/* Under 250 Tab */}
         <Link
           to="/food/user/under-250"
-          className={`flex flex-1 flex-col items-center gap-1.5 px-2 sm:px-3 py-2 transition-all duration-200 relative ${isUnder250
-              ? "text-green-700 dark:text-green-500"
-              : "text-gray-600 dark:text-gray-400"
+          className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-all duration-300 relative rounded-full ${isUnder250
+              ? "text-[#FA0272] bg-[#FA0272]/10"
+              : "text-gray-500 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
             }`}
         >
-          <Tag className={`h-5 w-5 ${isUnder250 ? "text-green-700 dark:text-green-500 fill-green-700 dark:fill-green-500" : "text-gray-600 dark:text-gray-400"}`} strokeWidth={2} />
-          <span className={`text-xs sm:text-sm font-medium ${isUnder250 ? "text-green-700 dark:text-green-500 font-semibold" : "text-gray-600 dark:text-gray-400"}`}>
+          <div className="relative">
+            <Tag className={`h-5 w-5 transition-transform duration-300 ${isUnder250 ? "text-[#FA0272] fill-[#FA0272]/20 scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isUnder250 ? 2.5 : 2} />
+          </div>
+          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isUnder250 ? "text-[#FA0272]" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
             Under 250
           </span>
-          {isUnder250 && (
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-green-700 dark:bg-green-500 rounded-b-full" />
-          )}
         </Link>
-
-        {/* Divider */}
-        <div className="h-8 w-px bg-gray-300 dark:bg-gray-700" />
 
         {/* Profile Tab */}
         <Link
           to="/food/user/profile"
-          className={`flex flex-1 flex-col items-center gap-1.5 px-2 sm:px-3 py-2 transition-all duration-200 relative ${isProfile
-              ? "text-green-700 dark:text-green-500"
-              : "text-gray-600 dark:text-gray-400"
+          className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-all duration-300 relative rounded-full ${isProfile
+              ? "text-[#FA0272] bg-[#FA0272]/10"
+              : "text-gray-500 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
             }`}
         >
-          <User className={`h-5 w-5 ${isProfile ? "text-green-700 dark:text-green-500 fill-green-700 dark:fill-green-500" : "text-gray-600 dark:text-gray-400"}`} />
-          <span className={`text-xs sm:text-sm font-medium ${isProfile ? "text-green-700 dark:text-green-500 font-semibold" : "text-gray-600 dark:text-gray-400"}`}>
+          <div className="relative">
+            <User className={`h-5 w-5 transition-transform duration-300 ${isProfile ? "text-[#FA0272] fill-[#FA0272]/20 scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isProfile ? 2.5 : 2} />
+          </div>
+          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isProfile ? "text-[#FA0272]" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
             Profile
           </span>
-          {isProfile && (
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-green-700 dark:bg-green-500 rounded-b-full" />
-          )}
         </Link>
       </div>
     </div>

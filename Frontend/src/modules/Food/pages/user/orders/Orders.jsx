@@ -468,24 +468,19 @@ export default function Orders() {
   }
 
   const copyToClipboard = async (text) => {
+    const textArea = document.createElement("textarea")
+    textArea.value = text
+    textArea.style.position = "fixed"
+    textArea.style.opacity = "0"
+    document.body.appendChild(textArea)
+    textArea.select()
     try {
-      await navigator.clipboard.writeText(text)
+      document.execCommand("copy")
       toast.success("Link copied to clipboard!")
-    } catch (error) {
-      const textArea = document.createElement("textarea")
-      textArea.value = text
-      textArea.style.position = "fixed"
-      textArea.style.opacity = "0"
-      document.body.appendChild(textArea)
-      textArea.select()
-      try {
-        document.execCommand("copy")
-        toast.success("Link copied to clipboard!")
-      } catch (err) {
-        toast.error("Failed to copy link")
-      }
-      document.body.removeChild(textArea)
+    } catch (err) {
+      toast.error("Failed to copy link")
     }
+    document.body.removeChild(textArea)
   }
 
   const openShareTarget = (target) => {
@@ -1045,7 +1040,7 @@ Order again from this restaurant in the ${companyName} app.`
 
       {/* Footer Branding */}
       <div className="flex justify-center mt-8 mb-4">
-        <h1 className="text-4xl font-black text-gray-200 tracking-tighter italic">appzeto</h1>
+        <h1 className="text-4xl font-black text-gray-200 tracking-tighter italic capitalize">Switcheats</h1>
       </div>
 
       {/* Rating & Feedback Modal */}
@@ -1270,4 +1265,3 @@ Order again from this restaurant in the ${companyName} app.`
     </div>
   )
 }
-

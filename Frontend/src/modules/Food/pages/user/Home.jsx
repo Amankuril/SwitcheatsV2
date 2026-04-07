@@ -24,6 +24,7 @@ import {
   Bookmark,
   BadgePercent,
   X,
+  ArrowRightLeft,
   ArrowDownUp,
   Timer,
   CalendarClock,
@@ -2282,7 +2283,18 @@ export default function Home() {
   // Memoized Category Rail Component
   const CategoryRailSection = useMemo(() => {
     return (
-      <section className="space-y-1 sm:space-y-1.5 lg:space-y-2 min-h-[108px] sm:min-h-[120px]">
+      <section className="space-y-4 pt-4 sm:pt-6">
+        <div className="px-4 flex items-center justify-between">
+          <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+            What's on your mind today?
+          </h2>
+          <Link
+            to="/food/user/categories"
+            className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors">
+            View All
+            <ArrowRightLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          </Link>
+        </div>
         <div
           ref={categoryScrollRef}
           className="flex gap-3 sm:gap-4 lg:gap-5 overflow-x-auto overflow-y-visible scrollbar-hide scroll-smooth px-2 sm:px-3 py-2 sm:py-3"
@@ -2470,189 +2482,45 @@ export default function Home() {
               transform: translateY(0);
             }
           }
-          .red-header-bg {
-            background-color: #FA0272;
-            background-image: linear-gradient(180deg, #FA0272 0%, #e03546 100%);
-          }
         `}</style>
-        </div>
+      </div>
 
-        <div className="md:hidden relative overflow-x-clip">
-          <HomeHeader 
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            location={location}
-            handleLocationClick={handleLocationClick}
-            handleSearchFocus={handleSearchFocus}
-            placeholderIndex={placeholderIndex}
-            placeholders={placeholders}
-          />
+      <div className="relative z-10">
+        <HomeHeader
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          location={location}
+          savedAddressText={savedAddressText}
+          handleLocationClick={handleLocationClick}
+          handleSearchFocus={handleSearchFocus}
+          placeholderIndex={placeholderIndex}
+          placeholders={placeholders}
+        />
 
-          <AnimatePresence mode="wait">
-            {activeTab === "food" ? (
-              <motion.div
-                key="food-content"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="bg-white dark:bg-[#0a0a0a]"
-              >
-                {/* Flavour Fest Banner */}
-                <FestBanner />
+        <FestBanner />
+        <PromoRow 
+          handleVegModeChange={handleVegModeChange}
+          navigate={navigate}
+          isVegMode={vegMode}
+          toggleRef={vegModeToggleRef}
+        />
 
-                {/* Promo Row */}
-                <div className="relative z-20 -mt-4">
-                  <PromoRow 
-                    handleVegModeChange={handleVegModeChange}
-                    navigate={navigate}
-                    isVegMode={vegMode}
-                    toggleRef={vegModeToggleRef}
-                  />
-                </div>
+        {CategoryRailSection}
+        {HeroBannerSection}
 
-                {/* "What's on your mind today?" Section */}
-                <div className="px-4 py-6 space-y-6 bg-white dark:bg-[#0a0a0a]">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white min-w-0 flex-shrink leading-tight">What's on your mind today?</h2>
-                    <div className="h-[1px] bg-gray-100 dark:bg-gray-800 flex-1"></div>
-                    <Link to="/food/user/categories" className="text-sm font-bold text-gray-400 dark:text-gray-500 flex items-center gap-0.5 whitespace-nowrap shrink-0">
-                      View All <ArrowDownUp className="h-3 w-3 rotate-90" />
-                    </Link>
-                  </div>
-                  
-                  <div className="grid grid-cols-4 gap-y-8 gap-x-4">
-                    {displayCategories.slice(0, 8).map((category, index) => (
-                      <Link 
-                        key={category.id || index}
-                        to={`/food/user/category/${category.slug}`}
-                        className="flex flex-col items-center gap-2 group"
-                      >
-                        <div className="relative w-full aspect-square rounded-full overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 bg-white dark:bg-[#1a1a1a] group-active:scale-95 transition-all duration-300">
-                          {/* Shining Glint Effect */}
-                          <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
-                            <motion.div 
-                              animate={{ 
-                                x: ['-200%', '200%'],
-                              }}
-                              transition={{ 
-                                duration: 2, 
-                                repeat: Infinity, 
-                                repeatDelay: 3 + index * 0.5,
-                                ease: "easeInOut"
-                              }}
-                              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-20deg] w-[150%] h-full"
-                            />
-                          </div>
-                      
-                          <OptimizedImage 
-                            src={category.image} 
-                            alt={category.name} 
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                          />
-                        </div>
-                        <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 text-center leading-tight">
-                          {category.name}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Admin Hero Banners Section - Now below categories */}
-                {HeroBannerSection}
-
-                {/* Filters Sticky Sidebar Header */}
-                <section className="py-3 px-4 bg-white sticky top-[0px] z-[40] -mx-4 w-[calc(100%+2rem)] border-b border-gray-100 shadow-sm">
-                  <div
-                    className="flex items-center gap-2 overflow-x-auto scrollbar-hide px-4"
-                    style={{
-                      scrollbarWidth: "none",
-                      msOverflowStyle: "none",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setIsFilterOpen(true)}
-                      className="h-9 px-4 rounded-full flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 font-bold transition-all bg-white dark:bg-[#1a1a1a] border border-gray-200 shadow-sm active:scale-95"
-                    >
-                      <SlidersHorizontal className="h-4 w-4 text-black" />
-                      <span className="text-xs font-bold text-black dark:text-white uppercase tracking-tight">
-                        Filters
-                      </span>
-                    </button>
-
-                    {[
-                      { id: "delivery-under-30", label: "Under 30 mins" },
-                      { id: "delivery-under-45", label: "Under 45 mins" },
-                      { id: "distance-under-1km", label: "Under 1km", icon: MapPin },
-                      { id: "distance-under-2km", label: "Under 2km", icon: MapPin },
-                    ].map((filter) => {
-                      const Icon = filter.icon;
-                      const isActive = activeFilters.has(filter.id);
-                      return (
-                        <button
-                          key={filter.id}
-                          type="button"
-                          onClick={() => {
-                            const nextFilters = new Set(activeFilters);
-                            if (nextFilters.has(filter.id)) {
-                              nextFilters.delete(filter.id);
-                            } else {
-                              nextFilters.add(filter.id);
-                            }
-                            setActiveFilters(nextFilters);
-                            void applyFiltersAndRefetch(
-                              nextFilters,
-                              sortBy,
-                              selectedCuisine,
-                            );
-                          }}
-                          className={`h-9 px-4 rounded-full flex items-center gap-2 whitespace-nowrap flex-shrink-0 transition-all font-bold shadow-sm active:scale-95 ${
-                            isActive
-                              ? "bg-[#EB590E] text-white border border-[#EB590E] hover:bg-orange-700"
-                              : "bg-white dark:bg-[#1a1a1a] border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-                          }`}
-                        >
-                          {Icon && (
-                            <Icon
-                              className={`h-3.5 w-3.5 ${isActive ? "fill-white" : ""}`}
-                            />
-                          )}
-                          <span className="text-xs font-bold tracking-tight">
-                            {filter.label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-
-              </motion.div>
-            ) : (
-              <motion.div
-                key="quick-content"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3 }}
-              >
-                <QuickSection />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-          {recommendedForYouRestaurants.length > 0 && (
-            <motion.section
-              className="content-auto pt-1 sm:pt-2"
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}>
-              <h2 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-400 dark:text-gray-500 tracking-widest uppercase mb-2 sm:mb-3 px-4">
-                Recommended For You
+        {recommendedForYouRestaurants.length > 0 && (
+          <motion.section
+            className="content-auto space-y-4 pt-4 sm:pt-6"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}>
+            <div className="px-4 flex items-center justify-between">
+              <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+                Recommended for you
               </h2>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 px-4">
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 px-4 pb-2">
                 {recommendedForYouRestaurants.map((restaurant, index) => {
                   const restaurantSlug =
                     restaurant.slug ||
@@ -3022,6 +2890,7 @@ export default function Home() {
             </div>
           </motion.section>
         </div>
+      </div>
 
         {/* Filter Modal - Bottom Sheet */}
         <AnimatePresence>

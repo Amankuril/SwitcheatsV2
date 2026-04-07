@@ -108,25 +108,26 @@ export default function HomeHeader({
   };
 
   return (
-    <div className="relative bg-gradient-to-b from-[#FF3390] to-[#FA0272] pt-5 pb-5 px-4 space-y-5 shadow-xl overflow-hidden dark:from-[#141414] dark:to-[#0a0a0a] dark:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-      {/* Abstract Background Design */}
-      <div className="absolute inset-0 opacity-10 pointer-events-none overflow-hidden">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-          <circle cx="10%" cy="10%" r="20" fill="white" />
-          <circle cx="90%" cy="20%" r="15" fill="white" />
-          <circle cx="50%" cy="80%" r="25" fill="white" />
-          <path d="M 0 50 Q 25 30 50 50 T 100 50" stroke="white" strokeWidth="0.5" fill="none" />
-          <path d="M 0 70 Q 25 50 50 70 T 100 70" stroke="white" strokeWidth="0.5" fill="none" />
-        </svg>
-      </div>
+    <>
+      <div className="relative pt-5 pb-20 px-4 bg-gradient-to-b from-[#FF3390] to-[#FA0272] overflow-hidden rounded-b-[2rem] shadow-[0_10px_40px_rgba(250,2,114,0.15)] dark:from-[#141414] dark:to-[#0a0a0a] dark:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+        {/* Abstract Background Design */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none overflow-hidden">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+            <circle cx="10%" cy="10%" r="20" fill="white" />
+            <circle cx="90%" cy="20%" r="15" fill="white" />
+            <circle cx="50%" cy="80%" r="25" fill="white" />
+            <path d="M 0 50 Q 25 30 50 50 T 100 50" stroke="white" strokeWidth="0.5" fill="none" />
+            <path d="M 0 70 Q 25 50 50 70 T 100 70" stroke="white" strokeWidth="0.5" fill="none" />
+          </svg>
+        </div>
 
-      {/* Decorative Glows */}
-      <div className="absolute top-0 left-1/4 w-32 h-32 bg-white/20 blur-[60px] rounded-full pointer-events-none dark:bg-white/10" />
-      <div className="absolute bottom-0 right-1/4 w-40 h-40 bg-yellow-400/10 blur-[80px] rounded-full pointer-events-none dark:bg-orange-500/10" />
+        {/* Decorative Glows */}
+        <div className="absolute top-0 left-1/4 w-32 h-32 bg-white/20 blur-[60px] rounded-full pointer-events-none dark:bg-white/10" />
+        <div className="absolute bottom-0 right-1/4 w-40 h-40 bg-yellow-400/10 blur-[80px] rounded-full pointer-events-none dark:bg-orange-500/10" />
 
-      {/* Location & Notification Row - Clean Pixel Match Design */}
-      <div className="relative z-10 flex items-center justify-between">
-        <div 
+        {/* Location & Notification Row - Clean Pixel Match Design */}
+        <div className="relative z-10 flex items-center justify-between">
+          <div 
           className="flex items-center gap-1 cursor-pointer group"
           onClick={handleLocationClick}
         >
@@ -220,46 +221,51 @@ export default function HomeHeader({
             </div>
           </PopoverContent>
         </Popover>
-      </div>
-
-
-      {/* Search Bar - More Normal & Clean */}
-      <div 
-        className="relative z-10 bg-white rounded-xl flex items-center px-4 py-3 shadow-md border border-white/20 cursor-pointer active:scale-[0.99] transition-all duration-200 mx-1 dark:bg-[#1a1a1a] dark:border-gray-800 dark:shadow-[0_12px_30px_rgba(0,0,0,0.3)]"
-        onClick={handleSearchFocus}
-        onTouchStart={handleSearchFocus}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleSearchFocus();
-          }
-        }}
-      >
-        <Search className="h-4 w-4 text-gray-500 mr-3 dark:text-gray-400" strokeWidth={2.5} />
-        <div className="flex-1 overflow-hidden relative h-5">
-          <input
-            type="text"
-            readOnly
-            aria-label="Search"
-            onFocus={handleSearchFocus}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          />
-          <AnimatePresence mode="wait">
-            <motion.span
-              key={placeholderIndex}
-              initial={{ y: 15, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -15, opacity: 0 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="absolute inset-0 text-[13px] font-medium text-gray-400 dark:text-gray-500"
-            >
-              {placeholders?.[placeholderIndex] || 'Search "pizza"'}
-            </motion.span>
-          </AnimatePresence>
         </div>
       </div>
-    </div>
+
+      {/* Sticky Search Bar - Crisp & Premium */}
+      <div className="relative sticky top-2 z-[60] px-3 pb-3 -mt-[4.5rem] mb-2 pointer-events-none">
+        <div 
+          className="relative z-[60] rounded-[1.5rem] flex items-center px-4 py-3.5 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl border border-white dark:border-gray-800 shadow-[0_12px_36px_rgba(0,0,0,0.1)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.4)] cursor-pointer active:scale-[0.98] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(250,2,114,0.15)] group mx-1 pointer-events-auto"
+          onClick={handleSearchFocus}
+          onTouchStart={handleSearchFocus}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleSearchFocus();
+            }
+          }}
+        >
+          <Search className="h-5 w-5 text-gray-400 mr-3 group-hover:text-[#FA0272] transition-colors duration-300 dark:text-gray-500" strokeWidth={2.5} />
+          <div className="flex-1 overflow-hidden relative h-5">
+            <input
+              type="text"
+              readOnly
+              aria-label="Search"
+              onFocus={handleSearchFocus}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={placeholderIndex}
+                initial={{ y: 15, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -15, opacity: 0 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                className="absolute inset-0 text-[14px] font-bold text-gray-500 dark:text-gray-400"
+              >
+                {placeholders?.[placeholderIndex] || 'Search "pizza"'}
+              </motion.span>
+            </AnimatePresence>
+          </div>
+          <div className="bg-[#FA0272]/5 dark:bg-[#FA0272]/10 p-2 rounded-full border border-[#FA0272]/10 ml-2 group-hover:bg-[#FA0272]/10 transition-all flex items-center justify-center">
+            <Mic className="h-4 w-4 text-[#FA0272]" strokeWidth={2.5} />
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
