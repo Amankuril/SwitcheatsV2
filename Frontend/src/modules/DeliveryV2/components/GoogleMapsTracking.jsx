@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
+import bikeLogo from '../../Food/assets/bikelogo.png'
 
 
 /**
@@ -42,7 +43,7 @@ const getDeliveryIconUrl = () => {
     return '/assets/deliveryboy/deliveryIcon.png'
   } catch {
     // Fallback to bikelogo if delivery icon not found
-    return '/src/assets/bikeswitcheats-logo.png'
+    return bikeLogo
   }
 }
 

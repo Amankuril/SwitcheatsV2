@@ -22,6 +22,9 @@ const getNormalizedUserPath = (pathname) => {
 const resolveBackPath = ({ pathname, search, state }) => {
   const normalizedPath = getNormalizedUserPath(pathname)
   const explicitBackPath = toFoodPath(state?.backTo) || toFoodPath(state?.from)
+  if (explicitBackPath && explicitBackPath !== pathname) {
+    return explicitBackPath
+  }
   const searchParams = new URLSearchParams(search || "")
 
   if (

@@ -2300,21 +2300,6 @@ export default function Home() {
           className="flex gap-3 sm:gap-4 lg:gap-5 overflow-x-auto overflow-y-visible scrollbar-hide scroll-smooth px-2 sm:px-3 py-2 sm:py-3"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {/* Meals Under 200 Card */}
-          <div 
-            className="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer transition-transform hover:scale-105 active:scale-95"
-            onClick={() => navigate("/user/under-250")}
-          >
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#EB590E] rounded-b-full rounded-t-sm shadow-md border-t-4 border-orange-200 flex flex-col items-center justify-center p-1">
-              <span className="text-[10px] sm:text-xs font-bold text-white text-center leading-tight">UNDER</span>
-              <span className="text-sm sm:text-base font-extrabold text-white">₹200</span>
-              <div className="w-10 h-3.5 bg-white rounded-full mt-1 flex items-center justify-center">
-                <span className="text-[8px] font-bold text-[#EB590E]">Explore</span>
-              </div>
-            </div>
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Offers</span>
-          </div>
-
           {showCategorySkeleton ? (
             <CategoryChipRowSkeleton className="py-1" />
           ) : (

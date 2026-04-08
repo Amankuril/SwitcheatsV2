@@ -225,9 +225,9 @@ export default function HomeHeader({
       </div>
 
       {/* Sticky Search Bar - Crisp & Premium */}
-      <div className="relative sticky top-2 z-[60] px-3 pb-3 -mt-[4.5rem] mb-2 pointer-events-none">
+      <div className="relative sticky top-2 z-[60] px-3 pb-0 -mt-[4.8rem] mb-0 pointer-events-none">
         <div 
-          className="relative z-[60] rounded-[1.5rem] flex items-center px-4 py-3.5 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl border border-white dark:border-gray-800 shadow-[0_12px_36px_rgba(0,0,0,0.1)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.4)] cursor-pointer active:scale-[0.98] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(250,2,114,0.15)] group mx-1 pointer-events-auto"
+          className="relative z-[60] rounded-[1.5rem] flex items-center px-4 py-3.5 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl border border-white dark:border-gray-800 shadow-[0_12px_36px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.4)] cursor-pointer active:scale-[0.98] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(250,2,114,0.15)] group mx-1 pointer-events-auto"
           onClick={handleSearchFocus}
           onTouchStart={handleSearchFocus}
           role="button"
