@@ -473,8 +473,16 @@ export default function RestaurantOnboarding() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [paymentProcessing, setPaymentProcessing] = useState(false)
   const [error, setError] = useState("")
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [step4State, setStep4State] = useState({
+    subscriptionPlan: null,
+    subscriptionAmount: 0,
+    paymentType: 'full',
+    customAmount: 0,
+    errors: []
+  })
 
   const handleLogout = async () => {
     if (isLoggingOut) return
@@ -1385,161 +1393,10 @@ export default function RestaurantOnboarding() {
         setStep(3)
         window.scrollTo({ top: 0, behavior: "instant" })
       } else if (step === 3) {
-        if (hasExistingRestaurantProfile) {
-          const [menuImagesPayload, profileImagePayload, panImagePayload, gstImagePayload, fssaiImagePayload] =
-            await Promise.all([
-              resolveMenuImagesForProfileUpdate(step2.menuImages || []),
-              resolveImageForProfileUpdate(step2.profileImage, "food/restaurants/profile"),
-              resolveImageForProfileUpdate(step3.panImage, "food/restaurants/pan"),
-              step3.gstRegistered
-                ? resolveImageForProfileUpdate(step3.gstImage, "food/restaurants/gst")
-                : Promise.resolve(null),
-              resolveImageForProfileUpdate(step3.fssaiImage, "food/restaurants/fssai"),
-            ])
-
-          await restaurantAPI.updateProfile({
-            restaurantName: step1.restaurantName || "",
-            pureVegRestaurant: step1.pureVegRestaurant === true,
-            ownerName: step1.ownerName || "",
-            ownerEmail: (step1.ownerEmail || "").trim(),
-            ownerPhone: normalizePhoneDigits(step1.ownerPhone),
-            primaryContactNumber: normalizePhoneDigits(step1.primaryContactNumber),
-            zoneId: step1.zoneId || "",
-            location: {
-              formattedAddress: step1.location?.formattedAddress || "",
-              addressLine1: step1.location?.addressLine1 || "",
-              addressLine2: step1.location?.addressLine2 || "",
-              area: step1.location?.area || "",
-              city: step1.location?.city || "",
-              state: step1.location?.state || "",
-              pincode: step1.location?.pincode || "",
-              landmark: step1.location?.landmark || "",
-              latitude: step1.location?.latitude || "",
-              longitude: step1.location?.longitude || "",
-            },
-            cuisines: Array.isArray(step2.cuisines) ? step2.cuisines : [],
-            estimatedDeliveryTime: (step2.estimatedDeliveryTime || "").trim(),
-            openingTime: normalizeTimeValue(step2.openingTime) || "",
-            closingTime: normalizeTimeValue(step2.closingTime) || "",
-            openDays: Array.isArray(step2.openDays) ? step2.openDays : [],
-            menuImages: menuImagesPayload,
-            profileImage: profileImagePayload || "",
-            panNumber: step3.panNumber || "",
-            nameOnPan: step3.nameOnPan || "",
-            panImage: panImagePayload || "",
-            gstRegistered: Boolean(step3.gstRegistered),
-            gstNumber: step3.gstRegistered ? step3.gstNumber || "" : "",
-            gstLegalName: step3.gstRegistered ? step3.gstLegalName || "" : "",
-            gstAddress: step3.gstRegistered ? step3.gstAddress || "" : "",
-            gstImage: step3.gstRegistered ? (gstImagePayload || "") : "",
-            fssaiNumber: step3.fssaiNumber || "",
-            fssaiExpiry: step3.fssaiExpiry || "",
-            fssaiImage: fssaiImagePayload || "",
-            accountNumber: step3.accountNumber || "",
-            ifscCode: (step3.ifscCode || "").toUpperCase(),
-            accountHolderName: step3.accountHolderName || "",
-            accountType: step3.accountType || "",
-          })
-
-          clearOnboardingFromLocalStorage()
-          clearOnboardingFileCache()
-          await clearAllFilesFromDB()
-
-          toast.success("Profile updated successfully", { duration: 4000 })
-          navigate("/food/restaurant/explore", { replace: true })
-          return
-        }
-
-        // Final submit: create restaurant in DB using backend multipart endpoint.
-        const formData = new FormData()
-
-        // Step 1
-        formData.append("restaurantName", step1.restaurantName || "")
-        formData.append(
-          "pureVegRestaurant",
-          step1.pureVegRestaurant === true ? "true" : "false",
-        )
-        formData.append("ownerName", step1.ownerName || "")
-        formData.append("ownerEmail", (step1.ownerEmail || "").trim())
-        formData.append("ownerPhone", normalizePhoneDigits(step1.ownerPhone))
-        formData.append("primaryContactNumber", normalizePhoneDigits(step1.primaryContactNumber))
-        formData.append("zoneId", step1.zoneId || "")
-        formData.append("addressLine1", step1.location?.addressLine1 || "")
-        formData.append("addressLine2", step1.location?.addressLine2 || "")
-        formData.append("area", step1.location?.area || "")
-        formData.append("city", step1.location?.city || "")
-        formData.append("state", step1.location?.state || "")
-        formData.append("pincode", step1.location?.pincode || "")
-        formData.append("landmark", step1.location?.landmark || "")
-        formData.append("formattedAddress", step1.location?.formattedAddress || "")
-        formData.append("latitude", String(step1.location?.latitude || ""))
-        formData.append("longitude", String(step1.location?.longitude || ""))
-
-        // Step 2
-        formData.append("cuisines", (step2.cuisines || []).join(","))
-        formData.append("estimatedDeliveryTime", (step2.estimatedDeliveryTime || "").trim())
-        formData.append("openingTime", normalizeTimeValue(step2.openingTime) || "")
-        formData.append("closingTime", normalizeTimeValue(step2.closingTime) || "")
-        formData.append("openDays", (step2.openDays || []).join(","))
-
-        const menuFiles = (step2.menuImages || []).filter((f) => isUploadableFile(f))
-        if (menuFiles.length === 0) {
-          throw new Error("At least one menu image must be uploaded")
-        }
-        menuFiles.forEach((file) => formData.append("menuImages", file))
-
-        if (!isUploadableFile(step2.profileImage)) {
-          throw new Error("Restaurant profile image is required")
-        }
-        formData.append("profileImage", step2.profileImage)
-
-        // Step 3
-        formData.append("panNumber", step3.panNumber || "")
-        formData.append("nameOnPan", step3.nameOnPan || "")
-        if (!isUploadableFile(step3.panImage)) {
-          throw new Error("PAN image is required")
-        }
-        formData.append("panImage", step3.panImage)
-
-        formData.append("gstRegistered", step3.gstRegistered ? "true" : "false")
-        if (step3.gstRegistered) {
-          formData.append("gstNumber", step3.gstNumber || "")
-          formData.append("gstLegalName", step3.gstLegalName || "")
-          formData.append("gstAddress", step3.gstAddress || "")
-          if (!isUploadableFile(step3.gstImage)) {
-            throw new Error("GST image is required when GST registered")
-          }
-          formData.append("gstImage", step3.gstImage)
-        }
-
-        formData.append("fssaiNumber", step3.fssaiNumber || "")
-        formData.append("fssaiExpiry", step3.fssaiExpiry || "")
-        if (!isUploadableFile(step3.fssaiImage)) {
-          throw new Error("FSSAI image is required")
-        }
-        formData.append("fssaiImage", step3.fssaiImage)
-
-        formData.append("accountNumber", step3.accountNumber || "")
-        formData.append("ifscCode", (step3.ifscCode || "").toUpperCase())
-        formData.append("accountHolderName", step3.accountHolderName || "")
-        formData.append("accountType", step3.accountType || "")
-
-        await restaurantAPI.register(formData)
-
-        // Clear localStorage when onboarding is complete
-        clearOnboardingFromLocalStorage()
-        clearOnboardingFileCache()
-        try {
-          localStorage.setItem("restaurant_pendingPhone", normalizePhoneDigits(step1.ownerPhone))
-        } catch {}
-
-        toast.success("Registration submitted. Awaiting admin approval.", { duration: 4000 })
-        navigate("/food/restaurant/pending-verification", {
-          replace: true,
-          state: {
-            phone: normalizePhoneDigits(step1.ownerPhone),
-          },
-        })
+        setStep(4)
+        window.scrollTo({ top: 0, behavior: "instant" })
+      } else if (step === 4) {
+        await handleStep4Payment()
       }
     } catch (err) {
       const msg =
@@ -2758,10 +2615,453 @@ export default function RestaurantOnboarding() {
     </div>
   )
 
+  const renderStep4 = () => {
+    const subscriptionPlans = [
+      { value: '4999', label: '₹4,999', features: ['Feature 1', 'Feature 2', 'Basic support'] },
+      { value: '9999', label: '₹9,999', features: ['All basic features', 'Priority support', 'Advanced analytics'] }
+    ]
+
+    const onboardingFee = 799
+    const selectedPlan = step4State.subscriptionPlan ? Number(step4State.subscriptionPlan) : 0
+    const planLabel = step4State.subscriptionPlan === '4999' ? 'Elite' : 'Pro'
+    const maxPaymentAmount = onboardingFee + selectedPlan
+    const customAmount = Number(step4State.customAmount || 0)
+    const paymentType = step4State.paymentType
+
+    const currentPaymentAmount = paymentType === 'later'
+      ? onboardingFee
+      : paymentType === 'full'
+      ? maxPaymentAmount
+      : onboardingFee + customAmount
+
+    const subscriptionPaidNow = paymentType === 'full'
+      ? selectedPlan
+      : paymentType === 'later'
+      ? 0
+      : Math.max(0, customAmount)
+
+    const subscriptionDueNow = Math.max(0, selectedPlan - subscriptionPaidNow)
+
+    return (
+      <div className="space-y-6">
+        <section className="bg-white p-4 sm:p-6 rounded-md space-y-4">
+          <h2 className="text-lg font-semibold text-black">Onboarding setup</h2>
+          <div className="text-sm text-gray-600">
+            <p>Complete the setup with payment to activate your restaurant. The onboarding fee is mandatory.</p>
+          </div>
+
+          <div className="border border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
+            <p className="text-sm font-medium text-orange-900">Onboarding fee</p>
+            <p className="text-lg font-semibold text-orange-600">₹{onboardingFee}</p>
+            <p className="text-xs text-orange-700">Mandatory to activate account</p>
+          </div>
+        </section>
+
+        <section className="bg-white p-4 sm:p-6 rounded-md space-y-4">
+          <h2 className="text-lg font-semibold text-black">Select subscription plan</h2>
+          <p className="text-sm text-gray-600">Choose one of the plans below and then select how much you want to pay now.</p>
+
+          <div className="space-y-3">
+            {subscriptionPlans.map((plan) => (
+              <button
+                key={plan.value}
+                onClick={() => setStep4State({ ...step4State, subscriptionPlan: plan.value, paymentType: 'full', customAmount: 0, errors: [] })}
+                className={`w-full p-4 border-2 rounded-md text-left transition-colors ${
+                  step4State.subscriptionPlan === plan.value
+                    ? 'border-black bg-black/5'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium text-black">{plan.label}/month</p>
+                    <ul className="mt-2 space-y-1">
+                      {plan.features.map((f, i) => (
+                        <li key={i} className="text-xs text-gray-600">• {f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 ${step4State.subscriptionPlan === plan.value ? 'border-black bg-black' : 'border-gray-300'}`} />
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {step4State.subscriptionPlan && (
+          <section className="bg-white p-4 sm:p-6 rounded-md space-y-4">
+            <h2 className="text-lg font-semibold text-black">Payment option</h2>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setStep4State({ ...step4State, paymentType: 'full', customAmount: 0, errors: [] })}
+                className={`w-full p-4 border-2 rounded-md text-left transition-colors ${
+                  step4State.paymentType === 'full'
+                    ? 'border-black bg-black/5'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium text-black">Pay now</p>
+                    <p className="text-xs text-gray-600 mt-1">Pay onboarding fee plus the selected subscription plan in full now.</p>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 ${step4State.paymentType === 'full' ? 'border-black bg-black' : 'border-gray-300'}`} />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStep4State({ ...step4State, paymentType: 'partial', customAmount: 0, errors: [] })}
+                className={`w-full p-4 border-2 rounded-md text-left transition-colors ${
+                  step4State.paymentType === 'partial'
+                    ? 'border-black bg-black/5'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium text-black">Pay partial</p>
+                    <p className="text-xs text-gray-600 mt-1">Pay part of the subscription now. Onboarding fee is always collected.</p>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 ${step4State.paymentType === 'partial' ? 'border-black bg-black' : 'border-gray-300'}`} />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStep4State({ ...step4State, paymentType: 'later', customAmount: 0, errors: [] })}
+                className={`w-full p-4 border-2 rounded-md text-left transition-colors ${
+                  step4State.paymentType === 'later'
+                    ? 'border-black bg-black/5'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium text-black">Pay later</p>
+                    <p className="text-xs text-gray-600 mt-1">Pay subscription later. Only onboarding fee (₹{onboardingFee}) will be collected now.</p>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 ${step4State.paymentType === 'later' ? 'border-black bg-black' : 'border-gray-300'}`} />
+                </div>
+              </button>
+            </div>
+
+            {step4State.paymentType === 'partial' && (
+              <div className="mt-4">
+                <Label className="text-xs text-gray-700 mb-1 block">Enter subscription partial amount</Label>
+                <Input
+                  type="number"
+                  value={step4State.customAmount || ''}
+                  min={1}
+                  max={selectedPlan}
+                  onChange={(e) => {
+                    const value = Number(e.target.value || 0)
+                    setStep4State((prev) => ({ ...prev, customAmount: value, errors: [] }))
+                  }}
+                  className="bg-white text-sm"
+                  placeholder={`Enter partial plan payment (₹1 - ₹${selectedPlan})`}
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Onboarding fee ₹{onboardingFee} is mandatory. This amount is the partial subscription payment now; the rest will be due later.
+                </p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {step4State.subscriptionPlan && (
+          <section className="bg-white p-4 sm:p-6 rounded-md space-y-4">
+            <h2 className="text-lg font-semibold text-black">Payment summary</h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Onboarding fee</span>
+                <span className="font-medium">₹{onboardingFee}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Subscription ({planLabel})</span>
+                <span className="font-medium">₹{selectedPlan}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Pay now</span>
+                <span className="font-medium">₹{currentPaymentAmount}</span>
+              </div>
+              {subscriptionDueNow > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Subscription due later</span>
+                  <span className="font-medium">₹{subscriptionDueNow}</span>
+                </div>
+              )}
+              <div className="border-t pt-2 flex justify-between font-semibold text-base">
+                <span>Total to pay now</span>
+                <span className="text-orange-600">₹{currentPaymentAmount}</span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {step4State.errors.length > 0 && (
+          <div className="bg-red-50 border border-red-200 p-3 rounded-md">
+            {step4State.errors.map((err, i) => (
+              <p key={i} className="text-sm text-red-700">{err}</p>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const handleStep4Payment = async () => {
+    setPaymentProcessing(true)
+    setError('')
+
+    try {
+      const selectedPlan = step4State.subscriptionPlan ? Number(step4State.subscriptionPlan) : 0
+      const planErrors = []
+      if (!selectedPlan) {
+        planErrors.push('Please select a subscription plan')
+      }
+
+      const paymentType = step4State.paymentType || 'full'
+      const onboardingFee = 799
+      const maxPaymentAmount = onboardingFee + selectedPlan
+      let paymentAmount = 0
+      let subscriptionPaidAmount = 0
+
+      if (paymentType === 'full') {
+        paymentAmount = onboardingFee + selectedPlan
+        subscriptionPaidAmount = selectedPlan
+      } else if (paymentType === 'later') {
+        paymentAmount = onboardingFee
+        subscriptionPaidAmount = 0
+      } else if (paymentType === 'partial') {
+        const partialAmount = Number(step4State.customAmount || 0)
+        if (!Number.isFinite(partialAmount) || partialAmount <= 0) {
+          planErrors.push('Please enter a valid partial subscription amount')
+        }
+        if (partialAmount > selectedPlan) {
+          planErrors.push(`Partial payment cannot exceed the selected plan amount of ₹${selectedPlan}`)
+        }
+        paymentAmount = onboardingFee + partialAmount
+        subscriptionPaidAmount = Math.max(0, partialAmount)
+      } else {
+        planErrors.push('Invalid payment type selected')
+      }
+
+      if (paymentAmount <= 0) {
+        planErrors.push('Invalid payment amount')
+      }
+
+      if (planErrors.length > 0) {
+        setStep4State(prev => ({ ...prev, errors: planErrors }))
+        setPaymentProcessing(false)
+        return
+      }
+
+      const orderRes = await restaurantAPI.createOnboardingPaymentOrder(paymentAmount, step4State.subscriptionPlan, paymentType)
+      const orderData = orderRes?.data?.data
+
+      if (!orderData?.razorpay) {
+        throw new Error('Failed to create payment order')
+      }
+
+      const { loadRazorpayScript, initRazorpayPayment } = await import('@food/utils/razorpay')
+      await loadRazorpayScript()
+
+      const razorpayKey = orderData.razorpay.key
+      const razorpayOrderId = orderData.razorpay.orderId
+      const amount = orderData.razorpay.amount
+
+      await initRazorpayPayment({
+        key: razorpayKey,
+        amount,
+        currency: 'INR',
+        order_id: razorpayOrderId,
+        name: 'Restaurant Onboarding',
+        description: `Onboarding payment (${paymentType === 'later' ? 'onboarding only' : paymentType === 'full' ? 'full plan' : 'partial'})`,
+        prefill: {
+          name: step1.ownerName || '',
+          email: step1.ownerEmail || '',
+          contact: normalizePhoneDigits(step1.ownerPhone)
+        },
+        handler: async (response) => {
+          try {
+            console.log('✓ Payment handler called with response:', response)
+            
+            const formData = new FormData()
+            formData.append('restaurantName', step1.restaurantName || '')
+            formData.append('pureVegRestaurant', step1.pureVegRestaurant === true ? 'true' : 'false')
+            formData.append('ownerName', step1.ownerName || '')
+            formData.append('ownerEmail', (step1.ownerEmail || '').trim())
+            formData.append('ownerPhone', normalizePhoneDigits(step1.ownerPhone))
+            formData.append('primaryContactNumber', normalizePhoneDigits(step1.primaryContactNumber))
+            formData.append('zoneId', step1.zoneId || '')
+            formData.append('addressLine1', step1.location?.addressLine1 || '')
+            formData.append('addressLine2', step1.location?.addressLine2 || '')
+            formData.append('area', step1.location?.area || '')
+            formData.append('city', step1.location?.city || '')
+            formData.append('state', step1.location?.state || '')
+            formData.append('pincode', step1.location?.pincode || '')
+            formData.append('landmark', step1.location?.landmark || '')
+            formData.append('formattedAddress', step1.location?.formattedAddress || '')
+            formData.append('latitude', String(step1.location?.latitude || ''))
+            formData.append('longitude', String(step1.location?.longitude || ''))
+
+            formData.append('cuisines', (step2.cuisines || []).join(','))
+            formData.append('estimatedDeliveryTime', (step2.estimatedDeliveryTime || '').trim())
+            formData.append('openingTime', normalizeTimeValue(step2.openingTime) || '')
+            formData.append('closingTime', normalizeTimeValue(step2.closingTime) || '')
+            formData.append('openDays', (step2.openDays || []).join(','))
+
+            const menuFiles = (step2.menuImages || []).filter((f) => isUploadableFile(f))
+            if (menuFiles.length === 0) {
+              throw new Error('At least one menu image must be uploaded')
+            }
+            menuFiles.forEach((file) => formData.append('menuImages', file))
+
+            if (!isUploadableFile(step2.profileImage)) {
+              throw new Error('Restaurant profile image is required')
+            }
+            formData.append('profileImage', step2.profileImage)
+
+            formData.append('panNumber', step3.panNumber || '')
+            formData.append('nameOnPan', step3.nameOnPan || '')
+            if (!isUploadableFile(step3.panImage)) {
+              throw new Error('PAN image is required')
+            }
+            formData.append('panImage', step3.panImage)
+
+            formData.append('gstRegistered', step3.gstRegistered ? 'true' : 'false')
+            if (step3.gstRegistered) {
+              formData.append('gstNumber', step3.gstNumber || '')
+              formData.append('gstLegalName', step3.gstLegalName || '')
+              formData.append('gstAddress', step3.gstAddress || '')
+              if (!isUploadableFile(step3.gstImage)) {
+                throw new Error('GST image is required when GST registered')
+              }
+              formData.append('gstImage', step3.gstImage)
+            }
+
+            formData.append('fssaiNumber', step3.fssaiNumber || '')
+            formData.append('fssaiExpiry', step3.fssaiExpiry || '')
+            if (!isUploadableFile(step3.fssaiImage)) {
+              throw new Error('FSSAI image is required')
+            }
+            formData.append('fssaiImage', step3.fssaiImage)
+
+            formData.append('accountNumber', step3.accountNumber || '')
+            formData.append('ifscCode', (step3.ifscCode || '').toUpperCase())
+            formData.append('accountHolderName', step3.accountHolderName || '')
+            formData.append('accountType', step3.accountType || '')
+
+            // Payment & Subscription fields
+            formData.append('onboardingFeePaid', 'true')
+            formData.append('onboardingFeeAmount', String(onboardingFee))
+            formData.append('subscriptionPlan', step4State.subscriptionPlan || '')
+            formData.append('subscriptionAmount', String(selectedPlan))
+            formData.append('subscriptionPaidAmount', String(subscriptionPaidAmount))
+            formData.append('subscriptionDueAmount', String(Math.max(0, selectedPlan - subscriptionPaidAmount)))
+            formData.append('paymentType', paymentType)
+            formData.append('razorpayOrderId', razorpayOrderId)
+            formData.append('razorpayPaymentId', response.razorpay_payment_id)
+            formData.append('razorpaySignature', response.razorpay_signature)
+
+            console.log('Submitting registration...')
+            console.log('FormData keys:', Array.from(formData.keys()))
+            
+            try {
+              console.log('Calling restaurantAPI.register...')
+              const registerPromise = restaurantAPI.register(formData)
+              
+              // Add a 30 second timeout
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Registration request timeout after 30s')), 30000)
+              )
+              
+              const registerRes = await Promise.race([registerPromise, timeoutPromise])
+              console.log('✓ Registration API returned:', registerRes)
+              
+              if (registerRes?.status >= 200 && registerRes?.status < 300) {
+                console.log('✓ Registration successful with status:', registerRes.status)
+              } else {
+                console.warn('⚠ Registration returned status:', registerRes?.status)
+              }
+            } catch (registrationError) {
+              console.error('✗ Registration failed:', {
+                message: registrationError?.message,
+                response: registrationError?.response?.data,
+                status: registrationError?.response?.status,
+                stack: registrationError?.stack
+              })
+              throw registrationError
+            }
+            
+            console.log('✓ Registration completed, proceeding to redirect...')
+
+            const ownerPhoneForRedirect = normalizePhoneDigits(step1.ownerPhone)
+            console.log('Clearing stored data and redirecting to pending-verification...')
+
+            clearOnboardingFromLocalStorage()
+            clearOnboardingFileCache()
+            try {
+              localStorage.setItem('restaurant_pendingPhone', ownerPhoneForRedirect)
+            } catch (e) {
+              console.error('Error saving phone to localStorage:', e)
+            }
+
+            console.log('Showing success toast...')
+            toast.success('Payment successful! Registration submitted for approval.', { duration: 4000 })
+            
+            console.log('About to navigate to pending-verification with phone:', ownerPhoneForRedirect)
+            setPaymentProcessing(false)
+            console.log('Payment processing set to false')
+            
+            console.log('Calling navigate()...')
+            navigate('/food/restaurant/pending-verification', {
+              replace: true,
+              state: {
+                phone: ownerPhoneForRedirect,
+              },
+            })
+            
+            // Solid fallback in case React Router's navigate is swallowed by Razorpay modal cleanup
+            setTimeout(() => {
+              if (!window.location.pathname.includes('/pending-verification')) {
+                window.location.href = '/food/restaurant/pending-verification'
+              }
+            }, 600)
+            
+            console.log('✓ Navigate called successfully')
+          } catch (err) {
+            console.error('Handler caught error:', err)
+            const errMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Payment verification failed'
+            console.error('Error message:', errMsg)
+            toast.error(errMsg)
+            setError(errMsg)
+            setPaymentProcessing(false)
+          }
+        },
+        onError: (error) => {
+          toast.error(error?.description || 'Payment failed')
+          setError(error?.description || 'Payment failed')
+          setPaymentProcessing(false)
+        },
+        onClose: () => {
+          setPaymentProcessing(false)
+        }
+      })
+    } catch (err) {
+      toast.error(err?.message || 'Failed to initiate payment')
+      setError(err?.message || 'Failed to initiate payment')
+      setPaymentProcessing(false)
+    }
+  }
+
   const renderStep = () => {
     if (step === 1) return renderStep1()
     if (step === 2) return renderStep2()
-    return renderStep3()
+    if (step === 3) return renderStep3()
+    if (step === 4) return renderStep4()
   }
 
   return (
@@ -2793,7 +3093,7 @@ export default function RestaurantOnboarding() {
             )}
             <div className="flex items-center gap-3">
               <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider text-right">
-                Step {step} of 3
+                Step {step} of 4
               </div>
               <Button
                 onClick={handleLogout}

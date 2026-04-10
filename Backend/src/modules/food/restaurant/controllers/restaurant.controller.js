@@ -1,5 +1,6 @@
 import {
     registerRestaurant,
+    createRestaurantOnboardingOrder,
     listApprovedRestaurants,
     getApprovedRestaurantByIdOrSlug,
     getCurrentRestaurantProfile,
@@ -21,6 +22,15 @@ export const registerRestaurantController = async (req, res, next) => {
         const validated = validateRestaurantRegisterDto(req.body);
         const restaurant = await registerRestaurant(validated, req.files);
         return sendResponse(res, 201, 'Restaurant registered successfully', restaurant);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const createRestaurantOnboardingOrderController = async (req, res, next) => {
+    try {
+        const restaurantOrder = await createRestaurantOnboardingOrder(req.body || {});
+        return sendResponse(res, 200, 'Onboarding order created successfully', restaurantOrder);
     } catch (error) {
         next(error);
     }

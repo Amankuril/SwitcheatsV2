@@ -223,9 +223,11 @@ export const determineStepToShow = (data) => {
     return 3
   }
 
-  // All steps complete
+  // All steps complete - onboarding step 4 (payment) is handled on backend
+  // User should be redirected to explore/dashboard after step 3 submission
   return null
 }
+
 
 // Check onboarding status from API and return the step to navigate to
 export const checkOnboardingStatus = async () => {

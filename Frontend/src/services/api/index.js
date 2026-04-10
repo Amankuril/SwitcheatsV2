@@ -1308,6 +1308,13 @@ export const restaurantAPI = {
     }
     return apiClient.post("/food/restaurant/register", formData);
   },
+  /** Create onboarding payment order (Razorpay) */
+  createOnboardingPaymentOrder: (amount, subscriptionPlan, paymentType = 'full') =>
+    apiClient.post("/food/restaurant/payment/onboarding-order", {
+      amount: Number(amount) || 0,
+      subscriptionPlan: String(subscriptionPlan || ''),
+      paymentType: String(paymentType || 'full')
+    }),
   /** Public: list approved restaurants for user app */
   getRestaurants: (params = {}, config = {}) =>
     getPublicRestaurantsOnce(params, config),

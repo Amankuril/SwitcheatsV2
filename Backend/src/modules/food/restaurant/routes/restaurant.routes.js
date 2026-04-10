@@ -2,6 +2,7 @@ import express from 'express';
 import { upload } from '../../../../middleware/upload.js';
 import {
     registerRestaurantController,
+    createRestaurantOnboardingOrderController,
     listApprovedRestaurantsController,
     getApprovedRestaurantController,
     listPublicOffersController,
@@ -71,6 +72,7 @@ const uploadFields = upload.fields([
     { name: 'menuImages', maxCount: 10 }
 ]);
 
+router.post('/payment/onboarding-order', createRestaurantOnboardingOrderController);
 router.post('/register', uploadFields, registerRestaurantController);
 
 // Public: approved restaurants list (for user app)

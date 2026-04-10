@@ -68,7 +68,7 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
 
     // Fetch restaurant profile for header display.
     const restaurant = await FoodRestaurant.findById(rid)
-        .select('restaurantName addressLine1 addressLine2 area city state pincode location')
+        .select('restaurantName addressLine1 addressLine2 area city state pincode location subscriptionDueAmount')
         .lean();
 
     const address =
@@ -143,7 +143,8 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
         { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     const totalPendingWithdrawals = Number(pendingWithdrawalsAgg?.[0]?.total || 0);
-    const availableBalance = Math.max(0, globalEstimatedPayout - totalPendingWithdrawals);
+    const subscriptionDue = Math.max(0, Number(restaurant?.subscriptionDueAmount || 0));
+    const availableBalance = subscriptionDue > 0 ? 0 : Math.max(0, globalEstimatedPayout - totalPendingWithdrawals);
 
     const currentCycle = {
         start: { ...nowWindow.startMeta },
