@@ -62,7 +62,7 @@ const startServer = async () => {
         if (config.redisEnabled) {
             await connectRedis();
         }
-        
+
         // 5a. Watchdog: Recover stuck orders from previous run
         try {
             const { recoverStuckOrders } = await import('./src/modules/food/orders/services/order.service.js');
@@ -86,7 +86,7 @@ const startServer = async () => {
         app.post('/api/deploy', (req, res) => {
             const secret = req.headers['x-webhook-secret'];
 
-            if (secret !== 'mysecret123') {
+            if (secret !== 'Just the push event') {
                 return res.status(403).send('Unauthorized');
             }
 
