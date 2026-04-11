@@ -1,4 +1,5 @@
 import http from 'http';
+import crypto from 'crypto';
 import { exec } from 'child_process';
 
 import app from './src/app.js';
@@ -84,9 +85,15 @@ const startServer = async () => {
         }
 
         app.post('/api/deploy', (req, res) => {
-            const secret = req.headers['x-webhook-secret'];
+            const signature = req.headers['x-hub-signature-256'];
+            const secret = 'mysecret123';
 
-            if (secret !== 'Just the push event') {
+            const hash = 'sha256=' + crypto
+                .createHmac('sha256', secret)
+                .update(JSON.stringify(req.body))
+                .digest('hex');
+
+            if (signature !== hash) {
                 return res.status(403).send('Unauthorized');
             }
 
