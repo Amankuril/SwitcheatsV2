@@ -158,16 +158,16 @@ const DeliveryMap = React.memo(({ orderId, order, isVisible, fallbackCustomerCoo
   if (!isVisible || !orderId || !order || !restaurantCoords || !customerCoords) {
     return (
       <div
-        className="relative min-h-[450px] bg-gradient-to-b from-gray-100 to-gray-200"
-        style={{ height: '450px' }}
+        className="relative min-h-[250px] bg-gradient-to-b from-gray-100 to-gray-200"
+        style={{ height: '250px' }}
       />
     );
   }
 
   return (
     <div
-      className="relative w-full min-h-[450px] overflow-visible"
-      style={{ height: '450px' }}
+      className="relative w-full min-h-[250px] overflow-visible"
+      style={{ height: '250px' }}
     >
       <DeliveryTrackingMap
         orderId={orderId}

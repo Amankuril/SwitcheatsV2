@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
-import { MapPin, Search, Mic, SlidersHorizontal, Star, X, ArrowDownUp, Timer, IndianRupee, Clock, Bookmark, UtensilsCrossed } from "lucide-react"
+import { MapPin, Search, Mic, SlidersHorizontal, Star, X, ArrowDownUp, Timer, IndianRupee, Clock, Bookmark, UtensilsCrossed, ChevronDown, Bell, ShoppingCart, Wallet } from "lucide-react"
 import { Button } from "@food/components/ui/button"
 import { Input } from "@food/components/ui/input"
 import { Card, CardContent } from "@food/components/ui/card"
@@ -9,6 +9,7 @@ import AnimatedPage from "@food/components/user/AnimatedPage"
 import { useSearchOverlay, useLocationSelector } from "@food/components/user/UserLayout"
 import { useLocation as useLocationHook } from "@food/hooks/useLocation"
 import { useProfile } from "@food/context/ProfileContext"
+import { useCart } from "@food/context/CartContext"
 import { diningAPI } from "@food/api"
 import PageNavbar from "@food/components/user/PageNavbar"
 import OptimizedImage from "@food/components/OptimizedImage"
@@ -130,6 +131,8 @@ function DiningRestaurantSkeleton({ index }) {
 
 export default function Dining() {
   const navigate = useNavigate()
+  const { getCartCount } = useCart()
+  const cartCount = getCartCount()
   const [heroSearch, setHeroSearch] = useState("")
   const [activeFilters, setActiveFilters] = useState(new Set())
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -461,59 +464,88 @@ export default function Dining() {
           }
         }
       `}</style>
-      {/* Sticky Header Wrapper */}
-      <div className="sticky top-0 z-40 w-full bg-white dark:bg-[#0a0a0a] shadow-sm md:hidden">
-        {/* Navbar Section */}
-        <div className="relative z-20 pt-2 sm:pt-3 lg:pt-4">
-          <PageNavbar
-            textColor="dark"
-            zIndex={20}
-            onNavClick={(e) => e.stopPropagation()}
-          />
+      {/* Premium Glassmorphic Header Wrapper for Dining */}
+      <div className="sticky top-0 z-50 w-full bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl shadow-sm border-b border-gray-100 dark:border-gray-900 md:hidden pb-3">
+        {/* Top Row: Location & Profile */}
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+          <div 
+            className="flex items-center gap-2 cursor-pointer group max-w-[70%]"
+            onClick={openLocationSelector}
+          >
+            <div className="bg-[#FA0272]/10 p-2 rounded-full border border-[#FA0272]/20">
+              <MapPin className="h-[18px] w-[18px] text-[#FA0272]" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                <span className="text-[10px] font-bold text-gray-500 tracking-wider uppercase">Dining Location</span>
+                <ChevronDown className="h-3 w-3 text-[#FA0272]" />
+              </div>
+              <span className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                {location?.area || location?.city || "Select Location"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-x-2 sm:gap-x-3">
+            {/* Wallet Action */}
+            <Link to="/user/wallet" className="flex items-center justify-center h-8 w-8 sm:h-[38px] sm:w-[38px] rounded-full bg-gray-100/80 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700 shadow-sm transition hover:bg-gray-200 active:scale-95">
+              <Wallet className="h-[15px] w-[15px] sm:h-[18px] sm:w-[18px] text-gray-800 dark:text-gray-200" strokeWidth={2} />
+            </Link>
+
+            {/* Cart Action */}
+            <Link to="/user/cart" className="flex items-center justify-center h-8 w-8 sm:h-[38px] sm:w-[38px] relative rounded-full bg-gray-100/80 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700 shadow-sm transition hover:bg-gray-200 active:scale-95">
+              <ShoppingCart className="h-[15px] w-[15px] sm:h-[18px] sm:w-[18px] text-gray-800 dark:text-gray-200" strokeWidth={2} />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-[16px] h-[16px] sm:w-[18px] sm:h-[18px] bg-[#EB590E] rounded-full flex items-center justify-center ring-2 ring-white dark:ring-[#0a0a0a]">
+                  <span className="text-[9px] font-bold text-white">{cartCount > 99 ? "99+" : cartCount}</span>
+                </span>
+              )}
+            </Link>
+
+            {/* Minimalist Profile/Avatar */}
+            <Link to="/user/profile" className="relative group hover:scale-105 transition-transform ml-1">
+              <div className="h-8 w-8 sm:h-[38px] sm:w-[38px] rounded-full bg-gradient-to-tr from-[#FA0272] to-[#ffb800] p-[2px] shadow-sm">
+                <div className="h-full w-full rounded-full border-2 border-white dark:border-[#0a0a0a] overflow-hidden bg-[#FA0272]/10 backdrop-blur-sm" />
+              </div>
+            </Link>
+          </div>
         </div>
 
-        {/* Search Bar Section */}
-        <section
-          className="relative z-20 w-full py-3 sm:py-4 md:py-5"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="relative z-20 w-full px-3 sm:px-6 lg:px-8">
-            {/* Search Bar Container */}
-            <div className="z-20">
-              {/* Enhanced Search Bar */}
-              <div className="w-full relative">
-                <div className="relative bg-white dark:bg-[#1a1a1a] rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-1 sm:p-1.5 transition-all duration-300 hover:shadow-xl">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <Search className="h-4 w-4 sm:h-4 sm:w-4 text-[#EB590E] flex-shrink-0 ml-2 sm:ml-3" strokeWidth={2.5} />
-                    <div className="flex-1 relative">
-                      <Input
-                        value={heroSearch}
-                        onChange={(e) => setHeroSearch(e.target.value)}
-                        onFocus={handleSearchFocus}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && heroSearch.trim()) {
-                            navigate(`/user/search?q=${encodeURIComponent(heroSearch.trim())}`)
-                            closeSearch()
-                            setHeroSearch("")
-                          }
-                        }}
-                        className="pl-0 pr-2 h-8 sm:h-9 w-full bg-transparent border-0 text-sm sm:text-base font-semibold text-gray-700 dark:text-white focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full placeholder:font-semibold placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                        placeholder='Search "burger"'
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleSearchFocus}
-                      className="flex-shrink-0 mr-2 sm:mr-3 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                    >
-                      <Mic className="h-4 w-4 sm:h-4 sm:w-4 text-gray-500 dark:text-gray-400" strokeWidth={2.5} />
-                    </button>
-                  </div>
-                </div>
+        {/* Enhanced Search Bar Section */}
+        <div className="px-4 pt-1">
+          <div className="relative bg-[#f8f9fa] dark:bg-gray-800/80 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl border border-gray-200/60 dark:border-gray-700/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] p-1 transition-all duration-300 group">
+            <div className="flex items-center gap-2">
+              <div className="pl-3 py-1.5 flex-shrink-0">
+                <Search className="h-[18px] w-[18px] text-[#FA0272] transition-transform group-hover:scale-110" strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 relative">
+                <Input
+                  value={heroSearch}
+                  onChange={(e) => setHeroSearch(e.target.value)}
+                  onFocus={handleSearchFocus}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && heroSearch.trim()) {
+                      navigate(`/user/search?q=${encodeURIComponent(heroSearch.trim())}`)
+                      closeSearch()
+                      setHeroSearch("")
+                    }
+                  }}
+                  className="pl-0 pr-2 h-10 w-full bg-transparent border-0 text-[14px] font-bold text-gray-800 dark:text-white shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:font-semibold placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  placeholder='Search for dining...'
+                />
+              </div>
+              <div className="flex items-center border-l-2 border-gray-200 dark:border-gray-700 pl-2 pr-1">
+                <button
+                  type="button"
+                  onClick={handleSearchFocus}
+                  className="flex-shrink-0 p-2 bg-white dark:bg-gray-900 rounded-full shadow-sm hover:shadow-md transition-all active:scale-95 text-[#FA0272]"
+                >
+                  <Mic className="h-4 w-4" strokeWidth={2.5} />
+                </button>
               </div>
             </div>
           </div>
-        </section>
+        </div>
       </div>
 
       {/* Banner Section */}
