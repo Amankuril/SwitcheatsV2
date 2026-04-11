@@ -1,4 +1,6 @@
 import http from 'http';
+import { exec } from 'child_process';
+
 import app from './src/app.js';
 import { config } from './src/config/env.js';
 import { validateConfig } from './src/config/validateEnv.js';
@@ -81,7 +83,26 @@ const startServer = async () => {
             logger.warn('BullMQ is enabled but Redis is disabled. Queue initialization skipped.');
         }
 
+        app.post('/api/deploy', (req, res) => {
+            const secret = req.headers['x-webhook-secret'];
+
+            if (secret !== 'mysecret123') {
+                return res.status(403).send('Unauthorized');
+            }
+
+            exec('cd ~ && ./deploy.sh', (err, stdout, stderr) => {
+                if (err) {
+                    console.error(err);
+                    return res.send('Deploy failed');
+                }
+
+                console.log(stdout);
+                res.send('Deploy success');
+            });
+        });
+
         // 6. Start the HTTP server
+
         server = httpServer.listen(config.port, config.host, () => {
             logger.info(`Server running in ${config.nodeEnv} mode on ${config.host}:${config.port}`);
             console.log(`🌐 [URL] http://localhost:${config.port}`);
