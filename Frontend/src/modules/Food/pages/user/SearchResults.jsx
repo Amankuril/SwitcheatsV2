@@ -21,7 +21,7 @@ const filterOptions = [
   { id: 'under-30-mins', label: 'Under 30 mins' },
   { id: 'price-match', label: 'Price Match', hasIcon: true },
   { id: 'flat-50-off', label: 'Flat 50% OFF', hasIcon: true },
-  { id: 'under-250', label: 'Under ₹250' },
+  { id: 'under-250', label: 'Switch 99' },
   { id: 'rating-4-plus', label: 'Rating 4.0+' },
 ]
 const SEARCH_HISTORY_KEY = "user_recent_searches_v1"
@@ -743,7 +743,7 @@ export default function SearchResults() {
       filtered = filtered.filter(r => r.rating && r.rating >= 4.0)
     }
     if (activeFilters.has('under-250')) {
-      filtered = filtered.filter(r => r.featuredPrice && r.featuredPrice <= 250)
+      filtered = filtered.filter(r => r.featuredPrice && r.featuredPrice <= 99)
     }
     if (activeFilters.has('flat-50-off')) {
       filtered = filtered.filter(r => r.offer && r.offer.includes('50%'))

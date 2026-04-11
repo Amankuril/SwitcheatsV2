@@ -28,8 +28,8 @@ export default function BottomNavOrders() {
   const basePath = pathname.startsWith("/food/restaurant")
     ? "/food/restaurant"
     : pathname.startsWith("/restaurant")
-    ? "/food/restaurant"
-    : "/restaurant"
+      ? "/food/restaurant"
+      : "/restaurant"
 
   const tabs = useMemo(() => getOrdersTabs(basePath), [basePath])
 
@@ -76,14 +76,12 @@ export default function BottomNavOrders() {
                       />
                     )}
                     <Icon
-                      className={`relative z-10 h-[18px] w-[18px] transition-colors duration-300 ease-in-out ${
-                        isActive ? "text-white" : "text-white/78"
-                      }`}
+                      className={`relative z-10 h-[18px] w-[18px] transition-colors duration-300 ease-in-out ${isActive ? "text-white" : "text-white/78"
+                        }`}
                     />
                     <span
-                      className={`relative z-10 whitespace-nowrap text-[11px] leading-none transition-colors duration-300 ease-in-out ${
-                        isActive ? "text-white" : "text-white/78"
-                      }`}
+                      className={`relative z-10 whitespace-nowrap text-[11px] leading-none transition-colors duration-300 ease-in-out ${isActive ? "text-white" : "text-white/78"
+                        }`}
                     >
                       {tab.label}
                     </span>

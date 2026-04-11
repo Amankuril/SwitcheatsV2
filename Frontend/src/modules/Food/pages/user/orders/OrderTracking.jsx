@@ -1,5 +1,5 @@
 import { useParams, Link, useSearchParams } from "react-router-dom"
-import { useState, useEffect, useMemo, useRef, useCallback } from "react"
+import React, { useState, useEffect, useMemo, useRef, useCallback, memo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 import {

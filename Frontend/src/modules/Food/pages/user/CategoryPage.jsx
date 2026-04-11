@@ -28,7 +28,7 @@ const filterOptions = [
   { id: 'under-30-mins', label: 'Under 30 mins' },
   { id: 'price-match', label: 'Price Match', hasIcon: true },
   { id: 'flat-50-off', label: 'Flat 50% OFF', hasIcon: true },
-  { id: 'under-250', label: 'Under ₹250' },
+  { id: 'under-250', label: 'Switch 99' },
   { id: 'rating-4-plus', label: 'Rating 4.0+' },
 ]
 
@@ -501,7 +501,7 @@ export default function CategoryPage() {
     if (activeFilters.has('under-250')) {
       nextRows = nextRows.filter((row) => {
         const price = getComparablePrice(row)
-        return price != null && price <= 250
+        return price != null && price <= 99
       })
     }
 
@@ -1417,7 +1417,7 @@ export default function CategoryPage() {
                 { id: 'distance-under-1km', label: 'Under 1km', icon: MapPin },
                 { id: 'distance-under-2km', label: 'Under 2km', icon: MapPin },
                 { id: 'flat-50-off', label: 'Flat 50% OFF' },
-                { id: 'under-250', label: 'Under ₹250' },
+                { id: 'under-250', label: 'Switch 99' },
               ].map((filter) => {
                 const Icon = filter.icon
                 const isActive = activeFilters.has(filter.id)
@@ -1950,7 +1950,7 @@ export default function CategoryPage() {
                               : 'border-gray-200 dark:border-gray-700 hover:border-green-600'
                               }`}
                           >
-                            <span className={`text-sm md:text-base font-medium ${activeFilters.has('under-250') ? 'text-[#EB590E]' : 'text-gray-700 dark:text-gray-300'}`}>Under ₹250</span>
+                            <span className={`text-sm md:text-base font-medium ${activeFilters.has('under-250') ? 'text-[#EB590E]' : 'text-gray-700 dark:text-gray-300'}`}>Switch 99</span>
                           </button>
                           <button
                             onClick={() => toggleFilter('price-under-500')}

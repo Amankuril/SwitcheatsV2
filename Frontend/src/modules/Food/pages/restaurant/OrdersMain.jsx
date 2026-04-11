@@ -31,9 +31,9 @@ import { useRestaurantNotifications } from "@food/hooks/useRestaurantNotificatio
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import ResendNotificationButton from "@food/components/restaurant/ResendNotificationButton";
-const debugLog = (...args) => {};
-const debugWarn = (...args) => {};
-const debugError = (...args) => {};
+const debugLog = (...args) => { };
+const debugWarn = (...args) => { };
+const debugError = (...args) => { };
 
 const STORAGE_KEY = "restaurant_online_status";
 
@@ -209,12 +209,12 @@ function CompletedOrders({ onSelectOrder, refreshToken = 0 }) {
           {orders.map((order) => {
             const deliveredDate = order.deliveredAt
               ? new Date(order.deliveredAt).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
               : "N/A";
 
             return (
@@ -418,12 +418,12 @@ function CancelledOrders({ onSelectOrder, refreshToken = 0 }) {
           {orders.map((order) => {
             const cancelledDate = order.cancelledAt
               ? new Date(order.cancelledAt).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
               : "N/A";
 
             const cancelledByText =
@@ -481,17 +481,15 @@ function CancelledOrders({ onSelectOrder, refreshToken = 0 }) {
 
                       <div className="flex flex-col items-end gap-1">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border ${
-                            order.cancelledBy === "user"
-                              ? "border-orange-500 text-orange-600"
-                              : "border-red-500 text-red-600"
-                          }`}>
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border ${order.cancelledBy === "user"
+                            ? "border-orange-500 text-orange-600"
+                            : "border-red-500 text-red-600"
+                            }`}>
                           <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              order.cancelledBy === "user"
-                                ? "bg-orange-500"
-                                : "bg-red-500"
-                            }`}
+                            className={`h-1.5 w-1.5 rounded-full ${order.cancelledBy === "user"
+                              ? "bg-orange-500"
+                              : "bg-red-500"
+                              }`}
                           />
                           {cancelledByText}
                         </span>
@@ -606,15 +604,14 @@ function TableBookings() {
                   </p>
                 </div>
                 <span
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                    booking.status === "confirmed"
-                      ? "bg-green-100 text-green-700"
-                      : booking.status === "checked-in"
-                        ? "bg-orange-100 text-orange-700"
-                        : booking.status === "completed"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-600"
-                  }`}>
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${booking.status === "confirmed"
+                    ? "bg-green-100 text-green-700"
+                    : booking.status === "checked-in"
+                      ? "bg-orange-100 text-orange-700"
+                      : booking.status === "completed"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-gray-100 text-gray-600"
+                    }`}>
                   {booking.status}
                 </span>
               </div>
@@ -734,11 +731,11 @@ function AllOrders({ onSelectOrder, onCancel }) {
         prev.map((order) =>
           (order.mongoId || order.orderId) === orderKey
             ? {
-                ...order,
-                status: "ready",
-                eta: null,
-                sortTimestamp: Date.now(),
-              }
+              ...order,
+              status: "ready",
+              eta: null,
+              sortTimestamp: Date.now(),
+            }
             : order,
         ),
       );
@@ -1130,7 +1127,7 @@ export default function OrdersMain() {
         if (showNewOrderPopupRef.current && !isMutedRef.current) {
           audioRef.current.loop = true;
           audioRef.current.currentTime = 0;
-          audioRef.current.play().catch(() => {});
+          audioRef.current.play().catch(() => { });
         }
       } catch (_) {
         audioRef.current.muted = false;
@@ -1547,12 +1544,12 @@ export default function OrdersMain() {
 
       const orderDate = orderToPrint.createdAt
         ? new Date(orderToPrint.createdAt).toLocaleString("en-GB", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
         : new Date().toLocaleString("en-GB");
 
       doc.text(`Date: ${orderDate}`, 20, 52);
@@ -1878,9 +1875,8 @@ export default function OrdersMain() {
                     setTimeout(() => setIsTransitioning(false), 300);
                   }
                 }}
-                className={`shrink-0 px-6 py-3.5 rounded-full font-medium text-sm whitespace-nowrap relative overflow-hidden ${
-                  isActive ? "text-white" : "bg-white text-black"
-                }`}
+                className={`shrink-0 px-6 py-3.5 rounded-full font-medium text-sm whitespace-nowrap relative overflow-hidden ${isActive ? "text-white" : "bg-white text-black"
+                  }`}
                 animate={{
                   scale: isActive ? 1.05 : 1,
                   opacity: isActive ? 1 : 0.7,
@@ -1993,11 +1989,10 @@ export default function OrdersMain() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.1 }}
-              className={`mt-4 mb-4 rounded-2xl shadow-sm px-6 py-4 ${
-                restaurantStatus.rejectionReason
-                  ? "bg-white border border-red-200"
-                  : "bg-white border border-yellow-200"
-              }`}>
+              className={`mt-4 mb-4 rounded-2xl shadow-sm px-6 py-4 ${restaurantStatus.rejectionReason
+                ? "bg-white border border-red-200"
+                : "bg-white border border-yellow-200"
+                }`}>
               {restaurantStatus.rejectionReason ? (
                 <>
                   <div className="flex items-start gap-3 mb-3">
@@ -2170,13 +2165,13 @@ export default function OrdersMain() {
                     <p className="text-xs text-gray-500 mt-1">
                       {(popupOrder || newOrder)?.createdAt
                         ? new Date(
-                            (popupOrder || newOrder).createdAt,
-                          ).toLocaleString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
+                          (popupOrder || newOrder).createdAt,
+                        ).toLocaleString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
                         : "Just now"}
                     </p>
                   </div>
@@ -2245,8 +2240,8 @@ export default function OrdersMain() {
                                 </div>
                               ),
                             ) || (
-                              <p className="text-sm text-gray-500">No items</p>
-                            )}
+                                <p className="text-sm text-gray-500">No items</p>
+                              )}
                           </div>
                         </motion.div>
                       )}
@@ -2256,13 +2251,13 @@ export default function OrdersMain() {
                   {/* Cutlery preference */}
                   <div
                     className={`mb-4 flex items-center gap-2 rounded-lg p-3 ${(popupOrder || newOrder)?.sendCutlery === false
-                        ? "bg-orange-50"
-                        : "bg-gray-50"
+                      ? "bg-orange-50"
+                      : "bg-gray-50"
                       }`}>
                     <svg
                       className={`h-5 w-5 ${(popupOrder || newOrder)?.sendCutlery === false
-                          ? "text-orange-600"
-                          : "text-gray-600"
+                        ? "text-orange-600"
+                        : "text-gray-600"
                         }`}
                       fill="none"
                       stroke="currentColor"
@@ -2276,8 +2271,8 @@ export default function OrdersMain() {
                     </svg>
                     <span
                       className={`text-sm font-medium ${(popupOrder || newOrder)?.sendCutlery === false
-                          ? "text-orange-700"
-                          : "text-gray-700"
+                        ? "text-orange-700"
+                        : "text-gray-700"
                         }`}>
                       {(popupOrder || newOrder)?.sendCutlery === false
                         ? "Don't send cutlery"
@@ -2455,18 +2450,16 @@ export default function OrdersMain() {
                       <button
                         key={reason}
                         onClick={() => setRejectReason(reason)}
-                        className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                          rejectReason === reason
-                            ? "border-black bg-black/5"
-                            : "border-gray-200 bg-white hover:border-gray-300"
-                        }`}>
+                        className={`w-full text-left p-4 rounded-lg border-2 transition-all ${rejectReason === reason
+                          ? "border-black bg-black/5"
+                          : "border-gray-200 bg-white hover:border-gray-300"
+                          }`}>
                         <div className="flex items-center justify-between">
                           <span
-                            className={`text-sm font-medium ${
-                              rejectReason === reason
-                                ? "text-black"
-                                : "text-gray-900"
-                            }`}>
+                            className={`text-sm font-medium ${rejectReason === reason
+                              ? "text-black"
+                              : "text-gray-900"
+                              }`}>
                             {reason}
                           </span>
                           {rejectReason === reason && (
@@ -2501,11 +2494,10 @@ export default function OrdersMain() {
                   <button
                     onClick={handleRejectConfirm}
                     disabled={!rejectReason}
-                    className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-colors ${
-                      rejectReason
-                        ? "!bg-black !text-white"
-                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                    }`}>
+                    className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-colors ${rejectReason
+                      ? "!bg-black !text-white"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      }`}>
                     Confirm Rejection
                   </button>
                 </div>
@@ -2550,18 +2542,16 @@ export default function OrdersMain() {
                         key={reason}
                         type="button"
                         onClick={() => setCancelReason(reason)}
-                        className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors ${
-                          cancelReason === reason
-                            ? "border-red-500 bg-red-50"
-                            : "border-gray-200 hover:border-gray-300"
-                        }`}>
+                        className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors ${cancelReason === reason
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-200 hover:border-gray-300"
+                          }`}>
                         <div className="flex items-center gap-3">
                           <div
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                              cancelReason === reason
-                                ? "border-red-500 bg-red-500"
-                                : "border-gray-300"
-                            }`}>
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${cancelReason === reason
+                              ? "border-red-500 bg-red-500"
+                              : "border-gray-300"
+                              }`}>
                             {cancelReason === reason && (
                               <svg
                                 className="w-3 h-3 text-white"
@@ -2578,11 +2568,10 @@ export default function OrdersMain() {
                             )}
                           </div>
                           <span
-                            className={`text-sm font-medium ${
-                              cancelReason === reason
-                                ? "text-red-700"
-                                : "text-gray-700"
-                            }`}>
+                            className={`text-sm font-medium ${cancelReason === reason
+                              ? "text-red-700"
+                              : "text-gray-700"
+                              }`}>
                             {reason}
                           </span>
                         </div>
@@ -2601,11 +2590,10 @@ export default function OrdersMain() {
                   <button
                     onClick={handleCancelConfirm}
                     disabled={!cancelReason}
-                    className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-colors ${
-                      cancelReason
-                        ? "!bg-red-600 !text-white hover:bg-red-700"
-                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                    }`}>
+                    className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-colors ${cancelReason
+                      ? "!bg-red-600 !text-white hover:bg-red-700"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      }`}>
                     Confirm Cancellation
                   </button>
                 </div>
@@ -2653,17 +2641,15 @@ export default function OrdersMain() {
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border ${
-                      selectedOrder.status === "Ready"
-                        ? "border-green-500 text-green-600"
-                        : "border-gray-800 text-gray-900"
-                    }`}>
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium border ${selectedOrder.status === "Ready"
+                      ? "border-green-500 text-green-600"
+                      : "border-gray-800 text-gray-900"
+                      }`}>
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        selectedOrder.status === "Ready"
-                          ? "bg-green-500"
-                          : "bg-gray-800"
-                      }`}
+                      className={`h-1.5 w-1.5 rounded-full ${selectedOrder.status === "Ready"
+                        ? "bg-green-500"
+                        : "bg-gray-800"
+                        }`}
                     />
                     {selectedOrder.status}
                   </span>
@@ -2826,15 +2812,13 @@ function OrderCard({
 
             <div className="flex flex-col items-end gap-1">
               <span
-                className={`inline-flex items-start gap-1 px-2 py-1 rounded-full text-[11px] font-medium border text-right whitespace-normal break-words max-w-[140px] leading-tight ${
-                  isReady
-                    ? "border-green-500 text-green-600"
-                    : "border-gray-800 text-gray-900"
-                }`}>
+                className={`inline-flex items-start gap-1 px-2 py-1 rounded-full text-[11px] font-medium border text-right whitespace-normal break-words max-w-[140px] leading-tight ${isReady
+                  ? "border-green-500 text-green-600"
+                  : "border-gray-800 text-gray-900"
+                  }`}>
                 <span
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    isReady ? "bg-green-500" : "bg-gray-800"
-                  }`}
+                  className={`h-1.5 w-1.5 rounded-full ${isReady ? "bg-green-500" : "bg-gray-800"
+                    }`}
                 />
                 {statusLabel}
               </span>
@@ -2860,15 +2844,13 @@ function OrderCard({
               {(isPreparing || isReady || normalizedStatus === "confirmed") && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                      deliveryPartnerId
-                        ? "bg-green-100 text-green-700 border border-green-300"
-                        : "bg-orange-100 text-orange-700 border border-orange-300"
-                    }`}>
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${deliveryPartnerId
+                      ? "bg-green-100 text-green-700 border border-green-300"
+                      : "bg-orange-100 text-orange-700 border border-orange-300"
+                      }`}>
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        deliveryPartnerId ? "bg-green-500" : "bg-orange-500"
-                      }`}
+                      className={`h-1.5 w-1.5 rounded-full ${deliveryPartnerId ? "bg-green-500" : "bg-orange-500"
+                        }`}
                     />
                     {deliveryPartnerId ? "Assigned" : "Not Assigned"}
                   </span>

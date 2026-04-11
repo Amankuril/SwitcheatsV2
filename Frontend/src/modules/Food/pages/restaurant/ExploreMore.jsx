@@ -803,11 +803,11 @@ export default function ExploreMore() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2, delay: delay + 0.05 }}
-        className="text-base font-bold text-gray-900 mb-4"
+        className="text-[14px] font-bold tracking-wider text-gray-400 uppercase mb-4 px-1"
       >
         {title}
       </motion.h2>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         {items.map((item, index) => {
           const IconComponent = item.icon
           return (
@@ -823,8 +823,8 @@ export default function ExploreMore() {
               className="flex flex-col items-center"
             >
               <motion.button
-                whileHover={{ scale: 1.02, y: -1 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => {
                   if (item.id === 5) {
                     // Schedule off card
@@ -833,31 +833,29 @@ export default function ExploreMore() {
                     navigate(item.route)
                   }
                 }}
-                className="w-full flex items-center justify-center p-6 bg-white rounded-lg shadow-md border-2 border-gray-200 hover:shadow-md transition-shadow duration-200 min-h-[110px]"
+                className="group relative flex w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-[20px] bg-white p-4 shadow-[0_2px_10px_rgb(0,0,0,0.02)] ring-1 ring-black/[0.04] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(250,2,114,0.06)] hover:ring-[#FA0272]/10 hover:bg-[#FA0272]/[0.02] min-h-[105px]"
               >
-                <div className="relative flex items-center justify-center">
+                <div className="relative flex items-center justify-center h-11 w-11 rounded-full bg-gray-50 transition-colors group-hover:bg-[#FA0272]/10">
                   {item.customIcon ? (
-                    <div className="w-12 h-12 flex items-center justify-center">
-                      <span className="text-lg font-bold text-gray-900">hp</span>
-                    </div>
+                    <span className="text-lg font-bold text-gray-900 group-hover:text-[#FA0272] transition-colors">hp</span>
                   ) : (
-                    <IconComponent className="w-8 h-8 text-gray-900" strokeWidth={1.5} />
+                    <IconComponent className="relative z-10 w-[22px] h-[22px] text-gray-600 transition-colors group-hover:text-[#FA0272]" strokeWidth={1.75} />
                   )}
                   {item.badge && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ delay: delay + 0.15 + (index * 0.02), type: "spring", stiffness: 500 }}
-                      className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                      className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm"
                     >
                       {item.badge}
                     </motion.span>
                   )}
                 </div>
+                <span className="text-[11px] font-semibold tracking-tight text-gray-500 transition-colors group-hover:text-[#FA0272] text-center leading-tight">
+                  {item.label}
+                </span>
               </motion.button>
-              <span className="text-sm text-gray-700 text-center leading-tight font-normal mt-3">
-                {item.label}
-              </span>
             </motion.div>
           )
         })}
@@ -874,7 +872,7 @@ export default function ExploreMore() {
         duration: 0.2,
         ease: [0.25, 0.1, 0.25, 1]
       }}
-      className="min-h-screen bg-white overflow-x-hidden pb-24"
+      className="min-h-screen bg-[#F8F9FA] overflow-x-hidden pb-24 font-sans"
     >
       {/* Header */}
       <motion.div
@@ -884,40 +882,40 @@ export default function ExploreMore() {
           duration: 0.25,
           ease: [0.25, 0.1, 0.25, 1]
         }}
-        className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-50"
+        className="bg-white/80 backdrop-blur-xl px-4 py-3 sticky top-0 z-50 border-b border-black/5"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
             <button
               onClick={() => navigate("/food/restaurant")}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
               aria-label="Go back"
             >
-              <ArrowLeft className="w-6 h-6 text-gray-900" />
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
             </button>
-            <h1 className="text-lg font-bold text-gray-900">Explore more</h1>
+            <h1 className="text-[19px] font-extrabold tracking-tight text-gray-900">Explore</h1>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSearchOpen(true)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-700 hover:text-gray-900"
               aria-label="Search"
             >
-              <Search className="w-5 h-5 text-gray-900" />
+              <Search className="w-5 h-5" />
             </button>
             <button
               onClick={() => setProfileOpen(true)}
-              className="p-2 hover:bg-gray-100 bg-gray-200 rounded-full transition-colors"
+              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors relative overflow-hidden"
               aria-label="Profile"
             >
-              <UserRound className="w-5 h-5 text-gray-900 " />
+              <UserRound className="w-5 h-5 text-gray-700" />
             </button>
           </div>
         </div>
       </motion.div>
 
       {/* Main Content */}
-      <div className="px-4 py-6">
+      <div className="px-4 py-6 max-w-lg mx-auto">
         {/* Restaurant Information Card */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -927,28 +925,26 @@ export default function ExploreMore() {
             delay: 0.05,
             ease: [0.25, 0.1, 0.25, 1]
           }}
+          className="mb-8"
         >
-          <Card className="bg-white border-gray-200 py-3 mb-6 rounded-lg shadow-0">
-            <CardContent className="px-4">
-              <div className="w-full flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    <Store className="w-5 h-5 text-gray-900" />
-                  </div>
-                  <div className="flex-1 min-w-0 text-left">
-                    <h2 className="text-base font-semibold text-gray-900 mb-0.5">
-                      {restaurantDisplayName}
-                    </h2>
-                    {restaurantDisplayAddress && (
-                      <p className="text-sm text-gray-500 break-words text-wrap">
-                        {restaurantDisplayAddress}
-                      </p>
-                    )}
-                  </div>
-                </div>
+          <div className="relative overflow-hidden rounded-[24px] bg-white p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-black/5">
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FA0272]/5 blur-3xl pointer-events-none" />
+            <div className="relative flex items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#FA0272]/10 to-[#FA0272]/5 ring-1 ring-[#FA0272]/10">
+                <Store className="h-6 w-6 text-[#FA0272]" strokeWidth={1.5} />
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex-1 min-w-0 text-left">
+                <h2 className="text-[17px] font-extrabold text-gray-900 truncate tracking-tight mb-0.5">
+                  {restaurantDisplayName}
+                </h2>
+                {restaurantDisplayAddress && (
+                  <p className="text-[12px] font-medium text-gray-500 line-clamp-2 leading-snug pr-4">
+                    {restaurantDisplayAddress}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         {/* Sections */}
@@ -956,14 +952,6 @@ export default function ExploreMore() {
           filteredSections.map((section, index) => (
             <div key={section.key}>
               {renderSection(section.title, section.items, 0.1 + (index * 0.05))}
-              {index < filteredSections.length - 1 && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.25 + (index * 0.05), duration: 0.2 }}
-                  className="border-t border-gray-200 my-6"
-                />
-              )}
             </div>
           ))
         ) : (
@@ -973,35 +961,32 @@ export default function ExploreMore() {
             transition={{ duration: 0.3 }}
             className="text-center py-12"
           >
-            <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-lg font-semibold text-gray-900 mb-2">No results found</p>
+            <div className="w-16 h-16 bg-white rounded-full shadow-sm ring-1 ring-black/5 flex items-center justify-center mx-auto mb-4">
+              <Search className="w-6 h-6 text-gray-400" />
+            </div>
+            <p className="text-[15px] font-bold text-gray-900 mb-1">No results found</p>
             <p className="text-sm text-gray-500">Try searching with different keywords</p>
           </motion.div>
         )}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.45, duration: 0.2 }}
-          className="border-t border-gray-200 my-6"
-        />
 
         <motion.button
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.25 }}
           onClick={() => setLogoutConfirmOpen(true)}
-          className="w-full flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-left"
+          className="group relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[24px] bg-white p-4 shadow-[0_4px_20px_rgb(0,0,0,0.03)] ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(220,38,38,0.12)] hover:ring-red-100 mt-2 mb-6"
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-100">
-              <LogOut className="w-5 h-5 text-red-600" />
+          <div className="absolute inset-0 bg-red-50/0 transition-colors group-hover:bg-red-50/50 pointer-events-none" />
+          <div className="relative flex items-center gap-4 min-w-0">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-red-50 ring-1 ring-red-100/50 transition-colors group-hover:bg-red-100">
+              <LogOut className="w-5 h-5 text-red-600" strokeWidth={1.75} />
             </div>
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-red-700">Logout</p>
-              <p className="text-sm text-red-500">Tap to sign out from this device</p>
+            <div className="min-w-0 text-left">
+              <p className="text-[15px] font-bold text-red-600 tracking-tight">Logout</p>
+              <p className="text-[12px] font-medium text-red-400 leading-tight mt-0.5">Tap to sign out from this device</p>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-red-400 shrink-0" />
+          <ChevronRight className="relative w-5 h-5 text-red-300 shrink-0 transition-transform group-hover:translate-x-1" />
         </motion.button>
       </div>
 

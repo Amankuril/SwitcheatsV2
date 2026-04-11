@@ -327,7 +327,7 @@ export default function DesktopNavbar({ showLogo = true }) {
                                     : "text-gray-600 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-500"
                                     }`}
                             >
-                                <span className="text-sm font-bold tracking-wide uppercase">Under 250</span>
+                                <span className="text-sm font-bold tracking-wide uppercase">Switch 99</span>
                                 {isUnder250 && (
                                     <motion.div
                                         layoutId="navIndicator"

@@ -96,7 +96,7 @@ import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailabil
 import HomeHeader from "@food/components/user/home/HomeHeader";
 import QuickSection from "@food/components/user/home/QuickSection";
 import PromoRow from "@food/components/user/home/PromoRow";
-import FestBanner from "@food/components/user/home/FestBanner";
+
 
 // Explore More Icons
 import exploreOffers from "@food/assets/explore more icons/offers.png";
@@ -2480,9 +2480,12 @@ export default function Home() {
           handleSearchFocus={handleSearchFocus}
           placeholderIndex={placeholderIndex}
           placeholders={placeholders}
+          handleVegModeChange={handleVegModeChange}
+          isVegMode={vegMode}
+          vegModeToggleRef={vegModeToggleRef}
         />
 
-        <FestBanner />
+
         <PromoRow 
           handleVegModeChange={handleVegModeChange}
           navigate={navigate}
@@ -3285,47 +3288,39 @@ export default function Home() {
         {/* Veg Mode Popup */}
         <AnimatePresence>
           {showVegModePopup && (
-            <>
-              {/* Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => {
-                  setShowVegModePopup(false);
-                  // Revert veg mode to OFF if popup is closed without applying
-                  setVegModeContext(false);
-                  setPrevVegMode(false);
-                }}
-                className="fixed inset-0 bg-black/30 z-[9998] backdrop-blur-sm"
-              />
+            <motion.div
+              key="veg-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => {
+                setShowVegModePopup(false);
+                // Revert veg mode to OFF if popup is closed without applying
+                setVegModeContext(false);
+                setPrevVegMode(false);
+              }}
+              className="fixed inset-0 bg-black/30 z-[9998] backdrop-blur-sm"
+            />
+          )}
+          {showVegModePopup && (
+            /* Popup */
+            <motion.div
+              key="veg-popup"
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              transition={{
+                type: "spring",
+                damping: 25,
+                stiffness: 300,
+                mass: 0.8,
+              }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-6 w-[85%] max-w-xs relative border border-gray-100 dark:border-gray-800">
 
-              {/* Popup */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                transition={{
-                  type: "spring",
-                  damping: 25,
-                  stiffness: 300,
-                  mass: 0.8,
-                }}
-                className="fixed z-[9999] bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-4 w-[calc(100%-2rem)] max-w-xs"
-                style={{
-                  top: `${popupPosition.top}px`,
-                  left: `${popupPosition.left}px`,
-                }}
-                onClick={(e) => e.stopPropagation()}>
-                {/* Pointer Triangle */}
-                <div
-                  className="absolute -top-2 w-3 h-3 bg-white dark:bg-[#1a1a1a] transform rotate-45"
-                  style={{
-                    left: `${popupPosition.triangleLeft - 6}px`,
-                    boxShadow: "-2px -2px 4px rgba(0,0,0,0.1)",
-                  }}
-                />
 
                 {/* Title */}
                 <h3 className="text-base font-bold text-gray-900 dark:text-white mb-3">
@@ -3409,33 +3404,33 @@ export default function Home() {
                   className="w-full bg-[#EB590E] text-white font-semibold py-2.5 rounded-xl hover:bg-[#D94F0C] transition-colors mb-2 text-sm">
                   Apply
                 </button>
-              </motion.div>
-            </>
+              </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
         {/* Switch Off Veg Mode Popup */}
         <AnimatePresence>
           {showSwitchOffPopup && (
-            <>
-              {/* Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => {
-                  setShowSwitchOffPopup(false);
-                  isHandlingSwitchOff.current = false;
-                  setVegModeContext(true);
-                  // prevVegMode stays true (from before), which is correct
-                }}
-                className="fixed inset-0 bg-black/50 z-[9998] backdrop-blur-sm"
-              />
-
-              {/* Popup */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
+            <motion.div
+              key="off-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => {
+                setShowSwitchOffPopup(false);
+                isHandlingSwitchOff.current = false;
+                setVegModeContext(true);
+                // prevVegMode stays true (from before), which is correct
+              }}
+              className="fixed inset-0 bg-black/50 z-[9998] backdrop-blur-sm"
+            />
+          )}
+          {showSwitchOffPopup && (
+            <motion.div
+              key="off-popup"
+              initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{
@@ -3498,28 +3493,27 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-              </motion.div>
-            </>
+            </motion.div>
           )}
         </AnimatePresence>
 
         {/* All Categories Modal */}
         <AnimatePresence>
           {showAllCategoriesModal && (
-            <>
-              {/* Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => setShowAllCategoriesModal(false)}
-                className="fixed inset-0 bg-black/40 z-[9998] backdrop-blur-sm"
-              />
-
-              {/* Modal - Full screen with rounded corners */}
-              <motion.div
-                initial={{ opacity: 0, y: "100%" }}
+            <motion.div
+              key="cat-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setShowAllCategoriesModal(false)}
+              className="fixed inset-0 bg-black/40 z-[9998] backdrop-blur-sm"
+            />
+          )}
+          {showAllCategoriesModal && (
+            <motion.div
+              key="cat-modal"
+              initial={{ opacity: 0, y: "100%" }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: "100%" }}
                 transition={{
@@ -3590,7 +3584,6 @@ export default function Home() {
                   </div>
                 </div>
               </motion.div>
-            </>
           )}
         </AnimatePresence>
 
