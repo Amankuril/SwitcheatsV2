@@ -4,7 +4,9 @@ import { FoodHeroBanner } from '../models/heroBanner.model.js';
 import { FoodUnder250Banner } from '../models/under250Banner.model.js';
 import { FoodDiningBanner } from '../models/diningBanner.model.js';
 import { FoodExploreIcon } from '../models/exploreIcon.model.js';
+import { HomePromotionBanner } from '../models/homePromotionBanner.model.js';
 import { FoodRestaurant } from '../../restaurant/models/restaurant.model.js';
+import { getPublicHomePromotionBanners } from '../services/homePromotionBanner.service.js';
 import { sendResponse } from '../../../../utils/response.js';
 
 /** Public hero banners for user home: active only, sorted, with linkedRestaurants populated for click-through */
@@ -60,6 +62,14 @@ export const getPublicExploreIconsController = async (req, res, next) => {
     }
 };
 
+export const getPublicHomePromotionBannersController = async (req, res, next) => {
+    try {
+        const banners = await getPublicHomePromotionBanners();
+        return sendResponse(res, 200, 'Home promotion banners fetched', { banners });
+    } catch (error) {
+        next(error);
+    }
+};
 
 export const getPublicGourmetController = async (req, res, next) => {
     try {
@@ -95,4 +105,3 @@ export const getPublicLandingSettingsController = async (req, res, next) => {
         next(error);
     }
 };
-

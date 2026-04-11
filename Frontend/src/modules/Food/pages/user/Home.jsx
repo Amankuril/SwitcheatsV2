@@ -96,6 +96,7 @@ import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailabil
 import HomeHeader from "@food/components/user/home/HomeHeader";
 import QuickSection from "@food/components/user/home/QuickSection";
 import PromoRow from "@food/components/user/home/PromoRow";
+import PromotionBannerCarousel from "@food/components/user/home/PromotionBannerCarousel";
 
 
 // Explore More Icons
@@ -2492,6 +2493,8 @@ export default function Home() {
           isVegMode={vegMode}
           toggleRef={vegModeToggleRef}
         />
+
+        <PromotionBannerCarousel />
 
         {CategoryRailSection}
         {HeroBannerSection}
