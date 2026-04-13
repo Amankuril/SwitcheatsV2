@@ -48,6 +48,10 @@ import {
     updateAddonController,
     deleteAddonController
 } from '../controllers/restaurantAddon.controller.js';
+import {
+    downloadBulkMenuTemplateController,
+    uploadBulkMenuController
+} from '../controllers/bulkUpload.controller.js';
 import * as orderController from '../../orders/controllers/order.controller.js';
 import { authMiddleware } from '../../../../core/auth/auth.middleware.js';
 import { sendError } from '../../../../utils/response.js';
@@ -178,6 +182,10 @@ router.patch('/foods/:id', authMiddleware, requireRestaurant, async (req, res, n
     await invalidateCache('restaurant_menu:*');
     next();
 }, updateRestaurantFoodController);
+
+// Bulk Menu Upload
+router.get('/bulk-upload/template', authMiddleware, requireRestaurant, downloadBulkMenuTemplateController);
+router.post('/bulk-upload', authMiddleware, requireRestaurant, upload.single('file'), uploadBulkMenuController);
 
 // Add-ons (restaurant dashboard) - approval handled by admin
 router.get('/addons', authMiddleware, requireRestaurant, listAddonsController);

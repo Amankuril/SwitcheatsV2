@@ -4805,3 +4805,21 @@ export async function getSidebarBadges() {
     }
 }
 
+export async function bulkApproveFoodItems(restaurantId) {
+    if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
+        throw new ValidationError('Invalid restaurant ID');
+    }
+
+    const result = await FoodItem.updateMany(
+        { restaurantId: new mongoose.Types.ObjectId(restaurantId), approvalStatus: 'pending' },
+        {
+            $set: {
+                approvalStatus: 'approved',
+                approvedAt: new Date(),
+                rejectionReason: ''
+            }
+        }
+    );
+
+    return result;
+}

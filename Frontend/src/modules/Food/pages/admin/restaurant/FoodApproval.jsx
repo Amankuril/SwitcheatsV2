@@ -198,6 +198,30 @@ export default function FoodApproval() {
                 {totalRequests}
               </span>
             </div>
+            {totalRequests > 0 && (
+              <button
+                onClick={async () => {
+                  if (window.confirm(`Are you sure you want to approve all ${totalRequests} pending items?`)) {
+                    try {
+                      setProcessing(true)
+                      await adminAPI.bulkApproveFoodItems()
+                      toast.success(`Successfully approved ${totalRequests} items`)
+                      await fetchFoodRequests()
+                    } catch (error) {
+                      debugError('Bulk approval error:', error)
+                      toast.error('Failed to perform bulk approval')
+                    } finally {
+                      setProcessing(false)
+                    }
+                  }
+                }}
+                disabled={processing}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-all shadow-lg shadow-green-100 disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Bulk Approve All
+              </button>
+            )}
           </div>
 
           {/* Search Bar */}

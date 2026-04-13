@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ShieldCheck } from "lucide-react"
+import { ShieldCheck, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@food/components/ui/button"
 import { restaurantAPI } from "@food/api"
 import { useCompanyName } from "@food/hooks/useCompanyName"
+import { motion, AnimatePresence } from "framer-motion"
 
 const DEFAULT_COUNTRY_CODE = "+91"
-const countryCodes = [
-  { code: DEFAULT_COUNTRY_CODE, country: "IN", flag: "India" },
-]
 
 export default function RestaurantLogin() {
   const companyName = useCompanyName()
@@ -44,18 +42,11 @@ export default function RestaurantLogin() {
     }
   }, [])
 
-  const validatePhone = (phone, countryCode) => {
-    if (!phone || phone.trim() === "") return "Phone number is required"
-
+  const validatePhone = (phone) => {
+    if (!phone || phone.trim() === "") return "Phone number required"
     const digitsOnly = phone.replace(/\D/g, "")
-    if (digitsOnly.length < 7) return "Phone number must be at least 7 digits"
-    if (digitsOnly.length > 15) return "Phone number is too long"
-
-    if (digitsOnly.length !== 10) return "Indian phone number must be 10 digits"
-    if (!["6", "7", "8", "9"].includes(digitsOnly[0])) {
-      return "Invalid Indian mobile number"
-    }
-
+    if (digitsOnly.length !== 10) return "Must be 10 digits"
+    if (!["6", "7", "8", "9"].includes(digitsOnly[0])) return "Invalid number"
     return ""
   }
 
@@ -63,162 +54,165 @@ export default function RestaurantLogin() {
     const value = e.target.value.replace(/\D/g, "").slice(0, 10)
     setFormData((prev) => ({ ...prev, phone: value }))
     sessionStorage.setItem("restaurantLoginPhone", value)
-
-    if (error) {
-      setError(validatePhone(value, formData.countryCode))
-    }
-  }
-
-  const ensurePhoneFieldVisible = () => {
-    window.setTimeout(() => {
-      phoneInputRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      })
-    }, 180)
+    if (error) setError(validatePhone(value))
   }
 
   const handleSendOTP = async () => {
-    const phoneError = validatePhone(formData.phone, formData.countryCode)
-    setError(phoneError)
-    if (phoneError) return
+    const phoneError = validatePhone(formData.phone)
+    if (phoneError) {
+      setError(phoneError)
+      return
+    }
 
-    const fullPhone = `${formData.countryCode || DEFAULT_COUNTRY_CODE} ${formData.phone}`.trim()
+    const fullPhone = `${formData.countryCode} ${formData.phone}`.trim()
 
     try {
       setIsSending(true)
       await restaurantAPI.sendOTP(fullPhone, "login")
-
-      const authData = {
+      sessionStorage.setItem("restaurantAuthData", JSON.stringify({
         method: "phone",
         phone: fullPhone,
         isSignUp: false,
         module: "restaurant",
-      }
-      sessionStorage.setItem("restaurantAuthData", JSON.stringify(authData))
+      }))
       navigate("/food/restaurant/otp")
     } catch (apiErr) {
-      const message =
-        apiErr?.response?.data?.message ||
-        apiErr?.response?.data?.error ||
-        "Failed to send OTP. Please try again."
-      setError(message)
+      setError(apiErr?.response?.data?.message || "Failed to send OTP")
     } finally {
       setIsSending(false)
     }
   }
 
-  const isValidPhone = !validatePhone(formData.phone, formData.countryCode)
-
   return (
-    <div
-      className="min-h-[100dvh] bg-white flex flex-col overflow-y-auto overscroll-contain font-sans"
-      style={{ paddingBottom: keyboardInset ? `${keyboardInset + 24}px` : undefined }}
-    >
-      {/* Curved Header Background */}
-      <div className="relative h-[300px] w-full bg-[#FA0272] overflow-hidden">
-        {/* Abstract Circles like in the image */}
-        <div className="absolute -top-10 -left-10 w-48 h-48 rounded-full bg-white/10" />
-        <div className="absolute top-20 -right-10 w-64 h-64 rounded-full bg-white/10" />
-        <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full bg-white/5" />
-
-        <div className="absolute bottom-0 w-full h-[100px] bg-white rounded-t-[100px] shadow-[0_-20px_40px_rgba(0,0,0,0.05)]" />
+    <div className="min-h-[100dvh] bg-zinc-50 dark:bg-[#080808] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
+      {/* Dynamic Background */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <motion.div 
+          animate={{ x: [0, 50, 0], y: [0, -30, 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -top-[10%] -left-[10%] w-[80%] h-[80%] rounded-full bg-[#FA0272]/5 blur-[120px]" 
+        />
+        <motion.div 
+          animate={{ x: [0, -50, 0], y: [0, 40, 0] }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          className="absolute -bottom-[10%] -right-[10%] w-[70%] h-[70%] rounded-full bg-blue-500/5 blur-[100px]" 
+        />
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-4 sm:px-8 -mt-12 sm:-mt-16 z-10 overflow-hidden">
-        <div className="w-28 h-28 sm:w-32 sm:h-32 bg-white rounded-full shadow-xl flex items-center justify-center border-4 border-slate-50 mb-4 sm:mb-6">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-[#FA0272] rounded-2xl mx-auto flex items-center justify-center transform rotate-12 shadow-lg mb-1">
-              <ShieldCheck className="w-8 h-8 text-white -rotate-12" />
-            </div>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        className="w-full max-w-[420px] bg-white/80 dark:bg-zinc-900/80 backdrop-blur-3xl rounded-[40px] shadow-[0_32px_80px_rgba(0,0,0,0.1)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.4)] relative z-10 overflow-hidden border border-white/50 dark:border-white/5"
+        style={{ marginBottom: keyboardInset ? `${keyboardInset}px` : 0 }}
+      >
+        {/* Visual Brand Header */}
+        <div className="h-40 bg-gradient-to-br from-[#FA0272] to-[#D40261] relative flex items-center justify-center overflow-hidden">
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-0 left-0 w-24 h-24 rounded-full bg-white -translate-x-12 -translate-y-12" />
+            <div className="absolute bottom-0 right-0 w-32 h-32 rounded-full bg-white translate-x-16 translate-y-16" />
           </div>
+          
+          <motion.div 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="w-20 h-20 bg-white rounded-3xl shadow-2xl flex items-center justify-center border-4 border-white/20 transform rotate-12"
+          >
+            <ShieldCheck className="w-10 h-10 text-[#FA0272] -rotate-12" />
+          </motion.div>
         </div>
 
-        <div className="text-center space-y-1.5 sm:space-y-2 mb-6 sm:mb-10">
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight lowercase">
-            {companyName}
-          </h1>
-          <p className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest">
-            Partner Login
-          </p>
-        </div>
+        <div className="px-8 py-10 space-y-8">
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight lowercase">
+              {companyName} <span className="text-[#FA0272]">partner</span>
+            </h1>
+            <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.4em]">
+              Authorized Access Only
+            </p>
+          </div>
 
-        <div className="w-full max-w-[400px] flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="space-y-6">
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-1">Registered Mobile Number</label>
+              <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.3em] ml-1">
+                Link to your restaurant
+              </label>
               
-              <div className="flex items-center gap-2 h-16 bg-slate-50 border border-slate-100 rounded-[32px] px-6 focus-within:border-[#FA0272]/30 focus-within:ring-4 focus-within:ring-[#FA0272]/5 transition-all overflow-hidden">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-slate-900 text-lg">{formData.countryCode}</span>
+              <div className="flex items-center gap-0 bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl focus-within:border-[#FA0272]/40 focus-within:ring-4 focus-within:ring-[#FA0272]/10 transition-all overflow-hidden">
+                <div className="flex items-center px-4 h-16 border-r border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 text-zinc-900 dark:text-white font-bold text-xl">
+                  <span>+91</span>
                 </div>
-                
-                <div className="w-[1px] h-6 bg-slate-200 ml-2" />
-
                 <input
                   ref={phoneInputRef}
                   type="tel"
                   maxLength={10}
                   inputMode="numeric"
-                  autoComplete="tel-national"
-                  enterKeyHint="done"
                   placeholder="Mobile number"
                   value={formData.phone}
                   onChange={handlePhoneChange}
-                  onFocus={ensurePhoneFieldVisible}
-                  className="min-w-0 flex-1 h-12 bg-transparent border-0 outline-none ring-0 shadow-none focus:border-0 focus:outline-none focus:ring-0 focus:shadow-none text-left text-lg font-bold leading-none tracking-[0.02em] text-slate-900 placeholder-slate-300 caret-[#FA0272] px-2"
-                  style={{ WebkitTextFillColor: "#0f172a", opacity: 1 }}
+                  className="flex-1 h-16 bg-transparent border-0 outline-none ring-0 placeholder:text-zinc-300 dark:placeholder:text-zinc-700 text-lg font-black tracking-[0.1em] px-5 text-zinc-900 dark:text-white"
                 />
               </div>
 
-              {error && (
-                <p className="text-[#FA0272] text-xs font-bold italic ml-4 animate-bounce">
-                  {error}
-                </p>
-              )}
+              <AnimatePresence>
+                {error && (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    className="flex items-center gap-1.5 text-[11px] font-bold text-[#FA0272] pl-2"
+                  >
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    <span>{error}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <Button
               onClick={handleSendOTP}
-              disabled={!isValidPhone || isSending}
-              className={`w-full h-14 sm:h-16 rounded-[32px] font-black text-base sm:text-lg tracking-widest uppercase transition-all duration-300 ${
-                isValidPhone && !isSending
-                  ? "bg-[#FA0272] hover:bg-[#d63a4a] text-white shadow-lg shadow-[#FA0272]/20 transform active:scale-[0.98]"
-                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
-              }`}
+              disabled={isSending || formData.phone.length !== 10}
+              className="w-full h-16 rounded-2xl font-black text-base tracking-widest uppercase transition-all duration-300 bg-[#FA0272] hover:bg-[#D40261] text-white shadow-[0_12px_32px_rgba(250,2,114,0.3)] active:scale-[0.98] disabled:opacity-50 disabled:grayscale"
             >
-              {isSending ? "Processing..." : "Continue"}
+              {isSending ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Processing...</span>
+                </div>
+              ) : (
+                "Continue Securely"
+              )}
             </Button>
           </div>
 
-          <div className={`text-center pt-4 pb-2 ${keyboardInset ? "hidden" : ""}`}>
-            <p className="text-slate-400 text-xs font-medium">
-              By logging in, you agree to our <br />
-              <button
-                type="button"
+          <div className="text-center">
+            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium leading-relaxed">
+              By entering, you confirm registration under
+              <br />
+              <button 
                 onClick={() => navigate("/food/restaurant/terms")}
-                className="bg-transparent border-0 p-0 text-[#FA0272] font-bold hover:underline cursor-pointer"
+                className="text-[#FA0272] font-black hover:underline"
               >
-                Terms
-              </button>{" "}
-              and{" "}
-              <button
-                type="button"
+                TERMS
+              </button>
+              {" & "}
+              <button 
                 onClick={() => navigate("/food/restaurant/privacy")}
-                className="bg-transparent border-0 p-0 text-[#FA0272] font-bold hover:underline cursor-pointer"
+                className="text-[#FA0272] font-black hover:underline"
               >
-                Privacy Policy
+                PRIVACY POLICY
               </button>
             </p>
           </div>
         </div>
-      </div>
 
-      <div className={`pb-8 text-center ${keyboardInset ? "hidden" : ""}`}>
-          <p className="text-[10px] font-black text-slate-300 tracking-[0.2em] uppercase">
-            &copy; {new Date().getFullYear()} {companyName.toUpperCase()} PARTNER
+        <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 text-center">
+          <p className="text-[9px] font-black text-zinc-300 dark:text-zinc-600 tracking-[0.4em] uppercase">
+            &copy; {new Date().getFullYear()} {companyName.toUpperCase()} PARTNER NETWORK
           </p>
-      </div>
+        </div>
+      </motion.div>
     </div>
   )
 }

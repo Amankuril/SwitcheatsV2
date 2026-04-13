@@ -1426,3 +1426,16 @@ export async function getExpiredFssaiNotifications(req, res, next) {
         next(error);
     }
 }
+export async function bulkApproveFoodItems(req, res, next) {
+    try {
+        const { restaurantId } = req.body;
+        const result = await adminService.bulkApproveFoodItems(restaurantId);
+        res.status(200).json({
+            success: true,
+            message: `Successfully approved ${result.modifiedCount} items`,
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+}

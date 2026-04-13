@@ -103,6 +103,8 @@ router.delete('/foods/:id', adminController.deleteFood);
 router.get('/foods/pending-approvals', foodApprovalController.getPendingFoodApprovals);
 router.patch('/foods/:id/approve', foodApprovalController.approveFoodItemController);
 router.patch('/foods/:id/reject', foodApprovalController.rejectFoodItemController);
+router.post('/foods/bulk-approve', adminController.bulkApproveFoodItems);
+
 
 // ----- Offers & Coupons -----
 router.get('/offers', adminController.getAllOffers);

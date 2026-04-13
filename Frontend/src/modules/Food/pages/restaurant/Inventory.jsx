@@ -14,7 +14,12 @@ import {
   ChevronRight,
   X,
   ThumbsUp,
-  Pencil
+  Pencil,
+  FileUp,
+  Download,
+  AlertTriangle,
+  Check,
+  RefreshCw
 } from "lucide-react"
 import RestaurantNavbar from "@food/components/restaurant/RestaurantNavbar"
 import BottomNavOrders from "@food/components/restaurant/BottomNavOrders"
@@ -25,7 +30,6 @@ import { toast } from "sonner"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
-
 
 const INVENTORY_STORAGE_KEY = "restaurant_inventory_state"
 const INVENTORY_RECOMMENDED_KEY = "restaurant_inventory_recommended_map"
@@ -768,6 +772,12 @@ export default function Inventory() {
   const [toggleTarget, setToggleTarget] = useState(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAddPopupOpen, setIsAddPopupOpen] = useState(false)
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false)
+  const [bulkUploadFile, setBulkUploadFile] = useState(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [bulkUploadResults, setBulkUploadResults] = useState(null)
+  const bulkFileInputRef = useRef(null)
+
 
   // Toggle popup state
   const [selectedOption, setSelectedOption] = useState("specific-time")
@@ -804,6 +814,62 @@ export default function Inventory() {
   const [addons, setAddons] = useState([])
   const [loadingAddons, setLoadingAddons] = useState(false)
   const [isAddAddonOpen, setIsAddAddonOpen] = useState(false)
+
+  // Bulk Upload Handlers
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await restaurantAPI.bulkUploadTemplate()
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'Bulk_Menu_Template.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      toast.success('Template downloaded successfully')
+    } catch (error) {
+      debugError('Error downloading template:', error)
+      toast.error('Failed to download template')
+    }
+  }
+
+  const handleBulkUpload = async () => {
+    if (!bulkUploadFile) {
+      toast.error('Please select an Excel file first')
+      return
+    }
+
+    try {
+      setIsUploading(true)
+      const response = await restaurantAPI.bulkUpload(bulkUploadFile)
+      
+      if (response.data && response.data.success) {
+        const results = response.data.data
+        setBulkUploadResults(results)
+        toast.info(`Processed ${results.success + results.failed} items`)
+        
+        if (results.success > 0) {
+            window.location.reload(); 
+        }
+      }
+    } catch (error) {
+      debugError('Error uploading menu:', error)
+      toast.error(error?.response?.data?.message || 'Bulk upload failed')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const onBulkFileChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size exceeds 10MB limit')
+        return
+      }
+      setBulkUploadFile(file)
+    }
+  }
   const [addonName, setAddonName] = useState("")
   const [addonDescription, setAddonDescription] = useState("")
   const [addonPrice, setAddonPrice] = useState("")
@@ -2729,6 +2795,18 @@ export default function Inventory() {
                 >
                   <span className="text-sm font-medium text-gray-900">Add item</span>
                 </button>
+                <button
+                  onClick={() => {
+                    setIsAddPopupOpen(false)
+                    setIsBulkUploadModalOpen(true)
+                  }}
+                  className="w-full py-3 px-4 text-left rounded-lg hover:bg-gray-50 transition-colors border-t border-gray-100"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileUp className="w-4 h-4 text-red-500" />
+                    <span className="text-sm font-medium text-gray-900">Bulk Upload Menu</span>
+                  </div>
+                </button>
               </div>
             </motion.div>
           </>
@@ -2825,9 +2903,201 @@ export default function Inventory() {
         </div>
       )}
 
+      {/* Bulk Upload Modal */}
+      <AnimatePresence>
+        {isBulkUploadModalOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (!isUploading) {
+                    setIsBulkUploadModalOpen(false)
+                    setBulkUploadFile(null)
+                    setBulkUploadResults(null)
+                }
+              }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80]"
+            />
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[40px] shadow-2xl z-[81] max-h-[90vh] overflow-y-auto pb-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-2xl font-bold text-slate-950 tracking-tight">Bulk Upload Menu</h2>
+                  <button 
+                    onClick={() => {
+                        setIsBulkUploadModalOpen(false)
+                        setBulkUploadFile(null)
+                        setBulkUploadResults(null)
+                    }}
+                    className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                  >
+                    <X className="w-6 h-6 text-slate-400" />
+                  </button>
+                </div>
+
+                {!bulkUploadResults ? (
+                  <div className="space-y-8">
+                    {/* Step 1: Download Template */}
+                    <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-2xl bg-white shadow-sm flex items-center justify-center shrink-0">
+                          <Download className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-base font-bold text-slate-900 mb-1">Step 1: Get Template</h3>
+                          <p className="text-sm text-slate-500 mb-4">Download our Excel template to ensure your data is formatted correctly.</p>
+                          <button
+                            onClick={handleDownloadTemplate}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all hover:shadow-md"
+                          >
+                            <Download className="w-4 h-4" />
+                            Download Template
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 2: Upload File */}
+                    <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-2xl bg-white shadow-sm flex items-center justify-center shrink-0">
+                          <FileUp className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-base font-bold text-slate-900 mb-1">Step 2: Upload File</h3>
+                          <p className="text-sm text-slate-500 mb-4">Select your completed Excel file to start the upload process.</p>
+                          
+                          <input
+                            type="file"
+                            ref={bulkFileInputRef}
+                            onChange={onBulkFileChange}
+                            accept=".xlsx, .xls"
+                            className="hidden"
+                          />
+
+                          {!bulkUploadFile ? (
+                            <button
+                              onClick={() => bulkFileInputRef.current?.click()}
+                              className="w-full flex flex-col items-center justify-center gap-3 py-10 bg-white border-2 border-dashed border-slate-200 rounded-3xl hover:border-purple-400 hover:bg-purple-50/30 transition-all group"
+                            >
+                              <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <Upload className="w-6 h-6 text-slate-400 group-hover:text-purple-600" />
+                              </div>
+                              <span className="text-sm font-medium text-slate-600">Select Excel File</span>
+                            </button>
+                          ) : (
+                            <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
+                                  <Check className="w-5 h-5 text-green-600" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold text-slate-900 truncate max-w-[180px]">{bulkUploadFile.name}</p>
+                                  <p className="text-xs text-slate-500">{(bulkUploadFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                                </div>
+                              </div>
+                              <button 
+                                onClick={() => setBulkUploadFile(null)}
+                                className="p-2 hover:bg-rose-50 rounded-lg group transition-colors"
+                              >
+                                <X className="w-4 h-4 text-slate-400 group-hover:text-rose-500" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <button
+                      onClick={handleBulkUpload}
+                      disabled={!bulkUploadFile || isUploading}
+                      className={`w-full py-4 rounded-3xl text-base font-bold flex items-center justify-center gap-3 transition-all ${
+                        !bulkUploadFile || isUploading
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                          : 'bg-slate-950 text-white shadow-xl hover:translate-y-[-2px]'
+                      }`}
+                    >
+                      {isUploading ? (
+                        <>
+                          <RefreshCw className="w-5 h-5 animate-spin" />
+                          Uploading & Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5" />
+                          Process Upload
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="text-center py-8">
+                      <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-4">
+                        <Check className="w-10 h-10 text-green-600" />
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-950">Upload Complete!</h3>
+                      <p className="text-slate-500">Here's a summary of the processing results.</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-emerald-50 p-6 rounded-[32px] border border-emerald-100 text-center">
+                        <p className="text-3xl font-black text-emerald-700">{bulkUploadResults.success}</p>
+                        <p className="text-sm font-bold text-emerald-600 mt-1 uppercase tracking-wider">Successful</p>
+                      </div>
+                      <div className="bg-rose-50 p-6 rounded-[32px] border border-rose-100 text-center">
+                        <p className="text-3xl font-black text-rose-700">{bulkUploadResults.failed}</p>
+                        <p className="text-sm font-bold text-rose-600 mt-1 uppercase tracking-wider">Failed</p>
+                      </div>
+                    </div>
+
+                    {bulkUploadResults.errors && bulkUploadResults.errors.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-500" />
+                          Partial Errors ({bulkUploadResults.errors.length})
+                        </h4>
+                        <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
+                          {bulkUploadResults.errors.map((err, i) => (
+                            <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] leading-relaxed">
+                              <span className="font-bold text-slate-700">Item:</span> {err.item || 'Unknown'} 
+                              <br/>
+                              <span className="font-bold text-rose-600">Error:</span> {err.error}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setIsBulkUploadModalOpen(false)
+                        setBulkUploadFile(null)
+                        setBulkUploadResults(null)
+                      }}
+                      className="w-full py-4 bg-slate-950 text-white rounded-3xl text-base font-bold shadow-xl hover:translate-y-[-2px] transition-all"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Bottom Navigation */}
       <BottomNavOrders />
     </div>
   )
 }
-

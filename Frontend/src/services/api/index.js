@@ -508,6 +508,12 @@ export const adminAPI = {
       { reason: String(reason || "").trim() },
       { contextModule: "admin" },
     ),
+  bulkApproveFoodItems: (restaurantId) =>
+    apiClient.post(
+      "/food/admin/foods/bulk-approve",
+      { restaurantId },
+      { contextModule: "admin" },
+    ),
   /** Customers (admin) */
   getCustomers: (params = {}) =>
     apiClient.get("/food/admin/customers", { params, contextModule: "admin" }),
@@ -1132,6 +1138,19 @@ export const restaurantAPI = {
     apiClient.patch(`/food/restaurant/foods/${String(id)}`, body ?? {}, {
       contextModule: "restaurant",
     }),
+  bulkUploadTemplate: () =>
+    apiClient.get("/food/restaurant/bulk-upload/template", { 
+      responseType: 'blob', 
+      contextModule: "restaurant" 
+    }),
+  bulkUpload: (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiClient.post("/food/restaurant/bulk-upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      contextModule: "restaurant",
+    });
+  },
   /** Orders (restaurant dashboard) */
   getOrders: (() => {
     // Single-flight de-dupe to avoid duplicate GETs in React StrictMode / double-mount.

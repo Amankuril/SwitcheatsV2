@@ -1,22 +1,19 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Loader2 } from "lucide-react"
-import AnimatedPage from "@food/components/user/AnimatedPage"
+import { ArrowLeft, Loader2, Timer, RefreshCw, AlertCircle, ShieldCheck, User } from "lucide-react"
 import { Input } from "@food/components/ui/input"
 import { Button } from "@food/components/ui/button"
 import { deliveryAPI } from "@food/api"
 import { setAuthData as storeAuthData } from "@food/utils/auth"
-const debugLog = (...args) => {}
-const debugWarn = (...args) => {}
-const debugError = (...args) => {}
-
+import { useCompanyName } from "@food/hooks/useCompanyName"
+import { motion, AnimatePresence } from "framer-motion"
 
 export default function DeliveryOTP() {
+  const companyName = useCompanyName()
   const navigate = useNavigate()
   const [otp, setOtp] = useState(["", "", "", ""])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
   const [resendTimer, setResendTimer] = useState(0)
   const [authData, setAuthData] = useState(null)
   const [showNameInput, setShowNameInput] = useState(false)
@@ -28,43 +25,30 @@ export default function DeliveryOTP() {
   const [rejectionReason, setRejectionReason] = useState("")
   const [deviceToken, setDeviceToken] = useState(null)
   const [activePlatform, setActivePlatform] = useState("web")
+  const [focusedIndex, setFocusedIndex] = useState(0)
+  const [keyboardOffset, setKeyboardOffset] = useState(0)
   const inputRefs = useRef([])
 
   useEffect(() => {
-    // Get auth data from sessionStorage (delivery module key)
     const stored = sessionStorage.getItem("deliveryAuthData")
     if (stored) {
-      const data = JSON.parse(stored)
-      setAuthData(data)
+      setAuthData(JSON.parse(stored))
     } else {
-      // No active OTP flow: if already authenticated, go to delivery home
       const token = localStorage.getItem("delivery_accessToken")
       const authenticated = localStorage.getItem("delivery_authenticated") === "true"
       if (token && authenticated) {
         try {
-          const parts = token.split('.')
-          if (parts.length === 3) {
-            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
-            const now = Math.floor(Date.now() / 1000)
-            if (payload.exp && payload.exp > now) {
-              navigate("/food/delivery", { replace: true })
-              return
-            }
+          const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+          if (payload.exp > Math.floor(Date.now() / 1000)) {
+            navigate("/food/delivery", { replace: true })
+            return
           }
-        } catch (e) {
-          // Ignore token parse errors and continue to sign-in redirect
-        }
+        } catch (e) {}
       }
-
-      // No auth data, redirect to sign in
       navigate("/food/delivery/login", { replace: true })
       return
     }
 
-    // OTP field should be empty - delivery boy needs to enter it manually
-    // No auto-fill for delivery OTP
-
-    // Start resend timer (60 seconds)
     setResendTimer(60)
     const timer = setInterval(() => {
       setResendTimer((prev) => {
@@ -75,588 +59,290 @@ export default function DeliveryOTP() {
         return prev - 1
       })
     }, 1000)
-
     return () => clearInterval(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const viewport = window.visualViewport
+    if (!viewport) return
+    const updateKeyboardState = () => {
+      const keyboardHeight = Math.max(0, window.innerHeight - viewport.height)
+      setKeyboardOffset(keyboardHeight > 120 ? keyboardHeight : 0)
+    }
+    updateKeyboardState()
+    viewport.addEventListener("resize", updateKeyboardState)
+    viewport.addEventListener("scroll", updateKeyboardState)
+    return () => {
+      viewport.removeEventListener("resize", updateKeyboardState)
+      viewport.removeEventListener("scroll", updateKeyboardState)
+    }
   }, [])
 
   useEffect(() => {
-    // Don't auto-focus - let user manually enter OTP
-    // Focus first input only if all fields are empty (small delay to ensure inputs are rendered)
     if (inputRefs.current[0] && otp.every(digit => digit === "")) {
-      setTimeout(() => {
-        inputRefs.current[0]?.focus()
-      }, 100)
+      setTimeout(() => inputRefs.current[0]?.focus(), 100)
     }
   }, [otp])
 
   const handleChange = (index, value) => {
-    // Only allow digits
-    if (value && !/^\d$/.test(value)) {
-      return
-    }
-
+    if (value && !/^\d$/.test(value)) return
     const newOtp = [...otp]
     newOtp[index] = value
     setOtp(newOtp)
     setError("")
-
-    // Auto-focus next input
-    if (value && index < 3) {
-      inputRefs.current[index + 1]?.focus()
-    }
-
-    // Auto-submit when all 4 digits are entered and we are in OTP step
+    if (value && index < 3) inputRefs.current[index + 1]?.focus()
     if (!showNameInput && newOtp.every((digit) => digit !== "") && newOtp.length === 4) {
       handleVerify(newOtp.join(""))
     }
   }
 
   const handleKeyDown = (index, e) => {
-    // Handle backspace
     if (e.key === "Backspace") {
       if (otp[index]) {
-        // If current input has value, clear it
         const newOtp = [...otp]
         newOtp[index] = ""
         setOtp(newOtp)
       } else if (index > 0) {
-        // If current input is empty, move to previous and clear it
         inputRefs.current[index - 1]?.focus()
         const newOtp = [...otp]
         newOtp[index - 1] = ""
         setOtp(newOtp)
       }
     }
-    // Handle paste
-    if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault()
-      navigator.clipboard.readText().then((text) => {
-        const digits = text.replace(/\D/g, "").slice(0, 4).split("")
-        const newOtp = [...otp]
-        digits.forEach((digit, i) => {
-          if (i < 4) {
-            newOtp[i] = digit
-          }
-        })
-        setOtp(newOtp)
-        if (digits.length === 4) {
-          handleVerify(newOtp.join(""))
-        } else {
-          inputRefs.current[digits.length]?.focus()
-        }
-      })
-    }
   }
 
   const handlePaste = (e) => {
     e.preventDefault()
-    const pastedData = e.clipboardData.getData("text")
-    const digits = pastedData.replace(/\D/g, "").slice(0, 4).split("")
+    const digits = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 4).split("")
     const newOtp = [...otp]
-    digits.forEach((digit, i) => {
-      if (i < 4) {
-        newOtp[i] = digit
-      }
-    })
+    digits.forEach((digit, i) => { if (i < 4) newOtp[i] = digit })
     setOtp(newOtp)
-    if (!showNameInput && digits.length === 4) {
-      handleVerify(newOtp.join(""))
-      return
-    }
-    inputRefs.current[digits.length]?.focus()
+    if (!showNameInput && digits.length === 4) handleVerify(newOtp.join(""))
+    else inputRefs.current[digits.length]?.focus()
   }
 
   const handleVerify = async (otpValue = null) => {
-    if (showNameInput) {
-      // In name collection step, ignore OTP auto-submit
-      return
-    }
-
+    if (showNameInput) return
     const code = otpValue || otp.join("")
-
-    if (code.length !== 4) {
-      return
-    }
-
+    if (code.length !== 4) return
     setIsLoading(true)
     setError("")
-
     try {
       const phone = authData?.phone
       const purpose = authData?.purpose || "login"
-      const providedName = authData?.isSignUp ? authData?.name || null : null
-      if (!phone) {
-        setError("Phone number not found. Please try again.")
-        setIsLoading(false)
-        return
-      }
-
-      // Try to get FCM token before verifying OTP
       let fcmToken = null;
       let platform = "web";
       try {
         if (typeof window !== "undefined") {
           if (window.flutter_inappwebview) {
             platform = "mobile";
-            const handlerNames = ["getFcmToken", "getFCMToken", "getPushToken", "getFirebaseToken"];
-            for (const handlerName of handlerNames) {
+            const hN = ["getFcmToken", "getFCMToken", "getPushToken", "getFirebaseToken"];
+            for (const n of hN) {
               try {
-                const t = await window.flutter_inappwebview.callHandler(handlerName, { module: "delivery" });
-                if (t && typeof t === "string" && t.length > 20) {
-                  fcmToken = t.trim();
-                  break;
-                }
+                const t = await window.flutter_inappwebview.callHandler(n, { module: "delivery" });
+                if (t?.length > 20) { fcmToken = t.trim(); break; }
               } catch (e) {}
             }
-          } else {
-            fcmToken = localStorage.getItem("fcm_web_registered_token_delivery") || null;
-          }
+          } else { fcmToken = localStorage.getItem("fcm_web_registered_token_delivery") || null; }
         }
-      } catch (e) {
-        debugWarn("Failed to get FCM token during login", e);
-      }
-
+      } catch (e) {}
       setDeviceToken(fcmToken);
       setActivePlatform(platform);
 
-      // Backend: POST /auth/delivery/verify-otp returns either:
-      // - { needsRegistration: true } when no partner exists yet
-      // - or { accessToken, refreshToken, user } for existing partners
-      const response = await deliveryAPI.verifyOTP(phone, code, purpose, providedName, fcmToken, platform)
-      debugLog("Delivery OTP Response:", response)
+      const response = await deliveryAPI.verifyOTP(phone, code, purpose, null, fcmToken, platform)
       const data = response?.data?.data || response?.data || {}
-      debugLog("Parsed Delivery OTP Data:", data)
-
       if (data.pendingApproval === true) {
-        sessionStorage.removeItem("deliveryAuthData")
-        setIsLoading(false)
-        setError("")
-        setPendingMessage(data.message || "Your account is pending admin verification. You will be notified once approved.")
-        setIsRejected(data.isRejected || false)
-        setRejectionReason(data.rejectionReason || "")
+        setIsLoading(false); setPendingMessage(data.message); setIsRejected(data.isRejected || false); setRejectionReason(data.rejectionReason || "");
         return
       }
-
-      const needsRegistration = data.needsRegistration === true
-
-      if (needsRegistration) {
-        // No DB record yet; redirect to registration details page WITHOUT creating anything in DB.
+      if (data.needsRegistration === true) {
         sessionStorage.removeItem("deliveryAuthData")
         sessionStorage.setItem("deliveryNeedsRegistration", "true")
-        const digits = String(phone || "").replace(/\D/g, "")
-        const details = {
-          name: "",
-          phone: digits.slice(-10),
-          countryCode: "+91",
-        }
-        sessionStorage.setItem("deliverySignupDetails", JSON.stringify(details))
-        setIsLoading(false)
-        navigate("/food/delivery/signup/details", { replace: true })
+        sessionStorage.setItem("deliverySignupDetails", JSON.stringify({ name: "", phone: phone.replace(/\D/g, "").slice(-10), countryCode: "+91" }))
+        setIsLoading(false); navigate("/food/delivery/signup/details", { replace: true });
         return
       }
-
-      const accessToken = data.accessToken
-      const refreshToken = data.refreshToken || null
-      const user = data.user
-
-      if (!accessToken || !user) {
-        throw new Error("Invalid response from server")
-      }
-
-      sessionStorage.removeItem("deliveryAuthData")
-
-      try {
-        debugLog("Storing auth data for delivery:", { hasToken: !!accessToken, hasUser: !!user })
+      const { accessToken, refreshToken, user } = data
+      if (accessToken && user) {
         storeAuthData("delivery", accessToken, user, refreshToken)
-        debugLog("Auth data stored successfully")
-      } catch (storageError) {
-        debugError("Failed to store authentication data:", storageError)
-        setError("Failed to save authentication. Please try again or clear your browser storage.")
-        setIsLoading(false)
-        return
+        window.dispatchEvent(new Event("deliveryAuthChanged"))
+        setTimeout(() => navigate("/food/delivery", { replace: true }), 500)
       }
-
-      window.dispatchEvent(new Event("deliveryAuthChanged"))
-
-      setSuccess(true)
-      setIsLoading(false)
-
-      let retryCount = 0
-      const maxRetries = 10
-      const verifyAndNavigate = () => {
-        const storedToken = localStorage.getItem("delivery_accessToken")
-        const storedAuth = localStorage.getItem("delivery_authenticated")
-
-        if (storedToken && storedAuth === "true") {
-          navigate("/food/delivery", { replace: true })
-        } else if (retryCount < maxRetries) {
-          retryCount++
-          setTimeout(verifyAndNavigate, 100)
-        } else {
-          setError("Failed to save authentication. Please try again.")
-          setIsLoading(false)
-        }
-      }
-      setTimeout(verifyAndNavigate, 200)
-    } catch (err) {
-      debugError("OTP Verification Error:", err)
-      const message =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "Failed to verify OTP. Please try again."
-      setError(message)
-      setIsLoading(false)
-    }
+    } catch (err) { setError(err?.response?.data?.message || "Invalid OTP."); setIsLoading(false); }
   }
 
   const handleSubmitName = async () => {
-    const trimmedName = name.trim()
-    if (!trimmedName) {
-      setNameError("Name is required")
-      return
-    }
-
-    if (!verifiedOtp) {
-      setError("OTP verification step missing. Please request a new OTP.")
-      return
-    }
-
-    setIsLoading(true)
-    setError("")
-    setNameError("")
-
-    try {
-      const phone = authData?.phone
-      const purpose = authData?.purpose || "login"
-      if (!phone) {
-        setError("Phone number not found. Please try again.")
-        return
-      }
-
-      // Second call with name to auto-register and login
-      const response = await deliveryAPI.verifyOTP(phone, verifiedOtp, purpose, trimmedName, deviceToken, activePlatform)
-      const data = response?.data?.data || response?.data || {}
-
-      const accessToken = data.accessToken
-      const refreshToken = data.refreshToken || null
-      const user = data.user
-
-      if (!accessToken || !user) {
-        throw new Error("Invalid response from server")
-      }
-
-      // Clear auth data from sessionStorage
-      sessionStorage.removeItem("deliveryAuthData")
-
-      // Store auth data using utility function to ensure proper role handling
-      // The setAuthData function includes error handling and verification
-      try {
-        debugLog("Storing auth data for delivery (with name):", { hasToken: !!accessToken, hasUser: !!user })
+    if (!name.trim()) { setNameError("Name required"); return; }
+    setIsLoading(true); setError(""); try {
+      const response = await deliveryAPI.verifyOTP(authData?.phone, verifiedOtp, authData?.purpose || "login", name.trim(), deviceToken, activePlatform)
+      const { accessToken, refreshToken, user } = response?.data?.data || response?.data || {}
+      if (accessToken && user) {
         storeAuthData("delivery", accessToken, user, refreshToken)
-        debugLog("Auth data stored successfully")
-      } catch (storageError) {
-        debugError("Failed to store authentication data:", storageError)
-        setError("Failed to save authentication. Please try again or clear your browser storage.")
-        setIsLoading(false)
-        return
+        window.dispatchEvent(new Event("deliveryAuthChanged"))
+        navigate("/food/delivery", { replace: true })
       }
-
-      // Dispatch custom event for same-tab updates
-      window.dispatchEvent(new Event("deliveryAuthChanged"))
-
-      setSuccess(true)
-      setIsLoading(false)
-
-      // Verify token is stored and then navigate
-      let retryCount = 0
-      const maxRetries = 10
-      const verifyAndNavigate = () => {
-        const storedToken = localStorage.getItem("delivery_accessToken")
-        const storedAuth = localStorage.getItem("delivery_authenticated")
-
-        debugLog("Verifying token storage (with name):", { hasToken: !!storedToken, authenticated: storedAuth, retryCount })
-
-        if (storedToken && storedAuth === "true") {
-          // Token is stored, navigate to delivery home
-          debugLog("Token verified, navigating to /delivery")
-          navigate("/food/delivery", { replace: true })
-        } else if (retryCount < maxRetries) {
-          // Token not stored yet, retry after short delay
-          retryCount++
-          setTimeout(verifyAndNavigate, 100)
-        } else {
-          // Max retries reached, show error
-          debugError("Token storage verification failed after max retries")
-          setError("Failed to save authentication. Please try again.")
-          setIsLoading(false)
-        }
-      }
-
-      // Start verification after a small delay
-      setTimeout(verifyAndNavigate, 200)
-    } catch (err) {
-      debugError("Name Submission Error:", err)
-      const message =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "Failed to complete registration. Please try again."
-      setError(message)
-    } finally {
-      setIsLoading(false)
-    }
+    } catch (err) { setError("Failed to complete setup."); } finally { setIsLoading(false); }
   }
 
   const handleResend = async () => {
     if (resendTimer > 0) return
-
-    setIsLoading(true)
-    setError("")
-
-    try {
-      const phone = authData?.phone
-      const purpose = authData?.purpose || "login"
-      if (!phone) {
-        setError("Phone number not found. Please go back and try again.")
-        return
-      }
-
-      // Call backend to resend OTP
-      await deliveryAPI.sendOTP(phone, purpose)
-    } catch (err) {
-      const message =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "Failed to resend OTP. Please try again."
-      setError(message)
-    } finally {
-      setIsLoading(false)
-    }
-
-    // Reset timer to 60 seconds
-    setResendTimer(60)
-    const timer = setInterval(() => {
-      setResendTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    setOtp(["", "", "", ""])
-    setShowNameInput(false)
-    setName("")
-    setNameError("")
-    setVerifiedOtp("")
-    inputRefs.current[0]?.focus()
+    setIsLoading(true); setError("")
+    try { await deliveryAPI.sendOTP(authData?.phone, authData?.purpose || "login"); setResendTimer(60); }
+    catch (err) { setError("Resend failed."); } finally { setIsLoading(false); }
+    setOtp(["", "", "", ""]); setShowNameInput(false); setName(""); setVerifiedOtp("")
   }
 
-  const getPhoneNumber = () => {
-    if (!authData) return ""
-    if (authData.method === "phone") {
-      // Format phone number as +91-9098569620
-      const phone = authData.phone || ""
-      // Remove spaces and format
-      const cleaned = phone.replace(/\s/g, "")
-      // Add hyphen after country code if not present
-      if (cleaned.startsWith("+91") && cleaned.length > 3) {
-        return cleaned.slice(0, 3) + "-" + cleaned.slice(3)
-      }
-      return cleaned
-    }
-    return authData.email || ""
-  }
-
-  if (!authData) {
-    return null
-  }
+  if (!authData) return null
 
   return (
-    <AnimatedPage className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
-      <div className="relative flex items-center justify-center py-4 px-4 border-b border-gray-200">
-        <button
-          onClick={() => navigate("/food/delivery/login")}
-          className="absolute left-4 top-1/2 -translate-y-1/2"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="h-5 w-5 text-black" />
-        </button>
-        <h1 className="text-lg font-bold text-black">OTP Verification</h1>
+    <div className="min-h-[100dvh] bg-zinc-50 dark:bg-[#080808] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
+      {/* Dynamic Background */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[10%] left-[5%] w-[60%] h-[60%] rounded-full bg-[#00B761]/5 blur-[120px]" />
+        <div className="absolute bottom-[10%] right-[5%] w-[50%] h-[50%] rounded-full bg-blue-500/5 blur-[120px]" />
       </div>
 
-      {/* Main Content */}
-      <div className="flex flex-col justify-center px-6 pt-8 pb-12">
-        <div className="max-w-md mx-auto w-full space-y-8">
-          {/* Message */}
-          <div className="text-center space-y-2">
-            <p className="text-base text-black">
-              {showNameInput
-                ? "You're almost done! Please tell us your name to complete registration."
-                : "We have sent a verification code to"}
-            </p>
-            {!showNameInput && (
-              <p className="text-base text-black font-medium">
-                {getPhoneNumber()}
-              </p>
-            )}
-          </div>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="w-full max-w-[420px] bg-white/80 dark:bg-zinc-900/80 backdrop-blur-3xl rounded-[40px] shadow-[0_32px_80px_rgba(0,0,0,0.1)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.4)] relative z-10 overflow-hidden border border-white/50 dark:border-white/5"
+        style={{ marginBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : 0 }}
+      >
+        <div className="flex items-center px-6 py-5 border-b border-zinc-100 dark:border-zinc-800">
+          <button
+            onClick={() => navigate("/food/delivery/login")}
+            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all"
+          >
+            <ArrowLeft className="h-5 w-5 text-[#00B761]" />
+          </button>
+          <span className="ml-3 font-black text-[10px] uppercase tracking-[0.3em] text-zinc-900 dark:text-white pt-0.5">
+            Fleet Access Gate
+          </span>
+        </div>
 
-          {/* Pending approval message – already registered, waiting for admin */}
-          {pendingMessage && (
-            <div className={`rounded-xl border p-5 text-center space-y-4 shadow-sm ${isRejected ? "bg-red-50 border-red-100" : "bg-amber-50 border-amber-100"}`}>
-              <div className="space-y-2">
-                <p className={`text-sm font-semibold ${isRejected ? "text-red-800" : "text-amber-800"}`}>
-                  {isRejected ? "Application Rejected" : "Pending Verification"}
-                </p>
-                <p className={`text-sm leading-relaxed ${isRejected ? "text-red-700" : "text-amber-700"}`}>
-                  {pendingMessage}
-                </p>
-                {isRejected && rejectionReason && (
-                  <div className="mt-2 p-3 bg-white/50 rounded-lg border border-red-200">
-                    <p className="text-xs font-medium text-red-600 uppercase tracking-wider mb-1">Reason</p>
-                    <p className="text-sm text-red-800 italic">"{rejectionReason}"</p>
+        <div className="p-8 sm:p-10 space-y-8">
+          <AnimatePresence mode="wait">
+            {!pendingMessage ? (
+              <motion.div 
+                key="otp-step" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                className="space-y-8"
+              >
+                <div className="text-center space-y-3">
+                  <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight italic uppercase">
+                    {showNameInput ? "One Last Step" : "Ride Check"}
+                  </h2>
+                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 max-w-[260px] mx-auto leading-relaxed">
+                    {showNameInput ? "Enter your name to initialize profile" : <>A passcode was sent to <span className="text-[#00B761] font-black">{authData.phone}</span></>}
+                  </p>
+                </div>
+
+                {!showNameInput ? (
+                  <div className="space-y-8">
+                    <div className="flex justify-center gap-3 sm:gap-4">
+                      {otp.map((digit, index) => (
+                        <input
+                          key={index} ref={(el) => (inputRefs.current[index] = el)}
+                          type="text" inputMode="numeric" maxLength={1} value={digit}
+                          onChange={(e) => handleChange(index, e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(index, e)}
+                          onPaste={handlePaste}
+                          onFocus={() => setFocusedIndex(index)}
+                          className={`w-14 h-16 bg-zinc-100/50 dark:bg-zinc-800/80 border-2 rounded-2xl text-center text-3xl font-black text-zinc-900 dark:text-white transition-all duration-300 ${
+                            error ? "border-red-500 bg-red-50/50" : focusedIndex === index ? "border-[#00B761] ring-4 ring-[#00B761]/10 shadow-lg" : "border-zinc-100 dark:border-zinc-800"
+                          }`}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="flex justify-center">
+                      {resendTimer > 0 ? (
+                        <div className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                          <Timer className="w-4 h-4 text-[#00B761]" />
+                          RE-PULSE IN <span className="text-[#00B761]">{resendTimer}S</span>
+                        </div>
+                      ) : (
+                        <button onClick={handleResend} className="flex items-center gap-2 text-[#00B761] font-black text-[10px] tracking-widest uppercase hover:underline">
+                          <RefreshCw className="w-4 h-4" /> RESEND PIN
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                     <div className="relative group">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#00B761] transition-colors" />
+                        <Input
+                          type="text" value={name} onChange={(e) => { setName(e.target.value); setNameError(""); }}
+                          placeholder="Your Full Name"
+                          className="h-16 pl-12 pr-6 bg-zinc-100/50 dark:bg-zinc-800/80 border-0 rounded-2xl text-lg font-bold placeholder:text-zinc-400 focus:ring-4 focus:ring-[#00B761]/10"
+                        />
+                     </div>
+                     {nameError && <p className="text-[11px] font-black text-red-500 uppercase tracking-widest ml-4 italic">{nameError}</p>}
+                     <Button onClick={handleSubmitName} disabled={isLoading} className="w-full h-16 rounded-2xl font-black text-base bg-[#00B761] hover:bg-[#009049] text-white shadow-[0_12px_32px_rgba(0,183,97,0.3)] active:scale-95">
+                        Initialize Start
+                     </Button>
                   </div>
                 )}
-              </div>
-
-              <div className="flex flex-col gap-2 pt-2">
-                {isRejected ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const phone = authData?.phone
-                      const digits = String(phone || "").replace(/\D/g, "")
-                      sessionStorage.setItem("deliveryNeedsRegistration", "true")
-                      const details = {
-                        name: "",
-                        phone: digits.slice(-10),
-                        countryCode: "+91",
-                      }
-                      sessionStorage.setItem("deliverySignupDetails", JSON.stringify(details))
-                      navigate("/food/delivery/signup/details", { replace: true })
-                    }}
-                    className="w-full py-3 bg-red-600 text-white rounded-lg font-bold text-sm hover:bg-red-700 shadow-md transition-all active:scale-95"
-                  >
-                    Re-apply Now
-                  </button>
-                ) : null}
-                
-                <button
-                  type="button"
-                  onClick={() => navigate("/food/delivery/login", { replace: true })}
-                  className={`text-sm font-medium underline transition-colors ${isRejected ? "text-red-600 hover:text-red-800" : "text-amber-700 hover:text-amber-900"}`}
-                >
-                  Back to login
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Error message */}
-          {error && (
-            <p className="text-sm text-red-500 text-center">
-              {error}
-            </p>
-          )}
-
-          {/* OTP Input Fields */}
-          {!showNameInput && !pendingMessage && (
-            <>
-              <div className="flex justify-center gap-2">
-                {otp.map((digit, index) => (
-                  <Input
-                    key={index}
-                    ref={(el) => (inputRefs.current[index] = el)}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    onPaste={index === 0 ? handlePaste : undefined}
-                    disabled={isLoading}
-                    autoComplete="off"
-                    autoFocus={false}
-                    className="w-12 h-12 text-center text-lg font-semibold p-0 border border-black rounded-md focus-visible:ring-0 focus-visible:border-black bg-white"
-                  />
-                ))}
-              </div>
-
-              {/* Resend Section */}
-              <div className="text-center space-y-1">
-                <p className="text-sm text-black">
-                  Didn't get the OTP?
-                </p>
-                {resendTimer > 0 ? (
-                  <p className="text-sm text-gray-500">
-                    Resend SMS in {resendTimer}s
-                  </p>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={isLoading}
-                    className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
-                  >
-                    Resend SMS
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Name Input (shown only after OTP verified and user is new) */}
-          {showNameInput && (
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-black text-left">
-                  Full name
-                </label>
-                <Input
-                  type="text"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value)
-                    if (nameError) setNameError("")
-                  }}
-                  disabled={isLoading}
-                  placeholder="Enter your name"
-                  className={`h-11 border ${nameError ? "border-red-500" : "border-gray-300"
-                    }`}
-                />
-                {nameError && (
-                  <p className="text-xs text-red-500 text-left">
-                    {nameError}
-                  </p>
-                )}
-              </div>
-
-              <Button
-                onClick={handleSubmitName}
-                disabled={isLoading}
-                className="w-full h-11 bg-[#00B761] hover:bg-[#00A055] text-white font-semibold"
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="pending-step" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                className="text-center space-y-6"
               >
-                {isLoading ? "Continuing..." : "Continue"}
-              </Button>
-            </div>
+                <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center ${isRejected ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-amber-100 dark:bg-amber-900/30 text-amber-600"}`}>
+                   {isRejected ? <AlertCircle size={40} /> : <ShieldCheck size={40} />}
+                </div>
+                <div className="space-y-2">
+                   <h3 className={`text-xl font-black italic uppercase ${isRejected ? "text-red-600" : "text-amber-600"}`}>
+                      {isRejected ? "Application Denied" : "Verification in Progress"}
+                   </h3>
+                   <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      {pendingMessage}
+                   </p>
+                </div>
+                {isRejected && rejectionReason && (
+                   <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-100 dark:border-red-900/20">
+                      <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Feedback</p>
+                      <p className="text-sm text-red-700 dark:text-red-400 font-medium italic">"{rejectionReason}"</p>
+                   </div>
+                )}
+                <div className="pt-4 flex flex-col gap-3">
+                   {isRejected && (
+                      <Button onClick={() => navigate("/food/delivery/signup/details")} className="w-full h-14 rounded-2xl font-black bg-red-600 hover:bg-red-700 text-white">RE-APPLY NOW</Button>
+                   )}
+                   <button onClick={() => navigate("/food/delivery/login")} className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] hover:text-[#00B761] transition-colors">BACK TO LOGIN</button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-center gap-2 text-[11px] font-black text-[#00B761] bg-[#00B761]/5 py-3 px-4 rounded-xl border border-[#00B761]/10 uppercase tracking-widest italic"
+            >
+              <AlertCircle size={14} />
+              <span>{error}</span>
+            </motion.div>
           )}
 
-          {/* Loading Spinner */}
           {isLoading && !showNameInput && (
-            <div className="flex justify-center pt-4">
-              <Loader2 className="h-6 w-6 text-green-500 animate-spin" />
+            <div className="flex justify-center">
+              <Loader2 className="h-6 w-6 text-[#00B761] animate-spin" />
             </div>
           )}
         </div>
-      </div>
 
-    </AnimatedPage>
+        <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 text-center">
+          <p className="text-[9px] font-black text-zinc-300 dark:text-zinc-600 tracking-[0.4em] uppercase">
+            SECURE FLEET AUTHENTICATION &bull; {companyName.toUpperCase()}
+          </p>
+        </div>
+      </motion.div>
+    </div>
   )
 }
+
 

@@ -319,28 +319,27 @@ export default function RestaurantNavbar({
   }
 
   return (
-    <div className="w-full bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+    <div className="w-full bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 py-2.5 flex items-center justify-between sticky top-0 z-[60]">
       {/* Left Side - Restaurant Info */}
-      <div className="flex-1 min-w-0 pr-4 flex items-center gap-3">
+      <div className="flex-1 min-w-0 pr-2 flex items-center gap-2.5">
         {logoUrl && (
-          <img src={logoUrl} alt="Logo" className="h-10 w-10 object-contain rounded-lg" />
+          <img src={logoUrl} alt="Logo" className="h-9 w-9 object-contain rounded-lg shadow-sm" />
         )}
         <div className="min-w-0">
-          {/* Restaurant Name & Company */}
-          <div className="flex items-baseline gap-1.5 min-w-0">
-            <h1 className="text-[15px] font-bold text-gray-900 truncate">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h1 className="text-[14px] font-bold text-gray-900 truncate leading-none">
               {loading ? "Loading..." : (restaurantName || "Restaurant")}
             </h1>
             {companyName && !loading && (
-              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tight shrink-0">
+              <span className="text-[8px] text-gray-400 font-bold uppercase tracking-tight shrink-0 px-1 py-0.5 bg-gray-50 rounded">
                 {companyName}
               </span>
             )}
           </div>
           {!loading && location && location.trim() !== "" && (
-            <div className="flex items-center gap-1 mt-0.5 opacity-80">
-              <MapPin className="w-2.5 h-2.5 text-gray-500 shrink-0" />
-              <p className="text-[10px] text-gray-500 truncate font-medium" title={location}>
+            <div className="flex items-center gap-1 mt-1 opacity-70">
+              <MapPin className="w-2 h-2 text-gray-400 shrink-0" />
+              <p className="text-[9px] text-gray-500 truncate font-medium max-w-[150px]" title={location}>
                 {location}
               </p>
             </div>
@@ -349,64 +348,62 @@ export default function RestaurantNavbar({
       </div>
 
       {/* Right Side - Interactive Elements */}
-      <div className="flex items-center">
-        {/* Offline/Online Status Tag */}
+      <div className="flex items-center gap-0.5">
         {showOfflineOnlineTag && (
           <button
             onClick={handleStatusClick}
-            className={`flex items-center gap-1.5 px-2 py-1 border rounded-full hover:opacity-80 transition-all ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-xl hover:opacity-80 transition-all ${
               status === "Online" 
-                ? "bg-green-50 border-green-300" 
-                : "bg-gray-100 border-gray-300"
+                ? "bg-green-50 border-green-100" 
+                : "bg-gray-50 border-gray-200"
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${
-              status === "Online" ? "bg-green-500" : "bg-gray-500"
+              status === "Online" ? "bg-green-500 animate-pulse" : "bg-gray-400"
             }`}></span>
-            <span className={`text-sm font-medium ${
-              status === "Online" ? "text-green-700" : "text-gray-700"
+            <span className={`text-[12px] font-bold hidden sm:inline ${
+              status === "Online" ? "text-green-700" : "text-gray-600"
             }`}>
               {status}
             </span>
-            <ChevronRight className={`w-4 h-4 ${
-              status === "Online" ? "text-green-700" : "text-gray-700"
+            <ChevronRight className={`w-3.5 h-3.5 ${
+              status === "Online" ? "text-green-500" : "text-gray-400"
             }`} />
           </button>
         )}
 
-        {/* Search Icon */}
-        {showSearch && (
-          <button
-            onClick={handleSearchClick}
-            className="p-2 ml-1 hover:bg-gray-100 rounded-full transition-colors"
-            aria-label="Search"
-          >
-            <Search className="w-5 h-5 text-gray-700" />
-          </button>
-        )}
+        <div className="flex items-center">
+          {showSearch && (
+            <button
+              onClick={handleSearchClick}
+              className="p-1.5 hover:bg-gray-50 rounded-full transition-colors"
+              aria-label="Search"
+            >
+              <Search className="w-5 h-5 text-gray-600" />
+            </button>
+          )}
 
-        {/* Notifications Icon */}
-        {showNotifications && (
+          {showNotifications && (
             <button
               onClick={handleNotificationsClick}
-              className="relative p-2 ml-1 hover:bg-gray-100 rounded-full transition-colors"
+              className="relative p-1.5 hover:bg-gray-50 rounded-full transition-colors"
               aria-label="Notifications"
             >
-              <Bell className="w-5 h-5 text-gray-700" />
+              <Bell className="w-5 h-5 text-gray-600" />
               {unreadCount > 0 && (
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-red-500 border border-white" />
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 border border-white" />
               )}
             </button>
           )}
 
-        {/* Hamburger Menu Icon */}
-        <button
-          onClick={handleMenuClick}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          aria-label="Menu"
-        >
-          <Menu className="w-5 h-5 text-gray-700" />
-        </button>
+          <button
+            onClick={handleMenuClick}
+            className="p-1.5 hover:bg-gray-50 rounded-full transition-colors"
+            aria-label="Menu"
+          >
+            <Menu className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
       </div>
     </div>
   )
