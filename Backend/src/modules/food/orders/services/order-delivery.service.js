@@ -215,7 +215,7 @@ export async function listOrdersAvailableDelivery(deliveryPartnerId, query) {
     $or: [
       {
         'dispatch.status': 'unassigned',
-        orderStatus: { $in: ['created', 'confirmed', 'preparing', 'ready_for_pickup'] },
+        orderStatus: { $in: ['confirmed', 'preparing', 'ready_for_pickup'] },
       },
       {
         'dispatch.deliveryPartnerId': new mongoose.Types.ObjectId(deliveryPartnerId),
@@ -730,6 +730,10 @@ export async function verifyDropOtpDelivery(orderId, deliveryPartnerId, otp) {
     throw new ForbiddenError('Not your order');
   }
 
+  if (order.deliveryVerification?.dropOtp?.verified) {
+    return { order: sanitizeOrderForExternal(order) };
+  }
+
   const otpStr = String(otp || '').trim();
   if (!otpStr) throw new ValidationError('OTP is required');
 
@@ -737,9 +741,6 @@ export async function verifyDropOtpDelivery(orderId, deliveryPartnerId, otp) {
     throw new ValidationError(
       'OTP verification is not active for this order. Confirm reached drop first.',
     );
-  }
-  if (order.deliveryVerification?.dropOtp?.verified) {
-    return { order: sanitizeOrderForExternal(order) };
   }
 
   const expected = String(order.deliveryOtp || '').trim();

@@ -368,18 +368,6 @@ export async function createOrder(userId, dto) {
     }
   }
 
-  if (
-    dispatchMode === "auto" &&
-    (isCash ||
-      order.payment.status === "paid" ||
-      order.payment.status === "cod_pending")
-  ) {
-    try {
-      await tryAutoAssign(order._id);
-    } catch {
-      // leave unassigned
-    }
-  }
 
   const saved = normalizeOrderForClient(order);
   return { order: saved, razorpay: razorpayPayload };
@@ -440,12 +428,6 @@ export async function verifyPayment(userId, dto) {
     },
   });
 
-  const settings = await getDispatchSettings();
-  if (settings.dispatchMode === "auto") {
-    try {
-      await tryAutoAssign(order._id);
-    } catch {}
-  }
 
   return { order: normalizeOrderForClient(order), payment: order.payment };
 }
@@ -1165,37 +1147,6 @@ export async function updateOrderStatusRestaurant(
  */
 export async function resendDeliveryNotificationRestaurant(orderId, restaurantId) {
     return dispatchService.resendDeliveryNotificationRestaurant(orderId, restaurantId);
-    const order = await FoodOrder.findOne({
-        _id: new mongoose.Types.ObjectId(orderId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId)
-    });
-
-    if (!order) throw new NotFoundError('Order not found');
-
-    // Allow resend for fresh confirmed orders too, because this route is often
-    // used right after restaurant confirmation when the first rider alert was missed.
-    const activeStatuses = ['confirmed', 'preparing', 'ready_for_pickup', 'ready'];
-    if (!activeStatuses.includes(order.orderStatus)) {
-        throw new ValidationError(`Cannot resend notification for order in status: ${order.orderStatus}`);
-    }
-
-    // Guard: don't disrupt an active assignment that was already accepted
-    if (order.dispatch?.status === 'accepted') {
-        throw new ValidationError('A delivery partner has already accepted this order.');
-    }
-
-    // Reset dispatch state to unassigned to allow tryAutoAssign to start fresh
-    order.dispatch.status = 'unassigned';
-    order.dispatch.deliveryPartnerId = null;
-    // Clear previously offered partners to give everyone a fresh chance when resending manually.
-    order.dispatch.offeredTo = [];
-    
-    await order.save();
-
-    // Trigger smart dispatch logic immediately
-    await tryAutoAssign(order._id);
-
-    return { success: true };
 }
 
 export async function getCurrentTripDelivery(deliveryPartnerId) {
