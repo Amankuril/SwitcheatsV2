@@ -141,7 +141,7 @@ export async function tryAutoAssign(orderId, options = {}) {
   }
 
   // Decoupling: Ensure order is accepted by restaurant before dispatching to delivery boys
-  const DISPATCHABLE_STATUSES = ['confirmed', 'preparing', 'ready_for_pickup', 'ready', 'picked_up'];
+  const DISPATCHABLE_STATUSES = ['confirmed', 'preparing', 'ready_for_pickup', 'ready', 'reached_pickup', 'picked_up', 'reached_drop'];
   if (!DISPATCHABLE_STATUSES.includes(order.orderStatus)) {
     logger.info(`tryAutoAssign: Skip for ${orderId} (status ${order.orderStatus} not dispatchable yet).`);
     return order;

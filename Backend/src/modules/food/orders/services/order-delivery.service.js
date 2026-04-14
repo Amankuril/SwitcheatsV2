@@ -775,6 +775,7 @@ export async function completeDelivery(orderId, deliveryPartnerId, body = {}) {
   }
 
   const { otp, ratings } = body;
+  logger.info(`[DeliveryComplete] Attempting to complete order ${order._id} for partner ${deliveryPartnerId}. Status: ${order.orderStatus}`);
 
   if (
     otp &&
@@ -786,6 +787,7 @@ export async function completeDelivery(orderId, deliveryPartnerId, body = {}) {
     if (expected && expected === String(otp).trim()) {
       order.deliveryVerification.dropOtp.verified = true;
       order.markModified('deliveryVerification.dropOtp.verified');
+      logger.info(`[DeliveryComplete] OTP verified during completion call for ${order._id}`);
     } else {
       throw new ValidationError('Invalid handover OTP provided.');
     }
@@ -804,12 +806,15 @@ export async function completeDelivery(orderId, deliveryPartnerId, body = {}) {
   const from = order.orderStatus;
   const nextStatus = 'delivered';
   if (!isStatusAdvance(from, nextStatus)) {
+      logger.warn(`[DeliveryComplete] Status advance check failed for ${order._id}. Current: ${from}`);
       throw new ValidationError(`Order is already at status '${from}'. Cannot re-mark as '${nextStatus}'.`);
   }
   
   const tx = await FoodTransaction.findOne({ orderId: order._id }).lean();
-  const prevPayStatus = String(tx?.payment?.status || order?.payment?.status || '');
-  const payMethod = String(tx?.payment?.method || order?.payment?.method || order?.paymentMethod || '');
+  const prevPayStatus = String(tx?.payment?.status || order?.payment?.status || 'unpaid').toLowerCase();
+  const payMethod = String(tx?.payment?.method || order?.payment?.method || order?.paymentMethod || 'cash').toLowerCase();
+
+  logger.info(`[DeliveryComplete] Order ${order._id} payment: ${payMethod}, status: ${prevPayStatus}`);
 
   if (payMethod === 'razorpay_qr') {
     const syncedPayment = await syncRazorpayQrPayment(order);
