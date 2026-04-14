@@ -4806,20 +4806,48 @@ export async function getSidebarBadges() {
 }
 
 export async function bulkApproveFoodItems(restaurantId) {
-    if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
-        throw new ValidationError('Invalid restaurant ID');
+    const filter = { approvalStatus: 'pending', isDeleted: { $ne: true } };
+    
+    if (restaurantId && mongoose.Types.ObjectId.isValid(restaurantId)) {
+        filter.restaurantId = new mongoose.Types.ObjectId(restaurantId);
     }
 
-    const result = await FoodItem.updateMany(
-        { restaurantId: new mongoose.Types.ObjectId(restaurantId), approvalStatus: 'pending' },
+    const now = new Date();
+
+    // 1. Bulk Approve Food Items
+    const foodResult = await FoodItem.updateMany(
+        filter,
         {
             $set: {
                 approvalStatus: 'approved',
-                approvedAt: new Date(),
+                approvedAt: now,
                 rejectionReason: ''
             }
         }
     );
 
-    return result;
+    // 2. Bulk Approve Addons
+    // For addons, we need to move 'draft' to 'published'
+    // UpdateMany with pipeline (if MongoDB 4.2+) or manual loop
+    // To be efficient for bulk admin use, we'll use a loop if the count is small, 
+    // or a direct update if we just want to set the status (though published should ideally match)
+    const addonResult = await FoodAddon.updateMany(
+        filter,
+        [
+            {
+                $set: {
+                    published: '$draft',
+                    approvalStatus: 'approved',
+                    approvedAt: now,
+                    rejectionReason: ''
+                }
+            }
+        ]
+    );
+
+    return {
+        foodItems: foodResult,
+        addons: addonResult,
+        modifiedCount: (foodResult.modifiedCount || 0) + (addonResult.modifiedCount || 0)
+    };
 }

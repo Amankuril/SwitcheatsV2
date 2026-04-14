@@ -430,5 +430,4 @@ export default function OTP() {
     </AnimatedPage>
   )
 }
-  )
-}
+
