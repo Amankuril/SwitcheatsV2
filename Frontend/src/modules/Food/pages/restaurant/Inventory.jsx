@@ -848,8 +848,9 @@ export default function Inventory() {
         setBulkUploadResults(results)
         toast.info(`Processed ${results.success + results.failed} items`)
         
+        // Refresh data in background without reloading the page
         if (results.success > 0) {
-            window.location.reload(); 
+            fetchMenuAndAddons()
         }
       }
     } catch (error) {
@@ -915,27 +916,27 @@ export default function Inventory() {
     fetchRestaurantProfile()
   }, [])
 
-  // Fetch menu items from API and convert to inventory format
-  useEffect(() => {
-    const fetchMenuData = async () => {
+  // Reusable fetch function
+  const fetchMenuAndAddons = useMemo(() => {
+    return async () => {
       try {
         setLoadingInventory(true)
+        setLoadingAddons(true)
         
-        // Fetch menu from API
-        const menuResponse = await restaurantAPI.getMenu()
+        // Parallel fetch for menu and addons
+        const [menuResponse, addonsResponse] = await Promise.all([
+          restaurantAPI.getMenu(),
+          restaurantAPI.getAddons()
+        ])
         
+        // Handle Menu Data
         if (menuResponse.data && menuResponse.data.success && menuResponse.data.data && menuResponse.data.data.menu) {
           const menuSections = menuResponse.data.data.menu.sections || []
-          
-          // Convert menu sections to inventory categories
           const convertedCategories = menuSections.map((section, sectionIndex) => {
-            // Collect all items from section and subsections
             const allItems = []
-            
-            // Add direct items from section
             if (Array.isArray(section.items)) {
               section.items.forEach(item => {
-                  allItems.push({
+                allItems.push({
                   id: String(item.id || Date.now() + Math.random()),
                   name: item.name || "Unnamed Item",
                   description: item.description || "",
@@ -951,60 +952,48 @@ export default function Inventory() {
                   foodType: item.foodType || "Non-Veg",
                   approvalStatus: String(item.approvalStatus || "approved").toLowerCase(),
                   rejectionReason: item.rejectionReason || "",
-                  // Backend menu is generated from food_items and currently doesn't persist "recommended".
-                  // Keep as a local UI preference keyed by food item id.
                   isRecommended: Boolean(recommendedMap?.[String(item.id)]),
                   stockQuantity: item.stock || "Unlimited",
                   unit: item.itemSizeUnit || "piece",
-                  expiryDate: null,
-                  lastRestocked: null,
                 })
               })
             }
             
-            // Add items from subsections
             if (Array.isArray(section.subsections)) {
               section.subsections.forEach(subsection => {
                 if (Array.isArray(subsection.items)) {
                   subsection.items.forEach(item => {
-                  allItems.push({
-                  id: String(item.id || Date.now() + Math.random()),
-                  name: item.name || "Unnamed Item",
-                  description: item.description || "",
-                  image: item.image || "",
-                  images: item.image ? [item.image] : [],
-                  price: item.price ?? "",
-                  variants: Array.isArray(item.variants) ? item.variants : (Array.isArray(item.variations) ? item.variations : []),
-                  category: section.name || subsection.name || "",
-                  categoryId: section.categoryId || section.id || "",
-                  inStock: item.isAvailable !== undefined ? item.isAvailable : true,
-                  isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
-                  isVeg: item.foodType === "Veg",
-                  foodType: item.foodType || "Non-Veg",
-                  approvalStatus: String(item.approvalStatus || "approved").toLowerCase(),
-                  rejectionReason: item.rejectionReason || "",
-                  isRecommended: Boolean(recommendedMap?.[String(item.id)]),
-                  stockQuantity: item.stock || "Unlimited",
-                  unit: item.itemSizeUnit || "piece",
-                  expiryDate: null,
-                  lastRestocked: null,
-                })
+                    allItems.push({
+                      id: String(item.id || Date.now() + Math.random()),
+                      name: item.name || "Unnamed Item",
+                      description: item.description || "",
+                      image: item.image || "",
+                      images: item.image ? [item.image] : [],
+                      price: item.price ?? "",
+                      variants: Array.isArray(item.variants) ? item.variants : (Array.isArray(item.variations) ? item.variations : []),
+                      category: section.name || subsection.name || "",
+                      categoryId: section.categoryId || section.id || "",
+                      inStock: item.isAvailable !== undefined ? item.isAvailable : true,
+                      isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
+                      isVeg: item.foodType === "Veg",
+                      foodType: item.foodType || "Non-Veg",
+                      approvalStatus: String(item.approvalStatus || "approved").toLowerCase(),
+                      rejectionReason: item.rejectionReason || "",
+                      isRecommended: Boolean(recommendedMap?.[String(item.id)]),
+                      stockQuantity: item.stock || "Unlimited",
+                      unit: item.itemSizeUnit || "piece",
+                    })
                   })
                 }
               })
             }
             
-            // Use category's isEnabled from menu API, not calculated from items
-            // Category toggle should be independent of item toggles
-            // Menu snapshots are disabled on backend; treat category toggle as derived from items (all in stock).
             const categoryInStock = allItems.length > 0 ? allItems.every(i => i.inStock) : true
-            const itemCount = allItems.length
-            
             return {
               id: section.id || `category-${sectionIndex}`,
               name: section.name || "Unnamed Category",
               description: section.description || "",
-              itemCount: itemCount,
+              itemCount: allItems.length,
               inStock: categoryInStock,
               items: allItems,
               order: section.order !== undefined ? section.order : sectionIndex,
@@ -1012,94 +1001,46 @@ export default function Inventory() {
           })
 
           const nowMs = Date.now()
-          const withStockRules = convertedCategories.map((category) => {
-            const ruledItems = (category.items || []).map((item) => {
+          const withStockRules = convertedCategories.map(category => {
+            const ruledItems = (category.items || []).map(item => {
               const rule = stockRules?.[String(item.id)] || null
-              const isActiveRule =
-                rule &&
-                (rule.mode === "manual" ||
-                  (rule.resumeAt && new Date(rule.resumeAt).getTime() > nowMs))
-
+              const isActiveRule = rule && (rule.mode === "manual" || (rule.resumeAt && new Date(rule.resumeAt).getTime() > nowMs))
               if (!isActiveRule) return item
-              return {
-                ...item,
-                inStock: false,
-                isAvailable: false,
-                stockRule: rule,
-              }
+              return { ...item, inStock: false, isAvailable: false, stockRule: rule }
             })
-
             return {
               ...category,
               items: ruledItems,
               itemCount: ruledItems.length,
-              inStock: ruledItems.length > 0 ? ruledItems.every((item) => item.inStock) : true,
+              inStock: ruledItems.length > 0 ? ruledItems.every(i => i.inStock) : true,
             }
           })
           
           setCategories(withStockRules)
           setExpandedCategories(withStockRules.map(c => c.id))
-        } else {
-          // Empty menu - start fresh
-          setCategories([])
-          setExpandedCategories([])
+        }
+
+        // Handle Addons Data
+        if (addonsResponse.data && addonsResponse.data.success) {
+          setAddons(addonsResponse.data.data.addons || [])
         }
       } catch (error) {
-        // Only log and show toast if it's not a network/timeout error
         if (error.code !== 'ERR_NETWORK' && error.code !== 'ECONNABORTED' && !error.message?.includes('timeout')) {
-        debugError('Error fetching menu data:', error)
+          debugError('Error fetching data:', error)
           toast.error('Failed to load menu data')
-        } else if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-          // Silently handle network errors - backend is not running
-          // The axios interceptor already handles these with proper error messages
         }
-        setCategories([])
-        setExpandedCategories([])
       } finally {
         setLoadingInventory(false)
+        setLoadingAddons(false)
       }
     }
-    
-    fetchMenuData()
-  }, [recommendedMap])
-
-  // Note: Menu items are now displayed from menu API
-  // Stock status updates should be managed through the menu API, not inventory API
-  // Auto-save disabled since we're displaying menu data, not inventory data
-
-  // Fetch add-ons when add-ons tab is active
-  const fetchAddons = async (showLoading = true) => {
-    try {
-      if (showLoading) setLoadingAddons(true)
-      const response = await restaurantAPI.getAddons()
-      const data = response?.data?.data?.addons || response?.data?.addons || []
-      const getAddonCreatedMs = (addon = {}) => {
-        const candidates = [addon.requestedAt, addon.createdAt, addon.updatedAt]
-          .map((v) => new Date(v).getTime())
-          .find((ms) => Number.isFinite(ms) && ms > 0)
-        if (candidates) return candidates
-        const rawId = String(addon.id || "")
-        const match = rawId.match(/\d{10,}/)
-        if (!match) return 0
-        const fromId = Number(match[0])
-        return Number.isFinite(fromId) ? fromId : 0
-      }
-      const sortedAddons = [...data].sort((a, b) => getAddonCreatedMs(b) - getAddonCreatedMs(a))
-      setAddons(sortedAddons)
-    } catch (error) {
-      debugError('Error fetching add-ons:', error)
-      toast.error('Failed to load add-ons')
-      setAddons([])
-    } finally {
-      if (showLoading) setLoadingAddons(false)
-    }
-  }
+  }, [recommendedMap, stockRules])
 
   useEffect(() => {
-    if (activeTab === "add-ons") {
-      fetchAddons(true)
-    }
-  }, [activeTab])
+    fetchMenuAndAddons()
+  }, [fetchMenuAndAddons])
+
+
 
   // Persist active tab
   useEffect(() => {
@@ -2768,43 +2709,59 @@ export default function Inventory() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsAddPopupOpen(false)}
-              className="fixed inset-0 bg-black/50 z-[70]"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[70]"
             />
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-[71] max-h-[70vh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom)+5.5rem)]"
+              className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-2xl rounded-t-[32px] shadow-[0_-12px_40px_rgba(0,0,0,0.1)] z-[71] max-h-[70vh] overflow-hidden pb-safe"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 bg-white px-4 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-bold text-gray-900 text-center">Add item</h2>
+              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-1" />
+              <div className="px-6 py-4 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Add to Menu</h2>
+                <button 
+                  onClick={() => setIsAddPopupOpen(false)}
+                  className="p-2 bg-gray-100 rounded-full text-gray-500"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div className="px-4 py-4 space-y-2">
+              
+              <div className="px-6 py-2 space-y-4 mb-8">
                 <button
                   onClick={() => {
                     setIsAddPopupOpen(false)
                     navigate(`/food/restaurant/hub-menu/item/new`, {
-                      state: {
-                        backTo: "/food/restaurant/inventory",
-                      },
+                      state: { backTo: "/food/restaurant/inventory" },
                     })
                   }}
-                  className="w-full py-3 px-4 text-left rounded-lg hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all group"
                 >
-                  <span className="text-sm font-medium text-gray-900">Add item</span>
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <Plus className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div className="text-left">
+                    <span className="block text-base font-bold text-gray-900">Add Item</span>
+                    <span className="block text-sm text-gray-500 font-medium">Create a single menu item manually</span>
+                  </div>
                 </button>
+
                 <button
                   onClick={() => {
                     setIsAddPopupOpen(false)
                     setIsBulkUploadModalOpen(true)
                   }}
-                  className="w-full py-3 px-4 text-left rounded-lg hover:bg-gray-50 transition-colors border-t border-gray-100"
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all group"
                 >
-                  <div className="flex items-center gap-3">
-                    <FileUp className="w-4 h-4 text-red-500" />
-                    <span className="text-sm font-medium text-gray-900">Bulk Upload Menu</span>
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <FileUp className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <span className="block text-base font-bold text-gray-900">Bulk Upload</span>
+                    <span className="block text-sm text-gray-500 font-medium">Upload multiple items via Excel</span>
                   </div>
                 </button>
               </div>
@@ -2916,64 +2873,70 @@ export default function Inventory() {
                     setIsBulkUploadModalOpen(false)
                     setBulkUploadFile(null)
                     setBulkUploadResults(null)
+                    if (bulkFileInputRef.current) bulkFileInputRef.current.value = "";
                 }
               }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80]"
+              className="fixed inset-0 bg-black/60 backdrop-blur-md z-[80]"
             />
             <motion.div
               initial={{ y: "100%", opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[40px] shadow-2xl z-[81] max-h-[90vh] overflow-y-auto pb-10"
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[42px] shadow-2xl z-[81] max-h-[92vh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-8">
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-2xl font-bold text-slate-950 tracking-tight">Bulk Upload Menu</h2>
-                  <button 
-                    onClick={() => {
-                        setIsBulkUploadModalOpen(false)
-                        setBulkUploadFile(null)
-                        setBulkUploadResults(null)
-                    }}
-                    className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                  >
-                    <X className="w-6 h-6 text-slate-400" />
-                  </button>
-                </div>
+              <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-4 shrink-0" />
+              
+              <div className="px-8 pt-4 pb-6 flex items-center justify-between shrink-0">
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Bulk Upload</h2>
+                <button 
+                  onClick={() => {
+                      if (!isUploading) {
+                          setIsBulkUploadModalOpen(false)
+                          setBulkUploadFile(null)
+                          setBulkUploadResults(null)
+                          if (bulkFileInputRef.current) bulkFileInputRef.current.value = "";
+                      }
+                  }}
+                  className="p-2.5 bg-slate-100 rounded-2xl transition-colors hover:bg-slate-200"
+                >
+                  <X className="w-5 h-5 text-slate-600" />
+                </button>
+              </div>
 
+              <div className="flex-1 overflow-y-auto px-8 pb-10 custom-scrollbar">
                 {!bulkUploadResults ? (
-                  <div className="space-y-8">
+                  <div className="space-y-6">
                     {/* Step 1: Download Template */}
-                    <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+                    <div className="bg-gradient-to-br from-blue-50/50 to-white rounded-[32px] p-6 border border-blue-100/50 shadow-sm">
                       <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-2xl bg-white shadow-sm flex items-center justify-center shrink-0">
-                          <Download className="w-5 h-5 text-blue-600" />
+                        <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center shrink-0">
+                          <Download className="w-6 h-6 text-blue-600" />
                         </div>
-                        <div className="flex-1">
-                          <h3 className="text-base font-bold text-slate-900 mb-1">Step 1: Get Template</h3>
-                          <p className="text-sm text-slate-500 mb-4">Download our Excel template to ensure your data is formatted correctly.</p>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base font-black text-slate-900 mb-1">Step 1: Get Template</h3>
+                          <p className="text-sm text-slate-500 font-medium mb-4 leading-relaxed">Download our pre-formatted Excel template to ensure data compatibility.</p>
                           <button
                             onClick={handleDownloadTemplate}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all hover:shadow-md"
+                            className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm"
                           >
                             <Download className="w-4 h-4" />
-                            Download Template
+                            Download .xlsx
                           </button>
                         </div>
                       </div>
                     </div>
 
                     {/* Step 2: Upload File */}
-                    <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+                    <div className="bg-gradient-to-br from-purple-50/50 to-white rounded-[32px] p-6 border border-purple-100/50 shadow-sm">
                       <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-2xl bg-white shadow-sm flex items-center justify-center shrink-0">
-                          <FileUp className="w-5 h-5 text-purple-600" />
+                        <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center shrink-0">
+                          <FileUp className="w-6 h-6 text-purple-600" />
                         </div>
-                        <div className="flex-1">
-                          <h3 className="text-base font-bold text-slate-900 mb-1">Step 2: Upload File</h3>
-                          <p className="text-sm text-slate-500 mb-4">Select your completed Excel file to start the upload process.</p>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base font-black text-slate-900 mb-1">Step 2: Upload File</h3>
+                          <p className="text-sm text-slate-500 font-medium mb-4 leading-relaxed">Select your completed file to begin automated processing.</p>
                           
                           <input
                             type="file"
@@ -2986,27 +2949,33 @@ export default function Inventory() {
                           {!bulkUploadFile ? (
                             <button
                               onClick={() => bulkFileInputRef.current?.click()}
-                              className="w-full flex flex-col items-center justify-center gap-3 py-10 bg-white border-2 border-dashed border-slate-200 rounded-3xl hover:border-purple-400 hover:bg-purple-50/30 transition-all group"
+                              className="w-full flex flex-col items-center justify-center gap-3 py-10 bg-white/50 border-2 border-dashed border-slate-200 rounded-3xl hover:border-purple-400 hover:bg-purple-50 transition-all group"
                             >
-                              <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <Upload className="w-6 h-6 text-slate-400 group-hover:text-purple-600" />
+                              <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <Upload className="w-7 h-7 text-slate-400 group-hover:text-purple-600" />
                               </div>
-                              <span className="text-sm font-medium text-slate-600">Select Excel File</span>
+                              <span className="text-sm font-bold text-slate-600">Select Excel File</span>
                             </button>
                           ) : (
-                            <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
-                                  <Check className="w-5 h-5 text-green-600" />
+                            <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between shadow-sm min-w-0">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                                  <Check className="w-6 h-6 text-emerald-600" />
                                 </div>
-                                <div>
-                                  <p className="text-sm font-bold text-slate-900 truncate max-w-[180px]">{bulkUploadFile.name}</p>
-                                  <p className="text-xs text-slate-500">{(bulkUploadFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-black text-slate-900 truncate pr-2">{bulkUploadFile.name}</p>
+                                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{(bulkUploadFile.size / 1024).toFixed(1)} KB</p>
                                 </div>
                               </div>
                               <button 
-                                onClick={() => setBulkUploadFile(null)}
-                                className="p-2 hover:bg-rose-50 rounded-lg group transition-colors"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setBulkUploadFile(null);
+                                    if (bulkFileInputRef.current) {
+                                        bulkFileInputRef.current.value = "";
+                                    }
+                                }}
+                                className="p-2 hover:bg-rose-50 rounded-xl group transition-all shrink-0"
                               >
                                 <X className="w-4 h-4 text-slate-400 group-hover:text-rose-500" />
                               </button>
@@ -3016,78 +2985,90 @@ export default function Inventory() {
                       </div>
                     </div>
 
-                    {/* Action Button */}
-                    <button
-                      onClick={handleBulkUpload}
-                      disabled={!bulkUploadFile || isUploading}
-                      className={`w-full py-4 rounded-3xl text-base font-bold flex items-center justify-center gap-3 transition-all ${
-                        !bulkUploadFile || isUploading
-                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                          : 'bg-slate-950 text-white shadow-xl hover:translate-y-[-2px]'
-                      }`}
-                    >
-                      {isUploading ? (
-                        <>
-                          <RefreshCw className="w-5 h-5 animate-spin" />
-                          Uploading & Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-5 h-5" />
-                          Process Upload
-                        </>
-                      )}
-                    </button>
+                    <div className="pt-4">
+                      <button
+                        onClick={handleBulkUpload}
+                        disabled={!bulkUploadFile || isUploading}
+                        className={`w-full h-16 rounded-[24px] text-base font-black flex items-center justify-center gap-3 transition-all relative overflow-hidden ${
+                          !bulkUploadFile || isUploading
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            : 'bg-slate-950 text-white shadow-[0_20px_40px_-12px_rgba(0,0,0,0.3)] hover:scale-[1.02] active:scale-[0.98]'
+                        }`}
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                            <span>Processing Data...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-5 h-5" />
+                            <span>Process Upload</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <div className="text-center py-8">
-                      <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-4">
-                        <Check className="w-10 h-10 text-green-600" />
+                    <div className="text-center py-6">
+                      <div className="w-24 h-24 rounded-[32px] bg-emerald-50 flex items-center justify-center mx-auto mb-6 shadow-sm rotate-12">
+                        <Check className="w-12 h-12 text-emerald-600 -rotate-12" />
                       </div>
-                      <h3 className="text-xl font-bold text-slate-950">Upload Complete!</h3>
-                      <p className="text-slate-500">Here's a summary of the processing results.</p>
+                      <h3 className="text-2xl font-black text-slate-950">Upload Complete</h3>
+                      <p className="text-slate-500 font-medium">Processing results for {bulkUploadFile?.name}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-emerald-50 p-6 rounded-[32px] border border-emerald-100 text-center">
-                        <p className="text-3xl font-black text-emerald-700">{bulkUploadResults.success}</p>
-                        <p className="text-sm font-bold text-emerald-600 mt-1 uppercase tracking-wider">Successful</p>
+                      <div className="bg-emerald-50/50 p-6 rounded-[32px] border border-emerald-100 text-center shadow-sm">
+                        <p className="text-4xl font-black text-emerald-700 tracking-tighter">{bulkUploadResults.success}</p>
+                        <p className="text-[10px] font-black text-emerald-600/70 mt-1 uppercase tracking-[0.1em]">Added</p>
                       </div>
-                      <div className="bg-rose-50 p-6 rounded-[32px] border border-rose-100 text-center">
-                        <p className="text-3xl font-black text-rose-700">{bulkUploadResults.failed}</p>
-                        <p className="text-sm font-bold text-rose-600 mt-1 uppercase tracking-wider">Failed</p>
+                      <div className="bg-rose-50/50 p-6 rounded-[32px] border border-rose-100 text-center shadow-sm">
+                        <p className="text-4xl font-black text-rose-700 tracking-tighter">{bulkUploadResults.failed}</p>
+                        <p className="text-[10px] font-black text-rose-600/70 mt-1 uppercase tracking-[0.1em]">Errors</p>
                       </div>
                     </div>
 
                     {bulkUploadResults.errors && bulkUploadResults.errors.length > 0 && (
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-amber-500" />
-                          Partial Errors ({bulkUploadResults.errors.length})
-                        </h4>
-                        <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                             Detailed Feedback
+                          </h4>
+                          <span className="px-2.5 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-lg border border-amber-100">
+                             {bulkUploadResults.errors.length} FLAGS
+                          </span>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto space-y-3 custom-scrollbar pr-1">
                           {bulkUploadResults.errors.map((err, i) => (
-                            <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] leading-relaxed">
-                              <span className="font-bold text-slate-700">Item:</span> {err.item || 'Unknown'} 
-                              <br/>
-                              <span className="font-bold text-rose-600">Error:</span> {err.error}
+                            <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                                <span className="text-xs font-black text-slate-800 truncate">{err.item || 'Unknown Entry'}</span>
+                              </div>
+                              <p className="text-[11px] font-medium text-slate-500 leading-relaxed pl-4 border-l-2 border-slate-200 ml-1">
+                                {err.error}
+                              </p>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    <button
-                      onClick={() => {
-                        setIsBulkUploadModalOpen(false)
-                        setBulkUploadFile(null)
-                        setBulkUploadResults(null)
-                      }}
-                      className="w-full py-4 bg-slate-950 text-white rounded-3xl text-base font-bold shadow-xl hover:translate-y-[-2px] transition-all"
-                    >
-                      Done
-                    </button>
+                    <div className="pt-2">
+                      <button
+                        onClick={() => {
+                          setIsBulkUploadModalOpen(false)
+                          setBulkUploadFile(null)
+                          setBulkUploadResults(null)
+                          if (bulkFileInputRef.current) bulkFileInputRef.current.value = "";
+                        }}
+                        className="w-full h-16 bg-slate-950 text-white rounded-[24px] text-base font-black shadow-[0_20px_40px_-12px_rgba(0,0,0,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                      >
+                        Got it, thanks!
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
