@@ -144,7 +144,9 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
     ]);
     const totalPendingWithdrawals = Number(pendingWithdrawalsAgg?.[0]?.total || 0);
     const subscriptionDue = Math.max(0, Number(restaurant?.subscriptionDueAmount || 0));
-    const availableBalance = subscriptionDue > 0 ? 0 : Math.max(0, globalEstimatedPayout - totalPendingWithdrawals);
+    // Restaurant can withdraw everything MINUS the pending debt. 
+    // Example: Earning = 7000, Debt = 5000. Balance = 2000.
+    const availableBalance = Math.max(0, globalEstimatedPayout - totalPendingWithdrawals - subscriptionDue);
 
     const currentCycle = {
         start: { ...nowWindow.startMeta },

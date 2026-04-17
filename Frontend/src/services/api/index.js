@@ -1327,6 +1327,13 @@ export const restaurantAPI = {
     }
     return apiClient.post("/food/restaurant/register", formData);
   },
+  /** Upload a single attachment for background onboarding uploads */
+  uploadAttachment: (formData) => {
+    if (!formData || !(formData instanceof FormData)) {
+      return Promise.reject(new Error("FormData is required"));
+    }
+    return apiClient.post("/food/restaurant/upload-attachment", formData);
+  },
   /** Create onboarding payment order (Razorpay) */
   createOnboardingPaymentOrder: (amount, subscriptionPlan, paymentType = 'full') =>
     apiClient.post("/food/restaurant/payment/onboarding-order", {

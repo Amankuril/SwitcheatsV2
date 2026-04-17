@@ -11,11 +11,22 @@ import {
     uploadRestaurantMenuImage,
     uploadRestaurantCoverImages,
     uploadRestaurantMenuImages,
+    uploadRestaurantAttachment,
     listPublicOffers,
     getRestaurantComplaints
 } from '../services/restaurant.service.js';
 import { validateRestaurantRegisterDto } from '../validators/restaurant.validator.js';
 import { sendResponse } from '../../../../utils/response.js';
+
+export const uploadRestaurantAttachmentController = async (req, res, next) => {
+    try {
+        const { folder } = req.body;
+        const result = await uploadRestaurantAttachment(req.file, folder);
+        return sendResponse(res, 200, 'Image uploaded successfully', result);
+    } catch (error) {
+        next(error);
+    }
+};
 
 export const registerRestaurantController = async (req, res, next) => {
     try {

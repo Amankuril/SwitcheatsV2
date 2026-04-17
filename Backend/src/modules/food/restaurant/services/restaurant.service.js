@@ -280,6 +280,23 @@ const notifyAdminsAboutRestaurantProfileReview = async (restaurantId, restaurant
     }
 };
 
+export const uploadRestaurantAttachment = async (file, folderType = 'profile') => {
+    if (!file || !file.buffer) {
+        throw new Error('File is required for upload');
+    }
+
+    let folder = 'food/restaurants';
+    if (folderType === 'profile') folder += '/profile';
+    else if (folderType === 'pan') folder += '/pan';
+    else if (folderType === 'gst') folder += '/gst';
+    else if (folderType === 'fssai') folder += '/fssai';
+    else if (folderType === 'menu') folder += '/menu';
+    else folder += '/others';
+
+    const url = await uploadImageBuffer(file.buffer, folder);
+    return { url };
+};
+
 export const registerRestaurant = async (payload, files) => {
     const {
         restaurantName,
@@ -325,7 +342,13 @@ export const registerRestaurant = async (payload, files) => {
         paymentType,
         razorpayOrderId,
         razorpayPaymentId,
-        razorpaySignature
+        razorpaySignature,
+        // Pre-uploaded image URLs from background uploads
+        profileImage: preUploadedProfileImage,
+        panImage: preUploadedPanImage,
+        gstImage: preUploadedGstImage,
+        fssaiImage: preUploadedFssaiImage,
+        menuImages: preUploadedMenuImages
     } = payload;
 
     if (!ownerPhone) {
@@ -398,7 +421,12 @@ export const registerRestaurant = async (payload, files) => {
         throw new ValidationError('Restaurant name is required to register a restaurant');
     }
 
-    const images = {};
+    const images = {
+        profileImage: preUploadedProfileImage || '',
+        panImage: preUploadedPanImage || '',
+        gstImage: preUploadedGstImage || '',
+        fssaiImage: preUploadedFssaiImage || ''
+    };
 
     const uploadTasks = [];
     const imageMap = {};
@@ -421,10 +449,21 @@ export const registerRestaurant = async (payload, files) => {
     }
 
     let menuImages = [];
+    // If we have pre-uploaded menu images, use them
+    if (preUploadedMenuImages) {
+        try {
+            menuImages = Array.isArray(preUploadedMenuImages) 
+                ? preUploadedMenuImages 
+                : (typeof preUploadedMenuImages === 'string' ? JSON.parse(preUploadedMenuImages) : []);
+        } catch (e) {
+            console.error('Error parsing preUploadedMenuImages:', e);
+        }
+    }
+
     if (files?.menuImages?.length) {
         uploadTasks.push(Promise.all(
             files.menuImages.map((file) => uploadImageBuffer(file.buffer, 'food/restaurants/menu'))
-        ).then(urls => { menuImages = urls; }));
+        ).then(urls => { menuImages = [...menuImages, ...urls]; }));
     }
 
     // Wait for all uploads to complete in parallel
@@ -516,6 +555,7 @@ export const registerRestaurant = async (payload, files) => {
             subscriptionPaidAmount: subscriptionPaid,
             subscriptionDueAmount: dueAmount,
             subscriptionStatus: dueAmount > 0 ? 'due' : 'paid',
+            subscriptionValidTill: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Valid for 30 days
             ...images
         });
 

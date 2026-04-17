@@ -143,7 +143,13 @@ const restaurantRegisterSchema = z.object({
     paymentType: z.string().optional(),
     razorpayOrderId: z.string().optional(),
     razorpayPaymentId: z.string().optional(),
-    razorpaySignature: z.string().optional()
+    razorpaySignature: z.string().optional(),
+    // Allow pre-uploaded image URLs for background upload flow
+    profileImage: z.string().optional(),
+    panImage: z.string().optional(),
+    gstImage: z.string().optional(),
+    fssaiImage: z.string().optional(),
+    menuImages: z.string().optional() // can be a stringified array
 });
 
 export const validateRestaurantRegisterDto = (body) => {

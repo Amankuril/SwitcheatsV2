@@ -297,6 +297,9 @@ const restaurantSchema = new mongoose.Schema(
       enum: ['due', 'paid'],
       default: 'due',
     },
+    subscriptionValidTill: {
+      type: Date,
+    },
   },
   {
     collection: "food_restaurants",

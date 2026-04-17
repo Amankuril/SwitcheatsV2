@@ -484,6 +484,46 @@ export default function RestaurantOnboarding() {
     errors: []
   })
   const [registrationProcessing, setRegistrationProcessing] = useState(false)
+  const [uploadingAttachments, setUploadingAttachments] = useState({})
+
+  const triggerBackgroundUpload = async (file, folder, fieldName, isArray = false, arrayIndex = -1) => {
+    if (!file || !isUploadableFile(file)) return;
+
+    const trackingKey = isArray && arrayIndex >= 0 ? `${fieldName}_${arrayIndex}` : fieldName;
+    setUploadingAttachments(prev => ({ ...prev, [trackingKey]: true }))
+    
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', folder)
+      
+      const res = await restaurantAPI.uploadAttachment(formData)
+      const url = res.data?.data?.url
+
+      if (url) {
+        if (fieldName === 'profileImage') {
+           setStep2(prev => ({ ...prev, profileImage: url }))
+        } else if (fieldName === 'panImage') {
+           setStep3(prev => ({ ...prev, panImage: url }))
+        } else if (fieldName === 'gstImage') {
+           setStep3(prev => ({ ...prev, gstImage: url }))
+        } else if (fieldName === 'fssaiImage') {
+           setStep3(prev => ({ ...prev, fssaiImage: url }))
+        } else if (fieldName === 'menuImages' && isArray && arrayIndex >= 0) {
+           setStep2(prev => {
+             const next = [...prev.menuImages]
+             next[arrayIndex] = url
+             return { ...prev, menuImages: next }
+           })
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to upload ${fieldName}:`, error)
+      toast.error(`Image upload failed. Please re-select or retry.`)
+    } finally {
+      setUploadingAttachments(prev => ({ ...prev, [trackingKey]: false }))
+    }
+  }
 
   const handleLogout = async () => {
     if (isLoggingOut) return
@@ -626,12 +666,18 @@ export default function RestaurantOnboarding() {
 
   const handleMenuImagesSelected = (files = []) => {
     if (!files.length) return
+    const currentCount = (step2.menuImages || []).length
     const nextMenuImages = [...(step2.menuImages || []), ...files]
     setStep2((prev) => ({
       ...prev,
       menuImages: nextMenuImages,
     }))
     void persistMenuImagesToDB(nextMenuImages)
+
+    // Trigger background uploads for new images
+    files.forEach((img, idx) => {
+      void triggerBackgroundUpload(img, 'menu', 'menuImages', true, currentCount + idx)
+    })
   }
 
   const handleProfileImageSelected = (file) => {
@@ -641,21 +687,25 @@ export default function RestaurantOnboarding() {
       profileImage: file,
     }))
     void saveFileToDB("profileImage", file)
+    void triggerBackgroundUpload(file, 'profile', 'profileImage')
   }
 
   const handlePanImageSelected = (file) => {
     if (!file) return
     setStep3((prev) => ({ ...prev, panImage: file }))
+    void triggerBackgroundUpload(file, 'pan', 'panImage')
   }
 
   const handleGstImageSelected = (file) => {
     if (!file) return
     setStep3((prev) => ({ ...prev, gstImage: file }))
+    void triggerBackgroundUpload(file, 'gst', 'gstImage')
   }
 
   const handleFssaiImageSelected = (file) => {
     if (!file) return
     setStep3((prev) => ({ ...prev, fssaiImage: file }))
+    void triggerBackgroundUpload(file, 'fssai', 'fssaiImage')
   }
 
   const isPersistedImageValue = (value) =>
@@ -2049,6 +2099,11 @@ export default function RestaurantOnboarding() {
                         <X className="w-3 h-3" />
                       </button>
                     </div>
+                    {uploadingAttachments[`menuImages_${idx}`] && (
+                      <div className="absolute inset-0 bg-black/40 z-20 flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      </div>
+                    )}
                     {imageUrl ? (
                       <img
                         src={imageUrl}
@@ -2094,6 +2149,11 @@ export default function RestaurantOnboarding() {
                   })()
                 ) : (
                   <ImageIcon className="w-6 h-6 text-gray-500" />
+                )}
+                {uploadingAttachments.profileImage && (
+                  <div className="absolute inset-0 bg-black/40 z-20 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                  </div>
                 )}
               </div>
               {step2.profileImage && (
@@ -2321,6 +2381,11 @@ export default function RestaurantOnboarding() {
                   Preview unavailable
                 </div>
               )}
+              {uploadingAttachments.panImage && (
+                <div className="absolute inset-0 bg-black/40 z-20 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent"></div>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={(e) => {
@@ -2425,6 +2490,11 @@ export default function RestaurantOnboarding() {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">
                     Preview unavailable
+                  </div>
+                )}
+                {uploadingAttachments.gstImage && (
+                  <div className="absolute inset-0 bg-black/40 z-20 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent"></div>
                   </div>
                 )}
                 <button
@@ -2536,6 +2606,11 @@ export default function RestaurantOnboarding() {
             ) : (
               <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">
                 Preview unavailable
+              </div>
+            )}
+            {uploadingAttachments.fssaiImage && (
+              <div className="absolute inset-0 bg-black/40 z-20 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent"></div>
               </div>
             )}
             <button
@@ -2968,41 +3043,64 @@ export default function RestaurantOnboarding() {
             formData.append('closingTime', normalizeTimeValue(step2.closingTime) || '')
             formData.append('openDays', (step2.openDays || []).join(','))
 
-            const menuFiles = (step2.menuImages || []).filter((f) => isUploadableFile(f))
-            if (menuFiles.length === 0) {
+            const menuImages = step2.menuImages || []
+            const menuFiles = menuImages.filter(f => isUploadableFile(f))
+            const menuUrls = menuImages.map(f => typeof f === 'string' ? f : (f?.url || null)).filter(Boolean)
+
+            if (menuFiles.length === 0 && menuUrls.length === 0) {
               throw new Error('At least one menu image must be uploaded')
             }
+            
             menuFiles.forEach((file) => formData.append('menuImages', file))
+            if (menuUrls.length > 0) {
+              formData.append('menuImages', JSON.stringify(menuUrls))
+            }
 
-            if (!isUploadableFile(step2.profileImage)) {
+            if (!step2.profileImage) {
               throw new Error('Restaurant profile image is required')
             }
-            formData.append('profileImage', step2.profileImage)
+            if (isUploadableFile(step2.profileImage)) {
+              formData.append('profileImage', step2.profileImage)
+            } else {
+              formData.append('profileImage', typeof step2.profileImage === 'string' ? step2.profileImage : step2.profileImage.url)
+            }
 
             formData.append('panNumber', step3.panNumber || '')
             formData.append('nameOnPan', step3.nameOnPan || '')
-            if (!isUploadableFile(step3.panImage)) {
+            if (!step3.panImage) {
               throw new Error('PAN image is required')
             }
-            formData.append('panImage', step3.panImage)
+            if (isUploadableFile(step3.panImage)) {
+              formData.append('panImage', step3.panImage)
+            } else {
+              formData.append('panImage', typeof step3.panImage === 'string' ? step3.panImage : step3.panImage.url)
+            }
 
             formData.append('gstRegistered', step3.gstRegistered ? 'true' : 'false')
             if (step3.gstRegistered) {
               formData.append('gstNumber', step3.gstNumber || '')
               formData.append('gstLegalName', step3.gstLegalName || '')
               formData.append('gstAddress', step3.gstAddress || '')
-              if (!isUploadableFile(step3.gstImage)) {
+              if (!step3.gstImage) {
                 throw new Error('GST image is required when GST registered')
               }
-              formData.append('gstImage', step3.gstImage)
+              if (isUploadableFile(step3.gstImage)) {
+                formData.append('gstImage', step3.gstImage)
+              } else {
+                formData.append('gstImage', typeof step3.gstImage === 'string' ? step3.gstImage : step3.gstImage.url)
+              }
             }
 
             formData.append('fssaiNumber', step3.fssaiNumber || '')
             formData.append('fssaiExpiry', step3.fssaiExpiry || '')
-            if (!isUploadableFile(step3.fssaiImage)) {
+            if (!step3.fssaiImage) {
               throw new Error('FSSAI image is required')
             }
-            formData.append('fssaiImage', step3.fssaiImage)
+            if (isUploadableFile(step3.fssaiImage)) {
+              formData.append('fssaiImage', step3.fssaiImage)
+            } else {
+              formData.append('fssaiImage', typeof step3.fssaiImage === 'string' ? step3.fssaiImage : step3.fssaiImage.url)
+            }
 
             formData.append('accountNumber', step3.accountNumber || '')
             formData.append('ifscCode', (step3.ifscCode || '').toUpperCase())
@@ -3234,10 +3332,12 @@ export default function RestaurantOnboarding() {
             </Button>
             <Button
               onClick={handleNext}
-              disabled={saving || paymentProcessing || (step === 3 && !isEditing)}
-              className={`text-sm bg-black text-white px-6 ${(saving || paymentProcessing || (step === 3 && !isEditing)) ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={saving || paymentProcessing || (step === 3 && !isEditing) || Object.values(uploadingAttachments).some(Boolean)}
+              className={`text-sm bg-black text-white px-6 ${(saving || paymentProcessing || (step === 3 && !isEditing) || Object.values(uploadingAttachments).some(Boolean)) ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-              {step === 4 ? (paymentProcessing ? "Processing..." : "Finish & Pay") : (saving ? "Saving..." : "Continue")}
+              {Object.values(uploadingAttachments).some(Boolean) 
+                ? "Uploading..." 
+                : (step === 4 ? (paymentProcessing ? "Processing..." : "Finish & Pay") : (saving ? "Saving..." : "Continue"))}
             </Button>
           </div>
         </footer>

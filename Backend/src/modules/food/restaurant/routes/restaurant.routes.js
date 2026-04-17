@@ -14,7 +14,8 @@ import {
     uploadRestaurantMenuImageController,
     uploadRestaurantCoverImagesController,
     uploadRestaurantMenuImagesController,
-    getRestaurantComplaintsController
+    getRestaurantComplaintsController,
+    uploadRestaurantAttachmentController
 } from '../controllers/restaurant.controller.js';
 import {
     createRestaurantSupportTicketController,
@@ -78,6 +79,7 @@ const uploadFields = upload.fields([
 
 router.post('/payment/onboarding-order', createRestaurantOnboardingOrderController);
 router.post('/register', uploadFields, registerRestaurantController);
+router.post('/upload-attachment', upload.single('file'), uploadRestaurantAttachmentController);
 
 // Public: approved restaurants list (for user app)
 router.get('/restaurants', cacheResponse(300, 'restaurants'), listApprovedRestaurantsController);
