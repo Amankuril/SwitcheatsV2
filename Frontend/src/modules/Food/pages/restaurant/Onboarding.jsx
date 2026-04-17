@@ -483,6 +483,7 @@ export default function RestaurantOnboarding() {
     customAmount: 0,
     errors: []
   })
+  const [registrationProcessing, setRegistrationProcessing] = useState(false)
 
   const handleLogout = async () => {
     if (isLoggingOut) return
@@ -2621,26 +2622,31 @@ export default function RestaurantOnboarding() {
       { value: '9999', label: '₹9,999', features: ['All basic features', 'Priority support', 'Advanced analytics'] }
     ]
 
-    const onboardingFee = 799
-    const selectedPlan = step4State.subscriptionPlan ? Number(step4State.subscriptionPlan) : 0
+    const onboardingFeeBase = 799
+    const GST_RATE = 0.18
+    const onboardingGST = Math.round(onboardingFeeBase * GST_RATE)
+    const onboardingFeeTotal = onboardingFeeBase + onboardingGST
+
+    const selectedPlanBase = step4State.subscriptionPlan ? Number(step4State.subscriptionPlan) : 0
     const planLabel = step4State.subscriptionPlan === '4999' ? 'Elite' : 'Pro'
-    const maxPaymentAmount = onboardingFee + selectedPlan
-    const customAmount = Number(step4State.customAmount || 0)
+    
+    const subscriptionPlanGST = Math.round(selectedPlanBase * GST_RATE)
+    const subscriptionPlanTotal = selectedPlanBase + subscriptionPlanGST
+
+    const customAmountBase = Number(step4State.customAmount || 0)
     const paymentType = step4State.paymentType
 
-    const currentPaymentAmount = paymentType === 'later'
-      ? onboardingFee
-      : paymentType === 'full'
-      ? maxPaymentAmount
-      : onboardingFee + customAmount
-
-    const subscriptionPaidNow = paymentType === 'full'
-      ? selectedPlan
+    const subscriptionPaidNowBase = paymentType === 'full'
+      ? selectedPlanBase
       : paymentType === 'later'
       ? 0
-      : Math.max(0, customAmount)
+      : Math.max(0, customAmountBase)
 
-    const subscriptionDueNow = Math.max(0, selectedPlan - subscriptionPaidNow)
+    const subscriptionPaidNowGST = Math.round(subscriptionPaidNowBase * GST_RATE)
+    const subscriptionPaidNowTotal = subscriptionPaidNowBase + subscriptionPaidNowGST
+
+    const currentPaymentTotal = onboardingFeeTotal + subscriptionPaidNowTotal
+    const subscriptionDueLaterTotal = subscriptionPlanTotal - subscriptionPaidNowTotal
 
     return (
       <div className="space-y-6">
@@ -2652,7 +2658,8 @@ export default function RestaurantOnboarding() {
 
           <div className="border border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
             <p className="text-sm font-medium text-orange-900">Onboarding fee</p>
-            <p className="text-lg font-semibold text-orange-600">₹{onboardingFee}</p>
+            <p className="text-lg font-semibold text-orange-600">₹{onboardingFeeBase} + ₹{onboardingGST} (18% GST)</p>
+            <p className="text-xl font-bold text-orange-700">Total: ₹{onboardingFeeTotal}</p>
             <p className="text-xs text-orange-700">Mandatory to activate account</p>
           </div>
         </section>
@@ -2674,7 +2681,7 @@ export default function RestaurantOnboarding() {
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-medium text-black">{plan.label}/month</p>
+                    <p className="font-medium text-black">{plan.label}/month + 18% GST (Total: ₹{Math.round(Number(plan.value) * 1.18)})</p>
                     <ul className="mt-2 space-y-1">
                       {plan.features.map((f, i) => (
                         <li key={i} className="text-xs text-gray-600">• {f}</li>
@@ -2704,7 +2711,7 @@ export default function RestaurantOnboarding() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-medium text-black">Pay now</p>
-                    <p className="text-xs text-gray-600 mt-1">Pay onboarding fee plus the selected subscription plan in full now.</p>
+                    <p className="text-xs text-gray-600 mt-1">Pay onboarding fee (₹{onboardingFeeTotal}) plus the selected subscription plan (₹{subscriptionPlanTotal}) in full now.</p>
                   </div>
                   <div className={`w-5 h-5 rounded-full border-2 ${step4State.paymentType === 'full' ? 'border-black bg-black' : 'border-gray-300'}`} />
                 </div>
@@ -2740,7 +2747,7 @@ export default function RestaurantOnboarding() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-medium text-black">Pay later</p>
-                    <p className="text-xs text-gray-600 mt-1">Pay subscription later. Only onboarding fee (₹{onboardingFee}) will be collected now.</p>
+                    <p className="text-xs text-gray-600 mt-1">Pay subscription later. Only onboarding fee (₹{onboardingFeeTotal} with GST) will be collected now.</p>
                   </div>
                   <div className={`w-5 h-5 rounded-full border-2 ${step4State.paymentType === 'later' ? 'border-black bg-black' : 'border-gray-300'}`} />
                 </div>
@@ -2754,16 +2761,16 @@ export default function RestaurantOnboarding() {
                   type="number"
                   value={step4State.customAmount || ''}
                   min={1}
-                  max={selectedPlan}
+                  max={selectedPlanBase}
                   onChange={(e) => {
                     const value = Number(e.target.value || 0)
                     setStep4State((prev) => ({ ...prev, customAmount: value, errors: [] }))
                   }}
                   className="bg-white text-sm"
-                  placeholder={`Enter partial plan payment (₹1 - ₹${selectedPlan})`}
+                  placeholder={`Enter partial plan base payment (₹1 - ₹${selectedPlanBase})`}
                 />
                 <p className="text-xs text-gray-500 mt-2">
-                  Onboarding fee ₹{onboardingFee} is mandatory. This amount is the partial subscription payment now; the rest will be due later.
+                  Onboarding fee (₹{onboardingFeeTotal} inc. GST) is mandatory. The partial payment for subscription will also have 18% GST added.
                 </p>
               </div>
             )}
@@ -2775,26 +2782,64 @@ export default function RestaurantOnboarding() {
             <h2 className="text-lg font-semibold text-black">Payment summary</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Onboarding fee</span>
-                <span className="font-medium">₹{onboardingFee}</span>
+                <span className="text-gray-600">Onboarding fee (Base)</span>
+                <span className="font-medium">₹{onboardingFeeBase}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Subscription ({planLabel})</span>
-                <span className="font-medium">₹{selectedPlan}</span>
+                <span className="text-gray-600">Onboarding GST (18%)</span>
+                <span className="font-medium">₹{onboardingGST}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Pay now</span>
-                <span className="font-medium">₹{currentPaymentAmount}</span>
+              <div className="flex justify-between border-t border-gray-100 pt-1">
+                <span className="text-gray-800 font-medium">Onboarding Total</span>
+                <span className="font-bold">₹{onboardingFeeTotal}</span>
               </div>
-              {subscriptionDueNow > 0 && (
+              
+              <div className="mt-2 pt-2 border-t border-gray-100">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Subscription due later</span>
-                  <span className="font-medium">₹{subscriptionDueNow}</span>
+                  <span className="text-gray-600">Subscription ({planLabel}) Base</span>
+                  <span className="font-medium">₹{selectedPlanBase}</span>
                 </div>
-              )}
-              <div className="border-t pt-2 flex justify-between font-semibold text-base">
-                <span>Total to pay now</span>
-                <span className="text-orange-600">₹{currentPaymentAmount}</span>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Subscription GST (18%)</span>
+                  <span className="font-medium">₹{subscriptionPlanGST}</span>
+                </div>
+                <div className="flex justify-between border-t border-gray-100 pt-1">
+                  <span className="text-gray-800 font-medium">Subscription Total</span>
+                  <span className="font-bold">₹{subscriptionPlanTotal}</span>
+                </div>
+              </div>
+
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Breakdown of Pay now</div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Onboarding (Total)</span>
+                  <span className="font-medium">₹{onboardingFeeTotal}</span>
+                </div>
+                
+                {subscriptionPaidNowTotal > 0 && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Subscription ({paymentType === 'partial' ? 'Partial' : 'Pay now'}) Base</span>
+                      <span className="font-medium">₹{subscriptionPaidNowBase}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Subscription ({paymentType === 'partial' ? 'Partial' : 'Pay now'}) GST</span>
+                      <span className="font-medium">₹{subscriptionPaidNowGST}</span>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex justify-between border-t border-orange-100 mt-2 pt-1">
+                  <span className="text-gray-700 font-semibold text-base">Total to pay now</span>
+                  <span className="text-orange-600 font-bold text-lg">₹{currentPaymentTotal}</span>
+                </div>
+                
+                {subscriptionDueLaterTotal > 0 && (
+                  <div className="flex justify-between text-xs mt-1 bg-gray-50 p-1 rounded">
+                    <span className="text-gray-500 italic">Remaining due later (inc. GST)</span>
+                    <span className="text-gray-500 font-medium">₹{subscriptionDueLaterTotal}</span>
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -2816,41 +2861,51 @@ export default function RestaurantOnboarding() {
     setError('')
 
     try {
-      const selectedPlan = step4State.subscriptionPlan ? Number(step4State.subscriptionPlan) : 0
+      const GST_RATE = 0.18
+      const selectedPlanBase = step4State.subscriptionPlan ? Number(step4State.subscriptionPlan) : 0
       const planErrors = []
-      if (!selectedPlan) {
+      if (!selectedPlanBase) {
         planErrors.push('Please select a subscription plan')
       }
 
       const paymentType = step4State.paymentType || 'full'
-      const onboardingFee = 799
-      const maxPaymentAmount = onboardingFee + selectedPlan
-      let paymentAmount = 0
-      let subscriptionPaidAmount = 0
+      const onboardingFeeBase = 799
+      const onboardingGST = Math.round(onboardingFeeBase * GST_RATE)
+      const onboardingFeeTotal = onboardingFeeBase + onboardingGST
+      
+      let paymentAmountTotal = 0
+      let subscriptionPaidAmountBase = 0
 
       if (paymentType === 'full') {
-        paymentAmount = onboardingFee + selectedPlan
-        subscriptionPaidAmount = selectedPlan
+        const planGST = Math.round(selectedPlanBase * GST_RATE)
+        paymentAmountTotal = onboardingFeeTotal + selectedPlanBase + planGST
+        subscriptionPaidAmountBase = selectedPlanBase
       } else if (paymentType === 'later') {
-        paymentAmount = onboardingFee
-        subscriptionPaidAmount = 0
+        paymentAmountTotal = onboardingFeeTotal
+        subscriptionPaidAmountBase = 0
       } else if (paymentType === 'partial') {
-        const partialAmount = Number(step4State.customAmount || 0)
-        if (!Number.isFinite(partialAmount) || partialAmount <= 0) {
+        const partialAmountBase = Number(step4State.customAmount || 0)
+        if (!Number.isFinite(partialAmountBase) || partialAmountBase <= 0) {
           planErrors.push('Please enter a valid partial subscription amount')
         }
-        if (partialAmount > selectedPlan) {
-          planErrors.push(`Partial payment cannot exceed the selected plan amount of ₹${selectedPlan}`)
+        if (partialAmountBase > selectedPlanBase) {
+          planErrors.push(`Partial payment cannot exceed the selected plan amount of ₹${selectedPlanBase}`)
         }
-        paymentAmount = onboardingFee + partialAmount
-        subscriptionPaidAmount = Math.max(0, partialAmount)
+        const partialGST = Math.round(partialAmountBase * GST_RATE)
+        paymentAmountTotal = onboardingFeeTotal + partialAmountBase + partialGST
+        subscriptionPaidAmountBase = Math.max(0, partialAmountBase)
       } else {
         planErrors.push('Invalid payment type selected')
       }
 
-      if (paymentAmount <= 0) {
+      if (paymentAmountTotal <= 0) {
         planErrors.push('Invalid payment amount')
       }
+
+      const planGST = Math.round(selectedPlanBase * GST_RATE)
+      const subscriptionPlanTotal = selectedPlanBase + planGST
+      const subscriptionPaidNowGST = Math.round(subscriptionPaidAmountBase * GST_RATE)
+      const subscriptionPaidNowTotal = subscriptionPaidAmountBase + subscriptionPaidNowGST
 
       if (planErrors.length > 0) {
         setStep4State(prev => ({ ...prev, errors: planErrors }))
@@ -2858,7 +2913,7 @@ export default function RestaurantOnboarding() {
         return
       }
 
-      const orderRes = await restaurantAPI.createOnboardingPaymentOrder(paymentAmount, step4State.subscriptionPlan, paymentType)
+      const orderRes = await restaurantAPI.createOnboardingPaymentOrder(paymentAmountTotal, step4State.subscriptionPlan, paymentType)
       const orderData = orderRes?.data?.data
 
       if (!orderData?.razorpay) {
@@ -2956,29 +3011,35 @@ export default function RestaurantOnboarding() {
 
             // Payment & Subscription fields
             formData.append('onboardingFeePaid', 'true')
-            formData.append('onboardingFeeAmount', String(onboardingFee))
+            formData.append('onboardingFeeAmount', String(onboardingFeeTotal))
             formData.append('subscriptionPlan', step4State.subscriptionPlan || '')
-            formData.append('subscriptionAmount', String(selectedPlan))
-            formData.append('subscriptionPaidAmount', String(subscriptionPaidAmount))
-            formData.append('subscriptionDueAmount', String(Math.max(0, selectedPlan - subscriptionPaidAmount)))
+            formData.append('subscriptionAmount', String(subscriptionPlanTotal))
+            formData.append('subscriptionPaidAmount', String(subscriptionPaidNowTotal))
+            formData.append('subscriptionDueAmount', String(Math.max(0, subscriptionPlanTotal - subscriptionPaidNowTotal)))
             formData.append('paymentType', paymentType)
             formData.append('razorpayOrderId', razorpayOrderId)
             formData.append('razorpayPaymentId', response.razorpay_payment_id)
             formData.append('razorpaySignature', response.razorpay_signature)
 
-            console.log('Submitting registration...')
-            console.log('FormData keys:', Array.from(formData.keys()))
+            console.log('Payment handler called, opening registration...')
+            setRegistrationProcessing(true)
             
+            const loadingToast = toast.loading('Uploading documents & registering your restaurant...', {
+              description: 'This might take a minute for high-resolution images.',
+            })
+
             try {
               console.log('Calling restaurantAPI.register...')
               const registerPromise = restaurantAPI.register(formData)
               
-              // Add a 30 second timeout
+              // Add a 60 second timeout (image uploads can take time)
               const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Registration request timeout after 30s')), 30000)
+                setTimeout(() => reject(new Error('Registration request timeout after 60s')), 60000)
               )
               
               const registerRes = await Promise.race([registerPromise, timeoutPromise])
+              toast.dismiss(loadingToast)
+              setRegistrationProcessing(false)
               console.log('✓ Registration API returned:', registerRes)
               
               if (registerRes?.status >= 200 && registerRes?.status < 300) {
@@ -2987,6 +3048,8 @@ export default function RestaurantOnboarding() {
                 console.warn('⚠ Registration returned status:', registerRes?.status)
               }
             } catch (registrationError) {
+              toast.dismiss(loadingToast)
+              setRegistrationProcessing(false)
               console.error('✗ Registration failed:', {
                 message: registrationError?.message,
                 response: registrationError?.response?.data,
@@ -3023,14 +3086,6 @@ export default function RestaurantOnboarding() {
                 phone: ownerPhoneForRedirect,
               },
             })
-            
-            // Solid fallback in case React Router's navigate is swallowed by Razorpay modal cleanup
-            setTimeout(() => {
-              if (!window.location.pathname.includes('/pending-verification')) {
-                window.location.href = '/food/restaurant/pending-verification'
-              }
-            }, 600)
-            
             console.log('✓ Navigate called successfully')
           } catch (err) {
             console.error('Handler caught error:', err)
@@ -3044,16 +3099,20 @@ export default function RestaurantOnboarding() {
         onError: (error) => {
           toast.error(error?.description || 'Payment failed')
           setError(error?.description || 'Payment failed')
+          setRegistrationProcessing(false)
           setPaymentProcessing(false)
         },
         onClose: () => {
+          setRegistrationProcessing(false)
           setPaymentProcessing(false)
         }
       })
     } catch (err) {
+      toast.dismiss()
+      setRegistrationProcessing(false)
+      setPaymentProcessing(false)
       toast.error(err?.message || 'Failed to initiate payment')
       setError(err?.message || 'Failed to initiate payment')
-      setPaymentProcessing(false)
     }
   }
 
@@ -3067,6 +3126,23 @@ export default function RestaurantOnboarding() {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <div className="min-h-screen bg-gray-100 flex flex-col">
+        {registrationProcessing && (
+          <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm px-6 text-center">
+            <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 max-w-sm">
+              <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+              <h3 className="text-xl font-bold text-gray-900">Processing Registration</h3>
+              <p className="text-sm text-gray-600">
+                We're uploading your documents & setting up your profile. This can take a minute for high resolution images.
+              </p>
+              <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-orange-500 h-full animate-[loading_2s_infinite]"></div>
+              </div>
+              <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-2">
+                Please do not refresh or close
+              </p>
+            </div>
+          </div>
+        )}
         <header className="px-4 py-4 sm:px-6 sm:py-5 bg-white flex items-center justify-between border-b">
           <div className="flex items-center gap-3">
             <button
@@ -3158,10 +3234,10 @@ export default function RestaurantOnboarding() {
             </Button>
             <Button
               onClick={handleNext}
-              disabled={saving || (step === 3 && !isEditing)}
-              className={`text-sm bg-black text-white px-6 ${(step === 3 && !isEditing) ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={saving || paymentProcessing || (step === 3 && !isEditing)}
+              className={`text-sm bg-black text-white px-6 ${(saving || paymentProcessing || (step === 3 && !isEditing)) ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-              {step === 3 ? (saving ? "Saving..." : "Finish") : saving ? "Saving..." : "Continue"}
+              {step === 4 ? (paymentProcessing ? "Processing..." : "Finish & Pay") : (saving ? "Saving..." : "Continue")}
             </Button>
           </div>
         </footer>

@@ -278,7 +278,7 @@ const restaurantSchema = new mongoose.Schema(
     },
     subscriptionPlan: {
       type: String,
-      enum: ['4999', '9999'],
+      enum: ['4999', '9999', 'elite', 'pro'],
     },
     subscriptionAmount: {
       type: Number,

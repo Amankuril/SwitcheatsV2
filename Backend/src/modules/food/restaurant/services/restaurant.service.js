@@ -332,22 +332,37 @@ export const registerRestaurant = async (payload, files) => {
         throw new ValidationError('Owner phone is required to register a restaurant');
     }
 
-    const onboardingFee = Number(onboardingFeeAmount || 0);
-    const subscriptionTotal = Number(subscriptionAmount || 0);
-    const subscriptionPaid = Number(subscriptionPaidAmount || 0);
+    const GST_RATE = 0.18;
+    const onboardingFeeBase = 799;
+    const onboardingGST = Math.round(onboardingFeeBase * GST_RATE);
+    const onboardingFeeExpected = onboardingFeeBase + onboardingGST;
+
+    const onboardingFeeActual = Number(onboardingFeeAmount || 0);
+    const subscriptionTotal = Number(subscriptionAmount || 0); // Should be plan + GST
+    const subscriptionPaid = Number(subscriptionPaidAmount || 0); // Should be paid + GST
     const dueAmount = Math.max(0, subscriptionTotal - subscriptionPaid);
 
     if (!onboardingFeePaid) {
         throw new ValidationError('Onboarding fee payment is required');
     }
-    if (onboardingFee < 799) {
-        throw new ValidationError('Onboarding fee must be at least ₹799');
+    // Allow for a bit of rounding margin or just check against expected total
+    if (onboardingFeeActual < onboardingFeeExpected) {
+        throw new ValidationError(`Onboarding fee must be at least ₹${onboardingFeeExpected} (including GST)`);
     }
-    if (!['4999', '9999'].includes(String(subscriptionPlan || ''))) {
+    let planBase = 0;
+    if (subscriptionPlan === 'elite' || subscriptionPlan === '4999') {
+        planBase = 4999;
+    } else if (subscriptionPlan === 'pro' || subscriptionPlan === '9999') {
+        planBase = 9999;
+    } else {
         throw new ValidationError('Subscription plan selection is required');
     }
-    if (subscriptionTotal !== Number(subscriptionPlan)) {
-        throw new ValidationError('Subscription amount must match selected plan');
+
+    const planGST = Math.round(planBase * GST_RATE);
+    const planTotalExpected = planBase + planGST;
+
+    if (subscriptionTotal < planTotalExpected) {
+        throw new ValidationError(`Subscription amount for plan ${subscriptionPlan} must be ₹${planTotalExpected} (including GST)`);
     }
     if (subscriptionPaid < 0 || subscriptionPaid > subscriptionTotal) {
         throw new ValidationError('Invalid subscription payment amount');
@@ -385,25 +400,43 @@ export const registerRestaurant = async (payload, files) => {
 
     const images = {};
 
+    const uploadTasks = [];
+    const imageMap = {};
+
     if (files?.profileImage?.[0]) {
-        images.profileImage = await uploadImageBuffer(files.profileImage[0].buffer, 'food/restaurants/profile');
+        uploadTasks.push(uploadImageBuffer(files.profileImage[0].buffer, 'food/restaurants/profile')
+            .then(url => { imageMap.profileImage = url; }));
     }
     if (files?.panImage?.[0]) {
-        images.panImage = await uploadImageBuffer(files.panImage[0].buffer, 'food/restaurants/pan');
+        uploadTasks.push(uploadImageBuffer(files.panImage[0].buffer, 'food/restaurants/pan')
+            .then(url => { imageMap.panImage = url; }));
     }
     if (files?.gstImage?.[0]) {
-        images.gstImage = await uploadImageBuffer(files.gstImage[0].buffer, 'food/restaurants/gst');
+        uploadTasks.push(uploadImageBuffer(files.gstImage[0].buffer, 'food/restaurants/gst')
+            .then(url => { imageMap.gstImage = url; }));
     }
     if (files?.fssaiImage?.[0]) {
-        images.fssaiImage = await uploadImageBuffer(files.fssaiImage[0].buffer, 'food/restaurants/fssai');
+        uploadTasks.push(uploadImageBuffer(files.fssaiImage[0].buffer, 'food/restaurants/fssai')
+            .then(url => { imageMap.fssaiImage = url; }));
     }
 
     let menuImages = [];
     if (files?.menuImages?.length) {
-        menuImages = await Promise.all(
+        uploadTasks.push(Promise.all(
             files.menuImages.map((file) => uploadImageBuffer(file.buffer, 'food/restaurants/menu'))
-        );
+        ).then(urls => { menuImages = urls; }));
     }
+
+    // Wait for all uploads to complete in parallel
+    if (uploadTasks.length > 0) {
+        console.log(`[ONBOARDING] Starting upload of ${uploadTasks.length} image tasks...`);
+        console.time('ImageUploadTotal');
+        await Promise.all(uploadTasks);
+        console.timeEnd('ImageUploadTotal');
+        console.log('[ONBOARDING] All image uploads completed.');
+    }
+
+    Object.assign(images, imageMap);
 
     const normalizedOpeningTime = normalizeRestaurantTime(openingTime);
     const normalizedClosingTime = normalizeRestaurantTime(closingTime);

@@ -104,7 +104,7 @@ const restaurantRegisterSchema = z.object({
     subscriptionPlan: z
         .string()
         .optional()
-        .refine((val) => !val || ['4999', '9999'].includes(val), 'Invalid subscription plan'),
+        .refine((val) => !val || ['elite', 'pro', '4999', '9999'].includes(val), 'Invalid subscription plan'),
     subscriptionAmount: z
         .string()
         .optional()
