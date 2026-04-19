@@ -2,522 +2,332 @@ import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { useNavigate } from "react-router-dom"
 import useRestaurantBackNavigation from "@food/hooks/useRestaurantBackNavigation"
-import Lenis from "lenis"
 import { 
   ArrowLeft,
   Calendar,
   ChevronDown,
   Wand2,
-  ChevronUp,
-  ChevronDown as ChevronDownIcon
+  Percent,
+  IndianRupee,
+  Tag,
+  Loader2
 } from "lucide-react"
-import { Card, CardContent } from "@food/components/ui/card"
-import { Button } from "@food/components/ui/button"
-import { Input } from "@food/components/ui/input"
-import BottomNavbar from "@food/components/restaurant/BottomNavbar"
 import { restaurantAPI } from "@food/api"
 import { toast } from "sonner"
 
-const debugLog = (...args) => {}
-const debugWarn = (...args) => {}
-const debugError = (...args) => {}
-
 export default function AddCouponPage(props) {
-  const { mode = "create", couponId } = props || {}
+  const { mode = "create" } = props || {}
   const isEditMode = mode === "edit"
 
   const navigate = useNavigate()
   const goBack = useRestaurantBackNavigation()
-  const [showDiscountDropdown, setShowDiscountDropdown] = useState(false)
-  const [showDiscountDropdown2, setShowDiscountDropdown2] = useState(false)
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false)
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showDiscountTypeDropdown, setShowDiscountTypeDropdown] = useState(false)
+  const discountTypeRef = useRef(null)
+
   const [formData, setFormData] = useState({
-    title: "",
     couponCode: "",
-    limitForSameUser: "",
-    minPurchase: "",
-    discount: "",
-    discountType: "%",
+    discountType: "percentage",
+    discountValue: "",
+    minOrderValue: "",
     maxDiscount: "",
-    limitForSameUser2: "1",
-    minPurchase2: "",
-    discount2: "",
-    discountType2: "%",
-    maxDiscount2: "",
+    usageLimit: "",
+    perUserLimit: "",
     startDate: "",
-    endDate: ""
+    endDate: "",
   })
-  const discountRef = useRef(null)
-  const discountRef2 = useRef(null)
-  const startDateRef = useRef(null)
-  const endDateRef = useRef(null)
 
-  // Lenis smooth scrolling
+  const [errors, setErrors] = useState({})
+
   useEffect(() => {
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true,
-    })
-
-    function raf(time) {
-      lenis.raf(time)
-      requestAnimationFrame(raf)
+    const handle = (e) => {
+      if (discountTypeRef.current && !discountTypeRef.current.contains(e.target)) setShowDiscountTypeDropdown(false)
     }
-
-    requestAnimationFrame(raf)
-
-    return () => {
-      lenis.destroy()
-    }
+    document.addEventListener("mousedown", handle)
+    return () => document.removeEventListener("mousedown", handle)
   }, [])
 
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (discountRef.current && !discountRef.current.contains(event.target)) {
-        setShowDiscountDropdown(false)
-      }
-      if (discountRef2.current && !discountRef2.current.contains(event.target)) {
-        setShowDiscountDropdown2(false)
-      }
-      if (startDateRef.current && !startDateRef.current.contains(event.target)) {
-        setShowStartDatePicker(false)
-      }
-      if (endDateRef.current && !endDateRef.current.contains(event.target)) {
-        setShowEndDatePicker(false)
-      }
-    }
+  const set = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }))
+  }
 
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
-  }, [])
-
-  const discountTypes = ["%", "$"]
-
-  const generateCouponCode = () => {
+  const generateCode = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     let code = ""
-    for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length))
+    for (let i = 0; i < 8; i++) code += chars.charAt(Math.floor(Math.random() * chars.length))
+    set("couponCode", code)
+  }
+
+  const validate = () => {
+    const e = {}
+    if (!formData.couponCode.trim()) e.couponCode = "Coupon code is required"
+    if (!formData.discountValue || isNaN(formData.discountValue) || Number(formData.discountValue) <= 0)
+      e.discountValue = "Enter a valid discount value"
+    if (formData.discountType === "percentage" && Number(formData.discountValue) > 100)
+      e.discountValue = "Percentage cannot exceed 100"
+    if (!formData.startDate) e.startDate = "Start date is required"
+    if (!formData.endDate) e.endDate = "End date is required"
+    if (formData.startDate && formData.endDate && new Date(formData.startDate) > new Date(formData.endDate))
+      e.endDate = "End date must be after start date"
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleSubmit = async () => {
+    if (!validate()) return
+    setIsSubmitting(true)
+    try {
+      const payload = {
+        couponCode: formData.couponCode.toUpperCase(),
+        discountType: formData.discountType,
+        discountValue: Number(formData.discountValue),
+        minOrderValue: Number(formData.minOrderValue) || 0,
+        maxDiscount: formData.maxDiscount ? Number(formData.maxDiscount) : undefined,
+        usageLimit: formData.usageLimit ? Number(formData.usageLimit) : undefined,
+        perUserLimit: formData.perUserLimit ? Number(formData.perUserLimit) : undefined,
+        startDate: formData.startDate || undefined,
+        endDate: formData.endDate || undefined,
+        status: "active"
+      }
+      await restaurantAPI.createMyOffer(payload)
+      toast.success("Coupon created successfully!")
+      navigate("/restaurant/coupon")
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message || "Failed to save coupon")
+    } finally {
+      setIsSubmitting(false)
     }
-    setFormData(prev => ({ ...prev, couponCode: code }))
   }
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
-  }
+  const inputCls = (field) =>
+    `w-full px-4 py-3 bg-gray-50 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+      errors[field]
+        ? "border-red-300 focus:ring-red-300"
+        : "border-gray-200 focus:ring-gray-400 focus:border-gray-500"
+    }`
 
-  const incrementLimit = () => {
-    const current = parseInt(formData.limitForSameUser2) || 1
-    setFormData(prev => ({ ...prev, limitForSameUser2: (current + 1).toString() }))
-  }
+  const FieldLabel = ({ children, required }) => (
+    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+      {children} {required && <span className="text-red-500">*</span>}
+    </label>
+  )
 
-  const decrementLimit = () => {
-    const current = parseInt(formData.limitForSameUser2) || 1
-    if (current > 1) {
-      setFormData(prev => ({ ...prev, limitForSameUser2: (current - 1).toString() }))
-    }
-  }
+  const ErrorMsg = ({ field }) => errors[field]
+    ? <p className="text-xs text-red-500 mt-1">{errors[field]}</p>
+    : null
 
   return (
-    <div className="min-h-screen bg-[#f6e9dc] overflow-x-hidden pb-24 md:pb-6">
+    <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-50 flex items-center gap-3">
-        <button 
-          onClick={goBack}
-          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
-        </button>
-        <h1 className="text-lg font-bold text-gray-900 flex-1">
-          {isEditMode ? "Edit Coupon" : "Add Coupon"}
-        </h1>
+      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <button onClick={goBack} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" aria-label="Go back">
+            <ArrowLeft className="w-6 h-6 text-gray-900" />
+          </button>
+          <div className="flex-1">
+            <h1 className="text-base font-bold text-gray-900">
+              {isEditMode ? "Edit Coupon" : "Create Coupon"}
+            </h1>
+            <p className="text-xs text-gray-500">Restaurant-sponsored offer</p>
+          </div>
+          <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center">
+            <Tag className="w-4 h-4 text-gray-700" />
+          </div>
+        </div>
       </div>
 
-      {/* Main Content */}
-      <div className="px-4 py-4 space-y-4">
-        {/* Coupon Details Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Card className="bg-white shadow-sm border border-gray-100">
-            <CardContent className="p-4 space-y-4">
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Title <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange("title", e.target.value)}
-                  placeholder="Title *"
-                  className="w-full"
-                />
-              </div>
+      <div className="px-4 py-4 pb-8 space-y-3 max-w-lg mx-auto">
 
-              {/* Coupon Code */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Coupon Code <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    value={formData.couponCode}
-                    onChange={(e) => handleInputChange("couponCode", e.target.value)}
-                    placeholder="Coupon Code *"
-                    className="flex-1"
-                  />
-                  <button
-                    onClick={generateCouponCode}
-                    className="p-2.5 bg-[#ff8100] hover:bg-[#e67300] rounded-lg transition-colors flex items-center justify-center"
-                  >
-                    <Wand2 className="w-5 h-5 text-white" />
-                  </button>
-                </div>
-              </div>
+        {/* Basic Details */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+          <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Coupon Details</h2>
 
-              {/* Limit for same user */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Limit for same user
-                </label>
-                <Input
-                  type="number"
-                  value={formData.limitForSameUser}
-                  onChange={(e) => handleInputChange("limitForSameUser", e.target.value)}
-                  placeholder="Limit for same user"
-                  className="w-full"
-                />
-              </div>
+          {/* Coupon Code */}
+          <div>
+            <FieldLabel required>Coupon Code</FieldLabel>
+            <div className="flex gap-2">
+              <input
+                value={formData.couponCode}
+                onChange={(e) => set("couponCode", e.target.value.toUpperCase())}
+                placeholder="e.g. SAVE20"
+                className={`${inputCls("couponCode")} flex-1 font-mono tracking-widest`}
+              />
+              <button
+                onClick={generateCode}
+                className="px-3 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition-colors flex items-center gap-1.5 text-sm font-medium text-gray-700 shrink-0"
+                title="Auto-generate code"
+              >
+                <Wand2 className="w-4 h-4" />
+              </button>
+            </div>
+            <ErrorMsg field="couponCode" />
+          </div>
 
-              {/* Min purchase */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Min purchase
-                </label>
-                <Input
-                  type="number"
-                  value={formData.minPurchase}
-                  onChange={(e) => handleInputChange("minPurchase", e.target.value)}
-                  placeholder="Min purchase"
-                  className="w-full"
-                />
-              </div>
-
-              {/* Discount */}
-              <div className="relative" ref={discountRef}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Discount <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    value={formData.discount}
-                    onChange={(e) => handleInputChange("discount", e.target.value)}
-                    placeholder="Discount *"
-                    className="flex-1"
-                  />
-                  <button
-                    onClick={() => setShowDiscountDropdown(!showDiscountDropdown)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1"
-                  >
-                    <span className="text-sm font-medium text-gray-700">{formData.discountType}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-600" />
-                  </button>
-                </div>
-                {showDiscountDropdown && (
+          {/* Discount */}
+          <div>
+            <FieldLabel required>Discount</FieldLabel>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={formData.discountValue}
+                onChange={(e) => set("discountValue", e.target.value)}
+                placeholder="Enter amount"
+                className={`${inputCls("discountValue")} flex-1`}
+              />
+              {/* Discount type toggle */}
+              <div className="relative" ref={discountTypeRef}>
+                <button
+                  onClick={() => setShowDiscountTypeDropdown(!showDiscountTypeDropdown)}
+                  className="flex items-center gap-1.5 px-3 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition-colors text-sm font-semibold text-gray-800 min-w-[84px]"
+                >
+                  {formData.discountType === "percentage"
+                    ? <Percent className="w-4 h-4 text-gray-700" />
+                    : <IndianRupee className="w-4 h-4 text-gray-700" />}
+                  <span>{formData.discountType === "percentage" ? "%" : "₹"}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+                </button>
+                {showDiscountTypeDropdown && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
+                    initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[100px]"
+                    className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden min-w-[150px]"
                   >
-                    {discountTypes.map((type) => (
+                    {[
+                      { value: "percentage", label: "Percentage (%)", icon: Percent },
+                      { value: "flat-price", label: "Flat (₹)", icon: IndianRupee }
+                    ].map(opt => (
                       <button
-                        key={type}
-                        onClick={() => {
-                          handleInputChange("discountType", type)
-                          setShowDiscountDropdown(false)
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                        key={opt.value}
+                        onClick={() => { set("discountType", opt.value); setShowDiscountTypeDropdown(false) }}
+                        className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
+                          formData.discountType === opt.value
+                            ? "bg-gray-900 text-white font-semibold"
+                            : "text-gray-700 hover:bg-gray-50"
+                        }`}
                       >
-                        {type}
+                        <opt.icon className="w-4 h-4" />
+                        {opt.label}
                       </button>
                     ))}
                   </motion.div>
                 )}
               </div>
+            </div>
+            <ErrorMsg field="discountValue" />
+          </div>
 
-              {/* Max Discount */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Max Discount
-                </label>
-                <Input
+          {/* Min Order */}
+          <div>
+            <FieldLabel>Minimum Order Value</FieldLabel>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">₹</span>
+              <input
+                type="number"
+                value={formData.minOrderValue}
+                onChange={(e) => set("minOrderValue", e.target.value)}
+                placeholder="0"
+                className={`${inputCls("minOrderValue")} pl-7`}
+              />
+            </div>
+          </div>
+
+          {/* Max Discount (only for percentage) */}
+          {formData.discountType === "percentage" && (
+            <div>
+              <FieldLabel>Max Discount Cap</FieldLabel>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">₹</span>
+                <input
                   type="number"
                   value={formData.maxDiscount}
-                  onChange={(e) => handleInputChange("maxDiscount", e.target.value)}
-                  placeholder="Max Discount"
-                  className="w-full"
+                  onChange={(e) => set("maxDiscount", e.target.value)}
+                  placeholder="No cap"
+                  className={`${inputCls("maxDiscount")} pl-7`}
                 />
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+            </div>
+          )}
+        </div>
 
-        {/* Additional Discount Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+        {/* Usage Limits */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+          <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Usage Limits</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel>Total Uses</FieldLabel>
+              <input
+                type="number"
+                value={formData.usageLimit}
+                onChange={(e) => set("usageLimit", e.target.value)}
+                placeholder="Unlimited"
+                className={inputCls("usageLimit")}
+              />
+            </div>
+            <div>
+              <FieldLabel>Per User</FieldLabel>
+              <input
+                type="number"
+                value={formData.perUserLimit}
+                onChange={(e) => set("perUserLimit", e.target.value)}
+                placeholder="Unlimited"
+                className={inputCls("perUserLimit")}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Validity */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+          <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Validity Period</h2>
+
+          {/* Start Date */}
+          <div>
+            <FieldLabel required>Start Date</FieldLabel>
+            <div className="relative">
+              <input
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => set("startDate", e.target.value)}
+                className={`${inputCls("startDate")} pr-10 appearance-none`}
+                style={{ colorScheme: "light" }}
+              />
+              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+            <ErrorMsg field="startDate" />
+          </div>
+
+          {/* End Date */}
+          <div>
+            <FieldLabel required>End Date</FieldLabel>
+            <div className="relative">
+              <input
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => set("endDate", e.target.value)}
+                min={formData.startDate || undefined}
+                className={`${inputCls("endDate")} pr-10 appearance-none`}
+                style={{ colorScheme: "light" }}
+              />
+              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+            <ErrorMsg field="endDate" />
+          </div>
+        </div>
+
+        {/* Submit */}
+        <button
+          onClick={handleSubmit}
+          disabled={isSubmitting}
+          className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-lg transition-colors text-sm"
         >
-          <Card className="bg-white shadow-sm border border-gray-100">
-            <CardContent className="p-4 space-y-4">
-              {/* Limit for same user 2 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Limit for same user
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    value={formData.limitForSameUser2}
-                    onChange={(e) => handleInputChange("limitForSameUser2", e.target.value)}
-                    placeholder="Limit for same user"
-                    className="flex-1"
-                  />
-                  <div className="flex flex-col">
-                    <button
-                      onClick={incrementLimit}
-                      className="p-1 bg-[#ff8100] hover:bg-[#e67300] rounded-t transition-colors"
-                    >
-                      <ChevronUp className="w-3 h-3 text-white" />
-                    </button>
-                    <button
-                      onClick={decrementLimit}
-                      className="p-1 bg-[#ff8100] hover:bg-[#e67300] rounded-b transition-colors"
-                    >
-                      <ChevronDownIcon className="w-3 h-3 text-white" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Min purchase 2 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Min purchase
-                </label>
-                <Input
-                  type="number"
-                  value={formData.minPurchase2}
-                  onChange={(e) => handleInputChange("minPurchase2", e.target.value)}
-                  placeholder="Min purchase"
-                  className="w-full"
-                />
-              </div>
-
-              {/* Discount 2 */}
-              <div className="relative" ref={discountRef2}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Discount <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    value={formData.discount2}
-                    onChange={(e) => handleInputChange("discount2", e.target.value)}
-                    placeholder="Discount *"
-                    className="flex-1"
-                  />
-                  <button
-                    onClick={() => setShowDiscountDropdown2(!showDiscountDropdown2)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-1"
-                  >
-                    <span className="text-sm font-medium text-gray-700">{formData.discountType2}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-600" />
-                  </button>
-                </div>
-                {showDiscountDropdown2 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[100px]"
-                  >
-                    {discountTypes.map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => {
-                          handleInputChange("discountType2", type)
-                          setShowDiscountDropdown2(false)
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors first:rounded-t-lg last:rounded-b-lg"
-                      >
-                        {type}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Max Discount 2 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Max Discount
-                </label>
-                <Input
-                  type="number"
-                  value={formData.maxDiscount2}
-                  onChange={(e) => handleInputChange("maxDiscount2", e.target.value)}
-                  placeholder="Max Discount"
-                  className="w-full"
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Date Range Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-        >
-          <Card className="bg-white shadow-sm border border-gray-100">
-            <CardContent className="p-4 space-y-4">
-              {/* Start Date */}
-              <div className="relative" ref={startDateRef}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Date <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Input
-                    type="text"
-                    value={formData.startDate}
-                    onChange={(e) => handleInputChange("startDate", e.target.value)}
-                    placeholder="Start Date *"
-                    className="w-full pr-10"
-                    readOnly
-                    onClick={() => setShowStartDatePicker(!showStartDatePicker)}
-                  />
-                  <button
-                    onClick={() => setShowStartDatePicker(!showStartDatePicker)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5"
-                  >
-                    <Calendar className="w-5 h-5 text-[#ff8100]" />
-                  </button>
-                </div>
-                {showStartDatePicker && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4"
-                  >
-                    <input
-                      type="date"
-                      value={formData.startDate}
-                      onChange={(e) => {
-                        handleInputChange("startDate", e.target.value)
-                        setShowStartDatePicker(false)
-                      }}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff8100]"
-                    />
-                  </motion.div>
-                )}
-              </div>
-
-              {/* End Date */}
-              <div className="relative" ref={endDateRef}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Date <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Input
-                    type="text"
-                    value={formData.endDate}
-                    onChange={(e) => handleInputChange("endDate", e.target.value)}
-                    placeholder="End Date *"
-                    className="w-full pr-10"
-                    readOnly
-                    onClick={() => setShowEndDatePicker(!showEndDatePicker)}
-                  />
-                  <button
-                    onClick={() => setShowEndDatePicker(!showEndDatePicker)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5"
-                  >
-                    <Calendar className="w-5 h-5 text-[#ff8100]" />
-                  </button>
-                </div>
-                {showEndDatePicker && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4"
-                  >
-                    <input
-                      type="date"
-                      value={formData.endDate}
-                      onChange={(e) => {
-                        handleInputChange("endDate", e.target.value)
-                        setShowEndDatePicker(false)
-                      }}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff8100]"
-                    />
-                  </motion.div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+          {isSubmitting ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+          ) : (
+            isEditMode ? "Update Coupon" : "Create Coupon"
+          )}
+        </button>
       </div>
-
-      {/* Add Button */}
-      <div className="px-4 pb-4">
-        <Button
-          onClick={async () => {
-            try {
-              const payload = {
-                couponCode: formData.couponCode,
-                discountType: formData.discountType === "%" ? "percentage" : "flat-price",
-                discountValue: Number(formData.discount),
-                minOrderValue: Number(formData.minPurchase) || 0,
-                maxDiscount: Number(formData.maxDiscount) || undefined,
-                usageLimit: Number(formData.limitForSameUser) || undefined,
-                perUserLimit: Number(formData.limitForSameUser) || undefined,
-                startDate: formData.startDate ? new Date(formData.startDate).toISOString() : undefined,
-                endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
-                status: "active"
-              };
-              if (isEditMode) {
-                toast.error("Edit mode not fully implemented yet");
-              } else {
-                await restaurantAPI.createMyOffer(payload);
-                toast.success("Coupon created successfully!");
-                navigate("/restaurant/coupon");
-              }
-            } catch (error) {
-              const errMsg = error.response?.data?.message || error.message || "Failed to save coupon";
-              toast.error(errMsg);
-            }
-          }}
-          className="w-full bg-[#ff8100] hover:bg-[#e67300] text-white font-semibold py-3 rounded-lg"
-        >
-          {isEditMode ? "Update" : "Add"}
-        </Button>
-      </div>
-
-      {/* Bottom Navigation Bar */}
-      <BottomNavbar />
     </div>
   )
 }

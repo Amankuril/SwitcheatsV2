@@ -4,7 +4,7 @@ import { validateCreateOfferDto } from '../../admin/validators/offer.validator.j
 
 export const createRestaurantOfferController = async (req, res) => {
     try {
-        const restaurantId = req.user.id;
+        const restaurantId = req.user.userId;
         // Inject restaurantId into body for validation
         const payload = validateCreateOfferDto({
             ...req.body,
@@ -20,7 +20,7 @@ export const createRestaurantOfferController = async (req, res) => {
 
 export const listRestaurantOffersController = async (req, res) => {
     try {
-        const restaurantId = req.user.id;
+        const restaurantId = req.user.userId;
         const list = await restaurantService.listRestaurantOffers(restaurantId);
         return sendResponse(res, 200, 'Offers fetched successfully', { offers: list });
     } catch (err) {
@@ -30,7 +30,7 @@ export const listRestaurantOffersController = async (req, res) => {
 
 export const deleteRestaurantOfferController = async (req, res) => {
     try {
-        const restaurantId = req.user.id;
+        const restaurantId = req.user.userId;
         const { id: offerId } = req.params;
         await restaurantService.deleteRestaurantOffer(restaurantId, offerId);
         return sendResponse(res, 200, 'Offer deleted successfully');
@@ -41,7 +41,7 @@ export const deleteRestaurantOfferController = async (req, res) => {
 
 export const updateRestaurantOfferStatusController = async (req, res) => {
     try {
-        const restaurantId = req.user.id;
+        const restaurantId = req.user.userId;
         const { id: offerId } = req.params;
         const { status } = req.body;
         const doc = await restaurantService.updateRestaurantOfferStatus(restaurantId, offerId, status);

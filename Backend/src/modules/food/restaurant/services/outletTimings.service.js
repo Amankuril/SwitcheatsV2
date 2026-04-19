@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { ValidationError } from '../../../../core/auth/errors.js';
+import { invalidateCache } from '../../../../middleware/cache.js';
 import { FoodRestaurantOutletTimings } from '../models/outletTimings.model.js';
+import { FoodRestaurant } from '../models/restaurant.model.js';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -60,8 +62,11 @@ export async function getOutletTimingsForRestaurant(restaurantId) {
 
 export async function upsertOutletTimingsForRestaurant(restaurantId, outletTimings) {
     if (!restaurantId || !mongoose.Types.ObjectId.isValid(String(restaurantId))) {
+        // Detailed logging to help identify why the save might be failing
+        console.error(`[OUTLET_TIMINGS] FAILED: Invalid restaurantId ${restaurantId}`);
         throw new ValidationError('Invalid restaurant id');
     }
+    console.log(`[OUTLET_TIMINGS] START: restaurantId=${restaurantId}`);
     if (!outletTimings || typeof outletTimings !== 'object' || Array.isArray(outletTimings)) {
         throw new ValidationError('outletTimings must be an object keyed by day name');
     }
@@ -82,6 +87,25 @@ export async function upsertOutletTimingsForRestaurant(restaurantId, outletTimin
         { $set: { timings } },
         { upsert: true, new: true, setDefaultsOnInsert: true, projection: 'timings updatedAt' }
     ).lean();
+
+    // Sync to main restaurant document for basic visibility/fallback
+    const currentDayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()];
+    const todayData = timings.find(t => t.day === currentDayName) || timings.find(t => t.isOpen) || timings[0];
+
+    if (todayData) {
+        await FoodRestaurant.findByIdAndUpdate(restaurantId, {
+            $set: {
+                openingTime: todayData.openingTime,
+                closingTime: todayData.closingTime,
+                openDays: timings.filter(t => t.isOpen).map(t => t.day)
+            }
+        });
+    }
+
+    // Invalidate public caches so changes reflect immediately for users
+    void invalidateCache('restaurants:*');
+    void invalidateCache('restaurant_detail:*');
+    void invalidateCache('restaurant_timings:*');
 
     return { outletTimings: toClientShape(doc) };
 }
