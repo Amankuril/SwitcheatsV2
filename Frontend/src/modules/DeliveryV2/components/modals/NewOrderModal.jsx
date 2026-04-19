@@ -107,105 +107,115 @@ export const NewOrderModal = ({ order, onAccept, onReject, onMinimize }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-x-0 bottom-0 h-full z-150 bg-black/60 flex items-end justify-center p-0"
+      className="absolute inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-end justify-center"
     >
       <motion.div 
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
-        className="w-full max-w-lg bg-white rounded-t-[3rem] overflow-hidden shadow-[0_-20px_60px_rgba(0,0,0,0.5)] flex flex-col pt-2"
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="w-full max-w-lg bg-white rounded-t-[3.5rem] shadow-[0_-25px_80px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh] relative overflow-hidden"
       >
         {/* Handle / Minimize */}
-        <div className="w-full flex justify-center pb-2 pt-1 bg-white relative z-10 rounded-t-[3rem] -mb-[4px]">
-          <button onClick={onMinimize} className="p-1 hover:bg-gray-100 active:scale-95 transition-all rounded-full flex flex-col items-center">
-             <ChevronDown className="w-6 h-6 text-gray-400 stroke-3" />
+        <div className="w-full flex justify-center py-3 bg-white relative z-20">
+          <button 
+            onClick={onMinimize} 
+            className="w-12 h-1.5 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors active:scale-95"
+            aria-label="Minimize"
+          />
+        </div>
+
+        <div className="flex-1 overflow-y-auto no-scrollbar">
+          {/* Header Ribbon (Compact Premium) */}
+          <div className="bg-linear-to-br from-emerald-500 via-green-500 to-emerald-600 px-6 py-5 flex justify-between items-center text-white">
+            <div>
+              <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] mb-1">New Order Request</p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-bold opacity-80">₹</span>
+                <h2 className="text-4xl font-black tracking-tighter">{Number(earnings || 0).toFixed(2)}</h2>
+              </div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-2 text-white flex flex-col items-center min-w-[80px]">
+              <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Expires</span>
+              <span className="font-black text-2xl tabular-nums leading-none">{timeLeft}s</span>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 space-y-5">
+            {/* Direct Summary Metrics (Horizontal Compact Row) */}
+            <div className="flex gap-2">
+               <div className="flex-1 p-3 bg-gray-50 rounded-2xl border border-gray-100 flex items-center gap-3">
+                 <div className="w-9 h-9 rounded-xl bg-white shadow-sm flex items-center justify-center text-emerald-500">
+                    <Clock className="w-5 h-5" />
+                 </div>
+                 <div className="flex flex-col">
+                    <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-none mb-1">EST. Time</span>
+                    <span className="text-sm font-black text-gray-900 tracking-tight leading-none">{etaMins} MINS</span>
+                 </div>
+               </div>
+               <div className="flex-1 p-3 bg-gray-50 rounded-2xl border border-gray-100 flex items-center gap-3">
+                 <div className="w-9 h-9 rounded-xl bg-white shadow-sm flex items-center justify-center text-blue-500">
+                    <MapPin className="w-5 h-5" />
+                 </div>
+                 <div className="flex flex-col">
+                    <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-none mb-1">Distance</span>
+                    <span className="text-sm font-black text-gray-900 tracking-tight leading-none">{distanceKm} KM</span>
+                 </div>
+               </div>
+            </div>
+
+            {/* Delivery Locations (Tighter Timeline) */}
+            <div className="bg-gray-50/50 rounded-3xl p-5 border border-gray-100/50">
+              <div className="flex gap-4 relative">
+                <div className="flex flex-col items-center py-1">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/20" />
+                  <div className="flex-1 w-0.5 border-l-2 border-dashed border-gray-200 my-1" />
+                  <div className="w-3 h-3 rounded-full bg-blue-500 shadow-lg shadow-blue-500/20" />
+                </div>
+                
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-600 mb-0.5">Restaurant Pickup</h4>
+                    <h3 className="text-gray-950 font-black text-lg leading-tight mb-0.5 line-clamp-1">{restaurantName}</h3>
+                    <p className="text-gray-500 text-[11px] font-bold line-clamp-1">{restaurantAddress}</p>
+                  </div>
+
+                  <div className="pt-1">
+                    <div className="flex items-center justify-between">
+                       <h4 className="text-[10px] font-black uppercase tracking-[0.15em] text-blue-600 mb-0.5">Customer Drop</h4>
+                       {mapsLink && (
+                        <a href={mapsLink} target="_blank" rel="noreferrer" className="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors">
+                          Open Map
+                        </a>
+                      )}
+                    </div>
+                    <h3 className="text-gray-950 font-black text-lg leading-tight mb-0.5">Delivery Location</h3>
+                    <p className="text-gray-500 text-[11px] font-bold line-clamp-1">{customerAddress}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Area (Fixed / Non-Scrolling Footer) */}
+        <div className="px-6 pb-8 pt-2 space-y-4 bg-white">
+          <ActionSlider 
+            label="Slide to Accept" 
+            onConfirm={() => onAccept(order)} 
+            color="bg-emerald-600"
+            successLabel="Order Accepted ✓"
+          />
+
+          <button 
+            onClick={onReject}
+            className="w-full text-gray-400 font-black text-[11px] uppercase tracking-[0.2em] hover:text-red-500 transition-colors active:scale-95 py-2"
+          >
+            Pass this task
           </button>
-        </div>
-
-        {/* Header Ribbon (Old Green Style) */}
-        <div className="bg-green-500 p-8 flex justify-between items-center text-white border-b border-green-600/20">
-          <div>
-            <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest mb-1">Incoming Request</p>
-            <h2 className="text-4xl font-bold tracking-tighter">₹{Number(earnings || 0).toFixed(2)}</h2>
-          </div>
-          <div className="bg-white/20 border border-white/30 rounded-3xl px-6 py-3 text-white font-bold text-2xl shadow-inner tabular-nums">
-            {timeLeft}s
-          </div>
-        </div>
-
-        {/* Info Body */}
-        <div className="p-8 pb-12 space-y-10">
-          <div className="flex gap-6">
-            <div className="flex flex-col items-center gap-1.5 mt-2 py-1">
-              <div className="w-5 h-5 rounded-full bg-green-500 border-4 border-green-50 shadow-lg shadow-green-500/20" />
-              <div className="w-0.5 h-16 bg-dashed border-l-2 border-gray-100" />
-              <div className="w-5 h-5 rounded-full bg-blue-500 border-4 border-blue-50 shadow-lg shadow-blue-500/20" />
-            </div>
-            <div className="flex-1 space-y-10">
-              <div>
-                <div className="flex items-center gap-2 mb-2 font-bold text-[10px] uppercase tracking-widest text-green-600">
-                  <ChefHat className="w-4 h-4" />
-                  <span>Restaurant Pickup</span>
-                </div>
-                <p className="text-gray-950 font-bold text-xl leading-tight">{restaurantName}</p>
-                <p className="text-gray-500 text-sm font-medium leading-relaxed">{restaurantAddress}</p>
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-2 font-bold text-[10px] uppercase tracking-widest text-blue-600">
-                  <MapPin className="w-4 h-4" />
-                  <span>Customer Drop</span>
-                </div>
-                <p className="text-gray-950 font-bold text-xl leading-tight">Customer Location</p>
-                <p className="text-gray-500 text-sm font-medium line-clamp-2">{customerAddress}</p>
-                {mapsLink && (
-                  <a
-                    href={mapsLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex mt-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:text-blue-700"
-                  >
-                    Open in Google Maps
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-             <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center gap-3">
-               <Clock className="w-5 h-5 text-orange-500" />
-               <div className="flex flex-col">
-                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Time</span>
-                  <span className="text-sm font-bold text-gray-900">{etaMins} MINS</span>
-               </div>
-             </div>
-             <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center gap-3">
-               <MapPin className="w-5 h-5 text-gray-400" />
-               <div className="flex flex-col">
-                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Distance</span>
-                  <span className="text-sm font-bold text-gray-900">{distanceKm} KM</span>
-               </div>
-             </div>
-          </div>
-
-          {/* Action Area */}
-          <div className="space-y-6">
-            <ActionSlider 
-              label="Slide to Accept" 
-              onConfirm={() => onAccept(order)} 
-              color="bg-green-600"
-              successLabel="Order Accepted ✓"
-            />
-
-            <button 
-              onClick={onReject}
-              className="w-full text-gray-400 font-bold text-[10px] uppercase tracking-widest hover:text-red-500 transition-colors py-2 active:scale-95"
-            >
-              Pass this task
-            </button>
-          </div>
         </div>
       </motion.div>
     </motion.div>
+
   );
 };

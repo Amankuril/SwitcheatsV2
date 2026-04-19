@@ -35,26 +35,38 @@ import { useNavigate } from 'react-router-dom';
 import useNotificationInbox from "@food/hooks/useNotificationInbox";
 
 /** Minimal bottom-sheet popup (Restored from legacy FeedNavbar) */
-function BottomPopup({ isOpen, onClose, title, children }) {
+function BottomPopup({ isOpen, onClose, title, children, maxHeight = "85vh" }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[600] flex items-end">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+    <div className="fixed inset-0 z-[600] flex items-end justify-center">
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+        onClick={onClose} 
+      />
       <motion.div
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="relative w-full bg-white rounded-t-3xl shadow-2xl p-6"
+        className="relative w-full max-w-lg bg-white rounded-t-[3.5rem] shadow-[0_-25px_80px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden"
+        style={{ maxHeight }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight">{title}</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-             <AlertTriangle className="w-4 h-4" />
-          </button>
+        <div className="w-full flex justify-center py-3">
+          <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
         </div>
-        {children}
+        <div className="flex-1 overflow-y-auto no-scrollbar px-8 pb-12">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">{title}</h2>
+            <button onClick={onClose} className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all active:scale-95">
+               <AlertTriangle className="w-5 h-5" />
+            </button>
+          </div>
+          {children}
+        </div>
       </motion.div>
     </div>
   );
@@ -242,8 +254,6 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
       setSimProgress(0);
     }
   }, [simPath, tripStatus, isSimMode]);
-
-  // Auto-restore modal when status or content changes
 
   // Auto-restore modal when status or content changes
   useEffect(() => {
@@ -766,7 +776,7 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-x-0 top-0 bottom-[92px] z-[300] pointer-events-none flex items-end"
+              className="fixed inset-0 z-[300] pointer-events-none flex items-end"
             >
               <div className="w-full pointer-events-auto relative">
                 {incomingOrder && (
@@ -790,54 +800,83 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
                   />
                 )}
                 {(tripStatus === 'PICKED_UP' || tripStatus === 'REACHED_DROP') && (
-                  <div className="absolute bottom-4 inset-x-0 z-[120] px-4">
+                  <div className="absolute inset-0 z-[120] flex items-end justify-center pointer-events-none">
                     {tripStatus === 'PICKED_UP' ? (
-                      <div className="bg-white rounded-[3rem] p-8 shadow-[0_-20px_80px_rgba(0,0,0,0.4)] border border-gray-100 flex flex-col items-center">
+                      <motion.div 
+                        initial={{ y: '100%' }}
+                        animate={{ y: 0 }}
+                        exit={{ y: '100%' }}
+                        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                        className="w-full max-w-lg bg-white rounded-t-[3.5rem] shadow-[0_-25px_80px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh] pointer-events-auto overflow-hidden"
+                      >
                         {/* Handle / Minimize */}
-                        <div className="w-full flex justify-center pb-4 pt-0 -mt-2">
-                          <button onClick={() => setIsModalMinimized(true)} className="p-1 hover:bg-gray-100 active:scale-95 transition-all rounded-full flex flex-col items-center">
-                             <ChevronDown className="w-6 h-6 text-gray-400 stroke-[3]" />
-                          </button>
-                        </div>
-                        <div className="flex justify-between w-full items-center mb-10 px-2 text-left">
-                          <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-                               <img 
-                                 src={activeOrder?.user?.logo || activeOrder?.user?.profileImage || 'https://cdn-icons-png.flaticon.com/512/1275/1275302.png'} 
-                                 className="w-full h-full object-cover" 
-                                 alt="User"
-                               />
-                            </div>
-                            <div>
-                               <h3 className="text-gray-950 text-2xl font-bold uppercase">Handover Drop</h3>
-                               <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mt-1.5 ${isWithinRange ? 'text-green-600' : 'text-orange-500'}`}>
-                                 {isWithinRange ? 'Ready - Swipe to Arrive √' : `${(distanceToTarget / 1000).toFixed(1)} km • ${eta || '--'} min Arrival`}
-                               </p>
-                            </div>
-                          </div>
+                        <div className="w-full flex justify-center py-3 bg-white relative z-20">
+                          <button 
+                            onClick={() => setIsModalMinimized(true)} 
+                            className="w-12 h-1.5 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors active:scale-95"
+                          />
                         </div>
 
-                        {/* Customer Instructions Panel */}
-                        {activeOrder?.note && (
-                          <div className="w-full bg-orange-50 border border-orange-100 rounded-3xl p-5 mb-8 flex gap-4 items-start shadow-sm mx-2">
-                             <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-orange-500 shadow-sm shrink-0 border border-orange-50">
-                                <Package className="w-5 h-5" />
-                             </div>
-                             <div className="flex-1">
-                                <p className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] mb-1.5 opacity-80">Drop Message</p>
-                                <p className="text-sm font-bold text-gray-950 leading-relaxed capitalize">"{activeOrder.note}"</p>
-                             </div>
+                        <div className="flex-1 overflow-y-auto no-scrollbar p-8 pt-4">
+                          <div className="flex justify-between w-full items-center mb-8">
+                            <div className="flex items-center gap-4">
+                              <div className="w-16 h-16 rounded-[1.5rem] overflow-hidden border-4 border-gray-50 shadow-xl ring-1 ring-gray-100">
+                                 <img 
+                                   src={activeOrder?.user?.logo || activeOrder?.user?.profileImage || 'https://cdn-icons-png.flaticon.com/512/1275/1275302.png'} 
+                                   className="w-full h-full object-cover" 
+                                   alt="User"
+                                 />
+                              </div>
+                              <div>
+                                 <h3 className="text-gray-950 text-2xl font-black tracking-tight leading-none mb-2 underline decoration-emerald-500/30 decoration-4 underline-offset-4">Handover Drop</h3>
+                                 <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${isWithinRange ? 'bg-emerald-50 border-emerald-100' : 'bg-orange-50 border-orange-100'}`}>
+                                   <div className={`w-1.5 h-1.5 rounded-full ${isWithinRange ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`} />
+                                   <span className={`text-[10px] font-black uppercase tracking-widest ${isWithinRange ? 'text-emerald-600' : 'text-orange-500'}`}>
+                                     {isWithinRange ? 'Ready to Arrive' : `${(distanceToTarget / 1000).toFixed(1)} km • ${eta || '--'} min`}
+                                   </span>
+                                 </div>
+                              </div>
+                            </div>
                           </div>
-                        )}
-                        <ActionSlider label="Slide to Arrive" successLabel="Arrived ✓" disabled={!isWithinRange} onConfirm={reachDrop} color="bg-blue-600" />
-                      </div>
+  
+                          {/* Customer Instructions Panel */}
+                          {activeOrder?.note && (
+                            <div className="w-full bg-linear-to-br from-orange-50/50 to-amber-50/50 border border-orange-100 rounded-[2rem] p-6 mb-8 flex gap-4 items-start relative overflow-hidden group">
+                               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                  <Package className="w-16 h-16" />
+                               </div>
+                               <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-orange-600 shadow-sm shrink-0 border border-orange-50 relative z-10">
+                                  <Package className="w-5 h-5" />
+                               </div>
+                               <div className="relative z-10">
+                                  <p className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] mb-1.5">Drop Message</p>
+                                  <p className="text-sm font-bold text-gray-950 leading-relaxed italic">"{activeOrder.note}"</p>
+                               </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="p-8 pt-0 pb-12 bg-white border-t border-gray-50">
+                          <div className="pt-6">
+                            <ActionSlider 
+                              label="Slide to Arrive" 
+                              successLabel="Arrived ✓" 
+                              disabled={!isWithinRange} 
+                              onConfirm={reachDrop} 
+                              color="bg-emerald-600" 
+                            />
+                          </div>
+                        </div>
+                      </motion.div>
                     ) : (
-                      <button 
-                        onClick={() => setShowVerification(true)} 
-                        className="w-full bg-green-500 hover:bg-green-600 text-white shadow-xl shadow-green-500/30 rounded-2xl py-5 font-bold text-sm tracking-[0.2em] transform transition-all active:scale-95 flex items-center justify-center gap-3"
-                      >
-                        <CheckCircle2 className="w-6 h-6" /> VERIFY & COMPLETE
-                      </button>
+                      <div className="w-full bg-white p-8 pb-12 border-t border-gray-100 flex flex-col pointer-events-auto">
+                        <button 
+                          onClick={() => setShowVerification(true)} 
+                          className="w-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl shadow-emerald-500/30 rounded-3xl py-6 font-black text-[13px] tracking-[0.2em] transform transition-all active:scale-95 flex items-center justify-center gap-4"
+                        >
+                          <CheckCircle2 className="w-6 h-6" /> VERIFY & COMPLETE
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

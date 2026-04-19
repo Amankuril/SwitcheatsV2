@@ -101,53 +101,64 @@ const OtpModal = ({ order, onVerified, onClose }) => {
   const isAlreadyVerified = order?.deliveryVerification?.dropOtp?.verified;
 
   return (
-    <div className="absolute inset-x-0 bottom-0 z-120 p-0 sm:p-4 h-full flex items-end justify-center pointer-events-none">
+    <div className="absolute inset-0 z-120 flex items-end justify-center pointer-events-none">
       <Backdrop onClose={onClose} />
       <motion.div 
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-        className="w-full bg-white rounded-t-[2.5rem] shadow-[0_-20px_60px_rgba(0,0,0,0.3)] p-6 pb-12 pointer-events-auto max-w-lg"
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="w-full bg-white rounded-t-[3.5rem] shadow-[0_-25px_80px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh] pointer-events-auto max-w-lg overflow-hidden"
       >
-        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6" />
-        <div className="flex justify-between items-center mb-6">
-           <div className="flex items-center gap-3">
-             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isOtpVerified ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-               <ShieldCheck className="w-7 h-7" />
-             </div>
-             <div>
-               <h2 className="text-xl font-bold text-gray-900">Handover Code</h2>
-               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Step 1 of Verification</p>
-             </div>
-           </div>
-           <button onClick={onClose} className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
+        {/* Handle / Minimize */}
+        <div className="w-full flex justify-center py-3 bg-white relative z-20">
+          <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
         </div>
 
-        <DeliveryInstructionsPanel note={order?.note} />
+        <div className="flex-1 overflow-y-auto no-scrollbar p-8 pt-4">
+          <div className="flex justify-between items-center mb-8">
+             <div className="flex items-center gap-4">
+               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${isOtpVerified ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
+                 <ShieldCheck className="w-8 h-8" />
+               </div>
+               <div>
+                 <h2 className="text-2xl font-black text-gray-900 tracking-tight">Handover Code</h2>
+                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Step 1 of 2 • Secure Drop</p>
+               </div>
+             </div>
+             <button onClick={onClose} className="p-3 bg-gray-50 rounded-2xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all active:scale-90"><X className="w-5 h-5"/></button>
+          </div>
 
-        <div className="flex justify-center gap-3 mb-8">
-          {otp.map((digit, i) => (
-            <input
-              key={i}
-              ref={inputRefs[i]}
-              type="number"
-              disabled={isOtpVerified}
-              value={digit}
-              onChange={(e) => handleOtpChange(i, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(i, e)}
-              className={`w-14 h-18 bg-gray-50 border-2 rounded-2xl text-center text-3xl font-bold transition-all ${
-                isOtpVerified ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 focus:border-green-600 text-gray-700'
-              }`}
+          <DeliveryInstructionsPanel note={order?.note} />
+
+          <div className="flex justify-center gap-4 mb-10">
+            {otp.map((digit, i) => (
+              <input
+                key={i}
+                ref={inputRefs[i]}
+                type="number"
+                disabled={isOtpVerified}
+                value={digit}
+                onChange={(e) => handleOtpChange(i, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(i, e)}
+                className={`w-16 h-20 bg-gray-50 border-2 rounded-[1.5rem] text-center text-3xl font-black transition-all ${
+                  isOtpVerified ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-inner' : 'border-gray-100 focus:border-emerald-600 focus:bg-white text-gray-900'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="p-8 pt-0 pb-12 bg-white border-t border-gray-50">
+          <div className="pt-6">
+            <ActionSlider 
+              key="action-otp"
+              label={isVerifyingOtp ? "Verifying..." : isAlreadyVerified ? "Code verified ✓" : "Slide to Verify OTP"} 
+              successLabel="Verified!"
+              disabled={otp.some(d => !d) || isVerifyingOtp || isOtpVerified || isAlreadyVerified}
+              onConfirm={verifyOtp}
+              color="bg-gray-950"
             />
-          ))}
+          </div>
         </div>
-
-        <ActionSlider 
-          key="action-otp"
-          label={isVerifyingOtp ? "Verifying..." : isAlreadyVerified ? "Code already verified ✓" : "Slide to Verify OTP"} 
-          successLabel="Verified!"
-          disabled={otp.some(d => !d) || isVerifyingOtp || isOtpVerified || isAlreadyVerified}
-          onConfirm={verifyOtp}
-          color="bg-gray-900"
-        />
       </motion.div>
     </div>
   );
@@ -218,69 +229,88 @@ const PaymentModal = ({ order, otpString, onComplete, onClose }) => {
 
   return (
     <>
-      <div className="absolute inset-x-0 bottom-0 z-120 p-0 sm:p-4 h-full flex items-end justify-center pointer-events-none">
+      <div className="absolute inset-0 z-120 flex items-end justify-center pointer-events-none">
         <Backdrop onClose={onClose} />
         <motion.div 
           initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-          className="w-full bg-white rounded-t-[2.5rem] shadow-[0_-20px_60px_rgba(0,0,0,0.3)] p-6 pb-12 pointer-events-auto max-w-lg"
+          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+          className="w-full bg-white rounded-t-[3.5rem] shadow-[0_-25px_80px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh] pointer-events-auto max-w-lg"
         >
-          <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6" />
-          <div className="flex justify-between items-center mb-6">
-             <div className="flex items-center gap-3">
-               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isPaid ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
-                 <DollarSign className="w-7 h-7" />
-               </div>
-               <div>
-                 <h2 className="text-xl font-bold text-gray-900">Collect Payment</h2>
-                 <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Step 2 of Verification</p>
-               </div>
-             </div>
-             <button onClick={onClose} className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
+          {/* Handle / Minimize */}
+          <div className="w-full flex justify-center py-3 bg-white relative z-20">
+            <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
           </div>
 
-          <DeliveryInstructionsPanel note={order?.note} />
-
-          <div className="bg-amber-50 rounded-3xl p-6 border border-amber-100 mb-8">
-             <div className="flex justify-between items-center mb-6">
-               <div>
-                 <p className="text-amber-700 text-[10px] font-bold uppercase tracking-widest mb-1">
-                    {isPaid ? "Amount Paid Online" : "Cash to Collect"}
-                 </p>
-                 <p className="text-amber-950 text-4xl font-bold">₹{amountToCollect.toFixed(2)}</p>
+          <div className="flex-1 overflow-y-auto no-scrollbar p-8 pt-4">
+            <div className="flex justify-between items-center mb-8">
+               <div className="flex items-center gap-4">
+                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${isPaid ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                   <DollarSign className="w-8 h-8" />
+                 </div>
+                 <div>
+                   <h2 className="text-2xl font-black text-gray-900 tracking-tight">Collect Payment</h2>
+                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Step 2 of 2 • Handover</p>
+                 </div>
                </div>
-               {isPaid && <div className="bg-green-500 text-white px-4 py-2 rounded-full text-[10px] font-bold">PAID ✓</div>}
-             </div>
+               <button onClick={onClose} className="p-3 bg-gray-50 rounded-2xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all active:scale-90"><X className="w-5 h-5"/></button>
+            </div>
 
-             {!isPaid && (
-               <div className="space-y-4">
-                 <button 
-                   onClick={generateQr}
-                   disabled={isGeneratingQr}
-                   className="w-full py-4 bg-white border-2 border-amber-200 text-amber-800 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2"
-                 >
-                   {isGeneratingQr ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-5 h-5" />}
-                   Show Payment QR
-                 </button>
+            <DeliveryInstructionsPanel note={order?.note} />
+
+            <div className="bg-amber-50/50 rounded-[2.5rem] p-8 border border-amber-100 mb-8 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <DollarSign className="w-24 h-24" />
                </div>
-             )}
+               <div className="flex justify-between items-center mb-8 relative z-10">
+                 <div>
+                   <p className="text-amber-700 text-[10px] font-black uppercase tracking-[0.25em] mb-2">
+                      {isPaid ? "Payment Already Settled" : "Amount to Collect"}
+                   </p>
+                   <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-amber-950/60">₹</span>
+                      <p className="text-amber-950 text-5xl font-black tracking-tighter leading-none">{amountToCollect.toFixed(2)}</p>
+                   </div>
+                 </div>
+                 {isPaid && (
+                   <div className="bg-emerald-500 text-white px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20">
+                      Paid ✓
+                   </div>
+                 )}
+               </div>
+
+               {!isPaid && (
+                 <div className="space-y-4 relative z-10">
+                   <button 
+                     onClick={generateQr}
+                     disabled={isGeneratingQr}
+                     className="w-full py-5 bg-white border-2 border-amber-200 text-amber-800 rounded-2xl font-black text-[11px] uppercase tracking-[0.15em] flex items-center justify-center gap-3 shadow-xl shadow-amber-900/5 active:scale-95 transition-all"
+                   >
+                     {isGeneratingQr ? <Loader2 className="w-5 h-5 animate-spin" /> : <QrCode className="w-5 h-5" />}
+                     Show Payment QR
+                   </button>
+                 </div>
+               )}
+            </div>
           </div>
 
-          {/* If the driver collects physical cash, they can directly slide this, bypassing QR */}
-          <ActionSlider 
-            key="action-payment"
-            label="Slide to Complete Order" 
-            successLabel="Delivered! ✓"
-            disabled={!isPaid && paymentStatus === 'pending'} // Disable only if we are specifically waiting for QR to sync
-            onConfirm={async () => {
-                try {
-                    await onComplete(otpString);
-                } catch (e) {
-                    // Slider handles reset
-                    throw e;
-                }
-            }}
-            color="bg-green-600"
-          />
+          <div className="p-8 pt-0 pb-12 bg-white border-t border-gray-50">
+            <div className="pt-6">
+              <ActionSlider 
+                key="action-payment"
+                label="Slide to Complete Order" 
+                successLabel="Delivered! ✓"
+                disabled={!isPaid && paymentStatus === 'pending'} // Disable only if we are specifically waiting for QR to sync
+                onConfirm={async () => {
+                    try {
+                        await onComplete(otpString);
+                    } catch (e) {
+                        throw e;
+                    }
+                }}
+                color="bg-emerald-600"
+              />
+            </div>
+          </div>
         </motion.div>
       </div>
 
@@ -384,32 +414,35 @@ export const DeliveryVerificationModal = ({ order, onComplete, onClose }) => {
         />
       )}
       {step === 'complete' && (
-        <div className="absolute inset-x-0 bottom-0 z-120 p-0 sm:p-4 h-full flex items-end justify-center pointer-events-none">
+        <div className="absolute inset-0 z-120 flex items-end justify-center pointer-events-none">
           <Backdrop onClose={onClose || (() => {})} />
           <motion.div 
             key="complete-modal"
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            className="w-full bg-white rounded-t-[2.5rem] shadow-[0_-20px_60px_rgba(0,0,0,0.3)] p-6 pb-12 pointer-events-auto max-w-lg"
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="w-full bg-white rounded-t-[3.5rem] shadow-[0_-25px_80px_rgba(0,0,0,0.5)] p-8 pb-12 pointer-events-auto max-w-lg mb-0"
           >
-            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6" />
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-green-100 text-green-600">
-                <CheckCircle2 className="w-7 h-7" />
+            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-8" />
+            <div className="flex items-center gap-4 mb-10">
+              <div className="w-16 h-16 rounded-[1.5rem] bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-lg shadow-emerald-500/5 ring-4 ring-emerald-50/50">
+                <CheckCircle2 className="w-9 h-9" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">OTP Verified</h2>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-green-600">Payment Received Online</p>
+                <h2 className="text-3xl font-black text-gray-900 tracking-tight">Verified √</h2>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-600">Secure Drop Authenticated</p>
               </div>
             </div>
-            <ActionSlider 
-              key="action-complete"
-              label="Slide to Complete Delivery" 
-              successLabel="Delivered! ✓"
-              onConfirm={async () => {
-                await onComplete(verifiedOtp);
-              }}
-              color="bg-green-600"
-            />
+            <div className="pt-2">
+              <ActionSlider 
+                key="action-complete"
+                label="Slide to Complete Delivery" 
+                successLabel="Delivered! ✓"
+                onConfirm={async () => {
+                  await onComplete(verifiedOtp);
+                }}
+                color="bg-emerald-600"
+              />
+            </div>
           </motion.div>
         </div>
       )}
