@@ -4743,9 +4743,9 @@ export async function getCashLimitSettlements(query = {}) {
         pagination: { 
             total, 
             page, 
-            limit, 
-            pages: Math.ceil(total / limit) || 1 
-        } 
+            limit,
+            pages: Math.ceil(total / limit) || 1
+        }
     };
 }
 
@@ -4769,8 +4769,8 @@ export async function getSidebarBadges() {
         ] = await Promise.all([
             FoodRestaurant.countDocuments({ status: 'pending' }),
             FoodDeliveryPartner.countDocuments({ status: 'pending' }),
-            FoodItem.countDocuments({ status: 'pending' }),
-            FoodAddon.countDocuments({ status: 'pending' }),
+            FoodItem.countDocuments({ approvalStatus: 'pending' }),
+            FoodAddon.countDocuments({ approvalStatus: 'pending' }),
             FoodOrder.countDocuments({ orderStatus: 'pending' }),
             FoodOrder.countDocuments({ paymentMethod: 'offline_payment', orderStatus: 'pending' }),
             FoodRestaurantWithdrawal.countDocuments({ status: 'pending' }),
@@ -4804,7 +4804,6 @@ export async function getSidebarBadges() {
         return {};
     }
 }
-
 export async function bulkApproveFoodItems(restaurantId) {
     const filter = { approvalStatus: 'pending', isDeleted: { $ne: true } };
     
@@ -4844,6 +4843,16 @@ export async function bulkApproveFoodItems(restaurantId) {
             }
         ]
     );
+
+    // 3. Invalidate Cache if restaurantId is provided
+    if (restaurantId && mongoose.Types.ObjectId.isValid(restaurantId)) {
+        try {
+            const { invalidateCache } = await import('../../../../middleware/cache.js');
+            await invalidateCache(`restaurant_menu:${restaurantId}`);
+        } catch (cacheErr) {
+            console.error('Failed to invalidate cache after bulk approval:', cacheErr);
+        }
+    }
 
     return {
         foodItems: foodResult,

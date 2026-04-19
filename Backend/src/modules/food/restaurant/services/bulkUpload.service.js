@@ -134,7 +134,26 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
     };
 
     const getTextValue = (cell) => {
-        return String(cell?.text || '').trim();
+        if (!cell || cell.value === null || cell.value === undefined) return '';
+        
+        // Handle Hyperlinks (often how URLs are stored in Excel)
+        if (typeof cell.value === 'object') {
+            if (cell.value.hyperlink) return String(cell.value.hyperlink).trim();
+            if (cell.value.text) return String(cell.value.text).trim();
+        }
+        
+        // Handle Rich Text
+        if (cell.value.richText) {
+            return cell.value.richText.map(rt => rt.text).join('').trim();
+        }
+        
+        // Handle Formula Result
+        if (typeof cell.value === 'object' && cell.value.result !== undefined) {
+            return String(cell.value.result).trim();
+        }
+        
+        // Handle Shared Strings / Plain Values
+        return String(cell.value).trim();
     };
 
     sheet.eachRow((row, rowNumber) => {
@@ -148,7 +167,7 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
                 description: getTextValue(row.getCell(3)),
                 price: getNumericValue(row.getCell(4)),
                 foodType: getTextValue(row.getCell(5)),
-                isRecommended: getTextValue(row.getCell(6)).toLowerCase() === 'yes',
+                isRecommended: String(row.getCell(6).value || '').toLowerCase() === 'yes',
                 prepTime: getTextValue(row.getCell(7)),
                 imageUrl: getTextValue(row.getCell(8)),
                 variants: []
@@ -157,7 +176,8 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
             // Mandatory Field Check
             if (!data.category || !data.name) {
                 // Only report as error if row is not completely empty
-                if (data.category || data.name || data.description || data.price > 0) {
+                const hasAnyData = row.values.some(v => v !== null && v !== undefined && v !== '');
+                if (hasAnyData) {
                     parsingErrors.push({ row: rowNumber, error: 'Category and Item Name are mandatory' });
                 }
                 return;
@@ -190,73 +210,120 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
         details: [...parsingErrors]
     };
 
-    for (const item of items) {
-        try {
-            const { data, rowNumber } = item;
-            
-            // 1. Resolve Category
-            let category = await FoodCategory.findOne({
-                name: { $regex: new RegExp(`^${escapeRegExp(data.category)}$`, 'i') },
-                $or: [
-                    { restaurantId: null },
-                    { restaurantId: restaurant._id }
-                ]
+    // --- OPTIMIZATION: Resolve All Categories First ---
+    const categoryCache = new Map();
+    const uniqueCategoryNames = [...new Set(items.map(it => it.data.category))];
+    
+    for (const catName of uniqueCategoryNames) {
+        const normalized = catName.trim();
+        let cat = await FoodCategory.findOne({
+            name: { $regex: new RegExp(`^${escapeRegExp(normalized)}$`, 'i') },
+            $or: [{ restaurantId: null }, { restaurantId: restaurant._id }]
+        });
+
+        if (!cat) {
+            cat = await FoodCategory.create({
+                name: normalized,
+                restaurantId: restaurant._id,
+                createdByRestaurantId: restaurant._id,
+                approvalStatus: 'approved',
+                zoneId: restaurant.zoneId,
+                isActive: true
             });
+        }
+        categoryCache.set(normalized.toLowerCase(), cat);
+    }
 
-            if (!category) {
-                // Auto-create category
-                category = await FoodCategory.create({
-                    name: data.category,
-                    restaurantId: restaurant._id,
-                    createdByRestaurantId: restaurant._id,
-                    approvalStatus: 'approved',
-                    zoneId: restaurant.zoneId,
-                    isActive: true
-                });
-            }
+    // --- OPTIMIZATION: Batch process items with concurrency ---
+    const CONCURRENCY = 10;
+    const itemChunks = [];
+    for (let i = 0; i < items.length; i += CONCURRENCY) {
+        itemChunks.push(items.slice(i, i + CONCURRENCY));
+    }
 
-            // 2. Handle Image
-            let finalImageUrl = '';
-            if (data.imageUrl && data.imageUrl.startsWith('http')) {
-                try {
-                    const uploadRes = await cloudinary.uploader.upload(data.imageUrl, {
-                        folder: `restaurants/${restaurantId}/food`
-                    });
-                    finalImageUrl = uploadRes.secure_url;
-                } catch (imgErr) {
-                    console.error(`Failed to upload image for row ${rowNumber}:`, imgErr.message);
-                }
-            }
+    const bulkOps = [];
 
-            // 3. Upsert Food Item
-            await FoodItem.findOneAndUpdate(
-                { name: data.name, restaurantId: restaurant._id },
-                {
-                    $set: {
-                        categoryId: category._id,
-                        categoryName: category.name,
-                        description: data.description,
-                        // Price logic: use min of variants, or base price
-                        price: data.variants.length > 0 ? Math.min(...data.variants.map(v => v.price)) : data.price,
-                        variants: data.variants,
-                        image: finalImageUrl || undefined,
-                        foodType: data.foodType === 'Veg' ? 'Veg' : 'Non-Veg',
-                        isRecommended: data.isRecommended,
-                        preparationTime: data.prepTime,
-                        approvalStatus: 'pending',
-                        requestedAt: new Date(),
-                        rejectionReason: '',
-                        approvedAt: null,
-                        rejectedAt: null
+    for (const chunk of itemChunks) {
+        const chunkPromises = chunk.map(async (item) => {
+            try {
+                const { data, rowNumber } = item;
+
+                // 1. Get Pre-Resolved Category
+                const category = categoryCache.get(data.category.toLowerCase());
+                if (!category) throw new Error(`Category ${data.category} could not be resolved`);
+
+                // 2. Handle Image Parallel Upload
+                let finalImageUrl = '';
+                if (data.imageUrl) {
+                    const trimmedUrl = data.imageUrl.trim();
+                    // If already a Cloudinary URL, don't re-upload
+                    if (trimmedUrl.includes('cloudinary.com')) {
+                        finalImageUrl = trimmedUrl;
+                    } else if (trimmedUrl.startsWith('http') || trimmedUrl.startsWith('//')) {
+                        try {
+                            const urlToUpload = trimmedUrl.startsWith('//') ? `https:${trimmedUrl}` : trimmedUrl;
+                            const uploadRes = await cloudinary.uploader.upload(urlToUpload, {
+                                folder: `restaurants/${restaurantId}/food`
+                            });
+                            finalImageUrl = uploadRes.secure_url;
+                        } catch (imgErr) {
+                            console.error(`Row ${rowNumber}: Image upload failed [${trimmedUrl}]:`, imgErr.message);
+                        }
                     }
-                },
-                { upsert: true, new: true, runValidators: true }
-            );
+                }
 
-            results.success++;
-        } catch (err) {
-            results.failed++;
-            results.details.push({ row: item.rowNumber, error: err.message });
+                // 3. Prepare Bulk Operation
+                bulkOps.push({
+                    updateOne: {
+                        filter: { name: data.name, restaurantId: restaurant._id },
+                        update: {
+                            $set: {
+                                categoryId: category._id,
+                                categoryName: category.name,
+                                description: data.description,
+                                price: data.variants.length > 0 ? Math.min(...data.variants.map(v => v.price)) : data.price,
+                                variants: data.variants,
+                                ...(finalImageUrl && { image: finalImageUrl }),
+                                foodType: data.foodType === 'Veg' ? 'Veg' : 'Non-Veg',
+                                isRecommended: data.isRecommended,
+                                preparationTime: data.prepTime,
+                                approvalStatus: 'pending',
+                                requestedAt: new Date(),
+                                rejectionReason: '',
+                                approvedAt: null,
+                                rejectedAt: null
+                            }
+                        },
+                        upsert: true
+                    }
+                });
+
+                results.success++;
+            } catch (err) {
+                results.failed++;
+                results.details.push({ row: item.rowNumber, error: err.message });
+            }
+        });
+
+        await Promise.all(chunkPromises);
+    }
+
+    // --- OPTIMIZATION: Execute Bulk Write ---
+    if (bulkOps.length > 0) {
+        try {
+            await FoodItem.bulkWrite(bulkOps);
+        } catch (bulkErr) {
+            console.error('Bulk write failed:', bulkErr.message);
+            results.details.push({ row: 'N/A', error: `Database saving failed: ${bulkErr.message}` });
+        }
+    }
+
+    if (results.success > 0) {
+        try {
+            const { invalidateCache } = await import('../../../../middleware/cache.js');
+            await invalidateCache(`restaurant_menu:${restaurantId}`);
+        } catch (cacheErr) {
+            console.error('Failed to invalidate cache after bulk upload:', cacheErr);
         }
     }
 

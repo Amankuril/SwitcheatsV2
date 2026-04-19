@@ -114,6 +114,13 @@ export async function approveFoodItem(id) {
         await syncMenuItemApprovalStatus(updated.restaurantId, updated._id, 'approved', '');
         
         try {
+            const { invalidateCache } = await import('../../../../middleware/cache.js');
+            await invalidateCache(`restaurant_menu:${updated.restaurantId}`);
+        } catch (cacheErr) {
+            console.error('Failed to invalidate cache after food approval:', cacheErr);
+        }
+
+        try {
             const { notifyOwnersSafely } = await import('../../../core/notifications/firebase.service.js');
             await notifyOwnersSafely(
                 [{ ownerType: 'RESTAURANT', ownerId: updated.restaurantId }],
@@ -151,6 +158,13 @@ export async function rejectFoodItem(id, reason) {
     if (updated?.restaurantId) {
         await syncMenuItemApprovalStatus(updated.restaurantId, updated._id, 'rejected', r);
         
+        try {
+            const { invalidateCache } = await import('../../../../middleware/cache.js');
+            await invalidateCache(`restaurant_menu:${updated.restaurantId}`);
+        } catch (cacheErr) {
+            console.error('Failed to invalidate cache after food rejection:', cacheErr);
+        }
+
         try {
             const { notifyOwnersSafely } = await import('../../../core/notifications/firebase.service.js');
             await notifyOwnersSafely(
