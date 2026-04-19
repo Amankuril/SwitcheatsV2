@@ -62,11 +62,8 @@ export async function getOutletTimingsForRestaurant(restaurantId) {
 
 export async function upsertOutletTimingsForRestaurant(restaurantId, outletTimings) {
     if (!restaurantId || !mongoose.Types.ObjectId.isValid(String(restaurantId))) {
-        // Detailed logging to help identify why the save might be failing
-        console.error(`[OUTLET_TIMINGS] FAILED: Invalid restaurantId ${restaurantId}`);
         throw new ValidationError('Invalid restaurant id');
     }
-    console.log(`[OUTLET_TIMINGS] START: restaurantId=${restaurantId}`);
     if (!outletTimings || typeof outletTimings !== 'object' || Array.isArray(outletTimings)) {
         throw new ValidationError('outletTimings must be an object keyed by day name');
     }

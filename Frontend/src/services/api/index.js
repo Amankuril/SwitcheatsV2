@@ -1035,11 +1035,14 @@ export const restaurantAPI = {
         })
         .map((o) => {
           const isPct = o.discountType === "percentage";
+          const discountVal = Number(o.discountValue || 0);
           return {
             couponCode: o.couponCode,
             discountType: o.discountType,
-            discountPercentage: isPct ? Number(o.discountValue) || 0 : 0,
-            originalPrice: 0,
+            discountPercentage: isPct ? discountVal : 0,
+            discountValue: discountVal,
+            // For backward compat with Cart.jsx mapping (original - discounted = savings)
+            originalPrice: isPct ? 0 : discountVal,
             discountedPrice: 0,
             minOrderValue: Number(o.minOrderValue || 0),
             minOrder: Number(o.minOrderValue || 0),

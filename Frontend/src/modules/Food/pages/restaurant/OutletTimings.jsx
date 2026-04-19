@@ -200,15 +200,17 @@ export default function OutletTimings() {
             <h1 className="text-lg font-bold text-gray-900">Outlet timings</h1>
           </div>
           {/* Save Button in Header */}
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
-          >
-            {isSaving ? (
-              <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
-            ) : "Save"}
-          </button>
+          {hasUnsavedChanges && (
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
+            >
+              {isSaving ? (
+                <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
+              ) : "Save"}
+            </button>
+          )}
         </div>
 
         {/* Main Content */}
@@ -400,17 +402,19 @@ export default function OutletTimings() {
           </div>
 
           {/* Bottom Save Button */}
-          <div className="mt-6 pb-6 px-4">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-lg transition-colors text-sm shadow-lg shadow-gray-200"
-            >
-              {isSaving ? (
-                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
-              ) : "Save All Changes"}
-            </button>
-          </div>
+          {hasUnsavedChanges && (
+            <div className="mt-6 pb-6 px-4">
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-lg transition-colors text-sm shadow-lg shadow-gray-200"
+              >
+                {isSaving ? (
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
+                ) : "Save All Changes"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </LocalizationProvider>
