@@ -84,63 +84,59 @@ export default function RestaurantLogin() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-zinc-50 dark:bg-[#080808] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
-      {/* Dynamic Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <motion.div 
-          animate={{ x: [0, 50, 0], y: [0, -30, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -top-[10%] -left-[10%] w-[80%] h-[80%] rounded-full bg-[#FA0272]/5 blur-[120px]" 
-        />
-        <motion.div 
-          animate={{ x: [0, -50, 0], y: [0, 40, 0] }}
-          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className="absolute -bottom-[10%] -right-[10%] w-[70%] h-[70%] rounded-full bg-blue-500/5 blur-[100px]" 
-        />
-      </div>
-
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-[420px] bg-white/80 dark:bg-zinc-900/80 backdrop-blur-3xl rounded-[40px] shadow-[0_32px_80px_rgba(0,0,0,0.1)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.4)] relative z-10 overflow-hidden border border-white/50 dark:border-white/5"
-        style={{ marginBottom: keyboardInset ? `${keyboardInset}px` : 0 }}
-      >
-        {/* Visual Brand Header */}
-        <div className="h-40 bg-gradient-to-br from-[#FA0272] to-[#D40261] relative flex items-center justify-center overflow-hidden">
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute top-0 left-0 w-24 h-24 rounded-full bg-white -translate-x-12 -translate-y-12" />
-            <div className="absolute bottom-0 right-0 w-32 h-32 rounded-full bg-white translate-x-16 translate-y-16" />
-          </div>
-          
-          <motion.div 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="w-20 h-20 bg-white rounded-3xl shadow-2xl flex items-center justify-center border-4 border-white/20 transform rotate-12"
-          >
-            <ShieldCheck className="w-10 h-10 text-[#FA0272] -rotate-12" />
-          </motion.div>
+    <div className="min-h-[100dvh] bg-white dark:bg-[#0A0A0B] flex flex-col font-sans overflow-hidden">
+      {/* Top Branding Section - 40% height */}
+      <div className="relative h-[40dvh] w-full bg-[#FF5F00] overflow-hidden flex flex-col items-center justify-center">
+        {/* Subtle Decorative Elements (No Blur) */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute -top-10 -right-10 w-64 h-64 border-8 border-white/10 rounded-full" />
+          <div className="absolute bottom-10 -left-10 w-48 h-48 border-4 border-white/5 rounded-full" />
         </div>
 
-        <div className="px-8 py-10 space-y-8">
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight lowercase">
-              {companyName} <span className="text-[#FA0272]">partner</span>
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="relative z-10 flex flex-col items-center gap-4"
+        >
+          <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-2xl border-4 border-white/20 transform rotate-6">
+            <ShieldCheck className="w-10 h-10 text-[#FF5F00] -rotate-6" />
+          </div>
+          <div className="text-center text-white">
+            <h1 className="font-black text-3xl tracking-tight leading-none mb-1">
+              PARTNER<span className="opacity-60 italic">ACCESS</span>
             </h1>
-            <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.4em]">
-              Authorized Access Only
+            <div className="h-0.5 w-10 bg-white/40 mx-auto rounded-full" />
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Bottom Form Section - 60% height */}
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        className="flex-1 bg-white dark:bg-[#0A0A0B] rounded-t-[40px] -mt-12 relative z-20 shadow-[0_-20px_40px_rgba(0,0,0,0.05)] px-6 pt-12 pb-6 flex flex-col"
+        style={{ marginBottom: keyboardInset ? `${keyboardInset}px` : 0 }}
+      >
+        <div className="max-w-md mx-auto w-full flex flex-col h-full">
+          <div className="space-y-2 mb-10">
+            <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
+              Restaurant Portal
+            </h2>
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-500">
+              Signin with your registered mobile to manage your outlet.
             </p>
           </div>
 
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.3em] ml-1">
-                Link to your restaurant
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.3em] ml-1">
+                Owner Contact Number
               </label>
               
-              <div className="flex items-center gap-0 bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl focus-within:border-[#FA0272]/40 focus-within:ring-4 focus-within:ring-[#FA0272]/10 transition-all overflow-hidden">
-                <div className="flex items-center px-4 h-16 border-r border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 text-zinc-900 dark:text-white font-bold text-xl">
+              <div className="flex items-center gap-0 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl focus-within:border-[#FF5F00]/50 focus-within:ring-4 focus-within:ring-[#FF5F00]/5 transition-all overflow-hidden">
+                <div className="flex items-center px-4 h-16 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-white font-black text-xl border-r border-zinc-200 dark:border-zinc-800">
                   <span>+91</span>
                 </div>
                 <input
@@ -148,22 +144,22 @@ export default function RestaurantLogin() {
                   type="tel"
                   maxLength={10}
                   inputMode="numeric"
-                  placeholder="Mobile number"
+                  placeholder="00000 00000"
                   value={formData.phone}
                   onChange={handlePhoneChange}
-                  className="flex-1 h-16 bg-transparent border-0 outline-none ring-0 placeholder:text-zinc-300 dark:placeholder:text-zinc-700 text-lg font-black tracking-[0.1em] px-5 text-zinc-900 dark:text-white"
+                  className="flex-1 h-16 bg-transparent border-0 outline-none ring-0 placeholder:text-zinc-300 dark:placeholder:text-zinc-700 text-lg font-black tracking-widest px-5 text-zinc-900 dark:text-white"
                 />
               </div>
 
               <AnimatePresence>
                 {error && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 10 }}
-                    className="flex items-center gap-1.5 text-[11px] font-bold text-[#FA0272] pl-2"
+                    className="flex items-center gap-1.5 text-xs font-bold text-[#FF5F00] pl-2"
                   >
-                    <AlertCircle className="h-3.5 w-3.5" />
+                    <AlertCircle className="h-4 w-4" />
                     <span>{error}</span>
                   </motion.div>
                 )}
@@ -173,12 +169,12 @@ export default function RestaurantLogin() {
             <Button
               onClick={handleSendOTP}
               disabled={isSending || formData.phone.length !== 10}
-              className="w-full h-16 rounded-2xl font-black text-base tracking-widest uppercase transition-all duration-300 bg-[#FA0272] hover:bg-[#D40261] text-white shadow-[0_12px_32px_rgba(250,2,114,0.3)] active:scale-[0.98] disabled:opacity-50 disabled:grayscale"
+              className="w-full h-16 rounded-2xl font-black text-base tracking-widest uppercase transition-all duration-300 bg-[#FF5F00] hover:bg-[#E05400] text-white shadow-[0_12px_24px_rgba(255,95,0,0.3)] active:scale-[0.98] disabled:opacity-50 disabled:grayscale"
             >
               {isSending ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Processing...</span>
+                  <span>Authorizing...</span>
                 </div>
               ) : (
                 "Continue Securely"
@@ -186,31 +182,12 @@ export default function RestaurantLogin() {
             </Button>
           </div>
 
-          <div className="text-center">
-            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium leading-relaxed">
-              By entering, you confirm registration under
-              <br />
-              <button 
-                onClick={() => navigate("/food/restaurant/terms")}
-                className="text-[#FA0272] font-black hover:underline"
-              >
-                TERMS
-              </button>
-              {" & "}
-              <button 
-                onClick={() => navigate("/food/restaurant/privacy")}
-                className="text-[#FA0272] font-black hover:underline"
-              >
-                PRIVACY POLICY
-              </button>
+          <footer className="mt-auto pt-10 text-center">
+            <p className="text-[10px] text-zinc-400 dark:text-zinc-600 font-medium leading-relaxed uppercase tracking-wide">
+              Secure partner login powered by<br />
+              <span className="text-[#FF5F00] font-black">{companyName} Network</span>
             </p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 text-center">
-          <p className="text-[9px] font-black text-zinc-300 dark:text-zinc-600 tracking-[0.4em] uppercase">
-            &copy; {new Date().getFullYear()} {companyName.toUpperCase()} PARTNER NETWORK
-          </p>
+          </footer>
         </div>
       </motion.div>
     </div>

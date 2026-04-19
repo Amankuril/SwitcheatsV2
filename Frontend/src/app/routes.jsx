@@ -67,7 +67,7 @@ const AppRoutes = () => {
       <Route path="/" element={<Navigate to="/food/user" replace />} />
 
       {/* Auth Module */}
-      <Route path="/user/auth/*" element={<AuthApp />} />
+
 
       {/* Food Module */}
       <Route path="/food/*" element={<FoodAppWrapper />} />

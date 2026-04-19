@@ -219,117 +219,135 @@ export default function RestaurantOTP() {
   if (!authData) return null
 
   return (
-    <div className="min-h-[100dvh] bg-zinc-50 dark:bg-[#080808] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
-      {/* Dynamic Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[10%] left-[5%] w-[60%] h-[60%] rounded-full bg-[#FA0272]/5 blur-[120px]" />
-        <div className="absolute bottom-[10%] right-[5%] w-[50%] h-[50%] rounded-full bg-blue-500/5 blur-[120px]" />
-      </div>
-
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="w-full max-w-[420px] bg-white/80 dark:bg-zinc-900/80 backdrop-blur-3xl rounded-[40px] shadow-[0_32px_80px_rgba(0,0,0,0.1)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.4)] relative z-10 overflow-hidden border border-white/50 dark:border-white/5"
-        style={{ marginBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : 0 }}
-      >
-        <div className="flex items-center px-6 py-5 border-b border-zinc-100 dark:border-zinc-800">
-          <button
-            onClick={() => navigate("/food/restaurant/login")}
-            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all group"
-          >
-            <ArrowLeft className="h-5 w-5 text-[#FA0272] group-hover:-translate-x-0.5 transition-transform" />
-          </button>
-          <span className="ml-3 font-black text-[10px] uppercase tracking-[0.3em] text-zinc-900 dark:text-white pt-0.5">
-            Security Check
-          </span>
+    <div className="min-h-[100dvh] bg-white dark:bg-[#0A0A0B] flex flex-col font-sans overflow-hidden">
+      {/* Top Branding Section - 35% height */}
+      <div className="relative h-[35dvh] w-full bg-[#FF5F00] overflow-hidden flex flex-col items-center justify-center">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 left-0 w-64 h-64 border border-white/20 rounded-full -ml-20 -mt-20" />
+          <div className="absolute bottom-10 right-0 w-32 h-32 border border-white/10 rounded-full -mr-16" />
         </div>
 
-        <div className="p-8 sm:p-10 space-y-8">
-          <div className="text-center space-y-3">
-            <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight leading-none italic">
-              Verify OTP
-            </h2>
-            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 max-w-[260px] mx-auto leading-relaxed">
-              We've sent a code to <span className="text-[#FA0272] font-black">{contactInfo}</span>
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6 }}
+          className="relative z-10 flex flex-col items-center gap-4 px-6 text-center"
+        >
+          <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-lg mb-2">
+            <ShieldCheck className="w-8 h-8 text-white" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-white font-black text-3xl tracking-tight leading-none italic">
+              SECURITY CHECK
+            </h1>
+            <p className="text-white/70 text-xs font-bold uppercase tracking-[0.2em]">
+              Sent to {contactInfo}
             </p>
           </div>
+        </motion.div>
+      </div>
 
-          <div className="space-y-8">
-            <div ref={otpSectionRef} className="flex justify-center gap-3 sm:gap-4">
+      {/* Bottom Content Section - 65% height */}
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        className="flex-1 bg-white dark:bg-[#0A0A0B] rounded-t-[40px] -mt-10 relative z-20 shadow-[0_-20px_40px_rgba(0,0,0,0.05)] px-6 pt-12 pb-6 flex flex-col"
+        style={{ marginBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : 0 }}
+      >
+        <div className="max-w-md mx-auto w-full flex flex-col h-full">
+          <div className="space-y-10">
+            <div ref={otpSectionRef} className="flex justify-center gap-4">
               {otp.map((digit, index) => (
-                <motion.input
+                <motion.div
                   key={index}
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  ref={(el) => (inputRefs.current[index] = el)}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleChange(index, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(index, e)}
-                  onPaste={handlePaste}
-                  onFocus={() => setFocusedIndex(index)}
-                  onBlur={() => setFocusedIndex(null)}
-                  disabled={isLoading}
-                  className={`w-14 h-16 bg-zinc-100/50 dark:bg-zinc-800/80 border-2 rounded-2xl text-center text-3xl font-black text-zinc-900 dark:text-white transition-all duration-300 ${
-                    error 
-                      ? "border-red-500 bg-red-50/50" 
-                      : focusedIndex === index 
-                        ? "border-[#FA0272] ring-4 ring-[#FA0272]/10 shadow-lg" 
-                        : "border-zinc-100 dark:border-zinc-800"
-                  }`}
-                />
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.1 * index }}
+                  className="relative"
+                >
+                  <input
+                    ref={(el) => (inputRefs.current[index] = el)}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    onPaste={handlePaste}
+                    onFocus={() => setFocusedIndex(index)}
+                    onBlur={() => setFocusedIndex(null)}
+                    disabled={isLoading}
+                    className={`w-16 h-20 text-center text-3xl font-black bg-zinc-100 dark:bg-zinc-900 border-2 rounded-2xl text-zinc-900 dark:text-white transition-all outline-none shadow-sm ${
+                      focusedIndex === index ? "border-[#FF5F00] shadow-[#FF5F00]/10" : "border-transparent"
+                    }`}
+                  />
+                  {digit && (
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#FF5F00] rounded-full" />
+                  )}
+                </motion.div>
               ))}
             </div>
 
             {error && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="flex items-center justify-center gap-2 text-[11px] font-black text-[#FA0272] bg-[#FA0272]/5 py-3 px-4 rounded-xl border border-[#FA0272]/10 uppercase tracking-widest italic"
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center justify-center gap-2 text-xs font-bold text-[#FF5F00] bg-[#FF5F00]/5 py-4 px-4 rounded-2xl border border-[#FF5F00]/10"
               >
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{error}</span>
               </motion.div>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-6 pt-4">
               <Button
                 onClick={() => handleVerify()}
                 disabled={isLoading || otp.some(d => !d)}
-                className="w-full h-16 rounded-2xl font-black text-base tracking-widest uppercase transition-all duration-300 bg-[#FA0272] hover:bg-[#D40261] text-white shadow-[0_12px_32px_rgba(250,2,114,0.3)] active:scale-[0.98] disabled:opacity-50 disabled:grayscale"
+                className="w-full h-16 bg-[#FF5F00] hover:bg-[#E05400] text-white font-black text-base uppercase tracking-widest rounded-2xl transition-all duration-300 shadow-[0_12px_24px_rgba(255,95,0,0.3)] active:scale-[0.98] disabled:opacity-50 disabled:grayscale"
               >
-                {isLoading ? "Validating..." : "Connect Account"}
-              </Button>
-
-              <div className="flex justify-center">
-                {resendTimer > 0 ? (
-                  <div className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                    <Timer className="w-4 h-4 text-[#FA0272]" />
-                    RESEND IN <span className="text-[#FA0272]">{resendTimer}S</span>
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                    <span>Validating...</span>
                   </div>
                 ) : (
+                  "Unlock Portal"
+                )}
+              </Button>
+
+              <div className="flex justify-center flex-col items-center gap-4">
+                {resendTimer > 0 ? (
+                  <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                    Request new code in <span className="text-[#FF5F00]">{resendTimer}s</span>
+                  </p>
+                ) : (
                   <button
+                    type="button"
                     onClick={handleResend}
                     disabled={isLoading}
-                    className="flex items-center gap-2 text-[#FA0272] font-black text-[10px] tracking-[0.3em] uppercase hover:underline"
+                    className="text-xs font-black text-[#FF5F00] uppercase tracking-[0.2em] px-6 py-2 rounded-full bg-[#FF5F00]/5 hover:bg-[#FF5F00]/10 transition-colors"
                   >
-                    <RefreshCw className="w-4 h-4" />
-                    RESEND CODE
+                    Resend OTP
                   </button>
                 )}
+
+                <Button
+                  onClick={() => navigate("/food/restaurant/login")}
+                  variant="ghost"
+                  className="text-zinc-400 dark:text-zinc-600 font-bold text-[10px] uppercase tracking-widest hover:bg-transparent hover:text-zinc-900"
+                >
+                  Change Account
+                </Button>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 text-center">
-          <p className="text-[9px] font-black text-zinc-300 dark:text-zinc-600 tracking-[0.4em] uppercase">
-            SECURE VERIFICATION GATEWAY &bull; {companyName.toUpperCase()}
-          </p>
+          <footer className="mt-auto pt-10 text-center">
+            <p className="text-[9px] text-zinc-300 dark:text-zinc-700 font-black uppercase tracking-[0.4em]">
+              Partner Security Network &bull; {companyName.toUpperCase()}
+            </p>
+          </footer>
         </div>
       </motion.div>
     </div>

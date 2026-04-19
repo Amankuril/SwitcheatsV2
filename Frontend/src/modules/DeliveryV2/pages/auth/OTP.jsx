@@ -196,149 +196,199 @@ export default function DeliveryOTP() {
   if (!authData) return null
 
   return (
-    <div className="min-h-[100dvh] bg-zinc-50 dark:bg-[#080808] flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
-      {/* Dynamic Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[10%] left-[5%] w-[60%] h-[60%] rounded-full bg-[#00B761]/5 blur-[120px]" />
-        <div className="absolute bottom-[10%] right-[5%] w-[50%] h-[50%] rounded-full bg-blue-500/5 blur-[120px]" />
-      </div>
-
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="w-full max-w-[420px] bg-white/80 dark:bg-zinc-900/80 backdrop-blur-3xl rounded-[40px] shadow-[0_32px_80px_rgba(0,0,0,0.1)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.4)] relative z-10 overflow-hidden border border-white/50 dark:border-white/5"
-        style={{ marginBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : 0 }}
-      >
-        <div className="flex items-center px-6 py-5 border-b border-zinc-100 dark:border-zinc-800">
-          <button
-            onClick={() => navigate("/food/delivery/login")}
-            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all"
-          >
-            <ArrowLeft className="h-5 w-5 text-[#00B761]" />
-          </button>
-          <span className="ml-3 font-black text-[10px] uppercase tracking-[0.3em] text-zinc-900 dark:text-white pt-0.5">
-            Fleet Access Gate
-          </span>
+    <div className="min-h-[100dvh] bg-white dark:bg-[#0A0A0B] flex flex-col font-sans overflow-hidden">
+      {/* Top Branding Section - 35% height */}
+      <div className="relative h-[35dvh] w-full bg-[#00B761] overflow-hidden flex flex-col items-center justify-center text-white">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 right-0 w-64 h-64 border border-white/20 rounded-full -mr-20 -mt-20" />
+          <div className="absolute bottom-10 left-0 w-32 h-32 border border-white/10 rounded-full -ml-16" />
         </div>
 
-        <div className="p-8 sm:p-10 space-y-8">
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6 }}
+          className="relative z-10 flex flex-col items-center gap-4 px-6 text-center"
+        >
+          <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-lg mb-2">
+            <ShieldCheck className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="font-black text-3xl tracking-tight italic uppercase">
+              {isRejected ? "DENIED" : pendingMessage ? "PENDING" : showNameInput ? "RIDER SETUP" : "RIDER VERIFY"}
+            </h1>
+            <p className="opacity-70 text-xs font-bold uppercase tracking-[0.2em]">
+              {pendingMessage ? "Verification Required" : showNameInput ? "Complete your profile" : `Sent to ${authData?.phone}`}
+            </p>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Bottom Content Section - 65% height */}
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        className="flex-1 bg-white dark:bg-[#0A0A0B] rounded-t-[40px] -mt-10 relative z-20 shadow-[0_-20px_40px_rgba(0,0,0,0.05)] px-6 pt-12 pb-6 flex flex-col"
+        style={{ marginBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : 0 }}
+      >
+        <div className="max-w-md mx-auto w-full flex flex-col h-full">
           <AnimatePresence mode="wait">
             {!pendingMessage ? (
-              <motion.div 
-                key="otp-step" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+              <motion.div
+                key="input-view"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
                 className="space-y-8"
               >
-                <div className="text-center space-y-3">
-                  <h2 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight italic uppercase">
-                    {showNameInput ? "One Last Step" : "Ride Check"}
-                  </h2>
-                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 max-w-[260px] mx-auto leading-relaxed">
-                    {showNameInput ? "Enter your name to initialize profile" : <>A passcode was sent to <span className="text-[#00B761] font-black">{authData.phone}</span></>}
-                  </p>
-                </div>
-
                 {!showNameInput ? (
-                  <div className="space-y-8">
-                    <div className="flex justify-center gap-3 sm:gap-4">
+                  <div className="space-y-10">
+                    <div className="flex justify-center gap-4">
                       {otp.map((digit, index) => (
-                        <input
-                          key={index} ref={(el) => (inputRefs.current[index] = el)}
-                          type="text" inputMode="numeric" maxLength={1} value={digit}
-                          onChange={(e) => handleChange(index, e.target.value)}
-                          onKeyDown={(e) => handleKeyDown(index, e)}
-                          onPaste={handlePaste}
-                          onFocus={() => setFocusedIndex(index)}
-                          className={`w-14 h-16 bg-zinc-100/50 dark:bg-zinc-800/80 border-2 rounded-2xl text-center text-3xl font-black text-zinc-900 dark:text-white transition-all duration-300 ${
-                            error ? "border-red-500 bg-red-50/50" : focusedIndex === index ? "border-[#00B761] ring-4 ring-[#00B761]/10 shadow-lg" : "border-zinc-100 dark:border-zinc-800"
-                          }`}
-                        />
+                        <div key={index} className="relative">
+                          <input
+                            ref={(el) => (inputRefs.current[index] = el)}
+                            type="text" inputMode="numeric" maxLength={1} value={digit}
+                            onChange={(e) => handleChange(index, e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(index, e)}
+                            onPaste={handlePaste}
+                            onFocus={() => setFocusedIndex(index)}
+                            onBlur={() => setFocusedIndex(null)}
+                            disabled={isLoading}
+                            className={`w-16 h-20 text-center text-3xl font-black bg-zinc-100 dark:bg-zinc-900 border-2 rounded-2xl text-zinc-900 dark:text-white transition-all outline-none shadow-sm ${
+                              focusedIndex === index ? "border-[#00B761]" : "border-transparent"
+                            }`}
+                          />
+                          {digit && (
+                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#00B761] rounded-full" />
+                          )}
+                        </div>
                       ))}
                     </div>
 
-                    <div className="flex justify-center">
+                    <div className="space-y-6 pt-4 text-center">
                       {resendTimer > 0 ? (
-                        <div className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                          <Timer className="w-4 h-4 text-[#00B761]" />
-                          RE-PULSE IN <span className="text-[#00B761]">{resendTimer}S</span>
-                        </div>
+                        <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                          Re-pulse in <span className="text-[#00B761]">{resendTimer}s</span>
+                        </p>
                       ) : (
-                        <button onClick={handleResend} className="flex items-center gap-2 text-[#00B761] font-black text-[10px] tracking-widest uppercase hover:underline">
-                          <RefreshCw className="w-4 h-4" /> RESEND PIN
+                        <button
+                          type="button"
+                          onClick={handleResend}
+                          disabled={isLoading}
+                          className="text-xs font-black text-[#00B761] uppercase tracking-[0.2em] px-6 py-2 rounded-full bg-[#00B761]/5 hover:bg-[#00B761]/10 transition-colors"
+                        >
+                          Resend Pin
                         </button>
                       )}
+
+                      <Button
+                        onClick={() => navigate("/food/delivery/login")}
+                        variant="ghost"
+                        className="text-zinc-400 dark:text-zinc-600 font-bold text-[10px] uppercase tracking-widest hover:bg-transparent hover:text-zinc-900"
+                      >
+                        Abort Shift
+                      </Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                     <div className="relative group">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#00B761] transition-colors" />
-                        <Input
-                          type="text" value={name} onChange={(e) => { setName(e.target.value); setNameError(""); }}
-                          placeholder="Your Full Name"
-                          className="h-16 pl-12 pr-6 bg-zinc-100/50 dark:bg-zinc-800/80 border-0 rounded-2xl text-lg font-bold placeholder:text-zinc-400 focus:ring-4 focus:ring-[#00B761]/10"
-                        />
-                     </div>
-                     {nameError && <p className="text-[11px] font-black text-red-500 uppercase tracking-widest ml-4 italic">{nameError}</p>}
-                     <Button onClick={handleSubmitName} disabled={isLoading} className="w-full h-16 rounded-2xl font-black text-base bg-[#00B761] hover:bg-[#009049] text-white shadow-[0_12px_32px_rgba(0,183,97,0.3)] active:scale-95">
-                        Initialize Start
-                     </Button>
+                  <div className="space-y-8">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] ml-1">
+                          Official Full Name
+                        </label>
+                        <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl focus-within:border-[#00B761]/50 focus-within:ring-4 focus-within:ring-[#00B761]/5 transition-all overflow-hidden">
+                          <Input
+                            type="text" value={name} onChange={(e) => { setName(e.target.value); setNameError(""); }}
+                            placeholder="e.g. Aman Kuril"
+                            className="h-16 bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-xl font-black placeholder:text-zinc-300 dark:placeholder:text-zinc-700 px-6"
+                          />
+                        </div>
+                      </div>
+                      {nameError && <p className="text-xs font-bold text-[#00B761] pl-2">{nameError}</p>}
+                    </div>
+
+                    <Button
+                      onClick={handleSubmitName}
+                      disabled={isLoading || name.trim().length < 2}
+                      className="w-full h-16 bg-[#00B761] hover:bg-[#009049] text-white font-black text-base uppercase tracking-widest rounded-2xl transition-all duration-300 shadow-[0_12px_24px_rgba(0,183,97,0.3)] active:scale-[0.98]"
+                    >
+                      {isLoading ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span>Initializing...</span>
+                        </div>
+                      ) : (
+                        "Start Riding"
+                      )}
+                    </Button>
                   </div>
                 )}
               </motion.div>
             ) : (
-              <motion.div 
-                key="pending-step" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                className="text-center space-y-6"
+              <motion.div
+                key="pending-view"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center space-y-8"
               >
-                <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center ${isRejected ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-amber-100 dark:bg-amber-900/30 text-amber-600"}`}>
-                   {isRejected ? <AlertCircle size={40} /> : <ShieldCheck size={40} />}
+                <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center shadow-xl transform rotate-12 ${isRejected ? "bg-red-50 text-red-600 border border-red-100" : "bg-zinc-50 dark:bg-zinc-900 text-[#00B761] border border-zinc-100 dark:border-zinc-800"}`}>
+                   {isRejected ? <AlertCircle size={40} className="-rotate-12" /> : <ShieldCheck size={40} className="-rotate-12" />}
                 </div>
-                <div className="space-y-2">
-                   <h3 className={`text-xl font-black italic uppercase ${isRejected ? "text-red-600" : "text-amber-600"}`}>
-                      {isRejected ? "Application Denied" : "Verification in Progress"}
-                   </h3>
-                   <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      {pendingMessage}
-                   </p>
+
+                <div className="space-y-3">
+                  <h3 className={`text-xl font-black italic uppercase tracking-tight ${isRejected ? "text-red-600" : "text-[#00B761]"}`}>
+                     {isRejected ? "Onboarding Denied" : "Pending Approval"}
+                  </h3>
+                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                     {pendingMessage}
+                  </p>
                 </div>
+
                 {isRejected && rejectionReason && (
-                   <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-100 dark:border-red-900/20">
-                      <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Feedback</p>
+                   <div className="bg-red-50 dark:bg-red-900/10 p-5 rounded-2xl border border-red-100 dark:border-red-900/10">
+                      <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 italic">Fleet Feedback</p>
                       <p className="text-sm text-red-700 dark:text-red-400 font-medium italic">"{rejectionReason}"</p>
                    </div>
                 )}
-                <div className="pt-4 flex flex-col gap-3">
+
+                <div className="pt-6 flex flex-col gap-4">
                    {isRejected && (
-                      <Button onClick={() => navigate("/food/delivery/signup/details")} className="w-full h-14 rounded-2xl font-black bg-red-600 hover:bg-red-700 text-white">RE-APPLY NOW</Button>
+                      <Button
+                        onClick={() => navigate("/food/delivery/signup/details")}
+                        className="w-full h-16 rounded-2xl font-black bg-red-600 hover:bg-red-700 text-white shadow-lg"
+                      >
+                        RE-APPLY NOW
+                      </Button>
                    )}
-                   <button onClick={() => navigate("/food/delivery/login")} className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] hover:text-[#00B761] transition-colors">BACK TO LOGIN</button>
+                   <button 
+                    onClick={() => navigate("/food/delivery/login")} 
+                    className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] hover:text-[#00B761] transition-all"
+                   >
+                    BACK TO BASE
+                   </button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
           {error && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-center gap-2 text-[11px] font-black text-[#00B761] bg-[#00B761]/5 py-3 px-4 rounded-xl border border-[#00B761]/10 uppercase tracking-widest italic"
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 flex items-center justify-center gap-2 text-xs font-bold text-[#00B761] bg-[#00B761]/5 py-4 px-4 rounded-2xl border border-[#00B761]/10"
             >
               <AlertCircle size={14} />
               <span>{error}</span>
             </motion.div>
           )}
 
-          {isLoading && !showNameInput && (
-            <div className="flex justify-center">
-              <Loader2 className="h-6 w-6 text-[#00B761] animate-spin" />
-            </div>
-          )}
-        </div>
-
-        <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 text-center">
-          <p className="text-[9px] font-black text-zinc-300 dark:text-zinc-600 tracking-[0.4em] uppercase">
-            SECURE FLEET AUTHENTICATION &bull; {companyName.toUpperCase()}
-          </p>
+          <footer className="mt-auto pt-10 text-center">
+            <p className="text-[9px] text-zinc-300 dark:text-zinc-700 font-black uppercase tracking-[0.4em]">
+              Fleet Security Network &bull; {companyName.toUpperCase()}
+            </p>
+          </footer>
         </div>
       </motion.div>
     </div>
