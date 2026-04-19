@@ -63,6 +63,7 @@ export default function SettingsPage() {
       title: "Account",
       items: [
         { id: "notifications", label: "Notifications", icon: Bell, hasToggle: true, toggleValue: notificationsEnabled, onToggle: setNotificationsEnabled },
+        { id: "coupons", label: "Offers & Coupons", icon: CreditCard, route: "/restaurant/coupon" },
         { id: "privacy", label: "Privacy & Security", icon: Shield, route: "/restaurant/privacy" },
       ]
     },
@@ -213,5 +214,3 @@ export default function SettingsPage() {
     </div>
   )
 }
-
-

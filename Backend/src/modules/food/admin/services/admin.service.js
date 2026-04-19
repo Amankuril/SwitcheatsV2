@@ -3366,7 +3366,8 @@ export async function createAdminOffer(body) {
         isFirstOrderOnly: body.isFirstOrderOnly ?? false,
         endDate: body.endDate,
         status: body.endDate && new Date(body.endDate).getTime() <= Date.now() ? 'inactive' : 'active',
-        showInCart: true
+        showInCart: true,
+        createdByRole: 'ADMIN'
     });
 
     if (doc.restaurantScope === 'selected' && doc.restaurantId) {

@@ -96,8 +96,24 @@ export async function createInitialTransaction(order) {
         Number.isFinite(restaurantCommissionFromOrder) && restaurantCommissionFromOrder > 0
             ? restaurantCommissionFromOrder
             : (commissionAmount || 0);
-    const restaurantNet = (order.pricing?.subtotal || 0) + (order.pricing?.packagingFee || 0) - restaurantCommission;
-    const platformNetProfit = (order.pricing?.platformFee || 0) + (order.pricing?.deliveryFee || 0) + restaurantCommission - riderShare;
+
+    const discount = Number(order.pricing?.discount || 0) || 0;
+    let restaurantNet = (order.pricing?.subtotal || 0) + (order.pricing?.packagingFee || 0) - restaurantCommission;
+    let platformNetProfit = (order.pricing?.platformFee || 0) + (order.pricing?.deliveryFee || 0) + restaurantCommission - riderShare;
+
+    // Handle discount attribution
+    const couponCode = order.pricing?.couponCode;
+    if (discount > 0 && couponCode) {
+        // Dynamic import to avoid circular dependency if any
+        const { FoodOffer } = await import('../../admin/models/offer.model.js');
+        const offer = await FoodOffer.findOne({ couponCode: String(couponCode).toUpperCase() }).lean();
+        if (offer?.createdByRole === 'RESTAURANT') {
+            restaurantNet -= discount;
+        } else {
+            // Admin created (default) or not found
+            platformNetProfit -= discount;
+        }
+    }
 
     const transaction = new FoodTransaction({
         orderId: order._id,

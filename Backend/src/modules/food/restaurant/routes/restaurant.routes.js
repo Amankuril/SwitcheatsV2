@@ -18,6 +18,12 @@ import {
     uploadRestaurantAttachmentController
 } from '../controllers/restaurant.controller.js';
 import {
+    createRestaurantOfferController,
+    listRestaurantOffersController,
+    deleteRestaurantOfferController,
+    updateRestaurantOfferStatusController
+} from '../controllers/restaurantOffer.controller.js';
+import {
     createRestaurantSupportTicketController,
     listRestaurantSupportTicketsController
 } from '../controllers/supportTicket.controller.js';
@@ -205,6 +211,12 @@ router.post('/orders/:orderId/resend-notification', authMiddleware, requireResta
 router.get('/complaints', authMiddleware, requireRestaurant, getRestaurantComplaintsController);
 router.post('/support/tickets', authMiddleware, requireRestaurant, createRestaurantSupportTicketController);
 router.get('/support/tickets', authMiddleware, requireRestaurant, listRestaurantSupportTicketsController);
+
+// Offers (restaurant dashboard)
+router.get('/my-offers', authMiddleware, requireRestaurant, listRestaurantOffersController);
+router.post('/my-offers', authMiddleware, requireRestaurant, createRestaurantOfferController);
+router.patch('/my-offers/:id/status', authMiddleware, requireRestaurant, updateRestaurantOfferStatusController);
+router.delete('/my-offers/:id', authMiddleware, requireRestaurant, deleteRestaurantOfferController);
 
 export default router;
 

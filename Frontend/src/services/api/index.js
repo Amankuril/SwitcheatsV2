@@ -1012,6 +1012,11 @@ export const restaurantAPI = {
       contextModule: "restaurant",
     });
   },
+  /** My Offers (Coupons) */
+  listMyOffers: () => apiClient.get("/food/restaurant/my-offers", { contextModule: "restaurant" }),
+  createMyOffer: (body) => apiClient.post("/food/restaurant/my-offers", body, { contextModule: "restaurant" }),
+  deleteMyOffer: (id) => apiClient.delete(`/food/restaurant/my-offers/${id}`, { contextModule: "restaurant" }),
+  updateMyOfferStatus: (id, status) => apiClient.patch(`/food/restaurant/my-offers/${id}/status`, { status }, { contextModule: "restaurant" }),
   /** Public Offers for users (global/selected restaurant) */
   getPublicOffers: () => apiClient.get("/food/restaurant/offers"),
   /** Backward-compat helper used by Cart: returns coupons array for an item by adapting public offers */

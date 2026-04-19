@@ -15,10 +15,12 @@ import { Card, CardContent } from "@food/components/ui/card"
 import { Button } from "@food/components/ui/button"
 import { Input } from "@food/components/ui/input"
 import BottomNavbar from "@food/components/restaurant/BottomNavbar"
+import { restaurantAPI } from "@food/api"
+import { toast } from "sonner"
+
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
-
 
 export default function AddCouponPage(props) {
   const { mode = "create", couponId } = props || {}
@@ -480,16 +482,33 @@ export default function AddCouponPage(props) {
       </div>
 
       {/* Add Button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4 z-50 md:relative md:border-t-0 md:px-4 md:py-4 md:mt-6">
+      <div className="px-4 pb-4">
         <Button
-          onClick={() => {
-            if (isEditMode) {
-              debugLog("Update coupon:", { id: couponId, ...formData })
-            } else {
-              debugLog("Add coupon:", formData)
+          onClick={async () => {
+            try {
+              const payload = {
+                couponCode: formData.couponCode,
+                discountType: formData.discountType === "%" ? "percentage" : "flat-price",
+                discountValue: Number(formData.discount),
+                minOrderValue: Number(formData.minPurchase) || 0,
+                maxDiscount: Number(formData.maxDiscount) || undefined,
+                usageLimit: Number(formData.limitForSameUser) || undefined,
+                perUserLimit: Number(formData.limitForSameUser) || undefined,
+                startDate: formData.startDate ? new Date(formData.startDate).toISOString() : undefined,
+                endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
+                status: "active"
+              };
+              if (isEditMode) {
+                toast.error("Edit mode not fully implemented yet");
+              } else {
+                await restaurantAPI.createMyOffer(payload);
+                toast.success("Coupon created successfully!");
+                navigate("/restaurant/coupon");
+              }
+            } catch (error) {
+              const errMsg = error.response?.data?.message || error.message || "Failed to save coupon";
+              toast.error(errMsg);
             }
-            // Navigate to coupon list after save
-            navigate("/restaurant/coupon")
           }}
           className="w-full bg-[#ff8100] hover:bg-[#e67300] text-white font-semibold py-3 rounded-lg"
         >
@@ -502,5 +521,3 @@ export default function AddCouponPage(props) {
     </div>
   )
 }
-
-

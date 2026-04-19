@@ -1,6 +1,6 @@
 import { FoodRestaurant } from '../models/restaurant.model.js';
 import { uploadImageBuffer } from '../../../../services/cloudinary.service.js';
-import { ValidationError } from '../../../../core/auth/errors.js';
+import { ValidationError, NotFoundError } from '../../../../core/auth/errors.js';
 import mongoose from 'mongoose';
 import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyPaymentSignature } from '../../orders/helpers/razorpay.helper.js';
 import { FoodZone } from '../../admin/models/zone.model.js';
@@ -1602,3 +1602,91 @@ export const getRestaurantComplaints = async (restaurantId, query = {}) => {
     return getComplaintsInternal({ ...query, restaurantId });
 };
 
+
+/**
+ * Create a new offer for a restaurant.
+ */
+export async function createRestaurantOffer(restaurantId, body) {
+    const existing = await FoodOffer.findOne({ couponCode: body.couponCode }).lean();
+    if (existing) {
+        throw new ValidationError('Coupon code already exists');
+    }
+
+    const doc = await FoodOffer.create({
+        couponCode: body.couponCode,
+        discountType: body.discountType,
+        discountValue: body.discountValue,
+        customerScope: body.customerScope || 'all',
+        restaurantScope: 'selected',
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        minOrderValue: body.minOrderValue ?? 0,
+        maxDiscount: body.maxDiscount ?? null,
+        usageLimit: body.usageLimit ?? null,
+        perUserLimit: body.perUserLimit ?? null,
+        startDate: body.startDate,
+        isFirstOrderOnly: body.isFirstOrderOnly ?? false,
+        endDate: body.endDate,
+        status: body.endDate && new Date(body.endDate).getTime() <= Date.now() ? 'inactive' : 'active',
+        showInCart: true,
+        createdByRole: 'RESTAURANT'
+    });
+
+    return doc;
+}
+
+/**
+ * List offers for a specific restaurant.
+ */
+export async function listRestaurantOffers(restaurantId) {
+    const list = await FoodOffer.find({ 
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        restaurantScope: 'selected'
+    }).sort({ createdAt: -1 }).lean();
+
+    return list.map(o => ({
+        ...o,
+        id: String(o._id),
+        offerId: String(o._id)
+    }));
+}
+
+/**
+ * Delete a restaurant offer.
+ */
+export async function deleteRestaurantOffer(restaurantId, offerId) {
+    const res = await FoodOffer.deleteOne({ 
+        _id: new mongoose.Types.ObjectId(offerId),
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        createdByRole: 'RESTAURANT'
+    });
+    if (res.deletedCount === 0) {
+        throw new NotFoundError('Offer not found or not owned by you');
+    }
+    return true;
+}
+
+/**
+ * Toggle status of a restaurant offer.
+ */
+export async function updateRestaurantOfferStatus(restaurantId, offerId, status) {
+    const allowedStatus = ['active', 'paused', 'inactive'];
+    if (!allowedStatus.includes(status)) {
+        throw new ValidationError('Invalid status');
+    }
+
+    const doc = await FoodOffer.findOneAndUpdate(
+        { 
+            _id: new mongoose.Types.ObjectId(offerId),
+            restaurantId: new mongoose.Types.ObjectId(restaurantId),
+            createdByRole: 'RESTAURANT'
+        },
+        { $set: { status } },
+        { new: true }
+    );
+
+    if (!doc) {
+        throw new NotFoundError('Offer not found or not owned by you');
+    }
+
+    return doc;
+}
