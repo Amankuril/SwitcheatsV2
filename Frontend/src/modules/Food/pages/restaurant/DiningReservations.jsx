@@ -5,7 +5,7 @@ import { diningAPI, restaurantAPI } from "@food/api"
 import Loader from "@food/components/Loader"
 import { Badge } from "@food/components/ui/badge"
 import { toast } from "sonner"
-const debugError = (...args) => {}
+const debugError = (...args) => { }
 
 const getRestaurantFromResponse = (response) =>
     response?.data?.data?.restaurant ||
@@ -488,142 +488,142 @@ export default function DiningReservations() {
                 </div>
 
                 {activeSection === "media" && (
-                <div className="mb-8">
-                    <button
-                        onClick={() => setShowMediaPanel((prev) => !prev)}
-                        className="w-full bg-white rounded-2xl border border-slate-200 px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-                    >
-                        <div>
-                            <h2 className="text-left text-base font-bold text-slate-900">Photos & Menu Manager</h2>
-                            <p className="text-left text-sm text-slate-500">Upload restaurant and menu images only when needed.</p>
-                        </div>
-                        {showMediaPanel ? <ChevronUp className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
-                    </button>
-                </div>
+                    <div className="mb-8">
+                        <button
+                            onClick={() => setShowMediaPanel((prev) => !prev)}
+                            className="w-full bg-white rounded-2xl border border-slate-200 px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                        >
+                            <div>
+                                <h2 className="text-left text-base font-bold text-slate-900">Photos & Menu Manager</h2>
+                                <p className="text-left text-sm text-slate-500">Upload restaurant and menu images only when needed.</p>
+                            </div>
+                            {showMediaPanel ? <ChevronUp className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
+                        </button>
+                    </div>
                 )}
 
                 {activeSection === "media" && showMediaPanel && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-900">Restaurant Photos</h2>
-                                <p className="text-sm text-slate-500 mt-1">Add multiple restaurant photos. The first one will be used as the main preview.</p>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-900">Restaurant Photos</h2>
+                                    <p className="text-sm text-slate-500 mt-1">Add multiple restaurant photos. The first one will be used as the main preview.</p>
+                                </div>
+                                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold cursor-pointer hover:bg-slate-800 transition-colors">
+                                    <UploadCloud className="w-4 h-4" />
+                                    {uploadingRestaurantPhoto ? "Uploading..." : "Add Photos"}
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleRestaurantPhotoUpload}
+                                        disabled={uploadingRestaurantPhoto || removingRestaurantPhoto}
+                                    />
+                                </label>
                             </div>
-                            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold cursor-pointer hover:bg-slate-800 transition-colors">
-                                <UploadCloud className="w-4 h-4" />
-                                {uploadingRestaurantPhoto ? "Uploading..." : "Add Photos"}
-                                <input
-                                    type="file"
-                                    className="hidden"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={handleRestaurantPhotoUpload}
-                                    disabled={uploadingRestaurantPhoto || removingRestaurantPhoto}
-                                />
-                            </label>
-                        </div>
 
-                        <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 h-56">
-                            {restaurantPhoto ? (
-                                <img
-                                    src={restaurantPhoto}
-                                    alt={restaurant?.restaurantName || restaurant?.name || "Restaurant"}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-                                    <ImagePlus className="w-8 h-8 mb-2" />
-                                    <p className="text-sm font-medium">No restaurant photo added yet</p>
+                            <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 h-56">
+                                {restaurantPhoto ? (
+                                    <img
+                                        src={restaurantPhoto}
+                                        alt={restaurant?.restaurantName || restaurant?.name || "Restaurant"}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                                        <ImagePlus className="w-8 h-8 mb-2" />
+                                        <p className="text-sm font-medium">No restaurant photo added yet</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {restaurantPhotos.length > 0 && (
+                                <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                    {restaurantPhotos.map((photo, index) => (
+                                        <button
+                                            key={`${photo.url}-${index}`}
+                                            type="button"
+                                            onClick={() => setRestaurantPhoto(photo.url)}
+                                            className={`relative h-20 rounded-lg overflow-hidden border bg-slate-50 transition-all ${restaurantPhoto === photo.url ? "border-slate-900 ring-2 ring-slate-200" : "border-slate-200"}`}
+                                        >
+                                            <img
+                                                src={photo.url}
+                                                alt={`Restaurant photo ${index + 1}`}
+                                                className="w-full h-full object-cover"
+                                            />
+                                            <span className="absolute inset-x-0 bottom-0 bg-black/45 px-1 py-0.5 text-[10px] font-semibold text-white">
+                                                {restaurantPhoto === photo.url ? "Main" : `Photo ${index + 1}`}
+                                            </span>
+                                            <span
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleRemoveRestaurantPhoto(photo.url)
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter" || e.key === " ") {
+                                                        e.preventDefault()
+                                                        e.stopPropagation()
+                                                        handleRemoveRestaurantPhoto(photo.url)
+                                                    }
+                                                }}
+                                                className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-rose-600 shadow-sm"
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </span>
+                                        </button>
+                                    ))}
                                 </div>
                             )}
                         </div>
 
-                        {restaurantPhotos.length > 0 && (
-                            <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                {restaurantPhotos.map((photo, index) => (
-                                    <button
-                                        key={`${photo.url}-${index}`}
-                                        type="button"
-                                        onClick={() => setRestaurantPhoto(photo.url)}
-                                        className={`relative h-20 rounded-lg overflow-hidden border bg-slate-50 transition-all ${restaurantPhoto === photo.url ? "border-slate-900 ring-2 ring-slate-200" : "border-slate-200"}`}
-                                    >
-                                        <img
-                                            src={photo.url}
-                                            alt={`Restaurant photo ${index + 1}`}
-                                            className="w-full h-full object-cover"
-                                        />
-                                        <span className="absolute inset-x-0 bottom-0 bg-black/45 px-1 py-0.5 text-[10px] font-semibold text-white">
-                                            {restaurantPhoto === photo.url ? "Main" : `Photo ${index + 1}`}
-                                        </span>
-                                        <span
-                                            role="button"
-                                            tabIndex={0}
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleRemoveRestaurantPhoto(photo.url)
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" || e.key === " ") {
-                                                    e.preventDefault()
-                                                    e.stopPropagation()
-                                                    handleRemoveRestaurantPhoto(photo.url)
-                                                }
-                                            }}
-                                            className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-rose-600 shadow-sm"
-                                        >
-                                            <X className="h-3.5 w-3.5" />
-                                        </span>
-                                    </button>
-                                ))}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-900">Menu Photos</h2>
+                                    <p className="text-sm text-slate-500 mt-1">Add menu photos and view previously uploaded photos.</p>
+                                </div>
+                                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold cursor-pointer hover:bg-blue-700 transition-colors">
+                                    <UploadCloud className="w-4 h-4" />
+                                    {uploadingMenuPhotos ? "Uploading..." : "Add Photos"}
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleMenuPhotosUpload}
+                                        disabled={uploadingMenuPhotos || removingMenuPhoto}
+                                    />
+                                </label>
                             </div>
-                        )}
-                    </div>
 
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-900">Menu Photos</h2>
-                                <p className="text-sm text-slate-500 mt-1">Add menu photos and view previously uploaded photos.</p>
-                            </div>
-                            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold cursor-pointer hover:bg-blue-700 transition-colors">
-                                <UploadCloud className="w-4 h-4" />
-                                {uploadingMenuPhotos ? "Uploading..." : "Add Photos"}
-                                <input
-                                    type="file"
-                                    className="hidden"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={handleMenuPhotosUpload}
-                                    disabled={uploadingMenuPhotos || removingMenuPhoto}
-                                />
-                            </label>
+                            {menuPhotos.length > 0 ? (
+                                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {menuPhotos.map((photo, index) => (
+                                        <div key={`${photo.url}-${index}`} className="relative h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                                            <img src={photo.url} alt={`Menu photo ${index + 1}`} className="w-full h-full object-cover" />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveMenuPhoto(photo.url)}
+                                                className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-rose-600 shadow-sm"
+                                                disabled={removingMenuPhoto}
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="mt-4 h-28 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-slate-400">
+                                    <ImagePlus className="w-7 h-7 mb-2" />
+                                    <p className="text-sm font-medium">No menu photos added yet</p>
+                                </div>
+                            )}
                         </div>
-
-                        {menuPhotos.length > 0 ? (
-                            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {menuPhotos.map((photo, index) => (
-                                    <div key={`${photo.url}-${index}`} className="relative h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                                        <img src={photo.url} alt={`Menu photo ${index + 1}`} className="w-full h-full object-cover" />
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemoveMenuPhoto(photo.url)}
-                                            className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-rose-600 shadow-sm"
-                                            disabled={removingMenuPhoto}
-                                        >
-                                            <X className="h-3.5 w-3.5" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="mt-4 h-28 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-slate-400">
-                                <ImagePlus className="w-7 h-7 mb-2" />
-                                <p className="text-sm font-medium">No menu photos added yet</p>
-                            </div>
-                        )}
                     </div>
-                </div>
                 )}
 
                 {activeSection === "reservations" && (
@@ -702,278 +702,276 @@ export default function DiningReservations() {
 
                 {/* Bookings List */}
                 {activeSection === "reservations" && (
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between mb-2">
-                        <h2 className="font-bold text-slate-800">Reservation Queue</h2>
-                        <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-1">
-                            <button
-                                onClick={() => setActiveView("priority")}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeView === "priority" ? "bg-slate-900 text-white" : "text-slate-500"}`}
-                            >
-                                Priority
-                            </button>
-                            <button
-                                onClick={() => setActiveView("new")}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeView === "new" ? "bg-slate-900 text-white" : "text-slate-500"}`}
-                            >
-                                New ({newRequestsCount})
-                            </button>
-                            <button
-                                onClick={() => setActiveView("today")}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeView === "today" ? "bg-slate-900 text-white" : "text-slate-500"}`}
-                            >
-                                Today
-                            </button>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <h2 className="font-bold text-slate-800">Reservation Queue</h2>
+                            <div className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 p-1">
+                                <button
+                                    onClick={() => setActiveView("priority")}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeView === "priority" ? "bg-slate-900 text-white" : "text-slate-500"}`}
+                                >
+                                    Priority
+                                </button>
+                                <button
+                                    onClick={() => setActiveView("new")}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeView === "new" ? "bg-slate-900 text-white" : "text-slate-500"}`}
+                                >
+                                    New ({newRequestsCount})
+                                </button>
+                                <button
+                                    onClick={() => setActiveView("today")}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeView === "today" ? "bg-slate-900 text-white" : "text-slate-500"}`}
+                                >
+                                    Today
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    {newRequestsCount > 0 && (
-                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 text-sm font-semibold flex items-center gap-2">
-                            <Sparkles className="w-4 h-4" />
-                            {newRequestsCount} new reservation request{newRequestsCount > 1 ? "s" : ""} waiting for quick action.
-                        </div>
-                    )}
+                        {newRequestsCount > 0 && (
+                            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 text-sm font-semibold flex items-center gap-2">
+                                <Sparkles className="w-4 h-4" />
+                                {newRequestsCount} new reservation request{newRequestsCount > 1 ? "s" : ""} waiting for quick action.
+                            </div>
+                        )}
 
-                    {filteredBookings.length > 0 ? (
-                        <>
-                            {/* Desktop View Table */}
-                            <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 border-b border-slate-100">
-                                        <tr>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">ID</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Guest Details</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Schedule</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Guests</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        <AnimatePresence mode="popLayout">
-                                            {filteredBookings.map((booking) => (
-                                                <motion.tr 
-                                                    layout
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    exit={{ opacity: 0, scale: 0.95 }}
-                                                    key={booking._id} 
-                                                    className={`hover:bg-slate-50/50 transition-colors ${isNewRequest(booking) ? "bg-amber-50/20" : ""}`}
-                                                >
-                                                    <td className="px-6 py-4 font-mono text-xs font-bold text-slate-400 text-center">#{booking.bookingId}</td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs uppercase">
-                                                                {getBookerName(booking).charAt(0) || '?'}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-bold text-slate-900 leading-tight">{getBookerName(booking)}</p>
-                                                                <div className="flex items-center gap-1.5 mt-0.5">
-                                                                    <Phone className="w-3 h-3 text-slate-400" />
-                                                                    <p className="text-xs text-slate-500">{getBookerPhone(booking) || 'No phone'}</p>
+                        {filteredBookings.length > 0 ? (
+                            <>
+                                {/* Desktop View Table */}
+                                <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 border-b border-slate-100">
+                                            <tr>
+                                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">ID</th>
+                                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Guest Details</th>
+                                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Schedule</th>
+                                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Guests</th>
+                                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            <AnimatePresence mode="popLayout">
+                                                {filteredBookings.map((booking) => (
+                                                    <motion.tr
+                                                        layout
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.95 }}
+                                                        key={booking._id}
+                                                        className={`hover:bg-slate-50/50 transition-colors ${isNewRequest(booking) ? "bg-amber-50/20" : ""}`}
+                                                    >
+                                                        <td className="px-6 py-4 font-mono text-xs font-bold text-slate-400 text-center">#{booking.bookingId}</td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs uppercase">
+                                                                    {getBookerName(booking).charAt(0) || '?'}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-bold text-slate-900 leading-tight">{getBookerName(booking)}</p>
+                                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                                        <Phone className="w-3 h-3 text-slate-400" />
+                                                                        <p className="text-xs text-slate-500">{getBookerPhone(booking) || 'No phone'}</p>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex flex-col gap-1">
-                                                            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                                                                <Calendar className="w-4 h-4 text-blue-500" />
-                                                                {new Date(booking.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                                                                    <Calendar className="w-4 h-4 text-blue-500" />
+                                                                    {new Date(booking.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                                </div>
+                                                                <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                                                                    <Clock className="w-4 h-4 text-blue-500" />
+                                                                    {booking.timeSlot}
+                                                                </div>
                                                             </div>
-                                                            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                                                                <Clock className="w-4 h-4 text-blue-500" />
-                                                                {booking.timeSlot}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <div className="inline-flex items-center justify-center gap-1.5 font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full text-xs">
+                                                                <Users className="w-3 h-3" />
+                                                                {booking.guests}
                                                             </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${booking.status === 'confirmed' ? 'bg-amber-100 text-amber-700' :
+                                                                        booking.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
+                                                                            booking.status === 'checked-in' ? 'bg-orange-100 text-orange-700' :
+                                                                                booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                                                                                    'bg-rose-100 text-rose-700'
+                                                                    }`}>
+                                                                    {booking.status}
+                                                                </Badge>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                {booking.status === 'confirmed' && (
+                                                                    <button
+                                                                        onClick={() => handleStatusUpdate(booking._id, 'accepted')}
+                                                                        className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+                                                                    >
+                                                                        Accept
+                                                                    </button>
+                                                                )}
+                                                                {booking.status === 'confirmed' && (
+                                                                    <button
+                                                                        onClick={() => handleStatusUpdate(booking._id, 'cancelled')}
+                                                                        className="px-3 py-1.5 bg-white border border-rose-200 text-rose-600 text-xs font-bold rounded-lg hover:bg-rose-50 transition-colors"
+                                                                    >
+                                                                        Decline
+                                                                    </button>
+                                                                )}
+                                                                {booking.status === 'accepted' && (
+                                                                    <button
+                                                                        onClick={() => handleStatusUpdate(booking._id, 'checked-in')}
+                                                                        className="px-3 py-1.5 bg-orange-600 text-white text-xs font-bold rounded-lg hover:bg-orange-700 transition-colors shadow-sm"
+                                                                    >
+                                                                        Check-in
+                                                                    </button>
+                                                                )}
+                                                                {booking.status === 'checked-in' && (
+                                                                    <button
+                                                                        onClick={() => handleStatusUpdate(booking._id, 'completed')}
+                                                                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                                                                    >
+                                                                        Check-out
+                                                                    </button>
+                                                                )}
+                                                                {booking.specialRequest && (
+                                                                    <button
+                                                                        title={booking.specialRequest}
+                                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-100 bg-blue-50/50"
+                                                                    >
+                                                                        <MessageSquare className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </motion.tr>
+                                                ))}
+                                            </AnimatePresence>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile View Cards */}
+                                <div className="md:hidden space-y-4">
+                                    <AnimatePresence mode="popLayout">
+                                        {filteredBookings.map((booking) => (
+                                            <motion.div
+                                                layout
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, scale: 0.95 }}
+                                                key={booking._id}
+                                                className={`bg-white rounded-2xl p-4 shadow-sm border border-slate-100 ${isNewRequest(booking) ? "ring-2 ring-amber-400 ring-inset" : ""}`}
+                                            >
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-white font-black text-sm uppercase">
+                                                            {getBookerName(booking).charAt(0) || '?'}
                                                         </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <div className="inline-flex items-center justify-center gap-1.5 font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full text-xs">
-                                                            <Users className="w-3 h-3" />
-                                                            {booking.guests}
+                                                        <div>
+                                                            <h3 className="font-black text-slate-900 leading-none">{getBookerName(booking)}</h3>
+                                                            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">#{booking.bookingId}</p>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                                                                booking.status === 'confirmed' ? 'bg-amber-100 text-amber-700' :
-                                                                booking.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
+                                                    </div>
+                                                    <Badge className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${booking.status === 'confirmed' ? 'bg-amber-100 text-amber-700' :
+                                                            booking.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
                                                                 booking.status === 'checked-in' ? 'bg-orange-100 text-orange-700' :
-                                                                booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                                                                'bg-rose-100 text-rose-700'
-                                                            }`}>
-                                                                {booking.status}
-                                                            </Badge>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            {booking.status === 'confirmed' && (
-                                                                <button
-                                                                    onClick={() => handleStatusUpdate(booking._id, 'accepted')}
-                                                                    className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
-                                                                >
-                                                                    Accept
-                                                                </button>
-                                                            )}
-                                                            {booking.status === 'confirmed' && (
-                                                                <button
-                                                                    onClick={() => handleStatusUpdate(booking._id, 'cancelled')}
-                                                                    className="px-3 py-1.5 bg-white border border-rose-200 text-rose-600 text-xs font-bold rounded-lg hover:bg-rose-50 transition-colors"
-                                                                >
-                                                                    Decline
-                                                                </button>
-                                                            )}
-                                                            {booking.status === 'accepted' && (
-                                                                <button
-                                                                    onClick={() => handleStatusUpdate(booking._id, 'checked-in')}
-                                                                    className="px-3 py-1.5 bg-orange-600 text-white text-xs font-bold rounded-lg hover:bg-orange-700 transition-colors shadow-sm"
-                                                                >
-                                                                    Check-in
-                                                                </button>
-                                                            )}
-                                                            {booking.status === 'checked-in' && (
-                                                                <button
-                                                                    onClick={() => handleStatusUpdate(booking._id, 'completed')}
-                                                                    className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                                                                >
-                                                                    Check-out
-                                                                </button>
-                                                            )}
-                                                            {booking.specialRequest && (
-                                                                <button
-                                                                    title={booking.specialRequest}
-                                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-100 bg-blue-50/50"
-                                                                >
-                                                                    <MessageSquare className="w-4 h-4" />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </motion.tr>
-                                            ))}
-                                        </AnimatePresence>
-                                    </tbody>
-                                </table>
-                            </div>
+                                                                    booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                                                                        'bg-rose-100 text-rose-700'
+                                                        }`}>
+                                                        {booking.status}
+                                                    </Badge>
+                                                </div>
 
-                            {/* Mobile View Cards */}
-                            <div className="md:hidden space-y-4">
-                                <AnimatePresence mode="popLayout">
-                                    {filteredBookings.map((booking) => (
-                                        <motion.div
-                                            layout
-                                            initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, scale: 0.95 }}
-                                            key={booking._id}
-                                            className={`bg-white rounded-2xl p-4 shadow-sm border border-slate-100 ${isNewRequest(booking) ? "ring-2 ring-amber-400 ring-inset" : ""}`}
-                                        >
-                                            <div className="flex items-start justify-between mb-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-white font-black text-sm uppercase">
-                                                        {getBookerName(booking).charAt(0) || '?'}
+                                                <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl mb-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <Calendar className="w-4 h-4 text-blue-500" />
+                                                        <span className="text-xs font-bold text-slate-700">
+                                                            {new Date(booking.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                        </span>
                                                     </div>
-                                                    <div>
-                                                        <h3 className="font-black text-slate-900 leading-none">{getBookerName(booking)}</h3>
-                                                        <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">#{booking.bookingId}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="w-4 h-4 text-blue-500" />
+                                                        <span className="text-xs font-bold text-slate-700">{booking.timeSlot}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Users className="w-4 h-4 text-blue-500" />
+                                                        <span className="text-xs font-bold text-slate-700">{booking.guests} Guests</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Phone className="w-4 h-4 text-blue-500" />
+                                                        <span className="text-xs font-bold text-slate-700 truncate">{getBookerPhone(booking) || 'No phone'}</span>
                                                     </div>
                                                 </div>
-                                                <Badge className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                                    booking.status === 'confirmed' ? 'bg-amber-100 text-amber-700' :
-                                                    booking.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
-                                                    booking.status === 'checked-in' ? 'bg-orange-100 text-orange-700' :
-                                                    booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                                                    'bg-rose-100 text-rose-700'
-                                                }`}>
-                                                    {booking.status}
-                                                </Badge>
-                                            </div>
 
-                                            <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl mb-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar className="w-4 h-4 text-blue-500" />
-                                                    <span className="text-xs font-bold text-slate-700">
-                                                        {new Date(booking.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Clock className="w-4 h-4 text-blue-500" />
-                                                    <span className="text-xs font-bold text-slate-700">{booking.timeSlot}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Users className="w-4 h-4 text-blue-500" />
-                                                    <span className="text-xs font-bold text-slate-700">{booking.guests} Guests</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Phone className="w-4 h-4 text-blue-500" />
-                                                    <span className="text-xs font-bold text-slate-700 truncate">{getBookerPhone(booking) || 'No phone'}</span>
-                                                </div>
-                                            </div>
+                                                {booking.specialRequest && (
+                                                    <div className="flex items-start gap-2 p-3 bg-blue-50 text-blue-700 rounded-xl mb-4 text-xs font-medium border border-blue-100">
+                                                        <MessageSquare className="w-4 h-4 mt-0.5 shrink-0" />
+                                                        <p>{booking.specialRequest}</p>
+                                                    </div>
+                                                )}
 
-                                            {booking.specialRequest && (
-                                                <div className="flex items-start gap-2 p-3 bg-blue-50 text-blue-700 rounded-xl mb-4 text-xs font-medium border border-blue-100">
-                                                    <MessageSquare className="w-4 h-4 mt-0.5 shrink-0" />
-                                                    <p>{booking.specialRequest}</p>
+                                                <div className="flex items-center gap-2">
+                                                    {booking.status === 'confirmed' && (
+                                                        <button
+                                                            onClick={() => handleStatusUpdate(booking._id, 'accepted')}
+                                                            className="flex-1 py-2.5 bg-emerald-600 text-white text-xs font-black rounded-xl hover:bg-emerald-700 transition-colors uppercase tracking-widest"
+                                                        >
+                                                            Accept
+                                                        </button>
+                                                    )}
+                                                    {booking.status === 'confirmed' && (
+                                                        <button
+                                                            onClick={() => handleStatusUpdate(booking._id, 'cancelled')}
+                                                            className="flex-1 py-2.5 bg-slate-100 text-slate-600 text-xs font-black rounded-xl hover:bg-slate-200 transition-colors uppercase tracking-widest"
+                                                        >
+                                                            Decline
+                                                        </button>
+                                                    )}
+                                                    {booking.status === 'accepted' && (
+                                                        <button
+                                                            onClick={() => handleStatusUpdate(booking._id, 'checked-in')}
+                                                            className="flex-1 py-2.5 bg-orange-600 text-white text-xs font-black rounded-xl hover:bg-orange-700 transition-colors uppercase tracking-widest"
+                                                        >
+                                                            Check-in
+                                                        </button>
+                                                    )}
+                                                    {booking.status === 'checked-in' && (
+                                                        <button
+                                                            onClick={() => handleStatusUpdate(booking._id, 'completed')}
+                                                            className="flex-1 py-2.5 bg-blue-600 text-white text-xs font-black rounded-xl hover:bg-blue-700 transition-colors uppercase tracking-widest"
+                                                        >
+                                                            Check-out
+                                                        </button>
+                                                    )}
                                                 </div>
-                                            )}
-
-                                            <div className="flex items-center gap-2">
-                                                {booking.status === 'confirmed' && (
-                                                    <button
-                                                        onClick={() => handleStatusUpdate(booking._id, 'accepted')}
-                                                        className="flex-1 py-2.5 bg-emerald-600 text-white text-xs font-black rounded-xl hover:bg-emerald-700 transition-colors uppercase tracking-widest"
-                                                    >
-                                                        Accept
-                                                    </button>
-                                                )}
-                                                {booking.status === 'confirmed' && (
-                                                    <button
-                                                        onClick={() => handleStatusUpdate(booking._id, 'cancelled')}
-                                                        className="flex-1 py-2.5 bg-slate-100 text-slate-600 text-xs font-black rounded-xl hover:bg-slate-200 transition-colors uppercase tracking-widest"
-                                                    >
-                                                        Decline
-                                                    </button>
-                                                )}
-                                                {booking.status === 'accepted' && (
-                                                    <button
-                                                        onClick={() => handleStatusUpdate(booking._id, 'checked-in')}
-                                                        className="flex-1 py-2.5 bg-orange-600 text-white text-xs font-black rounded-xl hover:bg-orange-700 transition-colors uppercase tracking-widest"
-                                                    >
-                                                        Check-in
-                                                    </button>
-                                                )}
-                                                {booking.status === 'checked-in' && (
-                                                    <button
-                                                        onClick={() => handleStatusUpdate(booking._id, 'completed')}
-                                                        className="flex-1 py-2.5 bg-blue-600 text-white text-xs font-black rounded-xl hover:bg-blue-700 transition-colors uppercase tracking-widest"
-                                                    >
-                                                        Check-out
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </motion.div>
-                                    ))}
-                                </AnimatePresence>
-                            </div>
-                        </>
-                    ) : (
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="bg-white rounded-3xl p-16 text-center border border-slate-100 shadow-sm"
-                        >
-                            <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <Calendar className="w-10 h-10 text-slate-300" />
-                            </div>
-                            <h3 className="text-2xl font-black text-slate-800">No reservations found</h3>
-                            <p className="text-slate-500 mt-2 max-w-xs mx-auto">When guests book a table, they will appear here in your live queue.</p>
-                        </motion.div>
-                    )}
-                </div>
-            )}
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
+                                </div>
+                            </>
+                        ) : (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="bg-white rounded-3xl p-16 text-center border border-slate-100 shadow-sm"
+                            >
+                                <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <Calendar className="w-10 h-10 text-slate-300" />
+                                </div>
+                                <h3 className="text-2xl font-black text-slate-800">No reservations found</h3>
+                                <p className="text-slate-500 mt-2 max-w-xs mx-auto">When guests book a table, they will appear here in your live queue.</p>
+                            </motion.div>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
-    </div>
     )
 }
 

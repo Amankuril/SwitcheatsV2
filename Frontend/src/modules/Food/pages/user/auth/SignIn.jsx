@@ -7,9 +7,9 @@ import { Input } from "@food/components/ui/input"
 import { authAPI } from "@food/api"
 import { motion } from "framer-motion"
 import loginBanner from "@food/assets/loginbanner.png"
-const debugLog = (...args) => {}
-const debugWarn = (...args) => {}
-const debugError = (...args) => {}
+const debugLog = (...args) => { }
+const debugWarn = (...args) => { }
+const debugError = (...args) => { }
 
 
 export default function SignIn() {

@@ -104,7 +104,7 @@ export default function RestaurantLogin() {
           </div>
           <div className="text-center text-white">
             <h1 className="font-black text-3xl tracking-tight leading-none mb-1">
-              PARTNER<span className="opacity-60 italic">ACCESS</span>
+              {companyName.toUpperCase()}<span className="opacity-60 italic">PARTNER</span>
             </h1>
             <div className="h-0.5 w-10 bg-white/40 mx-auto rounded-full" />
           </div>

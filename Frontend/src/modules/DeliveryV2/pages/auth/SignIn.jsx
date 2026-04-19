@@ -28,7 +28,7 @@ export default function DeliverySignIn() {
           const phoneDigits = data.phone.replace("+91", "").trim()
           setFormData(prev => ({ ...prev, phone: phoneDigits }))
         }
-      } catch (err) {}
+      } catch (err) { }
     }
   }, [])
 
@@ -112,10 +112,10 @@ export default function DeliverySignIn() {
           </div>
           <div className="text-center text-white">
             <h1 className="font-black text-3xl tracking-tighter leading-none mb-1 italic">
-              {companyName.toUpperCase()} <span className="opacity-60">RIDE</span>
+              {companyName.toUpperCase()} <span className="opacity-60">CAPTAIN</span>
             </h1>
             <div className="bg-black/10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-              Fleet Operator
+              Delivery Partner
             </div>
           </div>
         </motion.div>
@@ -135,7 +135,7 @@ export default function DeliverySignIn() {
               Start your shift
             </h2>
             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-              Enter your mobile number to sign in as a rider.
+              Enter your mobile number to sign in as a captain.
             </p>
           </div>
 
@@ -144,7 +144,7 @@ export default function DeliverySignIn() {
               <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.3em] ml-1">
                 Linked Identity
               </label>
-              
+
               <div className="flex items-center gap-0 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl focus-within:border-[#00B761]/50 focus-within:ring-4 focus-within:ring-[#00B761]/5 transition-all overflow-hidden h-16">
                 <div className="px-5 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-white font-black text-lg h-full flex items-center">
                   +91
@@ -163,7 +163,7 @@ export default function DeliverySignIn() {
 
               <AnimatePresence>
                 {error && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 10 }}

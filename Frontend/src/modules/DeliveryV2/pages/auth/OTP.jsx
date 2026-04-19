@@ -215,7 +215,7 @@ export default function DeliveryOTP() {
           </div>
           <div className="space-y-1">
             <h1 className="font-black text-3xl tracking-tight italic uppercase">
-              {isRejected ? "DENIED" : pendingMessage ? "PENDING" : showNameInput ? "RIDER SETUP" : "RIDER VERIFY"}
+              {isRejected ? "DENIED" : pendingMessage ? "PENDING" : showNameInput ? "CAPTAIN SETUP" : "CAPTAIN VERIFY"}
             </h1>
             <p className="opacity-70 text-xs font-bold uppercase tracking-[0.2em]">
               {pendingMessage ? "Verification Required" : showNameInput ? "Complete your profile" : `Sent to ${authData?.phone}`}
