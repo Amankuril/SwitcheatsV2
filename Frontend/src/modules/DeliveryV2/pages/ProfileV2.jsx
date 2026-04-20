@@ -13,6 +13,8 @@ import {
   Briefcase
 } from "lucide-react"
 import { deliveryAPI } from "@food/api"
+import DeleteAccountModal from "@food/components/DeleteAccountModal";
+import { Trash2 } from "lucide-react";
 import { toast } from "sonner"
 import { clearModuleAuth } from "@food/utils/auth"
 
@@ -28,6 +30,8 @@ export const ProfileV2 = () => {
   const [referralReward, setReferralReward] = useState(0)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [logoutSubmitting, setLogoutSubmitting] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   // Fetch profile data
   useEffect(() => {
@@ -45,6 +49,10 @@ export const ProfileV2 = () => {
       }
     }
     fetchProfile()
+    deliveryAPI.getWallet().then(res => {
+      const bal = res?.data?.data?.wallet?.pocketBalance || res?.data?.data?.wallet?.totalBalance || 0;
+      setWalletBalance(Number(bal));
+    }).catch(() => {});
   }, [])
 
   useEffect(() => {
@@ -70,6 +78,18 @@ export const ProfileV2 = () => {
       }
     } catch (e) {}
   }
+
+  const handleConfirmDelete = async () => {
+    try {
+      await deliveryAPI.deleteAccount();
+      toast.success("Account deleted successfully");
+      clearModuleAuth("delivery");
+      localStorage.removeItem("app:isOnline");
+      navigate("/food/delivery/login", { replace: true });
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to delete account");
+    }
+  };
 
   const handleLogout = async () => {
     if (logoutSubmitting) return
@@ -174,8 +194,21 @@ export const ProfileV2 = () => {
           </div>
 
           {/* Partner options Section */}
-          {/* Logout Section */}
-          <div className="pt-4">
+          {/* Logout & Account Section */}
+          <div className="space-y-3">
+            {/* Delete Account */}
+            <div 
+              onClick={() => setDeleteModalOpen(true)}
+              className="bg-white rounded-xl p-4 flex items-center justify-between cursor-pointer border border-red-50 hover:bg-red-50/30 active:bg-red-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Trash2 className="w-5 h-5 text-red-600" />
+                <span className="text-sm font-bold text-red-600">Delete Account</span>
+              </div>
+              <ArrowRight className="w-5 h-5 text-red-100" />
+            </div>
+
+            {/* Logout */}
             <div 
               onClick={() => setShowLogoutConfirm(true)}
               className="bg-white rounded-xl p-4 flex items-center justify-between cursor-pointer border border-red-50 hover:bg-red-50/30 active:bg-red-50 transition-colors"
@@ -220,8 +253,15 @@ export const ProfileV2 = () => {
           </div>
         </div>
       )}
+      <DeleteAccountModal 
+        isOpen={deleteModalOpen} 
+        onClose={() => setDeleteModalOpen(false)} 
+        onConfirm={handleConfirmDelete} 
+        walletAmount={walletBalance} 
+        moduleName="delivery" 
+      />
     </div>
-  )
-}
+  );
+};
 
 export default ProfileV2;

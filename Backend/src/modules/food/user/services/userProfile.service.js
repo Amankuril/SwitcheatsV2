@@ -56,3 +56,22 @@ export const uploadCurrentUserProfileImage = async (userId, file) => {
     return { profileImage: user.profileImage, user: user.toObject() };
 };
 
+/**
+ * Delete a user and their associated wallet data permanently.
+ */
+export const deleteCurrentUserAccount = async (userId) => {
+    // We import dynamically to avoid circular dependencies if any
+    const { FoodUserWallet } = await import('../models/userWallet.model.js');
+    
+    const user = await FoodUser.findById(userId);
+    if (!user) throw new AuthError('Profile not found');
+
+    // Remove Wallet
+    await FoodUserWallet.findOneAndDelete({ userId });
+
+    // Remove User
+    await FoodUser.findByIdAndDelete(userId);
+
+    return { success: true };
+};
+

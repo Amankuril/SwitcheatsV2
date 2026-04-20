@@ -804,3 +804,24 @@ export const getActiveEarningAddonsForPartner = async (deliveryPartnerId) => {
     };
 };
 
+
+/**
+ * Delete a delivery partner and all associated data (wallet, tickets) permanently.
+ */
+export const deleteDeliveryPartnerAccount = async (partnerId) => {
+    // Dynamic imports
+    const { DeliverySupportTicket } = await import('../models/supportTicket.model.js');
+    const { FoodDeliveryWallet } = await import('../models/deliveryWallet.model.js');
+
+    const partner = await FoodDeliveryPartner.findById(partnerId);
+    if (!partner) throw new ValidationError('Delivery partner not found');
+
+    // Remove associated documents
+    await FoodDeliveryWallet.findOneAndDelete({ deliveryPartnerId: partnerId });
+    await DeliverySupportTicket.deleteMany({ deliveryPartnerId: partnerId });
+
+    // Remove Partner
+    await FoodDeliveryPartner.findByIdAndDelete(partnerId);
+
+    return { success: true };
+};

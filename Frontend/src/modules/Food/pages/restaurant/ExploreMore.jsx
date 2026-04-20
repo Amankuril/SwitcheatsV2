@@ -29,6 +29,7 @@ import {
   Calendar,
   MapPin,
   LogOut,
+  Trash2,
 } from "lucide-react"
 import { Card, CardContent } from "@food/components/ui/card"
 import { DateRangeCalendar } from "@food/components/ui/date-range-calendar"
@@ -36,6 +37,8 @@ import { clearModuleAuth, clearAuthData, getCurrentUser } from "@food/utils/auth
 import { restaurantAPI } from "@food/api"
 import { firebaseAuth, ensureFirebaseInitialized } from "@food/firebase"
 import BottomNavOrders from "@food/components/restaurant/BottomNavOrders"
+import DeleteAccountModal from "@food/components/DeleteAccountModal"
+import { toast } from "sonner"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -359,6 +362,8 @@ export default function ExploreMore() {
   // Restaurant data state
   const [restaurantData, setRestaurantData] = useState(null)
   const [loadingRestaurant, setLoadingRestaurant] = useState(true)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [walletBalance, setWalletBalance] = useState(0)
 
   // Fetch restaurant data on mount
   useEffect(() => {
@@ -382,6 +387,19 @@ export default function ExploreMore() {
     }
 
     fetchRestaurantData()
+
+    // Fetch wallet balance for delete account confirmation
+    const fetchWallet = async () => {
+      try {
+        const response = await restaurantAPI.getWallet()
+        const balance = response?.data?.data?.currentCycle?.estimatedPayout || response?.data?.data?.wallet?.pocketBalance || 0
+        setWalletBalance(Number(balance))
+      } catch (error) {
+        debugWarn("Error fetching wallet balance for deletion flow:", error)
+      }
+    }
+
+    fetchWallet()
   }, [])
 
   // Format address from location object
@@ -478,6 +496,24 @@ export default function ExploreMore() {
 
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
+
+  const handleConfirmDelete = async () => {
+    try {
+      setProfileOpen(false)
+      await restaurantAPI.deleteAccount();
+      toast.success("Account deleted successfully");
+
+      const { clearModuleAuth } = await import("@food/utils/auth");
+      clearModuleAuth("restaurant");
+      localStorage.removeItem("restaurant_authenticated");
+      localStorage.removeItem("restaurant_refresh_token");
+      localStorage.removeItem("restaurant_user");
+
+      navigate("/food/restaurant/login", { replace: true });
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to delete account");
+    }
+  };
 
   const handleLogout = async () => {
     if (isLoggingOut) return // Prevent multiple clicks
@@ -989,6 +1025,26 @@ export default function ExploreMore() {
           </div>
           <ChevronRight className="relative w-5 h-5 text-red-300 shrink-0 transition-transform group-hover:translate-x-1" />
         </motion.button>
+
+        <motion.button
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55, duration: 0.25 }}
+          onClick={() => setDeleteModalOpen(true)}
+          className="group relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[24px] bg-white p-4 shadow-[0_4px_20px_rgb(0,0,0,0.03)] ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(220,38,38,0.12)] hover:ring-red-100 mt-2 mb-10"
+        >
+          <div className="absolute inset-0 bg-red-50/0 transition-colors group-hover:bg-red-50/50 pointer-events-none" />
+          <div className="relative flex items-center gap-4 min-w-0">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-red-50 ring-1 ring-red-100/50 transition-colors group-hover:bg-red-100">
+              <Trash2 className="w-5 h-5 text-red-600" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0 text-left">
+              <p className="text-[15px] font-bold text-red-600 tracking-tight">Delete Account</p>
+              <p className="text-[12px] font-medium text-red-400 leading-tight mt-0.5">Permanently close your restaurant account</p>
+            </div>
+          </div>
+          <ChevronRight className="relative w-5 h-5 text-red-300 shrink-0 transition-transform group-hover:translate-x-1" />
+        </motion.button>
       </div>
 
       {/* Search Popup */}
@@ -1277,6 +1333,15 @@ export default function ExploreMore() {
                 >
                   {isLoggingOut ? "Logging out..." : "Logout from all devices"}
                 </button>
+
+                {/* Delete Account Button */}
+                <button
+                  onClick={() => setDeleteModalOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 text-red-500 hover:text-red-700 font-bold py-3 text-sm transition-all hover:bg-red-50 rounded-lg mt-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Account</span>
+                </button>
               </div>
 
               {/* Footer Links */}
@@ -1323,6 +1388,14 @@ export default function ExploreMore() {
           </>
         )}
       </AnimatePresence>
+
+      <DeleteAccountModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        walletAmount={walletBalance}
+        moduleName="restaurant"
+      />
 
       {/* Schedule Off Reason Selection Popup */}
       <AnimatePresence>

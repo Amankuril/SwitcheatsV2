@@ -1690,3 +1690,30 @@ export async function updateRestaurantOfferStatus(restaurantId, offerId, status)
 
     return doc;
 }
+
+/**
+ * Delete a restaurant and all associated data (menu, wallet, items, timings) permanently.
+ */
+export const deleteCurrentRestaurantAccount = async (restaurantId) => {
+    // Dynamic imports to avoid issues
+    const { FoodRestaurantMenu } = await import('../models/restaurantMenu.model.js');
+    const { FoodRestaurantWallet } = await import('../models/restaurantWallet.model.js');
+    const { FoodRestaurantOutletTimings } = await import('../models/outletTimings.model.js');
+    const { FoodItem } = await import('../../admin/models/food.model.js');
+    const { FoodAddon } = await import('../models/foodAddon.model.js');
+
+    const restaurant = await FoodRestaurant.findById(restaurantId);
+    if (!restaurant) throw new NotFoundError('Restaurant not found');
+
+    // Remove all associated documents
+    await FoodRestaurantMenu.findOneAndDelete({ restaurantId });
+    await FoodRestaurantWallet.findOneAndDelete({ restaurantId });
+    await FoodRestaurantOutletTimings.findOneAndDelete({ restaurantId });
+    await FoodItem.deleteMany({ restaurantId });
+    await FoodAddon.deleteMany({ restaurantId });
+
+    // Remove Restaurant
+    await FoodRestaurant.findByIdAndDelete(restaurantId);
+
+    return { success: true };
+};

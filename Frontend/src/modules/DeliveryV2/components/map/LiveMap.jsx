@@ -68,9 +68,11 @@ export const LiveMap = ({ onMapClick, onMapLoad, onPathReceived, onPolylineRecei
   };
 
   useEffect(() => {
-    setLastDirectionsAt(0);
-    setDirections(null);
-  }, [tripStatus, activeOrder?._id]);
+    if (!activeOrder || tripStatus === 'COMPLETED' || tripStatus === 'IDLE') {
+      setLastDirectionsAt(0);
+      setDirections(null);
+    }
+  }, [tripStatus, activeOrder?._id, activeOrder]);
 
   const targetLocation = useMemo(() => {
     if (!activeOrder) return null;

@@ -37,6 +37,8 @@ const debugError = (...args) => {}
 
 const CUISINES_STORAGE_KEY = "restaurant_cuisines"
 
+
+
 export default function OutletInfo() {
   const navigate = useNavigate()
   const goBack = useRestaurantBackNavigation()
@@ -476,6 +478,7 @@ export default function OutletInfo() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+ 
 
       <ImageSourcePicker
         isOpen={!!activePicker}
