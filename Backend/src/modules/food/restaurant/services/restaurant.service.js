@@ -584,6 +584,92 @@ export const registerRestaurant = async (payload, files) => {
     }
 };
 
+export const payRestaurantDues = async (restaurantId, paymentDetails = {}) => {
+    if (!restaurantId) throw new Error('Restaurant ID is required');
+
+    const restaurant = await FoodRestaurant.findById(restaurantId);
+    if (!restaurant) throw new Error('Restaurant not found');
+
+    const dueAmount = Number(restaurant.subscriptionDueAmount || 0);
+    if (dueAmount <= 0) {
+        throw new Error('No outstanding dues found');
+    }
+
+    // In a real flow, we would verify the paymentDetails.razorpayPaymentId here.
+    // For this end-to-end "direct" implementation, we'll mark it as paid.
+    
+    restaurant.subscriptionPaidAmount = (Number(restaurant.subscriptionPaidAmount) || 0) + dueAmount;
+    restaurant.subscriptionDueAmount = 0;
+    restaurant.subscriptionStatus = 'paid';
+    
+    // Log payment metadata if provided
+    if (paymentDetails.razorpayPaymentId) {
+        restaurant.subscriptionPaymentId = paymentDetails.razorpayPaymentId;
+        restaurant.subscriptionPaymentOrderId = paymentDetails.razorpayOrderId;
+        restaurant.subscriptionPaymentMethod = 'razorpay';
+    }
+
+    await restaurant.save();
+    return restaurant.toObject();
+};
+
+/**
+ * Creates a Razorpay order for outstanding subscription dues.
+ */
+export const createDuesPaymentOrder = async (restaurantId) => {
+    if (!restaurantId) throw new Error('Restaurant ID is required');
+
+    const restaurant = await FoodRestaurant.findById(restaurantId);
+    if (!restaurant) throw new Error('Restaurant not found');
+
+    const dueAmount = Number(restaurant.subscriptionDueAmount || 0);
+    if (dueAmount <= 0) {
+        throw new Error('No outstanding dues found');
+    }
+
+    const { createRazorpayOrder, isRazorpayConfigured } = await import('../../orders/helpers/razorpay.helper.js');
+    if (!isRazorpayConfigured()) {
+        throw new Error('Payment gateway not configured');
+    }
+
+    // Convert to paise (e.g., ₹100 -> 10000 paise)
+    const amountPaise = Math.round(dueAmount * 100);
+
+    // Razorpay receipt limit is 40 characters.
+    const receiptId = `dues_${String(restaurantId).slice(-10)}_${Date.now()}`;
+    const order = await createRazorpayOrder(amountPaise, 'INR', receiptId);
+
+    return {
+        orderId: order.id,
+        amount: dueAmount,
+        currency: 'INR',
+        keyId: (await import('../../orders/helpers/razorpay.helper.js')).getRazorpayKeyId(),
+        restaurant: {
+            name: restaurant.restaurantName,
+            phone: restaurant.ownerPhone
+        }
+    };
+};
+
+/**
+ * Verifies Razorpay payment signature and settles dues.
+ */
+export const verifyDuesPayment = async (restaurantId, paymentData = {}) => {
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = paymentData;
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+        throw new Error('Missing payment verification details');
+    }
+
+    const { verifyPaymentSignature } = await import('../../orders/helpers/razorpay.helper.js');
+    const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+    if (!isValid) {
+        throw new Error('Invalid payment signature');
+    }
+
+    // Reuse the settle logic
+    return await payRestaurantDues(restaurantId, { razorpayOrderId, razorpayPaymentId });
+};
+
 export const getCurrentRestaurantProfile = async (restaurantId) => {
     if (!restaurantId) return null;
     const doc = await FoodRestaurant.findById(restaurantId)

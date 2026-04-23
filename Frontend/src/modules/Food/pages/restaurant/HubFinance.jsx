@@ -1,9 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { Bell, Menu, ChevronDown, Calendar, Download, ArrowRight, FileText, Wallet, X } from "lucide-react"
+import { Bell, Menu, ChevronDown, Calendar, Download, ArrowRight, FileText, Wallet, X, Info } from "lucide-react"
 import BottomNavOrders from "@food/components/restaurant/BottomNavOrders"
 import { restaurantAPI } from "@food/api"
+import { initRazorpayPayment } from "@food/utils/razorpay"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -21,6 +22,7 @@ export default function HubFinance() {
   const [showDateRangePicker, setShowDateRangePicker] = useState(false)
   const downloadMenuRef = useRef(null)
   const dateRangePickerRef = useRef(null)
+  const settlementRef = useRef(null)
   const [financeData, setFinanceData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [pastCyclesData, setPastCyclesData] = useState(null)
@@ -30,7 +32,72 @@ export default function HubFinance() {
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false)
   const [withdrawalAmount, setWithdrawalAmount] = useState('')
   const [submittingWithdrawal, setSubmittingWithdrawal] = useState(false)
+  const [submittingPayment, setSubmittingPayment] = useState(false)
   const [withdrawalRequests, setWithdrawalRequests] = useState([])
+
+  const handlePayDues = async () => {
+    try {
+      setSubmittingPayment(true)
+      
+      // 1. Create Razorpay Order on backend
+      const orderRes = await restaurantAPI.createDuesOrder()
+      const data = orderRes.data
+      if (!data?.success) {
+        throw new Error(data?.message || 'Failed to create payment order')
+      }
+      
+      const order = data.data
+      if (!order?.orderId) {
+        throw new Error('Invalid order data received from server')
+      }
+      
+      // 2. Open Razorpay Checkout
+      await initRazorpayPayment({
+        key: order.keyId,
+        amount: order.amount * 100, 
+        currency: order.currency || 'INR',
+        order_id: order.orderId,
+        name: 'Switcheats',
+        description: 'Subscription Due Settlement',
+        prefill: {
+          name: order.restaurant?.name || '',
+          contact: order.restaurant?.phone || ''
+        },
+        handler: async (response) => {
+          try {
+            setSubmittingPayment(true) // Keep processing during verification
+            const verifyRes = await restaurantAPI.verifyDuesPayment({
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature
+            })
+            
+            if (verifyRes.data?.success) {
+              const financeResponse = await restaurantAPI.getFinance()
+              if (financeResponse.data?.success && financeResponse.data?.data) {
+                setFinanceData(financeResponse.data.data)
+              }
+              setShowRestrictionModal(false)
+            }
+          } catch (err) {
+            console.error('Dues verification failed:', err)
+          } finally {
+            setSubmittingPayment(false)
+          }
+        },
+        onClose: () => {
+          setSubmittingPayment(false)
+        },
+        onError: (err) => {
+          console.error('Razorpay Error:', err)
+          setSubmittingPayment(false)
+        }
+      })
+    } catch (error) {
+       console.error('Payment initialization error:', error)
+       setSubmittingPayment(false)
+    }
+  }
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false)
 
   // Fetch finance data on mount
@@ -698,9 +765,82 @@ export default function HubFinance() {
     }
   }, [showDownloadMenu])
 
+  const [showRestrictionModal, setShowRestrictionModal] = useState(false)
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Navbar */}
+      {/* ... (Existing Navbar) */}
+
+      {/* Restriction Modal */}
+      <AnimatePresence>
+        {showRestrictionModal && (
+          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowRestrictionModal(false)}
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-8 overflow-hidden shadow-2xl"
+            >
+              {/* Background Glow */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 blur-3xl rounded-full -mr-16 -mt-16" />
+              
+              {/* Close Button */}
+              <button
+                onClick={() => setShowRestrictionModal(false)}
+                className="absolute top-6 right-6 p-2 rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 transition-colors z-10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="relative flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mb-6 shadow-sm border border-amber-100">
+                  <Info className="w-8 h-8 text-amber-600" />
+                </div>
+                
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Withdrawal Restricted</h3>
+                <p className="text-sm text-gray-600 leading-relaxed mb-8">
+                  To ensure financial compliance, withdrawals are temporarily restricted while you have an outstanding subscription balance of <span className="font-bold text-gray-900">₹{(financeData?.restaurant?.subscriptionDueAmount || restaurantData?.subscriptionDueAmount || 0).toLocaleString('en-IN')}</span>. 
+                </p>
+
+                <div className="w-full space-y-3">
+                  <button
+                    onClick={() => {
+                      setShowRestrictionModal(false);
+                      // Scroll to the settlement section
+                      settlementRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      // Add a temporary highlight effect
+                      setTimeout(() => {
+                        settlementRef.current?.classList.add('ring-4', 'ring-amber-500/30', 'ring-offset-4');
+                        setTimeout(() => {
+                          settlementRef.current?.classList.remove('ring-4', 'ring-amber-500/30', 'ring-offset-4');
+                        }, 2000);
+                      }, 500);
+                    }}
+                    className="w-full py-4 bg-black text-white rounded-2xl font-bold text-sm shadow-xl shadow-gray-200 hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+                  >
+                    Clear Dues Now <ArrowRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setShowRestrictionModal(false)}
+                    className="w-full py-4 bg-gray-50 text-gray-500 rounded-2xl font-bold text-sm hover:bg-gray-100 transition-all"
+                  >
+                    Maybe Later
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="sticky bg-white top-0 z-40 px-4 py-3 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0 flex items-start gap-2">
@@ -783,6 +923,26 @@ export default function HubFinance() {
       <div className="flex-1 overflow-y-auto px-4 pt-6 pb-28">
         {activeTab === "payouts" && (
           <div className="space-y-6">
+            {/* Subscription Dues Banner */}
+            {financeData?.restaurant?.subscriptionDueAmount > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-4 mb-2 shadow-sm"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center flex-shrink-0 shadow-sm border border-amber-100">
+                  <Info className="w-6 h-6 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-bold text-amber-900">Subscription Dues Pending</h3>
+                  <p className="text-[11px] text-amber-800 mt-1 leading-relaxed font-medium">
+                    You have an outstanding balance of <span className="text-sm font-bold">₹{financeData.restaurant.subscriptionDueAmount.toLocaleString('en-IN')}</span>. 
+                    Withdrawals are partially restricted until this is settled.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
             {/* Current cycle */}
             <div>
               <h2 className="text-base font-bold text-gray-900 mb-3">Current cycle</h2>
@@ -798,7 +958,16 @@ export default function HubFinance() {
                       {financeData?.currentCycle?.totalOrders || 0} {financeData?.currentCycle?.totalOrders === 1 ? 'order' : 'orders'}
                     </p>
                     <button
-                      onClick={() => setShowWithdrawalModal(true)}
+                      onClick={() => {
+                        const netAvailable = financeData?.currentCycle?.netAvailable ?? (financeData?.currentCycle?.estimatedPayout || 0);
+                        const hasDues = (financeData?.restaurant?.subscriptionDueAmount || 0) > 0;
+                        
+                        if (hasDues && netAvailable <= 0) {
+                          setShowRestrictionModal(true);
+                          return;
+                        }
+                        setShowWithdrawalModal(true);
+                      }}
                       disabled={!(financeData?.currentCycle?.estimatedPayout > 0)}
                       className={`w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 mt-4 transition-colors ${
                         financeData?.currentCycle?.estimatedPayout > 0
@@ -809,6 +978,48 @@ export default function HubFinance() {
                       <Wallet className="h-5 w-5" />
                       Withdraw
                     </button>
+
+                    {/* Pay Dues Section */}
+                    {financeData?.restaurant?.subscriptionDueAmount >= 0 && (
+                      <div 
+                        ref={settlementRef}
+                        className="mt-8 pt-6 border-t border-gray-100 transition-all duration-500 rounded-2xl"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">Subscription Settlement</h3>
+                            <p className="text-[11px] text-gray-500 mt-0.5">Pay your outstanding platform dues</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-gray-900">
+                              ₹{(financeData?.restaurant?.subscriptionDueAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-tight">Due Amount</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handlePayDues}
+                          disabled={submittingPayment || (financeData?.restaurant?.subscriptionDueAmount || 0) <= 0}
+                          className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                            (financeData?.restaurant?.subscriptionDueAmount || 0) > 0
+                              ? "bg-amber-500 text-white shadow-lg shadow-amber-100 hover:bg-amber-600"
+                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          }`}
+                        >
+                          {submittingPayment ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <ArrowRight className="w-4 h-4" />
+                              Pay Subscription Due
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1226,25 +1437,38 @@ export default function HubFinance() {
                 </div>
                 
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-2">
-                    Available Balance: <span className="font-semibold text-gray-900">₹{(financeData?.currentCycle?.estimatedPayout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </p>
+                  <div className="flex flex-col gap-1 mb-3">
+                    <p className="text-sm text-gray-500">
+                      Total Earnings: <span className="font-medium text-gray-700">₹{(financeData?.currentCycle?.estimatedPayout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </p>
+                    <p className="text-sm text-gray-900 font-bold">
+                      Available to Withdraw: ₹{(financeData?.currentCycle?.netAvailable ?? (financeData?.currentCycle?.estimatedPayout || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+
+                  {financeData?.restaurant?.subscriptionDueAmount > 0 && (
+                    <div className="px-3 py-2.5 bg-amber-50/50 border border-amber-100 rounded-xl mb-4">
+                      <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
+                        <span className="font-bold">Compliance Note:</span> You can withdraw your earnings after reserving ₹{financeData.restaurant.subscriptionDueAmount.toLocaleString('en-IN')} for your outstanding subscription dues.
+                      </p>
+                    </div>
+                  )}
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Enter Amount to Withdraw
                   </label>
                   <input
                     type="number"
                     min="0.01"
-                    max={financeData?.currentCycle?.estimatedPayout || 0}
-                    step="0.01"
-                    value={withdrawalAmount}
-                    onChange={(e) => setWithdrawalAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none"
-                  />
-                  {withdrawalAmount && parseFloat(withdrawalAmount) > (financeData?.currentCycle?.estimatedPayout || 0) && (
-                    <p className="text-sm text-red-600 mt-1">Amount cannot exceed available balance</p>
-                  )}
+                      max={financeData?.currentCycle?.netAvailable ?? (financeData?.currentCycle?.estimatedPayout || 0)}
+                      step="0.01"
+                      value={withdrawalAmount}
+                      onChange={(e) => setWithdrawalAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none"
+                    />
+                    {withdrawalAmount && parseFloat(withdrawalAmount) > (financeData?.currentCycle?.netAvailable ?? (financeData?.currentCycle?.estimatedPayout || 0)) && (
+                      <p className="text-sm text-red-600 mt-1">Amount exceeds your withdrawable limit</p>
+                    )}
                 </div>
 
                 <div className="flex gap-3">
@@ -1260,20 +1484,14 @@ export default function HubFinance() {
                   <button
                     onClick={async () => {
                       const amount = parseFloat(withdrawalAmount)
-                      if (!amount || amount <= 0) {
-                        alert('Please enter a valid amount')
-                        return
-                      }
-                      if (amount > (financeData?.currentCycle?.estimatedPayout || 0)) {
-                        alert('Amount cannot exceed available balance')
-                        return
-                      }
+                      if (!amount || amount <= 0) return
+                      if (amount > (financeData?.currentCycle?.estimatedPayout || 0)) return
                       
                       try {
                         setSubmittingWithdrawal(true)
                         const response = await restaurantAPI.createWithdrawalRequest(amount)
                         if (response.data?.success) {
-                          alert('Withdrawal request submitted successfully!')
+                          // Professional success toast or similar would go here
                           setShowWithdrawalModal(false)
                           setWithdrawalAmount('')
                           // Refresh finance data
@@ -1290,17 +1508,29 @@ export default function HubFinance() {
                               : []
                           setWithdrawalRequests(withdrawalList)
                         } else {
-                          alert(response.data?.message || 'Failed to submit withdrawal request')
+                          // Handle dues-related error professionally
+                          if (response.data?.message?.toLowerCase().includes('subscription due')) {
+                            setShowWithdrawalModal(false);
+                            setShowRestrictionModal(true);
+                          } else {
+                             console.error('Submission failed:', response.data?.message);
+                          }
                         }
                       } catch (error) {
                         debugError('Error submitting withdrawal request:', error)
-                        alert(error.response?.data?.message || 'Failed to submit withdrawal request. Please try again.')
+                        const message = error.response?.data?.message || '';
+                        if (message.toLowerCase().includes('subscription due') || message.toLowerCase().includes('outstanding')) {
+                           setShowWithdrawalModal(false);
+                           setShowRestrictionModal(true);
+                        } else if (error.response?.status !== 401) {
+                           console.error('Withdrawal error:', message);
+                        }
                       } finally {
                         setSubmittingWithdrawal(false)
                       }
                     }}
-                    disabled={submittingWithdrawal || !withdrawalAmount || parseFloat(withdrawalAmount) <= 0 || parseFloat(withdrawalAmount) > (financeData?.currentCycle?.estimatedPayout || 0)}
-                    className="flex-1 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    disabled={submittingWithdrawal || !withdrawalAmount || parseFloat(withdrawalAmount) <= 0 || parseFloat(withdrawalAmount) > (financeData?.currentCycle?.netAvailable ?? (financeData?.currentCycle?.estimatedPayout || 0))}
+                    className="flex-1 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg"
                   >
                     {submittingWithdrawal ? 'Submitting...' : 'Submit Request'}
                   </button>
@@ -1311,7 +1541,18 @@ export default function HubFinance() {
         )}
       </AnimatePresence>
 
-      <BottomNavOrders />
+      <AnimatePresence>
+        {!showRestrictionModal && !showWithdrawalModal && (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <BottomNavOrders />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -68,7 +68,7 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
 
     // Fetch restaurant profile for header display.
     const restaurant = await FoodRestaurant.findById(rid)
-        .select('restaurantName addressLine1 addressLine2 area city state pincode location subscriptionDueAmount')
+        .select('restaurantName addressLine1 addressLine2 area city state pincode location subscriptionDueAmount subscriptionStatus')
         .lean();
 
     const address =
@@ -144,16 +144,18 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
     ]);
     const totalPendingWithdrawals = Number(pendingWithdrawalsAgg?.[0]?.total || 0);
     const subscriptionDue = Math.max(0, Number(restaurant?.subscriptionDueAmount || 0));
-    // Restaurant can withdraw everything MINUS the pending debt. 
-    // Example: Earning = 7000, Debt = 5000. Balance = 2000.
-    const availableBalance = Math.max(0, globalEstimatedPayout - totalPendingWithdrawals - subscriptionDue);
+    // Calculate final balance for withdrawal.
+    // NOTE: We no longer automatically deduct subscriptionDue here per user request ("direct deduct na ho").
+    // We will instead block the withdrawal in the controller if subscriptionDue > 0.
+    const availableBalance = Math.max(0, globalEstimatedPayout - totalPendingWithdrawals);
 
     const currentCycle = {
         start: { ...nowWindow.startMeta },
         end: { ...nowWindow.endMeta },
         totalEarnings: currentCycleEstimatedPayout, // We still show current cycle earnings label
         totalWithdrawn: totalPendingWithdrawals,
-        estimatedPayout: availableBalance, // This is what UI shows as "Estimated Payout" (Available Balance)
+        estimatedPayout: availableBalance, // This is what UI shows as "Total Earnings"
+        netAvailable: Math.max(0, availableBalance - subscriptionDue), // Net amount that is ACTUALLY withdrawable
         totalOrders: currentCycleOrders.length,
         payoutDate: null,
         orders: currentCycleOrders
@@ -216,7 +218,9 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
         restaurant: {
             name: restaurant?.restaurantName || '',
             restaurantId: restaurant?._id ? `REST${restaurant._id.toString().slice(-6).padStart(6, '0')}` : 'N/A',
-            address
+            address,
+            subscriptionDueAmount: Number(restaurant?.subscriptionDueAmount || 0),
+            subscriptionStatus: restaurant?.subscriptionStatus || 'paid'
         },
         currentCycle,
         invoiceSummary,

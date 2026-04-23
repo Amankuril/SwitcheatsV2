@@ -935,6 +935,10 @@ export const restaurantAPI = {
       contextModule: "restaurant"
     }),
   /** List withdrawal history for current restaurant. */
+  payDues: (body = {}) => apiClient.post("/food/restaurant/pay-dues", body, { contextModule: "restaurant" }),
+  /** Razorpay dues settlement. */
+  createDuesOrder: () => apiClient.post("/food/restaurant/pay-dues/order", {}, { contextModule: "restaurant" }),
+  verifyDuesPayment: (body = {}) => apiClient.post("/food/restaurant/pay-dues/verify", body, { contextModule: "restaurant" }),
   getWithdrawalHistory: () =>
     apiClient.get("/food/restaurant/withdrawals", {
       contextModule: "restaurant"

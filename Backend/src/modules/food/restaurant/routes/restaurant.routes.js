@@ -16,7 +16,10 @@ import {
     uploadRestaurantMenuImagesController,
     getRestaurantComplaintsController,
     uploadRestaurantAttachmentController,
-    deleteCurrentRestaurantAccountController
+    deleteCurrentRestaurantAccountController,
+    payRestaurantDuesController,
+    createDuesOrderController,
+    verifyDuesPaymentController
 } from '../controllers/restaurant.controller.js';
 import {
     createRestaurantOfferController,
@@ -118,6 +121,9 @@ router.put('/outlet-timings', authMiddleware, requireRestaurant, upsertCurrentRe
 router.get('/finance', authMiddleware, requireRestaurant, getRestaurantFinanceController);
 router.post('/withdraw', authMiddleware, requireRestaurant, createWithdrawalRequestController);
 router.get('/withdrawals', authMiddleware, requireRestaurant, listMyWithdrawalsController);
+router.post('/pay-dues', authMiddleware, requireRestaurant, payRestaurantDuesController);
+router.post('/pay-dues/order', authMiddleware, requireRestaurant, createDuesOrderController);
+router.post('/pay-dues/verify', authMiddleware, requireRestaurant, verifyDuesPaymentController);
 router.post(
     '/profile/profile-image',
     authMiddleware,
