@@ -213,29 +213,31 @@ export default function HomeHeader({
         </div>
 
         {/* Static Overlay Location Row */}
-        <div className="absolute top-0 inset-x-0 z-20 px-4 pt-5 flex items-center justify-between">
+        <div className="absolute top-0 inset-x-0 z-20 px-4 pt-5 flex items-center justify-between gap-3">
           <div 
-            className="flex items-center gap-1 cursor-pointer group"
+            className="flex items-center gap-1.5 cursor-pointer group min-w-0 flex-1"
             onClick={handleLocationClick}
           >
-            <div className="bg-white/20 p-1.5 rounded-full backdrop-blur-md border border-white/20 hover:bg-white/30 transition-colors shadow-sm dark:bg-black/20 dark:border-white/10 dark:hover:bg-white/10">
+            <div className="bg-white/20 p-1.5 rounded-full backdrop-blur-md border border-white/20 hover:bg-white/30 transition-colors shadow-sm dark:bg-black/20 dark:border-white/10 dark:hover:bg-white/10 flex-shrink-0">
               <MapPin className="h-4 w-4 text-gray-900 dark:text-white" />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                <span className="text-xs font-bold text-gray-900/80 dark:text-white/80 uppercase tracking-wider">Deliver to</span>
-                <ChevronDown className="h-3 w-3 text-gray-900/80 dark:text-white/80" />
+                <span className="text-[10px] font-bold text-gray-900/80 dark:text-white/80 uppercase tracking-wider">Deliver to</span>
+                <ChevronDown className="h-2.5 w-2.5 text-gray-900/80 dark:text-white/80" />
               </div>
-              <span className="text-sm font-bold text-gray-900 dark:text-white truncate max-w-[200px] drop-shadow-sm">
-                {location?.area || location?.city || savedAddressText || "Select Location"}
+              <span className="text-sm font-bold text-gray-900 dark:text-white truncate drop-shadow-sm max-w-full">
+                {savedAddressText || (location?.area && location?.city 
+                  ? `${location.area}, ${location.city}` 
+                  : location?.area || location?.city || "Select Location")}
               </span>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Popover>
               <PopoverTrigger asChild>
-                <div className="h-10 w-10 relative flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm cursor-pointer active:scale-95 transition-all hover:bg-white/30 dark:bg-black/20 dark:border-white/10 dark:hover:bg-white/10">
+                <div className="h-10 w-10 relative flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm cursor-pointer active:scale-95 transition-all hover:bg-white/30 dark:bg-black/20 dark:border-white/10 dark:hover:bg-white/10 flex-shrink-0">
                   <Bell className="h-[22px] w-[22px] text-gray-900 dark:text-white" />
                   {unreadCount > 0 && (
                     <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-yellow-400 rounded-full border-2 border-white animate-pulse dark:border-gray-900" />
@@ -309,21 +311,21 @@ export default function HomeHeader({
                 </div>
               </PopoverContent>
             </Popover>
-
+ 
             {/* Veg Mode Toggle */}
             <div 
-              className="flex items-center gap-1.5 h-10 bg-white/20 dark:bg-black/20 backdrop-blur-md rounded-full px-3 border border-white/30 shadow-sm cursor-pointer hover:bg-white/30 dark:border-white/10 dark:hover:bg-white/10 active:scale-95 transition-all"
+              className="flex items-center gap-1.5 h-10 bg-white/20 dark:bg-black/20 backdrop-blur-md rounded-full px-2.5 border border-white/30 shadow-sm cursor-pointer hover:bg-white/30 dark:border-white/10 dark:hover:bg-white/10 active:scale-95 transition-all flex-shrink-0"
               onClick={() => handleVegModeChange && handleVegModeChange(!isVegMode)}
               ref={vegModeToggleRef}
             >
-              <div className={`flex items-center justify-center p-[2px] rounded-sm border ${isVegMode ? 'border-green-600' : 'border-gray-500'} bg-white`}>
+              <div className={`flex items-center justify-center p-[2px] rounded-sm border ${isVegMode ? 'border-green-600' : 'border-gray-500'} bg-white flex-shrink-0`}>
                 <div className={`w-[6px] h-[6px] rounded-full ${isVegMode ? 'bg-green-600' : 'bg-gray-500'}`} />
               </div>
-              <span className={`text-[10px] font-black uppercase tracking-wider ${isVegMode ? 'text-green-800 dark:text-green-400' : 'text-gray-800 dark:text-gray-200'}`}>
+              <span className={`text-[9px] font-black uppercase tracking-tight ${isVegMode ? 'text-green-800 dark:text-green-400' : 'text-gray-800 dark:text-gray-200'} hidden xs:inline`}>
                 Veg
               </span>
-              <div className={`w-7 h-4 rounded-full relative transition-colors ml-0.5 ${isVegMode ? 'bg-green-500' : 'bg-gray-400/80 dark:bg-gray-600'}`}>
-                <div className={`absolute top-[2px] w-3 h-3 rounded-full bg-white transition-transform ${isVegMode ? 'translate-x-[14px]' : 'translate-x-[2px]'}`} />
+              <div className={`w-6 h-3.5 rounded-full relative transition-colors ml-0.5 flex-shrink-0 ${isVegMode ? 'bg-green-500' : 'bg-gray-400/80 dark:bg-gray-600'}`}>
+                <div className={`absolute top-[1.5px] w-2.5 h-2.5 rounded-full bg-white transition-transform ${isVegMode ? 'translate-x-[11px]' : 'translate-x-[1.5px]'}`} />
               </div>
             </div>
           </div>

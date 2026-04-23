@@ -71,6 +71,7 @@ export default function AddressSelectorPage() {
   const [currentAddress, setCurrentAddress] = useState("")
   const [addressAutocompleteValue, setAddressAutocompleteValue] = useState("")
   const [keywordAddressSuggestions, setKeywordAddressSuggestions] = useState([])
+  const [googlePlacesSuggestions, setGooglePlacesSuggestions] = useState([])
   const [isKeywordSearching, setIsKeywordSearching] = useState(false)
   const [lockMapToAutocomplete, setLockMapToAutocomplete] = useState(true)
   const [GOOGLE_MAPS_API_KEY, setGOOGLE_MAPS_API_KEY] = useState(null)
@@ -122,9 +123,55 @@ export default function AddressSelectorPage() {
     })
   }, [])
 
-  // Nominatim search
+  // Google Places Autocomplete search
   useEffect(() => {
-    if (!showAddressForm) return
+    if (!showAddressForm || !GOOGLE_MAPS_API_KEY || !addressAutocompleteValue || addressAutocompleteValue.length < 3) {
+      setGooglePlacesSuggestions([]);
+      return;
+    }
+
+    const t = setTimeout(async () => {
+      try {
+        if (!window.google || !window.google.maps || !window.google.maps.places) {
+          const loader = new Loader({ apiKey: GOOGLE_MAPS_API_KEY, version: "weekly", libraries: ["places"] });
+          await loader.load();
+        }
+        
+        const service = new window.google.maps.places.AutocompleteService();
+        const request = {
+          input: addressAutocompleteValue,
+          componentRestrictions: { country: 'in' }, // Restrict to India
+          locationBias: location ? { lat: location.latitude, lng: location.longitude, radius: 10000 } : undefined
+        };
+
+        service.getPlacePredictions(request, (predictions, status) => {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+            setGooglePlacesSuggestions(predictions.map(p => ({
+              id: p.place_id,
+              display: p.description,
+              mainText: p.structured_formatting.main_text,
+              secondaryText: p.structured_formatting.secondary_text,
+              source: 'google'
+            })));
+          } else {
+            setGooglePlacesSuggestions([]);
+          }
+        });
+      } catch (e) {
+        debugError("Google Places error:", e);
+        setGooglePlacesSuggestions([]);
+      }
+    }, 400);
+
+    return () => clearTimeout(t);
+  }, [addressAutocompleteValue, showAddressForm, GOOGLE_MAPS_API_KEY, location]);
+
+  // Nominatim search fallback
+  useEffect(() => {
+    if (!showAddressForm || googlePlacesSuggestions.length > 0) {
+      setKeywordAddressSuggestions([])
+      return
+    }
     const q = String(addressAutocompleteValue || "").trim()
     if (!ENABLE_NOMINATIM_SEARCH || q.length < 3) {
       setKeywordAddressSuggestions([])
@@ -217,6 +264,40 @@ export default function AddressSelectorPage() {
         const newPos = [loc.latitude, loc.longitude]
         setMapPosition(newPos)
         
+        // Use Google Reverse Geocoding if available for better accuracy
+        if (window.google && window.google.maps) {
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode({ location: { lat: loc.latitude, lng: loc.longitude } }, (results, status) => {
+            if (status === "OK" && results[0]) {
+              const res = results[0];
+              setCurrentAddress(res.formatted_address);
+              
+              // Extract address components
+              let street = "", city = "", state = "", postcode = "";
+              res.address_components.forEach(comp => {
+                const types = comp.types;
+                if (types.includes("route") || types.includes("sublocality")) {
+                  street = street ? `${street}, ${comp.long_name}` : comp.long_name;
+                } else if (types.includes("locality")) {
+                  city = comp.long_name;
+                } else if (types.includes("administrative_area_level_1")) {
+                  state = comp.long_name;
+                } else if (types.includes("postal_code")) {
+                  postcode = comp.long_name;
+                }
+              });
+
+              setAddressFormData(prev => ({
+                ...prev,
+                street: street || res.formatted_address.split(",")[0] || prev.street,
+                city: city || prev.city,
+                state: state || prev.state,
+                zipCode: postcode || prev.zipCode,
+              }));
+            }
+          });
+        }
+
         // Explicitly pan the map to center the user location
         if (googleMapRef.current) {
           googleMapRef.current.panTo({ lat: loc.latitude, lng: loc.longitude })
@@ -225,7 +306,6 @@ export default function AddressSelectorPage() {
         
         try { localStorage.setItem("deliveryAddressMode", "current") } catch {}
         toast.success("Location updated", { id: "geo" })
-        // Removed handleBack() to prevent unwanted redirection
       }
     } catch (e) {
       toast.error("Failed to get location", { id: "geo" })
@@ -442,6 +522,64 @@ export default function AddressSelectorPage() {
                 {isKeywordSearching && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#EB590E] border-t-transparent" />
+                  </div>
+                )}
+
+                {googlePlacesSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-30 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <p className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 dark:bg-gray-800/50">Google Suggestions</p>
+                    {googlePlacesSuggestions.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={async () => {
+                          const geocoder = new window.google.maps.Geocoder();
+                          geocoder.geocode({ placeId: s.id }, (results, status) => {
+                            if (status === "OK" && results[0]) {
+                              const res = results[0];
+                              const lat = res.geometry.location.lat();
+                              const lng = res.geometry.location.lng();
+                              setMapPosition([lat, lng]);
+                              if (googleMapRef.current) {
+                                googleMapRef.current.panTo({ lat, lng });
+                                googleMapRef.current.setZoom(17);
+                              }
+                              setAddressAutocompleteValue(s.display);
+                              
+                              let street = "", city = "", state = "", postcode = "";
+                              res.address_components.forEach(comp => {
+                                const types = comp.types;
+                                if (types.includes("route") || types.includes("sublocality") || types.includes("neighborhood")) {
+                                  street = street ? `${street}, ${comp.long_name}` : comp.long_name;
+                                } else if (types.includes("locality")) {
+                                  city = comp.long_name;
+                                } else if (types.includes("administrative_area_level_1")) {
+                                  state = comp.long_name;
+                                } else if (types.includes("postal_code")) {
+                                  postcode = comp.long_name;
+                                }
+                              });
+
+                              setAddressFormData((prev) => ({
+                                ...prev,
+                                street: street || s.mainText || prev.street,
+                                city: city || prev.city,
+                                state: state || prev.state,
+                                zipCode: postcode || prev.zipCode,
+                              }));
+                              setCurrentAddress(res.formatted_address);
+                              setGooglePlacesSuggestions([]);
+                            }
+                          });
+                        }}
+                        className="w-full px-4 py-3 flex items-start gap-3 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors text-left border-b border-gray-50 dark:border-gray-800 last:border-none"
+                      >
+                        <MapPin className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{s.mainText}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{s.secondaryText}</p>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 )}
 

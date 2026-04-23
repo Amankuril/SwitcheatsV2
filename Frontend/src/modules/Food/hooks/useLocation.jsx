@@ -87,12 +87,14 @@ const reverseGeocodeDirect = async (latitude, longitude) => {
         city: data.city || data.locality || "Unknown City",
         state: data.principalSubdivision || "",
         country: data.countryName || "",
-        area: data.subLocality || "",
+        area: data.subLocality || data.neighbourhood || data.locality || "",
         address:
           data.formattedAddress ||
+          data.address ||
           `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
         formattedAddress:
           data.formattedAddress ||
+          data.address ||
           `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
       }
 
