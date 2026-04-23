@@ -4,14 +4,14 @@ import { motion } from "framer-motion"
 import {
   FileText,
   Package,
-  MessageSquare,
+  Wallet,
   Compass,
 } from "lucide-react"
 
 const getOrdersTabs = (basePath = "/restaurant") => [
   { id: "orders", label: "Orders", icon: FileText, route: `${basePath}` },
   { id: "inventory", label: "Inventory", icon: Package, route: `${basePath}/inventory` },
-  { id: "feedback", label: "Feedback", icon: MessageSquare, route: `${basePath}/feedback` },
+  { id: "payouts", label: "Payouts", icon: Wallet, route: `${basePath}/hub-finance` },
   { id: "explore", label: "Explore", icon: Compass, route: `${basePath}/explore` },
 ]
 
