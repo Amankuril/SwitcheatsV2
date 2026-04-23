@@ -206,7 +206,7 @@ const normalizeAccountTypeValue = (value) => {
 const getTodayLocalYMD = () => formatDateToLocalYMD(new Date())
 
 // Helper functions for localStorage
-const saveOnboardingToLocalStorage = (step1, step2, step3, currentStep) => {
+const saveOnboardingToLocalStorage = (step1, step2, step3, currentStep, step4State) => {
   try {
     // Persist only stable URL-based values. File/Blob objects are not serializable and
     // restoring metadata-only placeholders breaks preview/upload flows.
@@ -245,6 +245,7 @@ const saveOnboardingToLocalStorage = (step1, step2, step3, currentStep) => {
       step1,
       step2: serializableStep2,
       step3: serializableStep3,
+      step4: step4State,
       currentStep,
       timestamp: Date.now(),
     }
@@ -934,10 +935,18 @@ export default function RestaurantOnboarding() {
             }))
           }
 
+          if (localData.step4) {
+            setStep4State((prev) => ({
+              ...prev,
+              ...localData.step4,
+              errors: [] // Clear previous errors
+            }))
+          }
+
           // Only set step from localStorage if URL doesn't have a step parameter
           if (localData.currentStep && !stepParam) {
             const restoredStep = Number(localData.currentStep) || 1
-            setStep(Math.min(3, Math.max(1, restoredStep)))
+            setStep(Math.min(4, Math.max(1, restoredStep)))
           }
         }
       } finally {
@@ -977,7 +986,7 @@ export default function RestaurantOnboarding() {
   // Save to localStorage whenever step data changes
   useEffect(() => {
     if (!isOnboardingHydrated) return
-    saveOnboardingToLocalStorage(step1, step2, step3, step)
+    saveOnboardingToLocalStorage(step1, step2, step3, step, step4State)
     
     // Save images to IndexedDB
     const saveFiles = async () => {
@@ -999,7 +1008,7 @@ export default function RestaurantOnboarding() {
       await persistMenuImagesToDB(step2.menuImages || [])
     }
     saveFiles()
-  }, [isOnboardingHydrated, step1, step2, step3, step])
+  }, [isOnboardingHydrated, step1, step2, step3, step, step4State])
 
   useEffect(() => {
     syncOnboardingFileCache(step2, step3)
@@ -1153,11 +1162,17 @@ export default function RestaurantOnboarding() {
                setStep(1)
             } else {
                const stepToShow = determineStepToShow({ step1: data, step2: data, step3: data })
-               // Only overwrite if backend says we are further along (step > 1) 
-               // or if we are currently at step 1 and backend has data
-               if (stepToShow > 1) {
-                  setStep(stepToShow)
-               }
+               // Map null (all steps complete) to Step 4
+               const targetStep = stepToShow === null ? 4 : stepToShow
+               
+               // Only update if backend says we are further along than current local step
+               // This prevents "downgrading" the step on reload if backend is out of sync
+               setStep(prevStep => {
+                 if (targetStep > prevStep) {
+                   return targetStep
+                 }
+                 return prevStep
+               })
             }
           }
         } else {

@@ -116,18 +116,21 @@ export default function SignupStep2() {
     sessionStorage.setItem("deliverySignupDocs", JSON.stringify(uploadedDocs))
   }, [uploadedDocs])
 
+  const documentsRef = useRef(documents)
+  useEffect(() => {
+    documentsRef.current = documents
+  }, [documents])
+
   useEffect(() => {
     return () => {
-      Object.values(documents).forEach((file) => {
-        if (file instanceof File) {
-          const previewUrl = file.previewUrl || file._previewUrl
-          if (previewUrl) {
-            URL.revokeObjectURL(previewUrl)
-          }
+      // Cleanup object URLs only on unmount to prevent broken previews during flow
+      Object.values(documentsRef.current).forEach((file) => {
+        if (file instanceof File && file._previewUrl) {
+          URL.revokeObjectURL(file._previewUrl)
         }
       })
     }
-  }, [documents])
+  }, [])
 
   const getPreviewSrc = (docType) => {
     const uploaded = uploadedDocs[docType]
@@ -136,10 +139,7 @@ export default function SignupStep2() {
 
     const localFile = documents[docType]
     if (localFile instanceof File) {
-      if (!localFile._previewUrl) {
-        localFile._previewUrl = URL.createObjectURL(localFile)
-      }
-      return localFile._previewUrl
+      return localFile._previewUrl || null
     }
     return null
   }
@@ -160,6 +160,15 @@ export default function SignupStep2() {
       return
     }
 
+    // Revoke old URL if replacing a file
+    const oldFile = documents[docType]
+    if (oldFile instanceof File && oldFile._previewUrl) {
+      URL.revokeObjectURL(oldFile._previewUrl)
+    }
+
+    // Create new preview URL
+    file._previewUrl = URL.createObjectURL(file)
+
     setDocuments((prev) => ({ ...prev, [docType]: file }))
     setUploadedDocs((prev) => ({ ...prev, [docType]: { file: true } }))
     toast.success(`${docType.replace(/([A-Z])/g, " $1").trim()} selected`)
@@ -177,6 +186,10 @@ export default function SignupStep2() {
   }
 
   const handleRemove = (docType) => {
+    const file = documents[docType]
+    if (file instanceof File && file._previewUrl) {
+      URL.revokeObjectURL(file._previewUrl)
+    }
     setDocuments(prev => ({
       ...prev,
       [docType]: null
@@ -431,4 +444,3 @@ export default function SignupStep2() {
     </div>
   )
 }
-
