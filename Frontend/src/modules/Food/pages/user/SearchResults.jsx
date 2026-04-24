@@ -12,9 +12,9 @@ import { useZone } from "@food/hooks/useZone"
 import { restaurantAPI, adminAPI } from "@food/api"
 import { useDelayedLoading } from "@food/hooks/useDelayedLoading"
 
-const debugLog = (...args) => {}
-const debugWarn = (...args) => {}
-const debugError = (...args) => {}
+const debugLog = (...args) => { }
+const debugWarn = (...args) => { }
+const debugError = (...args) => { }
 
 // Filter options
 const filterOptions = [

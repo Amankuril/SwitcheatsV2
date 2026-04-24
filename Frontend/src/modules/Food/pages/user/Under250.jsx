@@ -1,17 +1,20 @@
 import { Link, useNavigate } from "react-router-dom"
 import { useState, useMemo, useCallback, useEffect, useRef } from "react"
-import { Star, Clock, MapPin, ArrowDownUp, Timer, ArrowRight, ChevronDown, Bookmark, Share2, Plus, Minus, X } from "lucide-react"
+import { Star, Clock, MapPin, ArrowDownUp, Timer, ArrowRight, ChevronDown, Bookmark, Share2, Plus, Minus, X, Search, Mic, ShoppingCart, Wallet } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 import AnimatedPage from "@food/components/user/AnimatedPage"
 import { Card, CardContent } from "@food/components/ui/card"
 import { Button } from "@food/components/ui/button"
-import { useLocationSelector } from "@food/components/user/UserLayout"
+import { Input } from "@food/components/ui/input"
+import { useSearchOverlay, useLocationSelector } from "@food/components/user/UserLayout"
 import { useLocation } from "@food/hooks/useLocation"
 import { useZone } from "@food/hooks/useZone"
+import { useProfile } from "@food/context/ProfileContext"
 import { useCart } from "@food/context/CartContext"
 import PageNavbar from "@food/components/user/PageNavbar"
 import offerImage from "@food/assets/offerimage.png"
+import switch99PromoBanner from "@food/assets/switch99_final_banner.png"
 import AddToCartAnimation from "@food/components/user/AddToCartAnimation"
 import OptimizedImage from "@food/components/OptimizedImage"
 import api from "@food/api"
@@ -19,9 +22,9 @@ import { restaurantAPI, adminAPI } from "@food/api"
 import { isModuleAuthenticated } from "@food/utils/auth"
 import { flattenMenuItems, getMenuFromResponse } from "@food/utils/menuItems"
 import { calculateDistance, formatDistance } from "@food/utils/common"
-const debugLog = (...args) => {}
-const debugWarn = (...args) => {}
-const debugError = (...args) => {}
+const debugLog = (...args) => { }
+const debugWarn = (...args) => { }
+const debugError = (...args) => { }
 const RUPEE_SYMBOL = "\u20B9"
 const UNDER_250_FILTERS_STORAGE_KEY = "food-under-250-filters"
 
@@ -63,6 +66,8 @@ const readUnder250Filters = () => {
 export default function Under250() {
   const initialFiltersRef = useRef(readUnder250Filters())
   const { location } = useLocation()
+  const { openLocationSelector } = useLocationSelector()
+  const { getDefaultAddress } = useProfile()
   const { zoneId, zoneStatus, isInService, isOutOfService } = useZone(location)
   const navigate = useNavigate()
   const { addToCart, updateQuantity, removeFromCart, getCartItem, cart } = useCart()
@@ -75,8 +80,41 @@ export default function Under250() {
   const [selectedItem, setSelectedItem] = useState(null)
   const [itemDetailQuantity, setItemDetailQuantity] = useState(1)
   const [showShareOptions, setShowShareOptions] = useState(false)
+  const { openSearch, closeSearch, setSearchValue } = useSearchOverlay()
+  const [heroSearch, setHeroSearch] = useState("")
+  const cartCount = cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0
+  
+  const handleSearchFocus = useCallback(() => {
+    if (heroSearch) {
+      setSearchValue(heroSearch)
+    }
+    openSearch()
+  }, [heroSearch, openSearch, setSearchValue])
   const [quantities, setQuantities] = useState({})
   const [bookmarkedItems, setBookmarkedItems] = useState(new Set())
+
+  const formatSavedAddress = useCallback((address) => {
+    if (!address) return "";
+    if (address.formattedAddress && address.formattedAddress !== "Select location") {
+      return address.formattedAddress;
+    }
+    const parts = [];
+    if (address.additionalDetails) parts.push(address.additionalDetails);
+    if (address.street) parts.push(address.street);
+    if (address.city) parts.push(address.city);
+    if (parts.length > 0) return parts.join(", ");
+    if (address.address && address.address !== "Select location") return address.address;
+    return "";
+  }, []);
+
+  const savedAddressText = useMemo(() => {
+    const defaultAddress = getDefaultAddress?.();
+    return formatSavedAddress(defaultAddress);
+  }, [getDefaultAddress, formatSavedAddress]);
+
+  const displayLocation = savedAddressText || (location?.area && location?.city 
+    ? `${location.area}, ${location.city}` 
+    : location?.area || location?.city || "Select Location");
   const [viewCartButtonBottom, setViewCartButtonBottom] = useState("bottom-20")
   const lastScrollY = useRef(0)
   const scrollLockYRef = useRef(0)
@@ -164,7 +202,7 @@ export default function Under250() {
       if (selectedCat) {
         const catNameLower = selectedCat.name.toLowerCase()
         filtered = filtered.map(restaurant => {
-          const matches = restaurant.menuItems.filter(item => 
+          const matches = restaurant.menuItems.filter(item =>
             (item.category || "").toLowerCase() === catNameLower ||
             (item.sectionName || "").toLowerCase() === catNameLower ||
             (item.subsectionName || "").toLowerCase() === catNameLower
@@ -355,7 +393,10 @@ export default function Under250() {
               const menuResponse = await restaurantAPI.getMenuByRestaurantId(restaurantId)
               const menu = getMenuFromResponse(menuResponse)
               const menuItems = flattenMenuItems(menu)
-                .filter((item) => Number(item?.price || 0) <= 99 && item?.isAvailable !== false)
+                .filter((item) => {
+                  const priceStr = String(item?.price || "");
+                  return priceStr.includes("99") && item?.isAvailable !== false;
+                })
                 .map((item) => {
                   const foodType = String(item?.foodType || "").toLowerCase()
                   const isVeg = foodType.includes("veg") && !foodType.includes("non")
@@ -832,71 +873,118 @@ export default function Under250() {
   return (
 
     <div className={`relative min-h-screen bg-white dark:bg-[#0a0a0a] ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`}>
-      <div
-        ref={stickyHeaderRef}
-        className={`fixed top-0 left-0 right-0 z-40 w-full md:hidden transition-all duration-300 ${hasScrolledPastBanner
-          ? "bg-white/95 backdrop-blur-sm shadow-sm border-b border-gray-200"
-          : "bg-transparent"
-          }`}
-      >
-        <div className="relative z-50 pt-2 sm:pt-3 pb-2">
-          <PageNavbar textColor="black" zIndex={20} showProfile={true} showLogo={false} />
+      {/* Premium Glassmorphic Header Wrapper (Replica of Dining) */}
+      <div className="sticky top-0 z-50 w-full bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl shadow-sm border-b border-gray-100 dark:border-gray-900 md:hidden pb-3">
+        {/* Top Row: Location & Profile */}
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+          <div 
+            className="flex items-center gap-2 cursor-pointer group max-w-[70%]"
+            onClick={openLocationSelector}
+          >
+            <div className="bg-[#FA0272]/10 p-2 rounded-full border border-[#FA0272]/20">
+              <MapPin className="h-[18px] w-[18px] text-[#FA0272]" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                <span className="text-[10px] font-bold text-gray-500 tracking-wider uppercase">Location</span>
+                <ChevronDown className="h-3 w-3 text-[#FA0272]" />
+              </div>
+              <span className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                {displayLocation}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-x-2 sm:gap-x-3">
+            {/* Wallet Action */}
+            <Link to="/user/wallet" className="flex items-center justify-center h-8 w-8 sm:h-[38px] sm:w-[38px] rounded-full bg-gray-100/80 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700 shadow-sm transition hover:bg-gray-200 active:scale-95">
+              <Wallet className="h-[15px] w-[15px] sm:h-[18px] sm:w-[18px] text-gray-800 dark:text-gray-200" strokeWidth={2} />
+            </Link>
+
+            {/* Cart Action */}
+            <Link to="/user/cart" className="flex items-center justify-center h-8 w-8 sm:h-[38px] sm:w-[38px] relative rounded-full bg-gray-100/80 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700 shadow-sm transition hover:bg-gray-200 active:scale-95">
+              <ShoppingCart className="h-[15px] w-[15px] sm:h-[18px] sm:w-[18px] text-gray-800 dark:text-gray-200" strokeWidth={2} />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-[16px] h-[16px] sm:w-[18px] sm:h-[18px] bg-[#EB590E] rounded-full flex items-center justify-center ring-2 ring-white dark:ring-[#0a0a0a]">
+                  <span className="text-[9px] font-bold text-white">{cartCount > 99 ? "99+" : cartCount}</span>
+                </span>
+              )}
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Banner Section */}
+      {/* Final Switch 99 Hero Banner Section */}
       <div
         ref={bannerShellRef}
         data-banner-shell="true"
-        className="relative w-full overflow-hidden h-[clamp(240px,42vw,520px)] md:-mt-40"
+        className="relative w-full overflow-hidden h-[clamp(240px,40vw,520px)] bg-white"
       >
-        {/* Banner Image */}
-        {bannerImages.length > 0 && (
-          <div
-            className="absolute inset-0 z-0 overflow-hidden"
-            onTouchStart={handleBannerTouchStart}
-            onTouchMove={handleBannerTouchMove}
-            onTouchEnd={handleBannerTouchEnd}
-          >
-            <div
-              className="flex h-full w-full transition-transform duration-500 ease-out"
-              style={{ transform: `translateX(-${currentBannerIndex * 100}%)` }}
+        <AnimatePresence mode="wait">
+          {bannerImages.length > 0 ? (
+            <motion.div
+              key="api-banners"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-0 overflow-hidden"
+              onTouchStart={handleBannerTouchStart}
+              onTouchMove={handleBannerTouchMove}
+              onTouchEnd={handleBannerTouchEnd}
             >
-              {bannerImages.map((bannerImage, index) => (
-                <div key={`${bannerImage}-${index}`} className="relative h-full w-full shrink-0">
-                  <OptimizedImage
-                    src={bannerImage}
-                    alt={`Switch 99 Banner ${index + 1}`}
-                    className="w-full h-full"
-                    objectFit="cover"
-                    priority={index === 0}
-                    sizes="100vw"
-                  />
-                </div>
-              ))}
-            </div>
-            {bannerImages.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/25 px-3 py-1.5 backdrop-blur-sm">
-                {bannerImages.map((_, index) => (
-                  <button
-                    key={`banner-dot-${index}`}
-                    type="button"
-                    aria-label={`Go to banner ${index + 1}`}
-                    onClick={() => {
-                      setCurrentBannerIndex(index)
-                      resetBannerAutoSlide()
-                    }}
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      currentBannerIndex === index ? "w-5 bg-white" : "w-2 bg-white/55"
-                    }`}
-                  />
+              <div
+                className="flex h-full w-full transition-transform duration-500 ease-out"
+                style={{ transform: `translateX(-${currentBannerIndex * 100}%)` }}
+              >
+                {bannerImages.map((bannerImage, index) => (
+                  <div key={`${bannerImage}-${index}`} className="relative h-full w-full shrink-0">
+                    <OptimizedImage
+                      src={bannerImage}
+                      alt={`Switch 99 Banner ${index + 1}`}
+                      className="w-full h-full"
+                      objectFit="cover"
+                      priority={index === 0}
+                      sizes="100vw"
+                    />
+                  </div>
                 ))}
               </div>
-            )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="final-static-banner"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-0"
+            >
+              <OptimizedImage
+                src={switch99PromoBanner}
+                alt="Switch 99 Unique Deals"
+                className="w-full h-full"
+                objectFit="contain"
+                priority
+                sizes="100vw"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Minimalist Progress Indicators */}
+        {bannerImages.length > 1 && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
+            {bannerImages.map((_, index) => (
+              <button
+                key={`banner-dot-${index}`}
+                onClick={() => {
+                  setCurrentBannerIndex(index)
+                  resetBannerAutoSlide()
+                }}
+                className={`transition-all duration-300 rounded-full h-1.5 ${
+                  currentBannerIndex === index ? "w-6 bg-[#FA0272]" : "w-1.5 bg-black/20"
+                }`}
+              />
+            ))}
           </div>
-        )}
-        {bannerImages.length === 0 && !loadingBanner && (
-          <div className="absolute top-0 left-0 right-0 bottom-0 z-0 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950 dark:to-amber-950 overflow-hidden" />
         )}
       </div>
 
@@ -940,26 +1028,26 @@ export default function Under250() {
               const isActive = activeCategory === category.id
               return (
                 <div key={category.id} className="flex-shrink-0 cursor-pointer" onClick={() => setActiveCategory(isActive ? null : category.id)}>
-                    <motion.div
-                      className="flex flex-col items-center gap-2 w-[62px] sm:w-24 md:w-28"
-                      whileHover={{ scale: 1.1, y: -4 }}
-                      whileTap={{ scale: 0.95 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    >
-                      <div className={`w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-md transition-all ${isActive ? 'ring-2 ring-[#EB590E] ring-offset-2' : ''}`}>
-                        <OptimizedImage
-                          src={category.image}
-                          alt={category.name}
-                          className="w-full h-full bg-white rounded-full"
-                          objectFit="cover"
-                          sizes="(max-width: 640px) 62px, (max-width: 768px) 96px, 112px"
-                          placeholder="blur"
-                        />
-                      </div>
-                      <span className={`text-xs sm:text-sm md:text-base font-semibold text-gray-800 dark:text-gray-200 text-center pb-1 ${isActive ? 'text-[#EB590E]' : ''}`}>
-                        {category.name.length > 7 ? `${category.name.slice(0, 7)}...` : category.name}
-                      </span>
-                    </motion.div>
+                  <motion.div
+                    className="flex flex-col items-center gap-2 w-[62px] sm:w-24 md:w-28"
+                    whileHover={{ scale: 1.1, y: -4 }}
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  >
+                    <div className={`w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-md transition-all ${isActive ? 'ring-2 ring-[#EB590E] ring-offset-2' : ''}`}>
+                      <OptimizedImage
+                        src={category.image}
+                        alt={category.name}
+                        className="w-full h-full bg-white rounded-full"
+                        objectFit="cover"
+                        sizes="(max-width: 640px) 62px, (max-width: 768px) 96px, 112px"
+                        placeholder="blur"
+                      />
+                    </div>
+                    <span className={`text-xs sm:text-sm md:text-base font-semibold text-gray-800 dark:text-gray-200 text-center pb-1 ${isActive ? 'text-[#EB590E]' : ''}`}>
+                      {category.name.length > 7 ? `${category.name.slice(0, 7)}...` : category.name}
+                    </span>
+                  </motion.div>
                 </div>
               )
             })}

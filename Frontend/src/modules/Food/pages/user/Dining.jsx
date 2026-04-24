@@ -157,6 +157,30 @@ export default function Dining() {
   const touchEndXRef = useRef(0)
   const touchEndYRef = useRef(0)
   const isBannerSwipingRef = useRef(false)
+  const { getDefaultAddress } = useProfile()
+
+  const formatSavedAddress = useCallback((address) => {
+    if (!address) return "";
+    if (address.formattedAddress && address.formattedAddress !== "Select location") {
+      return address.formattedAddress;
+    }
+    const parts = [];
+    if (address.additionalDetails) parts.push(address.additionalDetails);
+    if (address.street) parts.push(address.street);
+    if (address.city) parts.push(address.city);
+    if (parts.length > 0) return parts.join(", ");
+    if (address.address && address.address !== "Select location") return address.address;
+    return "";
+  }, []);
+
+  const savedAddressText = useMemo(() => {
+    const defaultAddress = getDefaultAddress?.();
+    return formatSavedAddress(defaultAddress);
+  }, [getDefaultAddress, formatSavedAddress]);
+
+  const displayLocation = savedAddressText || (location?.area && location?.city 
+    ? `${location.area}, ${location.city}` 
+    : location?.area || location?.city || "Select Location");
 
   useEffect(() => {
     const fetchDiningData = async () => {
@@ -481,7 +505,7 @@ export default function Dining() {
                 <ChevronDown className="h-3 w-3 text-[#FA0272]" />
               </div>
               <span className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                {location?.area || location?.city || "Select Location"}
+                {displayLocation}
               </span>
             </div>
           </div>

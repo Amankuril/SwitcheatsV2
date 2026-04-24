@@ -151,9 +151,9 @@ export default function CategoryPage() {
         const list = response?.data?.data?.foods || []
         const approvedFoods = Array.isArray(list)
           ? list.filter((food) =>
-              String(food?.approvalStatus || "").toLowerCase() === "approved" &&
-              food?.isAvailable !== false
-            )
+            String(food?.approvalStatus || "").toLowerCase() === "approved" &&
+            food?.isAvailable !== false
+          )
           : []
 
         approvedFoodsCacheRef.current = approvedFoods
@@ -252,26 +252,26 @@ export default function CategoryPage() {
 
     const restaurantsById = new Map()
     const restaurantsByName = new Map()
-    ;(Array.isArray(restaurants) ? restaurants : []).forEach((restaurant) => {
-      const idCandidates = [
-        restaurant?.restaurantId,
-        restaurant?.id,
-        restaurant?.mongoId,
-      ]
-        .filter(Boolean)
-        .map((value) => String(value).trim())
+      ; (Array.isArray(restaurants) ? restaurants : []).forEach((restaurant) => {
+        const idCandidates = [
+          restaurant?.restaurantId,
+          restaurant?.id,
+          restaurant?.mongoId,
+        ]
+          .filter(Boolean)
+          .map((value) => String(value).trim())
 
-      idCandidates.forEach((value) => {
-        if (!restaurantsById.has(value)) {
-          restaurantsById.set(value, restaurant)
+        idCandidates.forEach((value) => {
+          if (!restaurantsById.has(value)) {
+            restaurantsById.set(value, restaurant)
+          }
+        })
+
+        const normalizedName = String(restaurant?.name || "").trim().toLowerCase()
+        if (normalizedName && !restaurantsByName.has(normalizedName)) {
+          restaurantsByName.set(normalizedName, restaurant)
         }
       })
-
-      const normalizedName = String(restaurant?.name || "").trim().toLowerCase()
-      if (normalizedName && !restaurantsByName.has(normalizedName)) {
-        restaurantsByName.set(normalizedName, restaurant)
-      }
-    })
 
     return approvedFoodsData
       .filter((food) => {
@@ -1327,7 +1327,7 @@ export default function CategoryPage() {
                         <Grid2x2 className={`h-6 w-6 md:h-7 md:w-7 ${isSelected ? 'text-[#EB590E]' : 'text-gray-500 dark:text-gray-400'}`} />
                       </div>
                     ) : cat.image ? (
-                  <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-2 transition-all ${isSelected ? 'border-[#EB590E] shadow-lg' : 'border-transparent'
+                      <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-2 transition-all ${isSelected ? 'border-[#EB590E] shadow-lg' : 'border-transparent'
                         }`}>
                         <img
                           src={cat.image}

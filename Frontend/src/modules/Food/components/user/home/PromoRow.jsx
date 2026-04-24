@@ -59,7 +59,7 @@ export default function PromoRow({ handleVegModeChange, navigate, isVegMode, tog
               alt={promo.value}
               className="w-full h-full object-contain relative z-20 transition-transform duration-500 group-hover:scale-110 drop-shadow-sm"
             />
-            
+
             {/* Active SwitchEats Indicator */}
             {promo.id === 'pure-veg' && isVegMode && (
               <div className="absolute top-0 right-0 w-3 h-3 bg-[#FA0272] rounded-full border-2 border-white dark:border-[#0a0a0a] shadow-[0_0_8px_rgba(250,2,114,0.5)] z-30" />

@@ -7,6 +7,7 @@ import { Input } from "@food/components/ui/input"
 import { authAPI } from "@food/api"
 import { motion } from "framer-motion"
 import loginBanner from "@food/assets/loginbanner.png"
+import logoImg from "@food/assets/switcheats-logo copy.png"
 const debugLog = (...args) => { }
 const debugWarn = (...args) => { }
 const debugError = (...args) => { }
@@ -112,7 +113,7 @@ export default function SignIn() {
   return (
     <AnimatedPage className="min-h-[100dvh] bg-white dark:bg-[#0A0A0B] flex flex-col font-sans overflow-hidden">
       {/* Top Branding Section - 40% height */}
-      <div className="relative h-[40dvh] w-full bg-[#FA0272] overflow-hidden flex flex-col items-center justify-center">
+      <div className="relative h-[40dvh] w-full bg-gradient-to-br from-[#FA0272] via-[#FD2B8B] to-[#FF4B9E] overflow-hidden flex flex-col items-center justify-center">
         {/* Subtle Decorative Elements (No Blur) */}
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-0 right-0 w-64 h-64 border-word border-white/20 rounded-full -mr-20 -mt-20" />
@@ -125,8 +126,8 @@ export default function SignIn() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="relative z-10 flex flex-col items-center gap-4"
         >
-          <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-xl transform -rotate-12 border-4 border-white/30">
-            <span className="text-[#FA0272] font-black text-4xl italic tracking-tighter">S</span>
+          <div className="w-24 h-24 bg-white rounded-[2.2rem] flex items-center justify-center shadow-[0_20px_50px_rgba(0,0,0,0.15)] border-4 border-white/10 overflow-hidden p-2">
+            <img src={logoImg} alt="Logo" className="w-full h-full object-contain" />
           </div>
           <div className="text-center">
             <h1 className="text-white font-black text-4xl tracking-tighter leading-none mb-1 italic">
