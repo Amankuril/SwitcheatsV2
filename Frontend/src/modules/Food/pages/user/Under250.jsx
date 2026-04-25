@@ -14,7 +14,8 @@ import { useProfile } from "@food/context/ProfileContext"
 import { useCart } from "@food/context/CartContext"
 import PageNavbar from "@food/components/user/PageNavbar"
 import offerImage from "@food/assets/offerimage.png"
-import switch99PromoBanner from "@food/assets/switch99_final_banner.png"
+import switch99PromoBanner1 from "@food/assets/switch99_final_banner.png"
+import switch99PromoBanner2 from "@food/assets/switch99_banner_2.jpg"
 import AddToCartAnimation from "@food/components/user/AddToCartAnimation"
 import OptimizedImage from "@food/components/OptimizedImage"
 import api from "@food/api"
@@ -267,6 +268,10 @@ export default function Under250() {
   }, [under250Restaurants, selectedSort, under30MinsFilter, activeCategory, categories])
 
   // Fetch under-250 banner from public API
+  const displayBanners = useMemo(() => {
+    return bannerImages.length > 0 ? bannerImages : [switch99PromoBanner1, switch99PromoBanner2];
+  }, [bannerImages]);
+
   useEffect(() => {
     let cancelled = false
     setLoadingBanner(true)
@@ -291,10 +296,10 @@ export default function Under250() {
 
   useEffect(() => {
     setCurrentBannerIndex((prev) => {
-      if (bannerImages.length === 0) return 0
-      return Math.min(prev, bannerImages.length - 1)
+      if (displayBanners.length === 0) return 0
+      return Math.min(prev, displayBanners.length - 1)
     })
-  }, [bannerImages.length])
+  }, [displayBanners.length])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -310,15 +315,11 @@ export default function Under250() {
     if (autoSlideIntervalRef.current) {
       clearInterval(autoSlideIntervalRef.current)
     }
-
-    if (bannerImages.length <= 1) return
-
+    if (displayBanners.length <= 1) return
     autoSlideIntervalRef.current = setInterval(() => {
-      if (!isBannerSwipingRef.current) {
-        setCurrentBannerIndex((prev) => (prev + 1) % bannerImages.length)
-      }
+      setCurrentBannerIndex((prev) => (prev + 1) % displayBanners.length)
     }, 3500)
-  }, [bannerImages.length])
+  }, [displayBanners.length])
 
   const resetBannerAutoSlide = useCallback(() => {
     startBannerAutoSlide()
@@ -335,13 +336,13 @@ export default function Under250() {
   }, [startBannerAutoSlide])
 
   const handleBannerTouchStart = useCallback((event) => {
-    if (bannerImages.length <= 1) return
+    if (displayBanners.length <= 1) return
     touchStartXRef.current = event.touches[0].clientX
     touchStartYRef.current = event.touches[0].clientY
     touchEndXRef.current = event.touches[0].clientX
     touchEndYRef.current = event.touches[0].clientY
     isBannerSwipingRef.current = true
-  }, [bannerImages.length])
+  }, [displayBanners.length])
 
   const handleBannerTouchMove = useCallback((event) => {
     if (!isBannerSwipingRef.current) return
@@ -350,7 +351,7 @@ export default function Under250() {
   }, [])
 
   const handleBannerTouchEnd = useCallback(() => {
-    if (!isBannerSwipingRef.current || bannerImages.length <= 1) {
+    if (!isBannerSwipingRef.current || displayBanners.length <= 1) {
       isBannerSwipingRef.current = false
       return
     }
@@ -362,15 +363,15 @@ export default function Under250() {
     if (Math.abs(deltaX) > minSwipeDistance && Math.abs(deltaX) > deltaY) {
       setCurrentBannerIndex((prev) => {
         if (deltaX > 0) {
-          return (prev - 1 + bannerImages.length) % bannerImages.length
+          return (prev - 1 + displayBanners.length) % displayBanners.length
         }
-        return (prev + 1) % bannerImages.length
+        return (prev + 1) % displayBanners.length
       })
       resetBannerAutoSlide()
     }
 
     isBannerSwipingRef.current = false
-  }, [bannerImages.length, resetBannerAutoSlide])
+  }, [displayBanners.length, resetBannerAutoSlide])
 
   // Fetch restaurants with dishes under ?250 from backend
   useEffect(() => {
@@ -874,7 +875,7 @@ export default function Under250() {
 
     <div className={`relative min-h-screen bg-white dark:bg-[#0a0a0a] ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`}>
       {/* Premium Glassmorphic Header Wrapper (Replica of Dining) */}
-      <div className="sticky top-0 z-50 w-full bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl shadow-sm border-b border-gray-100 dark:border-gray-900 md:hidden pb-3">
+      <div className="sticky top-0 z-50 w-full bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl shadow-sm border-b border-gray-100 dark:border-gray-900 md:hidden">
         {/* Top Row: Location & Profile */}
         <div className="px-4 pt-3 pb-2 flex items-center justify-between">
           <div 
@@ -914,65 +915,41 @@ export default function Under250() {
         </div>
       </div>
 
-      {/* Final Switch 99 Hero Banner Section */}
+      {/* Dynamic Switch 99 Hero Banner Section */}
       <div
         ref={bannerShellRef}
         data-banner-shell="true"
         className="relative w-full overflow-hidden h-[clamp(240px,40vw,520px)] bg-white"
       >
-        <AnimatePresence mode="wait">
-          {bannerImages.length > 0 ? (
-            <motion.div
-              key="api-banners"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-0 overflow-hidden"
-              onTouchStart={handleBannerTouchStart}
-              onTouchMove={handleBannerTouchMove}
-              onTouchEnd={handleBannerTouchEnd}
-            >
-              <div
-                className="flex h-full w-full transition-transform duration-500 ease-out"
-                style={{ transform: `translateX(-${currentBannerIndex * 100}%)` }}
-              >
-                {bannerImages.map((bannerImage, index) => (
-                  <div key={`${bannerImage}-${index}`} className="relative h-full w-full shrink-0">
-                    <OptimizedImage
-                      src={bannerImage}
-                      alt={`Switch 99 Banner ${index + 1}`}
-                      className="w-full h-full"
-                      objectFit="cover"
-                      priority={index === 0}
-                      sizes="100vw"
-                    />
-                  </div>
-                ))}
+        <div
+          className="absolute inset-0 z-0 overflow-hidden"
+          onTouchStart={handleBannerTouchStart}
+          onTouchMove={handleBannerTouchMove}
+          onTouchEnd={handleBannerTouchEnd}
+        >
+          <div
+            className="flex h-full w-full transition-transform duration-500 ease-out"
+            style={{ transform: `translateX(-${currentBannerIndex * 100}%)` }}
+          >
+            {displayBanners.map((bannerSrc, index) => (
+              <div key={`${bannerSrc}-${index}`} className="relative h-full w-full shrink-0">
+                <OptimizedImage
+                  src={bannerSrc}
+                  alt={`Switch 99 Banner ${index + 1}`}
+                  className="w-full h-full"
+                  objectFit="contain"
+                  priority={index === 0}
+                  sizes="100vw"
+                />
               </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="final-static-banner"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="absolute inset-0 z-0"
-            >
-              <OptimizedImage
-                src={switch99PromoBanner}
-                alt="Switch 99 Unique Deals"
-                className="w-full h-full"
-                objectFit="contain"
-                priority
-                sizes="100vw"
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+            ))}
+          </div>
+        </div>
 
-        {/* Minimalist Progress Indicators */}
-        {bannerImages.length > 1 && (
+        {/* Dynamic Pagination Indicators */}
+        {displayBanners.length > 1 && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
-            {bannerImages.map((_, index) => (
+            {displayBanners.map((_, index) => (
               <button
                 key={`banner-dot-${index}`}
                 onClick={() => {
