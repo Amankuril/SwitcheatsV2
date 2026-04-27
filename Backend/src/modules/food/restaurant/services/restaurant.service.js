@@ -263,6 +263,23 @@ const zoneToPolygon = (zoneDoc) => {
     return { type: 'Polygon', coordinates: [ring] };
 };
 
+const isPointInZonePolygon = (lat, lng, polygon = []) => {
+    if (!Array.isArray(polygon) || polygon.length < 3) return false;
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = Number(polygon[i]?.longitude);
+        const yi = Number(polygon[i]?.latitude);
+        const xj = Number(polygon[j]?.longitude);
+        const yj = Number(polygon[j]?.latitude);
+        if (![xi, yi, xj, yj].every(Number.isFinite)) continue;
+        const intersect =
+            yi > lat !== yj > lat &&
+            lng < ((xj - xi) * (lat - yi)) / (yj - yi + 0.0) + xi;
+        if (intersect) inside = !inside;
+    }
+    return inside;
+};
+
 const notifyAdminsAboutRestaurantProfileReview = async (restaurantId, restaurantName) => {
     try {
         const { notifyAdminsSafely } = await import('../../../../core/notifications/firebase.service.js');
@@ -1049,6 +1066,20 @@ export const updateRestaurantProfile = async (restaurantId, body = {}) => {
             pincode: toStr(loc.pincode),
             landmark: toStr(loc.landmark)
         };
+
+        // Auto-detect and sync zone from coordinates when caller doesn't pass zoneId explicitly.
+        // This keeps restaurant.zoneId aligned with Zone Setup pin location.
+        if (body.zoneId === undefined && lat !== null && lng !== null) {
+            const activeZones = await FoodZone.find({ isActive: true })
+                .select('_id coordinates')
+                .lean();
+            const matchedZone = activeZones.find((zone) =>
+                isPointInZonePolygon(lat, lng, zone?.coordinates)
+            );
+            update.zoneId = matchedZone?._id
+                ? new mongoose.Types.ObjectId(String(matchedZone._id))
+                : null;
+        }
     }
 
     if (body.openingTime !== undefined) {
@@ -1169,19 +1200,92 @@ export const updateRestaurantProfile = async (restaurantId, body = {}) => {
         return getCurrentRestaurantProfile(restaurantId);
     }
 
-    update.status = 'pending';
+    // Only move profile to pending review when sensitive business/KYC fields are changed.
+    // Operational updates like location/zone/timings should stay visible to users immediately.
+    const reviewRequiredFields = new Set([
+        'restaurantName',
+        'restaurantNameNormalized',
+        'ownerName',
+        'ownerEmail',
+        'ownerPhone',
+        'ownerPhoneDigits',
+        'ownerPhoneLast10',
+        'primaryContactNumber',
+        'panNumber',
+        'nameOnPan',
+        'panImage',
+        'gstRegistered',
+        'gstNumber',
+        'gstLegalName',
+        'gstAddress',
+        'gstImage',
+        'fssaiNumber',
+        'fssaiExpiry',
+        'fssaiImage',
+        'accountHolderName',
+        'accountNumber',
+        'ifscCode',
+        'accountType',
+        'upiId',
+        'upiQrImage',
+        'profileImage',
+        'coverImages',
+        'menuImages'
+    ]);
+
+    const requiresReview = Object.keys(update).some((field) => reviewRequiredFields.has(field));
+    if (requiresReview) {
+        update.status = 'pending';
+    } else {
+        // Backfill for restaurants that were incorrectly moved to pending by earlier
+        // location/zone/timing edits. Restore approved when only operational fields change.
+        const approvalRestoreSafeFields = new Set([
+            'location',
+            'zoneId',
+            'addressLine1',
+            'addressLine2',
+            'area',
+            'city',
+            'state',
+            'pincode',
+            'landmark',
+            'openingTime',
+            'closingTime',
+            'openDays',
+            'estimatedDeliveryTime',
+            'estimatedDeliveryTimeMinutes',
+            'isAcceptingOrders',
+            'diningSettings',
+            'pureVegRestaurant',
+            'cuisines'
+        ]);
+
+        const onlyOperationalUpdate = Object.keys(update).every((field) =>
+            approvalRestoreSafeFields.has(field)
+        );
+
+        if (currentRestaurant.status === 'pending' && onlyOperationalUpdate) {
+            update.status = 'approved';
+        }
+    }
+
+    const updateOps = requiresReview
+        ? {
+            $set: update,
+            $unset: {
+                approvedAt: 1,
+                rejectedAt: 1,
+                rejectionReason: 1
+            }
+        }
+        : {
+            $set: update
+        };
 
     try {
         const doc = await FoodRestaurant.findByIdAndUpdate(
             restaurantId,
-            {
-                $set: update,
-                $unset: {
-                    approvedAt: 1,
-                    rejectedAt: 1,
-                    rejectionReason: 1
-                }
-            },
+            updateOps,
             {
                 new: true,
                 runValidators: true,
@@ -1234,7 +1338,7 @@ export const updateRestaurantProfile = async (restaurantId, body = {}) => {
             }
         ).lean();
 
-        if (currentRestaurant.status !== 'pending') {
+        if (requiresReview && currentRestaurant.status !== 'pending') {
             const restaurantNameForNotification =
                 update.restaurantName || currentRestaurant.restaurantName || doc?.restaurantName;
             void notifyAdminsAboutRestaurantProfileReview(restaurantId, restaurantNameForNotification);
@@ -1461,16 +1565,11 @@ export const listApprovedRestaurants = async (query = {}) => {
         }
     }
 
-    // Optional zone polygon filter (when restaurant.zoneId is not set yet).
+    // Strict zone filter for user listing:
+    // if zoneId is provided, return only restaurants mapped to that zone.
     const zoneIdRaw = String(query.zoneId || '').trim();
     if (zoneIdRaw && mongoose.Types.ObjectId.isValid(zoneIdRaw)) {
-        // Try fast path (precomputed restaurant.zoneId).
-        filter.$or = [{ zoneId: new mongoose.Types.ObjectId(zoneIdRaw) }];
-        const zoneDoc = await FoodZone.findOne({ _id: zoneIdRaw, isActive: true }).lean();
-        const polygon = zoneToPolygon(zoneDoc);
-        if (polygon) {
-            filter.$or.push({ location: { $geoWithin: { $geometry: polygon } } });
-        }
+        filter.zoneId = new mongoose.Types.ObjectId(zoneIdRaw);
     }
 
     const lat = toFiniteNumber(query.lat);

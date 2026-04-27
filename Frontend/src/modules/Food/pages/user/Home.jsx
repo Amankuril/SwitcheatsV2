@@ -1098,6 +1098,48 @@ export default function Home() {
   } = profileContext;
   const { addToCart, cart } = useCart();
   const { location, loading, requestLocation } = useLocation();
+  const [deliveryAddressMode, setDeliveryAddressMode] = useState(() => {
+    if (typeof window === "undefined") return "saved";
+    return window.localStorage.getItem("deliveryAddressMode") || "saved";
+  });
+
+  const defaultSavedAddress = useMemo(
+    () => getDefaultAddress?.() || null,
+    [getDefaultAddress],
+  );
+
+  const defaultSavedAddressLocation = useMemo(() => {
+    const coords = defaultSavedAddress?.location?.coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+      const lng = Number(coords[0]);
+      const lat = Number(coords[1]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+
+    const lat = Number(
+      defaultSavedAddress?.latitude || defaultSavedAddress?.lat,
+    );
+    const lng = Number(
+      defaultSavedAddress?.longitude || defaultSavedAddress?.lng,
+    );
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { latitude: lat, longitude: lng };
+    }
+
+    return null;
+  }, [defaultSavedAddress]);
+
+  const effectiveLocation = useMemo(() => {
+    const useSavedAddress =
+      deliveryAddressMode === "saved" &&
+      Number.isFinite(defaultSavedAddressLocation?.latitude) &&
+      Number.isFinite(defaultSavedAddressLocation?.longitude);
+
+    return useSavedAddress ? defaultSavedAddressLocation : location;
+  }, [deliveryAddressMode, defaultSavedAddressLocation, location]);
+
   const {
     zoneId,
     zoneStatus,
@@ -1105,7 +1147,8 @@ export default function Home() {
     isOutOfService,
     loading: zoneLoading,
     error: zoneError,
-  } = useZone(location);
+    refreshZone,
+  } = useZone(effectiveLocation);
   const [showToast, setShowToast] = useState(false);
   const [showManageCollections, setShowManageCollections] = useState(false);
   const [selectedRestaurantSlug, setSelectedRestaurantSlug] = useState(null);
@@ -1178,10 +1221,53 @@ export default function Home() {
     [cart],
   );
 
-  const cityName = location?.city || "Select";
-  const stateName = location?.state || "Location";
+  useEffect(() => {
+    const readMode = () => {
+      if (typeof window === "undefined") return;
+      const nextMode =
+        window.localStorage.getItem("deliveryAddressMode") || "saved";
+      setDeliveryAddressMode(nextMode);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") readMode();
+    };
+
+    window.addEventListener("focus", readMode);
+    window.addEventListener("storage", readMode);
+    window.addEventListener("deliveryAddressModeChanged", readMode);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("focus", readMode);
+      window.removeEventListener("storage", readMode);
+      window.removeEventListener("deliveryAddressModeChanged", readMode);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      !Number.isFinite(effectiveLocation?.latitude) ||
+      !Number.isFinite(effectiveLocation?.longitude)
+    ) {
+      return;
+    }
+
+    // Force a zone sync when effective delivery source changes
+    // (saved/current toggle, saved default address change, location source updates).
+    refreshZone();
+  }, [
+    deliveryAddressMode,
+    effectiveLocation?.latitude,
+    effectiveLocation?.longitude,
+    refreshZone,
+  ]);
+
+  const cityName = effectiveLocation?.city || "Select";
+  const stateName = effectiveLocation?.state || "Location";
   const hasLiveLocation = useMemo(() => {
-    if (!location) return false;
+    if (!effectiveLocation) return false;
 
     const isPlaceholder = (value) => {
       if (!value) return true;
@@ -1194,13 +1280,13 @@ export default function Home() {
     };
 
     const hasAddressText =
-      !isPlaceholder(location.formattedAddress) ||
-      !isPlaceholder(location.address);
+      !isPlaceholder(effectiveLocation.formattedAddress) ||
+      !isPlaceholder(effectiveLocation.address);
     const hasCityState =
-      !isPlaceholder(location.city) || !isPlaceholder(location.state);
+      !isPlaceholder(effectiveLocation.city) || !isPlaceholder(effectiveLocation.state);
 
     return hasAddressText || hasCityState;
-  }, [location]);
+  }, [effectiveLocation]);
 
   const formatSavedAddress = useCallback((address) => {
     if (!address) return "";
@@ -1227,51 +1313,11 @@ export default function Home() {
   }, []);
 
   const savedAddressText = useMemo(() => {
-    const defaultAddress = getDefaultAddress?.();
-    return formatSavedAddress(defaultAddress);
-  }, [getDefaultAddress, formatSavedAddress]);
+    return formatSavedAddress(defaultSavedAddress);
+  }, [defaultSavedAddress, formatSavedAddress]);
 
-  const defaultSavedAddress = useMemo(
-    () => getDefaultAddress?.() || null,
-    [getDefaultAddress],
-  );
-
-  const defaultSavedAddressLocation = useMemo(() => {
-    const coords = defaultSavedAddress?.location?.coordinates;
-    if (Array.isArray(coords) && coords.length >= 2) {
-      const lng = parseFloat(coords[0]);
-      const lat = parseFloat(coords[1]);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        return { latitude: lat, longitude: lng };
-      }
-    }
-
-    const lat = parseFloat(
-      defaultSavedAddress?.latitude || defaultSavedAddress?.lat,
-    );
-    const lng = parseFloat(
-      defaultSavedAddress?.longitude || defaultSavedAddress?.lng,
-    );
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      return { latitude: lat, longitude: lng };
-    }
-
-    return null;
-  }, [defaultSavedAddress]);
-
-  const {
-    isOutOfService: isSavedAddressOutOfService,
-    loading: savedAddressZoneLoading,
-    error: savedAddressZoneError,
-  } = useZone(defaultSavedAddressLocation);
-
-  const hasSavedAddress = Boolean(defaultSavedAddress && savedAddressText);
-  const shouldShowOutOfZoneHome =
-    hasSavedAddress &&
-    Boolean(defaultSavedAddressLocation) &&
-    !savedAddressZoneLoading &&
-    !savedAddressZoneError &&
-    isSavedAddressOutOfService;
+  const headerSavedAddressText =
+    deliveryAddressMode === "saved" ? savedAddressText : "";
 
   // Mock points value - replace with actual points from context/store
   const userPoints = 99;
@@ -1345,11 +1391,11 @@ export default function Home() {
 
         // Always send user coordinates when available so backend can compute distance/sort.
         if (
-          Number.isFinite(location?.latitude) &&
-          Number.isFinite(location?.longitude)
+          Number.isFinite(effectiveLocation?.latitude) &&
+          Number.isFinite(effectiveLocation?.longitude)
         ) {
-          params.lat = location.latitude;
-          params.lng = location.longitude;
+          params.lat = effectiveLocation.latitude;
+          params.lng = effectiveLocation.longitude;
         }
 
         // Sort by
@@ -1404,12 +1450,13 @@ export default function Home() {
           params.trusted = "true";
         }
 
-        // IMPORTANT:
-        // Do NOT send zoneId here by default.
-        // Backend treats zoneId as a hard filter (only restaurants in that zone / polygon),
-        // but homepage UX is "show all restaurants; optionally style out-of-zone".
-        // If in future you add an explicit "Show only my zone" toggle, then pass params.zoneId.
-        // Note: We show all restaurants regardless of zone, but apply grayscale styling if user is out of service
+        // Strict zone-only listing for user home.
+        // If zone is not detected yet, don't fetch global restaurants.
+        if (!zoneId) {
+          setRestaurantsData([]);
+          return;
+        }
+        params.zoneId = zoneId;
 
         debugLog("Fetching restaurants with params:", params);
         const response = await restaurantAPI.getRestaurants(params);
@@ -1449,8 +1496,8 @@ export default function Home() {
           };
 
           // Get user coordinates
-          const userLat = location?.latitude;
-          const userLng = location?.longitude;
+          const userLat = effectiveLocation?.latitude;
+          const userLng = effectiveLocation?.longitude;
 
           // Transform API data to match expected format
           const transformedRestaurants = restaurantsArray
@@ -1708,7 +1755,13 @@ export default function Home() {
         }
       }
     },
-    [extractImages, buildRestaurantImageCandidates, location?.latitude, location?.longitude],
+    [
+      extractImages,
+      buildRestaurantImageCandidates,
+      effectiveLocation?.latitude,
+      effectiveLocation?.longitude,
+      zoneId,
+    ],
   );
 
   const applyFiltersAndRefetch = useCallback(
@@ -1744,7 +1797,7 @@ export default function Home() {
 
   // Recalculate distances when user location updates
   useEffect(() => {
-    if (!location?.latitude || !location?.longitude) return;
+    if (!effectiveLocation?.latitude || !effectiveLocation?.longitude) return;
 
     setRestaurantsData((prevData) => {
       if (!prevData || prevData.length === 0) return prevData;
@@ -1763,8 +1816,8 @@ export default function Home() {
         return R * c; // Distance in kilometers
       };
 
-      const userLat = location.latitude;
-      const userLng = location.longitude;
+      const userLat = effectiveLocation.latitude;
+      const userLng = effectiveLocation.longitude;
 
       let hasChanges = false;
       const updatedRestaurants = prevData.map((restaurant) => {
@@ -1828,7 +1881,7 @@ export default function Home() {
     debugLog(
       "?? Recalculated distances for all restaurants based on user location",
     );
-  }, [location?.latitude, location?.longitude]);
+  }, [effectiveLocation?.latitude, effectiveLocation?.longitude]);
 
   // IMPORTANT:
   // Homepage should avoid eager N+1 menu requests. We only resolve menu metadata
@@ -2345,23 +2398,7 @@ export default function Home() {
   return (
 
     <div className="relative min-h-screen bg-white dark:bg-[#0a0a0a] pb-16 md:pb-6 overflow-x-clip">
-      {shouldShowOutOfZoneHome && (
-        <div className="fixed inset-0 z-[90] pointer-events-none">
-          <div className="absolute inset-0 bg-slate-300/35 backdrop-blur-[1px]" />
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 px-4">
-            <div className="rounded-xl border border-red-200 bg-red-50/95 text-red-700 px-4 py-2 shadow-sm text-sm sm:text-base font-semibold max-w-[calc(100vw-2rem)] text-center">
-              You are out of zone
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div
-        className={
-          shouldShowOutOfZoneHome
-            ? "grayscale opacity-70 transition-all duration-300"
-            : "transition-all duration-300"
-        }>
+      <div className="transition-all duration-300">
         {/* Unified Background for Entire Page - Vibrant Food Theme */}
         <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none overflow-hidden z-0">
           {/* Main Background */}
@@ -2475,8 +2512,8 @@ export default function Home() {
         <HomeHeader
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          location={location}
-          savedAddressText={savedAddressText}
+          location={effectiveLocation}
+          savedAddressText={headerSavedAddressText}
           handleLocationClick={handleLocationClick}
           handleSearchFocus={handleSearchFocus}
           placeholderIndex={placeholderIndex}

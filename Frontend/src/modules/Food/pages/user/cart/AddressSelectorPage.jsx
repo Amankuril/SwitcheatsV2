@@ -304,7 +304,10 @@ export default function AddressSelectorPage() {
           googleMapRef.current.setZoom(17)
         }
         
-        try { localStorage.setItem("deliveryAddressMode", "current") } catch {}
+        try {
+          localStorage.setItem("deliveryAddressMode", "current")
+          window.dispatchEvent(new Event("deliveryAddressModeChanged"))
+        } catch {}
         toast.success("Location updated", { id: "geo" })
       }
     } catch (e) {
@@ -316,7 +319,44 @@ export default function AddressSelectorPage() {
     const id = getAddressId(address)
     if (id) {
       await setDefaultAddress(id)
-      try { localStorage.setItem("deliveryAddressMode", "saved") } catch {}
+      try {
+        const coords = address?.location?.coordinates
+        const lng =
+          Array.isArray(coords) && coords.length >= 2
+            ? Number(coords[0])
+            : Number(address?.longitude || address?.lng)
+        const lat =
+          Array.isArray(coords) && coords.length >= 2
+            ? Number(coords[1])
+            : Number(address?.latitude || address?.lat)
+
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          const locationData = {
+            latitude: lat,
+            longitude: lng,
+            address: address?.street || address?.address || "",
+            city: address?.city || "",
+            state: address?.state || "",
+            area: address?.additionalDetails || "",
+            formattedAddress:
+              address?.formattedAddress ||
+              [
+                address?.additionalDetails,
+                address?.street,
+                address?.city,
+                address?.state,
+                address?.zipCode,
+              ]
+                .filter(Boolean)
+                .join(", "),
+          }
+          localStorage.setItem("userLocation", JSON.stringify(locationData))
+          window.dispatchEvent(new Event("userLocationChanged"))
+        }
+
+        localStorage.setItem("deliveryAddressMode", "saved")
+        window.dispatchEvent(new Event("deliveryAddressModeChanged"))
+      } catch {}
       toast.success("Address selected")
       handleBack()
     }
@@ -434,7 +474,10 @@ export default function AddressSelectorPage() {
       if (created) {
         const id = getAddressId(created)
         if (id) await setDefaultAddress(id)
-        try { localStorage.setItem("deliveryAddressMode", "saved") } catch {}
+        try {
+          localStorage.setItem("deliveryAddressMode", "saved")
+          window.dispatchEvent(new Event("deliveryAddressModeChanged"))
+        } catch {}
         toast.success("Address saved")
         handleBack()
       }

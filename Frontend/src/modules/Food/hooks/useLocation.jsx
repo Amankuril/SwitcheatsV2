@@ -28,9 +28,9 @@ let globalReverseGeocodeLastStartAt = 0
 let globalReverseGeocodeLastCoords = { latitude: null, longitude: null }
 let globalReverseGeocodeLastSuccess = null
 
-// Default behavior: only resolve an address once on initial app load,
-// then rely on localStorage/DB. Live watching is enabled only via explicit user action.
-const AUTO_START_LIVE_WATCH = false
+// Default behavior: resolve from cache/DB quickly, and when permission is already granted
+// keep a live geolocation watch so zone/location updates react without page refresh.
+const AUTO_START_LIVE_WATCH = true
 
 const reverseGeocodeDirect = async (latitude, longitude) => {
   const now = Date.now()
@@ -1174,7 +1174,7 @@ export function useLocation() {
 
             // Build location object with ALL fields from reverse geocoding
             // NEVER include coordinates in formattedAddress or address
-            const loc = {
+            let loc = {
               ...addr, // This includes: city, state, area, street, streetNumber, postalCode
               latitude,
               longitude,
@@ -1219,9 +1219,43 @@ export function useLocation() {
               loc.formattedAddress === "Select location" ||
               (!loc.city && !loc.address && !loc.formattedAddress && !loc.area);
 
+            const shouldPersistLocation = !hasPlaceholder
             if (hasPlaceholder) {
-              debugWarn("?? Skipping live location update - contains placeholder values:", loc)
-              return // Don't update location or save to DB
+              // Keep coordinates reactive even when reverse geocode is unavailable.
+              // This allows downstream zone detection to update instantly on location changes.
+              const existingAddress =
+                (location && typeof location === "object" ? location : null) ||
+                (() => {
+                  try {
+                    const raw = localStorage.getItem("userLocation")
+                    return raw ? JSON.parse(raw) : null
+                  } catch {
+                    return null
+                  }
+                })()
+
+              loc = {
+                ...loc,
+                city:
+                  existingAddress?.city && existingAddress.city !== "Current Location"
+                    ? existingAddress.city
+                    : loc.city,
+                area: existingAddress?.area || loc.area,
+                state: existingAddress?.state || loc.state,
+                address:
+                  existingAddress?.address && existingAddress.address !== "Select location"
+                    ? existingAddress.address
+                    : loc.address,
+                formattedAddress:
+                  existingAddress?.formattedAddress &&
+                  existingAddress.formattedAddress !== "Select location"
+                    ? existingAddress.formattedAddress
+                    : loc.formattedAddress,
+              }
+
+              debugWarn(
+                "?? Live location has placeholder address; updating coordinates without persisting placeholder address",
+              )
             }
 
             // Check if coordinates have changed significantly (threshold: ~10 meters)
@@ -1247,23 +1281,29 @@ export function useLocation() {
             if (coordsChanged) {
               prevLocationCoordsRef.current = { latitude: loc.latitude, longitude: loc.longitude }
               debugLog("?? Updating live location:", loc)
-              localStorage.setItem("userLocation", JSON.stringify(persistedLocation))
+              if (shouldPersistLocation) {
+                localStorage.setItem("userLocation", JSON.stringify(persistedLocation))
+              }
               setLocation(persistedLocation)
               setPermissionGranted(true)
               setError(null)
             } else {
               // Coordinates haven't changed significantly, skip state update to prevent re-renders
               // Still update localStorage silently for persistence
-              localStorage.setItem("userLocation", JSON.stringify(persistedLocation))
+              if (shouldPersistLocation) {
+                localStorage.setItem("userLocation", JSON.stringify(persistedLocation))
+              }
             }
 
             // Debounce DB updates - only update every 5 seconds
-            clearTimeout(updateTimerRef.current)
-            updateTimerRef.current = setTimeout(() => {
-              updateLocationInDB(loc).catch(err => {
-                debugWarn("Failed to update location in DB:", err)
-              })
-            }, 5000)
+            if (shouldPersistLocation) {
+              clearTimeout(updateTimerRef.current)
+              updateTimerRef.current = setTimeout(() => {
+                updateLocationInDB(loc).catch(err => {
+                  debugWarn("Failed to update location in DB:", err)
+                })
+              }, 5000)
+            }
           } catch (err) {
             debugError("? Error processing live location update:", err)
             // If reverse geocoding fails, DON'T use coordinates - use placeholder
@@ -1547,6 +1587,8 @@ export function useLocation() {
       // forceFresh = true, updateDB = true, showLoading = true
       // This ensures we get fresh GPS coordinates and reverse geocode
       const location = await getLocation(true, true, true)
+      setPermissionGranted(true)
+      if (AUTO_START_LIVE_WATCH) startWatchingLocation()
 
       debugLog("??? Fresh location requested successfully:", location)
       debugLog("??? Complete Location details:", {
