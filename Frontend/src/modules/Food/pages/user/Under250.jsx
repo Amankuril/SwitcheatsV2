@@ -69,7 +69,42 @@ export default function Under250() {
   const { location } = useLocation()
   const { openLocationSelector } = useLocationSelector()
   const { getDefaultAddress } = useProfile()
-  const { zoneId, zoneStatus, isInService, isOutOfService } = useZone(location)
+  const [deliveryAddressMode, setDeliveryAddressMode] = useState(() => {
+    if (typeof window === "undefined") return "saved"
+    return window.localStorage.getItem("deliveryAddressMode") || "saved"
+  })
+  const defaultSavedAddress = useMemo(
+    () => getDefaultAddress?.() || null,
+    [getDefaultAddress],
+  )
+  const defaultSavedAddressLocation = useMemo(() => {
+    const coords = defaultSavedAddress?.location?.coordinates
+    if (Array.isArray(coords) && coords.length >= 2) {
+      const lng = Number(coords[0])
+      const lat = Number(coords[1])
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return { latitude: lat, longitude: lng }
+      }
+    }
+
+    const lat = Number(defaultSavedAddress?.latitude || defaultSavedAddress?.lat)
+    const lng = Number(defaultSavedAddress?.longitude || defaultSavedAddress?.lng)
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { latitude: lat, longitude: lng }
+    }
+    return null
+  }, [defaultSavedAddress])
+
+  const effectiveLocation = useMemo(() => {
+    const useSavedAddress =
+      deliveryAddressMode === "saved" &&
+      Number.isFinite(defaultSavedAddressLocation?.latitude) &&
+      Number.isFinite(defaultSavedAddressLocation?.longitude)
+
+    return useSavedAddress ? defaultSavedAddressLocation : location
+  }, [deliveryAddressMode, defaultSavedAddressLocation, location])
+
+  const { zoneId, zoneStatus, isInService, isOutOfService, refreshZone } = useZone(effectiveLocation)
   const navigate = useNavigate()
   const { addToCart, updateQuantity, removeFromCart, getCartItem, cart } = useCart()
   const [activeCategory, setActiveCategory] = useState(initialFiltersRef.current.activeCategory)
@@ -113,9 +148,12 @@ export default function Under250() {
     return formatSavedAddress(defaultAddress);
   }, [getDefaultAddress, formatSavedAddress]);
 
-  const displayLocation = savedAddressText || (location?.area && location?.city 
-    ? `${location.area}, ${location.city}` 
-    : location?.area || location?.city || "Select Location");
+  const displayLocation = useMemo(() => {
+    if (deliveryAddressMode === "saved" && savedAddressText) return savedAddressText
+    return (effectiveLocation?.area && effectiveLocation?.city
+      ? `${effectiveLocation.area}, ${effectiveLocation.city}`
+      : effectiveLocation?.area || effectiveLocation?.city || "Select Location")
+  }, [deliveryAddressMode, savedAddressText, effectiveLocation])
   const [viewCartButtonBottom, setViewCartButtonBottom] = useState("bottom-20")
   const lastScrollY = useRef(0)
   const scrollLockYRef = useRef(0)
@@ -375,15 +413,60 @@ export default function Under250() {
 
   // Fetch restaurants with dishes under ?250 from backend
   useEffect(() => {
+    const readMode = () => {
+      if (typeof window === "undefined") return
+      const nextMode = window.localStorage.getItem("deliveryAddressMode") || "saved"
+      setDeliveryAddressMode(nextMode)
+    }
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") readMode()
+    }
+
+    window.addEventListener("focus", readMode)
+    window.addEventListener("storage", readMode)
+    window.addEventListener("deliveryAddressModeChanged", readMode)
+    document.addEventListener("visibilitychange", onVisibility)
+
+    return () => {
+      window.removeEventListener("focus", readMode)
+      window.removeEventListener("storage", readMode)
+      window.removeEventListener("deliveryAddressModeChanged", readMode)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (
+      !Number.isFinite(effectiveLocation?.latitude) ||
+      !Number.isFinite(effectiveLocation?.longitude)
+    ) {
+      return
+    }
+
+    refreshZone()
+  }, [
+    deliveryAddressMode,
+    effectiveLocation?.latitude,
+    effectiveLocation?.longitude,
+    refreshZone,
+  ])
+
+  useEffect(() => {
     const fetchRestaurantsUnder250 = async () => {
       try {
         setLoadingRestaurants(true)
-        const response = await restaurantAPI.getRestaurants(zoneId ? { zoneId } : {})
+        // Strict zone-only listing: do not fetch global restaurants when zone is unavailable.
+        if (!zoneId) {
+          setUnder250Restaurants([])
+          return
+        }
+        const response = await restaurantAPI.getRestaurants({ zoneId })
         const restaurantsRaw = Array.isArray(response?.data?.data?.restaurants)
           ? response.data.data.restaurants
           : []
-        const userLat = Number(location?.latitude)
-        const userLng = Number(location?.longitude)
+        const userLat = Number(effectiveLocation?.latitude)
+        const userLng = Number(effectiveLocation?.longitude)
 
         const restaurantsWithUnder250Dishes = await Promise.all(
           restaurantsRaw.map(async (restaurant, index) => {
@@ -480,7 +563,7 @@ export default function Under250() {
     }
 
     fetchRestaurantsUnder250()
-  }, [zoneId, isOutOfService, location?.latitude, location?.longitude])
+  }, [zoneId, isOutOfService, effectiveLocation?.latitude, effectiveLocation?.longitude])
 
   // Fetch categories from backend (no static fallback list)
   useEffect(() => {
@@ -966,7 +1049,7 @@ export default function Under250() {
       </div>
 
       {/* Content Section */}
-      <div className="relative max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 space-y-0 pt-2 sm:pt-3 md:pt-4 lg:pt-6 pb-6 md:pb-8 lg:pb-10">
+      <div className="relative max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 space-y-0 pt-2 sm:pt-3 md:pt-4 lg:pt-6 pb-24 md:pb-8 lg:pb-10">
 
         <section className="space-y-1 sm:space-y-1.5">
           <div
@@ -1605,4 +1688,3 @@ export default function Under250() {
     </div>
   )
 }
-
