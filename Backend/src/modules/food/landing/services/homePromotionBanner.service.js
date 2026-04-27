@@ -5,16 +5,35 @@ export const listHomePromotionBanners = async () => {
     return HomePromotionBanner.find().sort({ sortOrder: 1, createdAt: -1 }).lean();
 };
 
-export const getPublicHomePromotionBanners = async () => {
+export const getPublicHomePromotionBanners = async (zoneId = null) => {
     const now = new Date();
-    return HomePromotionBanner.find({
+    const filter = {
         isActive: true,
-        $or: [
-            { startDate: { $lte: now }, endDate: { $gte: now } },
-            { startDate: null, endDate: null },
-            { startDate: { $exists: false }, endDate: { $exists: false } }
+        $and: [
+            {
+                $or: [
+                    { startDate: { $lte: now } },
+                    { startDate: null },
+                    { startDate: "" },
+                    { startDate: { $exists: false } }
+                ]
+            },
+            {
+                $or: [
+                    { endDate: { $gte: now } },
+                    { endDate: null },
+                    { endDate: "" },
+                    { endDate: { $exists: false } }
+                ]
+            }
         ]
-    })
+    };
+
+    if (zoneId) {
+        filter.zoneId = zoneId;
+    }
+
+    return HomePromotionBanner.find(filter)
     .sort({ sortOrder: 1, createdAt: -1 })
     .lean();
 };
@@ -39,8 +58,9 @@ export const createHomePromotionBanner = async (file, meta = {}) => {
             publicId: uploadResult.public_id,
             title: meta.title,
             ctaLink: meta.ctaLink,
-            startDate: meta.startDate ? new Date(meta.startDate) : null,
-            endDate: meta.endDate ? new Date(meta.endDate) : null,
+            zoneId: meta.zoneId || null,
+            startDate: (meta.startDate && meta.startDate !== "") ? new Date(meta.startDate) : null,
+            endDate: (meta.endDate && meta.endDate !== "") ? new Date(meta.endDate) : null,
             sortOrder: meta.sortOrder ?? 0,
             isActive: true
         });
@@ -51,8 +71,8 @@ export const createHomePromotionBanner = async (file, meta = {}) => {
 
 export const updateHomePromotionBanner = async (id, data) => {
     const updateData = { ...data };
-    if (data.startDate) updateData.startDate = new Date(data.startDate);
-    if (data.endDate) updateData.endDate = new Date(data.endDate);
+    if (data.startDate !== undefined) updateData.startDate = (data.startDate && data.startDate !== "") ? new Date(data.startDate) : null;
+    if (data.endDate !== undefined) updateData.endDate = (data.endDate && data.endDate !== "") ? new Date(data.endDate) : null;
 
     return HomePromotionBanner.findByIdAndUpdate(id, updateData, { new: true }).lean();
 };

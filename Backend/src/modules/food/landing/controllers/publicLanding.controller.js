@@ -64,7 +64,8 @@ export const getPublicExploreIconsController = async (req, res, next) => {
 
 export const getPublicHomePromotionBannersController = async (req, res, next) => {
     try {
-        const banners = await getPublicHomePromotionBanners();
+        const { zoneId } = req.query;
+        const banners = await getPublicHomePromotionBanners(zoneId);
         return sendResponse(res, 200, 'Home promotion banners fetched', { banners });
     } catch (error) {
         next(error);

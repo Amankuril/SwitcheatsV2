@@ -3,25 +3,29 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import api, { publicGetOnce } from "@food/api";
 
-const PromotionBannerCarousel = () => {
+const PromotionBannerCarousel = ({ zoneId: propZoneId }) => {
   const [banners, setBanners] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const autoSlideIntervalRef = useRef(null);
 
+  // Fallback to localStorage if prop is not provided
+  const zoneId = propZoneId || localStorage.getItem('userZoneId');
+
   const fetchBanners = useCallback(async () => {
+    if (!zoneId) return;
     try {
       setLoading(true);
-      const response = await publicGetOnce("/food/hero-banners/home-promotion/public");
-      if (response.data?.success && response.data?.banners) {
-        setBanners(response.data.banners);
+      const response = await publicGetOnce(`/food/hero-banners/home-promotion/public?zoneId=${zoneId}`);
+      if (response.data?.success && response.data?.data?.banners) {
+        setBanners(response.data.data.banners);
       }
     } catch (err) {
-      console.error("Failed to fetch promotional banners:", err);
+      // Error handled silently
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [zoneId]);
 
   useEffect(() => {
     fetchBanners();
@@ -70,7 +74,7 @@ const PromotionBannerCarousel = () => {
       <div className="relative overflow-hidden rounded-[24px] shadow-lg aspect-[21/9] sm:aspect-[24/9]">
         <AnimatePresence mode="wait">
           <motion.div
-            key={banners[currentIndex]?._id || currentIndex}
+            key={banners[currentIndex]?._id?.$oid || banners[currentIndex]?._id || currentIndex}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
@@ -78,15 +82,15 @@ const PromotionBannerCarousel = () => {
             className="w-full h-full"
           >
             <a 
-              href={banners[currentIndex].ctaLink || "#"} 
+              href={banners[currentIndex]?.ctaLink || "#"} 
               className="block w-full h-full"
               onClick={(e) => {
-                if (!banners[currentIndex].ctaLink) e.preventDefault();
+                if (!banners[currentIndex]?.ctaLink) e.preventDefault();
               }}
             >
               <img 
-                src={banners[currentIndex].imageUrl} 
-                alt={banners[currentIndex].title || "Promotion"} 
+                src={banners[currentIndex]?.imageUrl} 
+                alt={banners[currentIndex]?.title || "Promotion"} 
                 className="w-full h-full object-cover"
               />
             </a>

@@ -6,6 +6,8 @@ const debugError = (...args) => {}
 
 export default function PromotionalBanner() {
   const [banners, setBanners] = useState([])
+  const [restaurants, setRestaurants] = useState([])
+  const [zones, setZones] = useState([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -14,11 +16,35 @@ export default function PromotionalBanner() {
   const [formData, setFormData] = useState({
     title: "",
     ctaLink: "",
+    restaurantId: "",
+    zoneId: "",
     startDate: "",
     endDate: "",
     file: null,
     preview: null
   })
+
+  const fetchZones = useCallback(async () => {
+    try {
+      const response = await api.get("/food/admin/zones")
+      if (response.data?.success) {
+        setZones(response.data.data?.zones || [])
+      }
+    } catch (error) {
+      debugError("Failed to fetch zones:", error)
+    }
+  }, [])
+
+  const fetchRestaurants = useCallback(async () => {
+    try {
+      const response = await api.get("/food/admin/restaurants", { params: { limit: 1000, status: 'approved' } })
+      if (response.data?.success) {
+        setRestaurants(response.data.data?.restaurants || [])
+      }
+    } catch (error) {
+      debugError("Failed to fetch restaurants:", error)
+    }
+  }, [])
 
   const fetchBanners = useCallback(async () => {
     try {
@@ -36,7 +62,9 @@ export default function PromotionalBanner() {
 
   useEffect(() => {
     fetchBanners()
-  }, [fetchBanners])
+    fetchRestaurants()
+    fetchZones()
+  }, [fetchBanners, fetchRestaurants, fetchZones])
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0]
@@ -67,6 +95,7 @@ export default function PromotionalBanner() {
       if (formData.file) data.append("file", formData.file)
       data.append("title", formData.title)
       data.append("ctaLink", formData.ctaLink)
+      if (formData.zoneId) data.append("zoneId", formData.zoneId)
       if (formData.startDate) data.append("startDate", formData.startDate)
       if (formData.endDate) data.append("endDate", formData.endDate)
 
@@ -75,6 +104,7 @@ export default function PromotionalBanner() {
         res = await api.patch(`/food/hero-banners/home-promotion/${editingBanner._id}`, {
           title: formData.title,
           ctaLink: formData.ctaLink,
+          zoneId: formData.zoneId || null,
           startDate: formData.startDate || null,
           endDate: formData.endDate || null
         })
@@ -123,6 +153,8 @@ export default function PromotionalBanner() {
     setFormData({
       title: "",
       ctaLink: "",
+      restaurantId: "",
+      zoneId: "",
       startDate: "",
       endDate: "",
       file: null,
@@ -132,15 +164,49 @@ export default function PromotionalBanner() {
 
   const openEdit = (banner) => {
     setEditingBanner(banner)
+    
+    // Try to find if ctaLink matches a restaurant route
+    let matchedRestaurantId = "";
+    if (banner.ctaLink?.startsWith("/restaurant/")) {
+      const slug = banner.ctaLink.replace("/restaurant/", "");
+      const found = restaurants.find(r => r.slug === slug);
+      if (found) matchedRestaurantId = found._id;
+    }
+
     setFormData({
       title: banner.title || "",
       ctaLink: banner.ctaLink || "",
+      restaurantId: matchedRestaurantId,
+      zoneId: banner.zoneId?._id || banner.zoneId || "",
       startDate: banner.startDate ? new Date(banner.startDate).toISOString().split('T')[0] : "",
       endDate: banner.endDate ? new Date(banner.endDate).toISOString().split('T')[0] : "",
       file: null,
       preview: banner.imageUrl
     })
     setShowAddModal(true)
+  }
+
+  const handleRestaurantChange = (id) => {
+    const restaurant = restaurants.find(r => r._id === id);
+    
+    if (restaurant) {
+      // PRO LOGIC: Use existing slug, or generate one from name if missing
+      const slug = restaurant.slug || 
+                   restaurant.restaurantName
+                     .toLowerCase()
+                     .trim()
+                     .replace(/[^\w\s-]/g, '')
+                     .replace(/[\s_-]+/g, '-')
+                     .replace(/^-+|-+$/g, '');
+
+      setFormData(prev => ({
+        ...prev, 
+        restaurantId: id,
+        ctaLink: `/food/user/restaurants/${slug}`
+      }))
+    } else {
+      setFormData(prev => ({...prev, restaurantId: ""}))
+    }
   }
 
   return (
@@ -287,11 +353,39 @@ export default function PromotionalBanner() {
                       />
                     </div>
                     <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Zone (Required for Filtering)</label>
+                      <select
+                        value={formData.zoneId}
+                        onChange={(e) => setFormData(p => ({...p, zoneId: e.target.value, restaurantId: ""}))}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm appearance-none"
+                      >
+                        <option value="">Select a zone...</option>
+                        {zones.map(z => (
+                          <option key={z._id} value={z._id}>{z.name || z.zoneName}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Link to Restaurant (Optional)</label>
+                      <select
+                        value={formData.restaurantId}
+                        onChange={(e) => handleRestaurantChange(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm appearance-none"
+                      >
+                        <option value="">Select a restaurant...</option>
+                        {restaurants
+                          .filter(r => !formData.zoneId || (r.zoneId?._id || r.zoneId) === formData.zoneId)
+                          .map(r => (
+                            <option key={r._id} value={r._id}>{r.restaurantName}</option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1.5">CTA Link / Slug</label>
                       <input 
                         type="text" 
                         value={formData.ctaLink}
-                        onChange={e => setFormData(p => ({...p, ctaLink: e.target.value}))}
+                        onChange={e => setFormData(p => ({...p, ctaLink: e.target.value, restaurantId: ""}))}
                         placeholder="e.g. burgers-king or /food/offers"
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                       />

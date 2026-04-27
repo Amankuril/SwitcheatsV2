@@ -2531,7 +2531,7 @@ export default function Home() {
           toggleRef={vegModeToggleRef}
         />
 
-        <PromotionBannerCarousel />
+        <PromotionBannerCarousel zoneId={zoneId} />
 
         {CategoryRailSection}
         {HeroBannerSection}
