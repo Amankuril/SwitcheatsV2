@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import discountPromoIcon from "@food/assets/category-icons/discount_promo.png";
-import vegPromoIcon from "@food/assets/category-icons/veg_promo.png";
+import gourmetPromoIcon from "@food/assets/explore more icons/gourmet.png";
 import pricePromoIcon from "@food/assets/category-icons/price_promo.png";
-import comboPromoIcon from "@food/assets/category-icons/combo_promo.png";
+import collectionPromoIcon from "@food/assets/explore more icons/collection.png";
 
 export default function PromoRow({ handleVegModeChange, navigate, isVegMode, toggleRef }) {
   const promoCardsData = [
@@ -14,10 +14,10 @@ export default function PromoRow({ handleVegModeChange, navigate, isVegMode, tog
       icon: discountPromoIcon,
     },
     {
-      id: 'pure-veg',
-      title: "Diet Prefer",
-      value: "Pure Veg",
-      icon: vegPromoIcon,
+      id: 'gourmet',
+      title: "Premium",
+      value: "Gourmet",
+      icon: gourmetPromoIcon,
     },
     {
       id: 'under-250',
@@ -26,10 +26,10 @@ export default function PromoRow({ handleVegModeChange, navigate, isVegMode, tog
       icon: pricePromoIcon,
     },
     {
-      id: 'combos',
-      title: "Best Value",
-      value: "Combos",
-      icon: comboPromoIcon,
+      id: 'collections',
+      title: "Favorites",
+      value: "Collections",
+      icon: collectionPromoIcon,
     },
   ];
 
@@ -38,7 +38,7 @@ export default function PromoRow({ handleVegModeChange, navigate, isVegMode, tog
       {promoCardsData.map((promo, idx) => (
         <motion.div
           key={idx}
-          ref={promo.id === 'pure-veg' ? toggleRef : null}
+          ref={promo.id === 'gourmet' ? toggleRef : null}
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: idx * 0.05, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
@@ -46,10 +46,10 @@ export default function PromoRow({ handleVegModeChange, navigate, isVegMode, tog
           whileTap={{ scale: 0.95 }}
           className="flex flex-col items-center gap-1.5 group cursor-pointer w-full"
           onClick={() => {
-            if (promo.id === 'pure-veg') handleVegModeChange(!isVegMode);
+            if (promo.id === 'gourmet') navigate('/food/user/gourmet');
             else if (promo.id === 'offers') navigate('/food/user/offers');
             else if (promo.id === 'under-250') navigate('/food/user/under-250');
-            else if (promo.id === 'combos') navigate('/food/user/combos');
+            else if (promo.id === 'collections') navigate('/food/user/profile/favorites');
           }}
         >
           {/* Floating Minimalist Image */}
@@ -59,11 +59,6 @@ export default function PromoRow({ handleVegModeChange, navigate, isVegMode, tog
               alt={promo.value}
               className="w-full h-full object-contain relative z-20 transition-transform duration-500 group-hover:scale-110 drop-shadow-sm"
             />
-
-            {/* Active SwitchEats Indicator */}
-            {promo.id === 'pure-veg' && isVegMode && (
-              <div className="absolute top-0 right-0 w-3 h-3 bg-[#FA0272] rounded-full border-2 border-white dark:border-[#0a0a0a] shadow-[0_0_8px_rgba(250,2,114,0.5)] z-30" />
-            )}
           </div>
 
           {/* Clean Typography */}

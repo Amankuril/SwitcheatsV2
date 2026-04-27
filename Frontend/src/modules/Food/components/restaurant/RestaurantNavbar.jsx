@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Search, Menu, ChevronRight, MapPin, X, Bell } from "lucide-react"
+import { Search, ChevronRight, MapPin, X, Bell } from "lucide-react"
 import { restaurantAPI } from "@food/api"
 import { getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings"
 import useNotificationInbox from "@food/hooks/useNotificationInbox"
@@ -282,9 +282,7 @@ export default function RestaurantNavbar({
     setSearchValue(e.target.value)
   }
 
-  const handleMenuClick = () => {
-    navigate("/restaurant/explore")
-  }
+
 
   const handleNotificationsClick = () => {
     navigate("/restaurant/notifications")
@@ -319,7 +317,7 @@ export default function RestaurantNavbar({
   }
 
   return (
-    <div className="w-full bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 py-2.5 flex items-center justify-between sticky top-0 z-[60]">
+    <div className="w-full bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 py-3.5 flex items-center justify-between sticky top-0 z-[60]">
       {/* Left Side - Restaurant Info */}
       <div className="flex-1 min-w-0 pr-2 flex items-center gap-2.5">
         {logoUrl && (
@@ -330,11 +328,7 @@ export default function RestaurantNavbar({
             <h1 className="text-[14px] font-bold text-gray-900 truncate leading-none">
               {loading ? "Loading..." : (restaurantName || "Restaurant")}
             </h1>
-            {companyName && !loading && (
-              <span className="text-[8px] text-gray-400 font-bold uppercase tracking-tight shrink-0 px-1 py-0.5 bg-gray-50 rounded">
-                {companyName}
-              </span>
-            )}
+
           </div>
           {!loading && location && location.trim() !== "" && (
             <div className="flex items-center gap-1 mt-1 opacity-70">
@@ -396,13 +390,7 @@ export default function RestaurantNavbar({
             </button>
           )}
 
-          <button
-            onClick={handleMenuClick}
-            className="p-1.5 hover:bg-gray-50 rounded-full transition-colors"
-            aria-label="Menu"
-          >
-            <Menu className="w-5 h-5 text-gray-600" />
-          </button>
+
         </div>
       </div>
     </div>
