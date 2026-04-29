@@ -125,252 +125,262 @@ export async function calculateOrder(userId, dto) {
   return calculateOrderPricing(userId, dto);
 }
 
+// Helper to safely convert string to ObjectId or throw ValidationError (400)
+function toObjectId(id, fieldName = 'ID') {
+  if (!id) return null;
+  if (id instanceof mongoose.Types.ObjectId) return id;
+  if (typeof id !== 'string' || !/^[0-9a-fA-F]{24}$/.test(id)) {
+    throw new ValidationError(`Invalid ${fieldName} format`);
+  }
+  return new mongoose.Types.ObjectId(id);
+}
+
 // ----- Create order -----
 export async function createOrder(userId, dto) {
-  const restaurant = await FoodRestaurant.findById(dto.restaurantId)
-    .select("status restaurantName zoneId location isAcceptingOrders")
-    .lean();
-  if (!restaurant) throw new ValidationError("Restaurant not found");
-  if (restaurant.status !== "approved")
-    throw new ValidationError("Restaurant not accepting orders");
-  if (restaurant.isAcceptingOrders === false)
-    throw new ValidationError("Restaurant not accepting orders");
-
-
-  const settings = await getDispatchSettings();
-  const dispatchMode = settings.dispatchMode;
-
-  const deliveryAddress = {
-    label: dto.address?.label || "Home",
-    name: dto.address?.name || dto.address?.fullName || dto.customerName || "",
-    fullName: dto.address?.fullName || dto.address?.name || dto.customerName || "",
-    street: dto.address?.street || "",
-    additionalDetails: dto.address?.additionalDetails || "",
-    city: dto.address?.city || "",
-    state: dto.address?.state || "",
-    zipCode: dto.address?.zipCode || "",
-    phone: dto.address?.phone || "",
-    location: dto.address?.location?.coordinates
-      ? { type: "Point", coordinates: dto.address.location.coordinates }
-      : undefined,
-  };
-
-  const paymentMethod =
-    dto.paymentMethod === "card" ? "razorpay" : dto.paymentMethod;
-  const isCash = paymentMethod === "cash";
-  const isWallet = paymentMethod === "wallet";
-
-  // Ensure pricing is present and consistent.
-  const computedSubtotal = (dto.items || []).reduce((sum, item) => {
-    const price = Number(item?.price);
-    const qty = Number(item?.quantity);
-    if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum;
-    return sum + Math.max(0, price) * Math.max(0, qty);
-  }, 0);
-  const normalizedPricing = {
-    subtotal: Number(dto.pricing?.subtotal ?? computedSubtotal),
-    tax: Number(dto.pricing?.tax ?? 0),
-    packagingFee: Number(dto.pricing?.packagingFee ?? 0),
-    deliveryFee: Number(dto.pricing?.deliveryFee ?? 0),
-    platformFee: Number(dto.pricing?.platformFee ?? 0),
-    discount: Number(dto.pricing?.discount ?? 0),
-    total: Number(dto.pricing?.total ?? 0),
-    currency: String(dto.pricing?.currency || "INR"),
-  };
-  const computedTotal = Math.max(
-    0,
-    (Number.isFinite(normalizedPricing.subtotal)
-      ? normalizedPricing.subtotal
-      : 0) +
-      (Number.isFinite(normalizedPricing.tax) ? normalizedPricing.tax : 0) +
-      (Number.isFinite(normalizedPricing.packagingFee)
-        ? normalizedPricing.packagingFee
-        : 0) +
-      (Number.isFinite(normalizedPricing.deliveryFee)
-        ? normalizedPricing.deliveryFee
-        : 0) +
-      (Number.isFinite(normalizedPricing.platformFee)
-        ? normalizedPricing.platformFee
-        : 0) -
-      (Number.isFinite(normalizedPricing.discount)
-        ? normalizedPricing.discount
-        : 0),
-  );
-  if (
-    !Number.isFinite(normalizedPricing.total) ||
-    normalizedPricing.total <= 0
-  ) {
-    normalizedPricing.total = computedTotal;
-  }
-
-  const payment = {
-    method: paymentMethod,
-    status: isCash ? "cod_pending" : isWallet ? "paid" : "created",
-    amountDue: normalizedPricing.total ?? 0,
-    razorpay: {},
-    qr: {},
-  };
-
-  let distanceKm = null;
-  if (
-    restaurant.location?.coordinates?.length === 2 &&
-    dto.address?.location?.coordinates?.length === 2
-  ) {
-    const [rLng, rLat] = restaurant.location.coordinates;
-    const [dLng, dLat] = dto.address.location.coordinates;
-    const d = haversineKm(rLat, rLng, dLat, dLng);
-    distanceKm = Number.isFinite(d) ? d : null;
-  } else {
-    console.warn(
-      `Food order: distance not available, rider earning set to 0`,
-    );
-  }
-
-  const riderEarning = await getRiderEarning(distanceKm);
-  
-  // Calculate restaurant commission from subtotal
-  const { commissionAmount: restaurantCommission } = await foodTransactionService.getRestaurantCommissionSnapshot({
-    pricing: normalizedPricing,
-    restaurantId: dto.restaurantId
-  });
-
-  normalizedPricing.restaurantCommission = restaurantCommission || 0;
-
-  const platformProfit = Math.max(
-    0,
-    (Number.isFinite(normalizedPricing.deliveryFee) ? normalizedPricing.deliveryFee : 0) +
-      (Number.isFinite(normalizedPricing.platformFee) ? normalizedPricing.platformFee : 0) +
-      restaurantCommission -
-      riderEarning,
-  );
-
-  const order = new FoodOrder({
-    userId: new mongoose.Types.ObjectId(userId),
-    restaurantId: new mongoose.Types.ObjectId(dto.restaurantId),
-    zoneId: dto.zoneId
-      ? new mongoose.Types.ObjectId(dto.zoneId)
-      : restaurant.zoneId,
-    items: dto.items,
-    deliveryAddress,
-    customerName: dto.customerName || deliveryAddress.fullName || "",
-    customerPhone: dto.customerPhone || deliveryAddress.phone || "",
-    pricing: normalizedPricing,
-    payment,
-    orderStatus: "created",
-    dispatch: { modeAtCreation: dispatchMode, status: "unassigned" },
-    statusHistory: [
-      {
-        at: new Date(),
-        byRole: "SYSTEM",
-        from: "",
-        to: "created",
-        note: "Order placed",
-      },
-    ],
-    note: dto.note || "",
-    sendCutlery: dto.sendCutlery !== false,
-    deliveryFleet: dto.deliveryFleet || "standard",
-    scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
-    riderEarning,
-    platformProfit,
-  });
-
-  let razorpayPayload = null;
-
-  if (paymentMethod === "razorpay" && isRazorpayConfigured()) {
-    const amountPaise = Math.round((normalizedPricing.total ?? 0) * 100);
-    if (amountPaise < 100)
-      throw new ValidationError("Amount too low for online payment");
-    try {
-      const rzOrder = await createRazorpayOrder(amountPaise, "INR", order._id.toString());
-      razorpayPayload = {
-        key: getRazorpayKeyId(),
-        orderId: rzOrder.id,
-        amount: rzOrder.amount,
-        currency: rzOrder.currency || "INR",
-      };
-      // Store Razorpay order id in local payment snapshot (ledger will store it)
-      payment.razorpay = { orderId: rzOrder.id, paymentId: "", signature: "" };
-      payment.status = "created";
-    } catch (err) {
-      throw new ValidationError(err?.message || "Payment gateway error");
-    }
-  }
-
-  await order.save();
-
-  if (isWallet) {
-    try {
-      await userWalletService.deductWalletBalance(userId, order.pricing.total, `Payment for order #${order.order_id || order._id}`, { orderId: order._id });
-    } catch (err) {
-      // If wallet deduction fails (e.g. insufficient balance), we should not have saved the order or we should delete/cancel it.
-      // But since we already saved it, let's at least throw the error so the user knows.
-      // Ideally this should be in a transaction.
-      await FoodOrder.deleteOne({ _id: order._id });
-      throw err;
-    }
-  }
-
-  // Phase 2: store financials in ledger only.
-  await foodTransactionService.createInitialTransaction({
-    ...(order.toObject?.() || order),
-    pricing: normalizedPricing,
-    payment,
-  });
-
-  if (paymentMethod === "razorpay" && payment?.razorpay?.orderId) {
-    // Audit can still happen here or via FinanceService events
-  }
-
-  // Realtime + push notifications.
   try {
-    // Notify customer. For online payments, order is created but awaits payment confirmation.
-    const isAwaitingOnlinePayment =
-      String(paymentMethod || "").toLowerCase() === "razorpay" &&
-      String(payment?.status || "").toLowerCase() !== "paid";
-    await notifyOwnersSafely([{ ownerType: "USER", ownerId: userId }], {
-      title: isAwaitingOnlinePayment
-        ? "Complete Payment to Confirm Order"
-        : "Order Confirmed! 🍔",
-      body: isAwaitingOnlinePayment
-        ? `Order #${order.order_id || order._id} is created. Please complete payment to send it to ${restaurant.restaurantName || "the restaurant"}.`
-        : `Your order #${order.order_id || order._id} from ${restaurant.restaurantName || "the restaurant"} has been placed successfully.`,
-      image: "https://i.ibb.co/5GzXz7r/Switcheats-Brand-Image.png",
-      data: {
-        type: isAwaitingOnlinePayment
-          ? "order_created_pending_payment"
-          : "order_created",
-        orderId: String(order._id),
-        orderMongoId: order._id?.toString?.() || "",
-        link: `/food/user/orders/${order._id?.toString?.() || ""}`,
-      },
+    const restaurantId = toObjectId(dto.restaurantId, 'Restaurant ID');
+    const restaurant = await FoodRestaurant.findById(restaurantId)
+      .select("status restaurantName zoneId location isAcceptingOrders")
+      .lean();
+    
+    if (!restaurant) throw new ValidationError("Restaurant not found");
+    if (restaurant.status !== "approved")
+      throw new ValidationError("Restaurant not accepting orders");
+    if (restaurant.isAcceptingOrders === false)
+      throw new ValidationError("Restaurant not accepting orders");
+
+    const settings = await getDispatchSettings();
+    const dispatchMode = settings.dispatchMode;
+
+    const deliveryAddress = {
+      label: dto.address?.label || "Home",
+      name: dto.address?.name || dto.address?.fullName || dto.customerName || "",
+      fullName: dto.address?.fullName || dto.address?.name || dto.customerName || "",
+      street: dto.address?.street || "",
+      additionalDetails: dto.address?.additionalDetails || "",
+      city: dto.address?.city || "",
+      state: dto.address?.state || "",
+      zipCode: dto.address?.zipCode || "",
+      phone: dto.address?.phone || "",
+      location: dto.address?.location?.coordinates
+        ? { type: "Point", coordinates: dto.address.location.coordinates }
+        : undefined,
+    };
+
+    const paymentMethod =
+      dto.paymentMethod === "card" ? "razorpay" : dto.paymentMethod;
+    const isCash = paymentMethod === "cash";
+    const isWallet = paymentMethod === "wallet";
+
+    // Ensure pricing is present and consistent.
+    const computedSubtotal = (dto.items || []).reduce((sum, item) => {
+      const price = Number(item?.price);
+      const qty = Number(item?.quantity);
+      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum;
+      return sum + Math.max(0, price) * Math.max(0, qty);
+    }, 0);
+
+    const normalizedPricing = {
+      subtotal: Number(dto.pricing?.subtotal ?? computedSubtotal) || 0,
+      tax: Number(dto.pricing?.tax ?? 0) || 0,
+      packagingFee: Number(dto.pricing?.packagingFee ?? 0) || 0,
+      deliveryFee: Number(dto.pricing?.deliveryFee ?? 0) || 0,
+      platformFee: Number(dto.pricing?.platformFee ?? 0) || 0,
+      discount: Number(dto.pricing?.discount ?? 0) || 0,
+      total: Number(dto.pricing?.total ?? 0) || 0,
+      currency: String(dto.pricing?.currency || "INR"),
+    };
+
+    const computedTotal = Math.max(
+      0,
+      (Number.isFinite(normalizedPricing.subtotal) ? normalizedPricing.subtotal : 0) +
+        (Number.isFinite(normalizedPricing.tax) ? normalizedPricing.tax : 0) +
+        (Number.isFinite(normalizedPricing.packagingFee) ? normalizedPricing.packagingFee : 0) +
+        (Number.isFinite(normalizedPricing.deliveryFee) ? normalizedPricing.deliveryFee : 0) +
+        (Number.isFinite(normalizedPricing.platformFee) ? normalizedPricing.platformFee : 0) -
+        (Number.isFinite(normalizedPricing.discount) ? normalizedPricing.discount : 0),
+    );
+
+    if (!Number.isFinite(normalizedPricing.total) || normalizedPricing.total <= 0) {
+      normalizedPricing.total = Math.round(computedTotal * 100) / 100;
+    } else {
+      normalizedPricing.total = Math.round(normalizedPricing.total * 100) / 100;
+    }
+
+    const payment = {
+      method: paymentMethod,
+      status: isCash ? "cod_pending" : isWallet ? "paid" : "created",
+      amountDue: normalizedPricing.total || 0,
+      razorpay: {},
+      qr: {},
+    };
+
+    let distanceKm = null;
+    if (
+      restaurant.location?.coordinates?.length === 2 &&
+      dto.address?.location?.coordinates?.length === 2
+    ) {
+      const [rLng, rLat] = restaurant.location.coordinates;
+      const [dLng, dLat] = dto.address.location.coordinates;
+      const d = haversineKm(rLat, rLng, dLat, dLng);
+      distanceKm = Number.isFinite(d) ? d : null;
+    }
+
+    const riderEarning = await getRiderEarning(distanceKm) || 0;
+    
+    // Calculate restaurant commission from subtotal
+    let restaurantCommission = 0;
+    try {
+      const snapshot = await foodTransactionService.getRestaurantCommissionSnapshot({
+        pricing: normalizedPricing,
+        restaurantId: restaurantId
+      });
+      restaurantCommission = Number(snapshot?.commissionAmount) || 0;
+    } catch (err) {
+      logger.error(`Commission calculation failed for order: ${err.message}`);
+    }
+
+    normalizedPricing.restaurantCommission = restaurantCommission;
+
+    const platformProfit = Math.max(
+      0,
+      (Number.isFinite(normalizedPricing.deliveryFee) ? normalizedPricing.deliveryFee : 0) +
+        (Number.isFinite(normalizedPricing.platformFee) ? normalizedPricing.platformFee : 0) +
+        restaurantCommission -
+        riderEarning,
+    );
+
+    const order = new FoodOrder({
+      userId: toObjectId(userId, 'User ID'),
+      restaurantId: restaurantId,
+      zoneId: dto.zoneId ? toObjectId(dto.zoneId, 'Zone ID') : toObjectId(restaurant.zoneId, 'Restaurant Zone ID'),
+      items: (dto.items || []).map(item => ({
+        ...item,
+        itemId: toObjectId(item.itemId, 'Item ID')
+      })),
+      deliveryAddress,
+      customerName: String(dto.customerName || deliveryAddress.fullName || ""),
+      customerPhone: String(dto.customerPhone || deliveryAddress.phone || ""),
+      pricing: normalizedPricing,
+      payment,
+      orderStatus: "created",
+      dispatch: { modeAtCreation: dispatchMode, status: "unassigned" },
+      statusHistory: [
+        {
+          at: new Date(),
+          byRole: "SYSTEM",
+          from: "",
+          to: "created",
+          note: "Order placed",
+        },
+      ],
+      note: String(dto.note || ""),
+      sendCutlery: dto.sendCutlery !== false,
+      deliveryFleet: String(dto.deliveryFleet || "standard"),
+      scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
+      riderEarning: Number(riderEarning) || 0,
+      platformProfit: Number(platformProfit) || 0,
     });
 
-    // Restaurant gets new-order request only when payment flow is eligible.
-    await notifyRestaurantNewOrder(order);
-  } catch {
-    // Don't block order placement on socket failures.
-  }
-  const couponCode = dto.pricing?.couponCode
-    ? String(dto.pricing.couponCode).trim().toUpperCase()
-    : "";
-  if (couponCode) {
-    const offer = await FoodOffer.findOne({ couponCode }).lean();
-    if (offer) {
-      await FoodOffer.updateOne({ _id: offer._id }, { $inc: { usedCount: 1 } });
-      if (userId) {
-        await FoodOfferUsage.updateOne(
-          { offerId: offer._id, userId: new mongoose.Types.ObjectId(userId) },
-          { $inc: { count: 1 }, $set: { lastUsedAt: new Date() } },
-          { upsert: true },
-        );
+    let razorpayPayload = null;
+
+    if (paymentMethod === "razorpay" && isRazorpayConfigured()) {
+      const amountPaise = Math.round((normalizedPricing.total || 0) * 100);
+      if (amountPaise < 100)
+        throw new ValidationError("Amount too low for online payment");
+      try {
+        const rzOrder = await createRazorpayOrder(amountPaise, "INR", order._id.toString());
+        razorpayPayload = {
+          key: getRazorpayKeyId(),
+          orderId: rzOrder.id,
+          amount: rzOrder.amount,
+          currency: rzOrder.currency || "INR",
+        };
+        payment.razorpay = { orderId: rzOrder.id, paymentId: "", signature: "" };
+        payment.status = "created";
+        // Update order payment state before saving
+        order.payment = payment;
+      } catch (err) {
+        logger.error(`Razorpay order creation failed: ${err.message}`);
+        throw new ValidationError(err?.message || "Payment gateway error");
       }
     }
+
+    await order.save();
+
+    if (isWallet) {
+      try {
+        await userWalletService.deductWalletBalance(userId, order.pricing.total, `Payment for order #${order.order_id || order._id}`, { orderId: order._id });
+      } catch (err) {
+        await FoodOrder.deleteOne({ _id: order._id });
+        throw err;
+      }
+    }
+
+    // Phase 2: Create initial transaction (Non-blocking but logged)
+    try {
+      await foodTransactionService.createInitialTransaction(order);
+    } catch (err) {
+      logger.error(`[CRITICAL] Initial transaction failed for order ${order._id}: ${err.message}`);
+      // We don't throw here to avoid failing the whole order if transaction logging fails
+    }
+
+    // Realtime + push notifications.
+    try {
+      const isAwaitingOnlinePayment =
+        String(paymentMethod || "").toLowerCase() === "razorpay" &&
+        String(payment?.status || "").toLowerCase() !== "paid";
+        
+      await notifyOwnersSafely([{ ownerType: "USER", ownerId: userId }], {
+        title: isAwaitingOnlinePayment
+          ? "Complete Payment to Confirm Order"
+          : "Order Confirmed! 🍔",
+        body: isAwaitingOnlinePayment
+          ? `Order #${order.order_id || order._id} is created. Please complete payment to send it to ${restaurant.restaurantName || "the restaurant"}.`
+          : `Your order #${order.order_id || order._id} from ${restaurant.restaurantName || "the restaurant"} has been placed successfully.`,
+        image: "https://i.ibb.co/5GzXz7r/Switcheats-Brand-Image.png",
+        data: {
+          type: isAwaitingOnlinePayment ? "order_created_pending_payment" : "order_created",
+          orderId: String(order._id),
+          orderMongoId: order._id.toString(),
+          link: `/food/user/orders/${order._id.toString()}`,
+        },
+      });
+
+      // Restaurant gets new-order request only when payment flow is eligible.
+      await notifyRestaurantNewOrder(order);
+    } catch (err) {
+      logger.warn(`Notifications failed for order ${order._id}: ${err.message}`);
+    }
+
+    // Handle Coupon usage
+    const couponCode = dto.pricing?.couponCode ? String(dto.pricing.couponCode).trim().toUpperCase() : "";
+    if (couponCode) {
+      try {
+        const offer = await FoodOffer.findOne({ couponCode }).lean();
+        if (offer) {
+          await FoodOffer.updateOne({ _id: offer._id }, { $inc: { usedCount: 1 } });
+          await FoodOfferUsage.updateOne(
+            { offerId: offer._id, userId: toObjectId(userId, 'User ID') },
+            { $inc: { count: 1 }, $set: { lastUsedAt: new Date() } },
+            { upsert: true },
+          );
+        }
+      } catch (err) {
+        logger.error(`Coupon usage update failed: ${err.message}`);
+      }
+    }
+
+    const saved = normalizeOrderForClient(order);
+    return { order: saved, razorpay: razorpayPayload };
+  } catch (err) {
+    logger.error(`Order placement error: ${err.message}`, { stack: err.stack, userId, dto });
+    if (err instanceof ValidationError || err instanceof ForbiddenError || err instanceof NotFoundError) {
+      throw err;
+    }
+    // Transform system errors to Generic validation error with 500 logging
+    throw new ValidationError(err.message || "Something went wrong while placing your order. Please try again.");
   }
-
-
-  const saved = normalizeOrderForClient(order);
-  return { order: saved, razorpay: razorpayPayload };
 }
 
 // ----- Verify payment -----

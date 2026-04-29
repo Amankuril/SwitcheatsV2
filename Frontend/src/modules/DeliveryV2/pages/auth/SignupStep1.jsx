@@ -52,6 +52,7 @@ export default function SignupStep1() {
 
   const isValidNameValue = (value) =>
     /^[A-Za-z][A-Za-z\s]*[A-Za-z]$/.test(value.trim())
+  const drivingLicenseRegex = /^[A-Z]{2}[0-9]{1,2}(?:[0-9]{2}|[0-9]{4})[0-9]{4,7}$/
 
   const isValidEmailValue = (value) => {
     const normalizedValue = value.trim()
@@ -161,8 +162,8 @@ export default function SignupStep1() {
 
     if (!formData.drivingLicenseNumber.trim()) {
       newErrors.drivingLicenseNumber = "Driving license number is required"
-    } else if (!/^[A-Z]{2}[0-9]{2}[0-9]{4}[0-9]{7}$/.test(formData.drivingLicenseNumber)) {
-      newErrors.drivingLicenseNumber = "Invalid DL format (e.g., MH1220110012345)"
+    } else if (!drivingLicenseRegex.test(formData.drivingLicenseNumber)) {
+      newErrors.drivingLicenseNumber = "Invalid DL format (e.g., DL0120110012345)"
     }
 
     if (!formData.panNumber.trim()) {

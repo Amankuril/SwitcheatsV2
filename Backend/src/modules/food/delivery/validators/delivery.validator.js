@@ -8,7 +8,9 @@ const phoneSchema = z
 
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const aadharRegex = /^[0-9]{12}$/;
-const drivingLicenseRegex = /^[A-Z]{2}[0-9]{2}[0-9]{4}[0-9]{7}$/;
+// India-wide DL support (normalized, no spaces/hyphens):
+// 2 letters (state) + 1-2 digits (RTO) + 2 or 4 digits (year) + 4-7 digits (serial)
+const drivingLicenseRegex = /^[A-Z]{2}[0-9]{1,2}(?:[0-9]{2}|[0-9]{4})[0-9]{4,7}$/;
 
 const deliveryRegisterSchema = z.object({
     name: z.string().min(1, 'Name is required'),
