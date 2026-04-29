@@ -250,6 +250,8 @@ export async function createOrder(userId, dto) {
         riderEarning,
     );
 
+    const initialStatus = (paymentMethod === "razorpay" || paymentMethod === "card") ? "pending_payment" : "created";
+
     const order = new FoodOrder({
       userId: toObjectId(userId, 'User ID'),
       restaurantId: restaurantId,
@@ -263,15 +265,15 @@ export async function createOrder(userId, dto) {
       customerPhone: String(dto.customerPhone || deliveryAddress.phone || ""),
       pricing: normalizedPricing,
       payment,
-      orderStatus: "created",
+      orderStatus: initialStatus,
       dispatch: { modeAtCreation: dispatchMode, status: "unassigned" },
       statusHistory: [
         {
           at: new Date(),
           byRole: "SYSTEM",
           from: "",
-          to: "created",
-          note: "Order placed",
+          to: initialStatus,
+          note: initialStatus === "pending_payment" ? "Order created, awaiting payment" : "Order placed",
         },
       ],
       note: String(dto.note || ""),
@@ -406,12 +408,16 @@ export async function verifyPayment(userId, dto) {
   order.payment.status = "paid";
   order.payment.razorpay.paymentId = dto.razorpayPaymentId;
   order.payment.razorpay.signature = dto.razorpaySignature;
+  
+  const from = order.orderStatus;
+  order.orderStatus = "created";
+
   pushStatusHistory(order, {
     byRole: "USER",
     byId: userId,
-    from: order.orderStatus,
+    from: from,
     to: "created",
-    note: "Payment verified",
+    note: "Payment verified, order confirmed",
   });
   await order.save();
 
@@ -463,7 +469,10 @@ export async function processDispatchTimeout(orderId, partnerId, options = {}) {
 // ----- User: list, get, cancel -----
 export async function listOrdersUser(userId, query) {
   const { page, limit, skip } = buildPaginationOptions(query);
-  const filter = { userId: new mongoose.Types.ObjectId(userId) };
+  const filter = { 
+    userId: new mongoose.Types.ObjectId(userId),
+    orderStatus: { $ne: 'pending_payment' }
+  };
   const [docs, total] = await Promise.all([
     FoodOrder.find(filter)
       .populate(
