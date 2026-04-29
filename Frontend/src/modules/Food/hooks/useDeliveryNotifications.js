@@ -919,6 +919,17 @@ export const useDeliveryNotifications = () => {
       });
     });
 
+    socketRef.current.on('order_claimed', (data) => {
+      debugLog('?? Order claimed by another partner:', data);
+      const currentActiveId = getOrderAlertKey(activeOrderRef.current);
+      const claimedId = getOrderAlertKey(data);
+      
+      if (currentActiveId && claimedId && currentActiveId === claimedId) {
+        debugLog('?? Removing claimed order from local state');
+        clearNewOrder();
+      }
+    });
+
     socketRef.current.on('order_reassigned_elsewhere', (data) => {
       debugLog('?? Order reassigned to another partner:', data);
       if (data.orderId === activeOrderRef.current?._id || data.orderId === activeOrderRef.current?.orderId) {

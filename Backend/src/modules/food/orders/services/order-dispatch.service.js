@@ -163,7 +163,6 @@ export async function tryAutoAssign(orderId, options = {}) {
     // TIERED ALERT LOGIC
     // Phase 2: Broadcast to all (Attempt 3+)
     // Phase 3: Admin Alert (Attempt 5+ or roughly 5 mins)
-    const isPhase2 = attempt >= 3;
     const isPhase3 = attempt >= 6; // ~6 minutes (60s * 6)
 
     if (isPhase3) {
@@ -212,31 +211,31 @@ export async function tryAutoAssign(orderId, options = {}) {
     const io = getIO();
     const payload = buildDeliverySocketPayload(order, order.restaurantId);
 
-    if (isPhase2) {
-      // PHASE 2 BROADCAST: Notify everyone remaining
-      logger.info(`[Phase 2] Broadcasting order ${order._id} to ${eligible.length} riders.`);
-      for (const p of eligible) {
-        const roomName = rooms.delivery(p.partnerId);
-        if (io) io.to(roomName).emit('new_order', { ...payload, pickupDistanceKm: p.distanceKm });
-      }
-    } else {
-      // PHASE 1: Target best rider only
-      const p = eligible[0];
+    // BROADCAST: Notify all eligible riders
+    logger.info(`Broadcasting order ${order._id} to ${eligible.length} riders.`);
+    for (const p of eligible) {
       const roomName = rooms.delivery(p.partnerId);
-      logger.info(`[Phase 1] Offering order ${order._id} to best rider ${p.partnerId} (${p.distanceKm}km)`);
       if (io) io.to(roomName).emit('new_order', { ...payload, pickupDistanceKm: p.distanceKm });
-      
+    }
+
+    // Batch Push Notifications
+    const pushTargets = eligible.map(p => ({
+      ownerType: 'DELIVERY_PARTNER',
+      ownerId: p.partnerId
+    }));
+
+    if (pushTargets.length > 0) {
       try {
-        await notifyOwnerSafely(
-          { ownerType: 'DELIVERY_PARTNER', ownerId: p.partnerId },
+        await notifyOwnersSafely(
+          pushTargets,
           {
-            title: 'New order assigned!',
-            body: `You have 60 seconds to accept Order #${order.order_id || order._id}.`,
+            title: 'New order available!',
+            body: `Order #${order.order_id || order._id} is available. You have 60 seconds to accept!`,
             data: { type: 'new_order', orderId: order._id.toString() },
-          },
+          }
         );
       } catch (err) {
-        logger.warn(`Push notification failed for partner ${p.partnerId}: ${err.message}`);
+        logger.warn(`Push notifications failed for broadcast on order ${order._id}: ${err.message}`);
       }
     }
 
