@@ -1912,7 +1912,13 @@ export const deliveryAPI = {
     apiClient.get(`/food/delivery/orders/${String(orderId)}/payment-status`, {
       contextModule: "delivery",
     }),
+
+  switchToCash: (orderId) =>
+    apiClient.post(`/food/delivery/orders/${String(orderId)}/collect/cash`, {}, {
+      contextModule: "delivery",
+    }),
   completeDelivery: (orderId, body = {}) => {
+
     // Backward-compatible: older UI calls completeDelivery(orderId, rating, review)
     // where rating is a number (sent as raw JSON like "3"). Normalize to an object.
     let payload = body ?? {};

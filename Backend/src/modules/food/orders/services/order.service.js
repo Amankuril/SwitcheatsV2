@@ -1231,9 +1231,15 @@ export async function createCollectQr(
   return paymentService.createCollectQr(orderId, deliveryPartnerId, customerInfo);
 }
 
+
 export async function getPaymentStatus(orderId, deliveryPartnerId) {
   return paymentService.getPaymentStatus(orderId, deliveryPartnerId);
 }
+
+export async function switchToCash(orderId, deliveryPartnerId) {
+  return paymentService.switchToCash(orderId, deliveryPartnerId);
+}
+
 
 // ----- Admin -----
 export async function listOrdersAdmin(query) {

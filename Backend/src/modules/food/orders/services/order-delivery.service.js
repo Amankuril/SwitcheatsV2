@@ -12,13 +12,12 @@ import { buildPaginatedResult, buildPaginationOptions } from '../../../../utils/
 import { logger } from '../../../../utils/logger.js';
 import { getIO, rooms } from '../../../../config/socket.js';
 import { getFirebaseDB } from '../../../../config/firebase.js';
-import {
-  fetchRazorpayPaymentLink,
-  isRazorpayConfigured,
-} from '../helpers/razorpay.helper.js';
 import { fetchPolyline } from '../utils/googleMaps.js';
+
 import * as foodTransactionService from './foodTransaction.service.js';
 import * as dispatchService from './order-dispatch.service.js';
+import * as paymentService from './order-payment.service.js';
+
 import {
   buildOrderIdentityFilter,
   emitDeliveryDropOtpToUser,
@@ -131,49 +130,15 @@ function emitOrderUpdate(order, deliveryPartnerId) {
   }
 }
 
+
+
+// Lazy wrapper to avoid circular ESM init race condition
 async function syncRazorpayQrPayment(orderDoc) {
-  // Phase 2: FoodTransaction is source of truth; avoid relying on FoodOrder.payment.
-  const tx = await FoodTransaction.findOne({ orderId: orderDoc?._id }).lean();
-  const payment = tx?.payment || orderDoc?.payment || null;
-  if (!payment) return null;
-  if (payment.method !== 'razorpay_qr') return payment;
-  if (payment.status === 'paid') return payment;
-
-  const paymentLinkId = payment?.qr?.paymentLinkId;
-  if (!paymentLinkId || !isRazorpayConfigured()) return payment;
-
-  let link;
-  try {
-    link = await fetchRazorpayPaymentLink(paymentLinkId);
-  } catch (error) {
-    logger.warn(
-      `Razorpay payment-link fetch failed for ${paymentLinkId}: ${
-        error?.message || error
-      }`,
-    );
-    return orderDoc.payment;
-  }
-
-  const linkStatus = String(link?.status || '').toLowerCase();
-  if (!linkStatus) return orderDoc.payment;
-
-  await FoodTransaction.updateOne(
-    { orderId: orderDoc?._id },
-    {
-      $set: {
-        'payment.qr.status': linkStatus,
-        'payment.status': ['paid', 'captured', 'authorized'].includes(linkStatus)
-          ? 'paid'
-          : ['expired', 'cancelled', 'canceled', 'failed'].includes(linkStatus)
-            ? 'failed'
-            : (payment.status || 'pending_qr'),
-      },
-    },
-  );
-
-  const updatedTx = await FoodTransaction.findOne({ orderId: orderDoc?._id }).lean();
-  return updatedTx?.payment || payment;
+  return paymentService.syncRazorpayQrPayment(orderDoc);
 }
+
+
+
 
 export async function getCurrentTripDelivery(deliveryPartnerId) {
   if (!deliveryPartnerId) {

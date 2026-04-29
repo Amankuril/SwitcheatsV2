@@ -312,6 +312,7 @@ export async function getOrderByIdDeliveryController(req, res, next) {
     }
 }
 
+
 export async function getPaymentStatusController(req, res, next) {
     try {
         const deliveryPartnerId = req.user?.userId;
@@ -322,6 +323,18 @@ export async function getPaymentStatusController(req, res, next) {
         next(err);
     }
 }
+
+export async function switchToCashController(req, res, next) {
+    try {
+        const deliveryPartnerId = req.user?.userId;
+        const orderId = req.params.orderId;
+        const result = await orderService.switchToCash(orderId, deliveryPartnerId);
+        return sendResponse(res, 200, 'Switched to cash collection', result);
+    } catch (err) {
+        next(err);
+    }
+}
+
 
 export async function listOrdersAdminController(req, res, next) {
     try {
