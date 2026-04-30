@@ -762,6 +762,8 @@ export default function Under250() {
       restaurant: restaurant,
       description: item.description || "",
       originalPrice: item.originalPrice || item.price,
+      foodType: item.foodType,
+      isVeg: item.isVeg,
     }
 
     // Get source position for animation from event target

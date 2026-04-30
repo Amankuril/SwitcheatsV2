@@ -1183,7 +1183,8 @@ function RestaurantDetailsContent() {
       restaurantId: validRestaurantId, // Use validated restaurantId
       description: item.description,
       originalPrice: item.originalPrice,
-      isVeg: item.isVeg !== false, // Add isVeg property
+      foodType: item.foodType,
+      isVeg: item.foodType === "Veg",
       preparationTime: item.preparationTime // Add preparationTime property
     }
 

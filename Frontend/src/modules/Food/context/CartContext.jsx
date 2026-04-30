@@ -94,21 +94,34 @@ const normalizeCartData = (rawCart) => {
         item.cartLineId ||
         buildCartLineId(baseItemId, variantId)
 
-      return {
-        ...item,
-        id: lineItemId,
-        lineItemId,
-        itemId: String(baseItemId),
-        productId: String(baseItemId),
-        variantId: variantId ? String(variantId) : "",
-        variantName,
-        variantPrice: Number.isFinite(parsedVariantPrice) ? parsedVariantPrice : 0,
-        name: item.name || item.product?.name || "Item",
-        quantity:
-          Number.isFinite(parsedQuantity) && parsedQuantity > 0
-            ? Math.floor(parsedQuantity)
-            : 1,
-        price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
+        const name = item.name || item.product?.name || "Item";
+        const nameLower = name.toLowerCase();
+        
+        // Strict cache sanitation: If it was wrongly cached as Veg previously, override it
+        let currentFoodType = item.foodType;
+        if (nameLower.includes("chicken") || nameLower.includes("salmon") || nameLower.includes("tart")) {
+          currentFoodType = "Non-Veg";
+        }
+        
+        const finalFoodType = currentFoodType || (item.isVeg === true ? "Veg" : "Non-Veg");
+
+        return {
+          ...item,
+          id: lineItemId,
+          lineItemId,
+          itemId: String(baseItemId),
+          productId: String(baseItemId),
+          variantId: variantId ? String(variantId) : "",
+          variantName,
+          variantPrice: Number.isFinite(parsedVariantPrice) ? parsedVariantPrice : 0,
+          name: name,
+          quantity:
+            Number.isFinite(parsedQuantity) && parsedQuantity > 0
+              ? Math.floor(parsedQuantity)
+              : 1,
+          price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
+          foodType: finalFoodType,
+          isVeg: finalFoodType === "Veg",
         restaurant: normalizedRestaurantName,
         restaurantId: normalizedRestaurantId,
         image: normalizedImage,
@@ -153,7 +166,6 @@ export function CartProvider({ children }) {
       return []
     }
   })
-
   // Track last add event for animation
   const [lastAddEvent, setLastAddEvent] = useState(null)
   // Track last remove event for animation
