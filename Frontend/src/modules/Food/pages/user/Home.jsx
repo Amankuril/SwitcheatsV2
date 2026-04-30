@@ -416,6 +416,7 @@ export default function Home() {
   const [heroBannersData, setHeroBannersData] = useState([]); // Store full banner data with linked restaurants
   const [loadingBanners, setLoadingBanners] = useState(true);
   const [hasScrolledPastBanner, setHasScrolledPastBanner] = useState(false);
+  const [isCategoryStuck, setIsCategoryStuck] = useState(false);
   const [landingCategories, setLandingCategories] = useState([]);
   const [landingExploreMore, setLandingExploreMore] = useState([]);
   const [exploreMoreHeading, setExploreMoreHeading] = useState("Explore More");
@@ -444,6 +445,7 @@ export default function Home() {
   const isHandlingSwitchOff = useRef(false);
   const heroShellRef = useRef(null);
   const stickyHeaderRef = useRef(null);
+  const categoryAnchorRef = useRef(null);
   const slugifyCategory = useCallback(
     (value) =>
       String(value || "")
@@ -491,7 +493,7 @@ export default function Home() {
           const parsed = new URL(normalizedInput, window.location.origin);
 
           // In mobile production, localhost/127.0.0.1 inside image URLs is unreachable.
-          // Use BACKEND_ORIGIN (API server) for image host, not frontend host�uploads are served by the backend.
+          // Use BACKEND_ORIGIN (API server) for image host, not frontend hostuploads are served by the backend.
           if (
             appHost &&
             appHost !== "localhost" &&
@@ -667,6 +669,19 @@ export default function Home() {
       window.removeEventListener("resize", handleScroll);
     };
   }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Fire when sentinel disappears behind the sticky search bar (~64px from top)
+        setIsCategoryStuck(!entry.isIntersecting);
+      },
+      { threshold: 0, rootMargin: '-65px 0px 0px 0px' }
+    );
+    if (categoryAnchorRef.current) observer.observe(categoryAnchorRef.current);
+    return () => observer.disconnect();
+  }, []);
+
 
   // Merge API explore items with fallback to ensure all 4 cards are shown
   const finalExploreItems = useMemo(() => {
@@ -2337,18 +2352,21 @@ export default function Home() {
   // Memoized Category Rail Component
   const CategoryRailSection = useMemo(() => {
     return (
-      <section className="space-y-4 pt-4 sm:pt-6">
-        <div className="px-4 flex items-center justify-between">
-          <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-            What's on your mind today?
-          </h2>
-          <Link
-            to="/food/user/categories"
-            className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors">
-            View All
-            <ArrowRightLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-          </Link>
-        </div>
+      <section className={isCategoryStuck ? 'pt-0' : 'space-y-4 pt-4 sm:pt-6'}>
+        {/* Header row — hidden when sticky so rail is compact */}
+        {!isCategoryStuck && (
+          <div className="px-4 flex items-center justify-between">
+            <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+              What's on your mind today?
+            </h2>
+            <Link
+              to="/food/user/categories"
+              className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors">
+              View All
+              <ArrowRightLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            </Link>
+          </div>
+        )}
         <div
           ref={categoryScrollRef}
           className="flex gap-3 sm:gap-4 lg:gap-5 overflow-x-auto overflow-y-visible scrollbar-hide scroll-smooth px-2 sm:px-3 py-2 sm:py-3"
@@ -2378,9 +2396,10 @@ export default function Home() {
               </Link>
             ))
           )}
-          
-          {displayCategories.length > 12 && !showCategorySkeleton && (
-            <div 
+
+          {/* See All: always show when sticky, otherwise only when >12 categories */}
+          {!showCategorySkeleton && (isCategoryStuck || displayCategories.length > 12) && (
+            <div
               className="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer group"
               onClick={() => navigate("/food/user/categories")}
             >
@@ -2393,7 +2412,7 @@ export default function Home() {
         </div>
       </section>
     );
-  }, [displayCategories, showCategorySkeleton, navigate]);
+  }, [displayCategories, showCategorySkeleton, navigate, isCategoryStuck]);
 
   return (
 
@@ -2521,7 +2540,9 @@ export default function Home() {
           handleVegModeChange={handleVegModeChange}
           isVegMode={vegMode}
           vegModeToggleRef={vegModeToggleRef}
+          isCategoryStuck={isCategoryStuck}
         />
+
 
 
         <PromoRow 
@@ -2533,7 +2554,21 @@ export default function Home() {
 
         <PromotionBannerCarousel zoneId={zoneId} />
 
-        {CategoryRailSection}
+        {/* Category sticky anchor sentinel — must be immediately before the category rail */}
+        <div ref={categoryAnchorRef} aria-hidden="true" />
+
+        {/* Category Rail — becomes sticky with glassmorphism once scrolled past anchor */}
+        <div
+          className={`${
+            isCategoryStuck
+              ? 'sticky z-[50] bg-white/70 dark:bg-[#0a0a0a]/70 backdrop-blur-xl border-b border-white/30 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)]'
+              : ''
+          } transition-all duration-300`}
+          style={isCategoryStuck ? { top: '72px' } : {}}
+        >
+          {CategoryRailSection}
+        </div>
+
         {HeroBannerSection}
 
         {recommendedForYouRestaurants.length > 0 && (

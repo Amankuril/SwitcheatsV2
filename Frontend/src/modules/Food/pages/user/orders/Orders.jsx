@@ -5,10 +5,9 @@ import { orderAPI } from "@food/api"
 import { useCart } from "@food/context/CartContext"
 import { toast } from "sonner"
 import { getCompanyNameAsync } from "@food/utils/businessSettings"
-import { nativeShare } from "@food/utils/nativeShare"
-const debugLog = (...args) => {}
-const debugWarn = (...args) => {}
-const debugError = (...args) => {}
+const debugLog = (...args) => { }
+const debugWarn = (...args) => { }
+const debugError = (...args) => { }
 
 
 export default function Orders() {
@@ -48,9 +47,9 @@ export default function Orders() {
 
   // Calculate countdown for an order
   const calculateCountdown = (order) => {
-    if (!order || 
-        order.status === 'delivered' || 
-        String(order.status).toLowerCase().includes('cancel')) {
+    if (!order ||
+      order.status === 'delivered' ||
+      String(order.status).toLowerCase().includes('cancel')) {
       return null
     }
 
@@ -458,11 +457,15 @@ export default function Orders() {
   }
 
   const tryNativeShare = async (payload) => {
-    const result = await nativeShare(payload)
-    // 'shared' = sheet opened (user may have dismissed), 'copied' = fallback used
-    return result === 'shared' || result === 'copied'
+    if (typeof navigator === "undefined" || !navigator.share) return false
+    try {
+      await navigator.share(payload)
+      return true
+    } catch (error) {
+      if (error?.name === "AbortError") return true
+      return false
+    }
   }
-
 
   const copyToClipboard = async (text) => {
     const textArea = document.createElement("textarea")
@@ -925,9 +928,9 @@ Order again from this restaurant in the ${companyName} app.`
                         </span>
                         {order.payment.status && (
                           <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${order.payment.status === 'completed' ? 'bg-green-100 text-green-700' :
-                              order.payment.status === 'failed' ? 'bg-red-100 text-red-700' :
-                                order.payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                  'bg-gray-100 text-gray-700'
+                            order.payment.status === 'failed' ? 'bg-red-100 text-red-700' :
+                              order.payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-gray-100 text-gray-700'
                             }`}>
                             {order.payment.status}
                           </span>
@@ -1079,8 +1082,8 @@ Order again from this restaurant in the ${companyName} app.`
                       >
                         <Star
                           className={`w-10 h-10 transition-all ${isActive
-                              ? "text-yellow-400 fill-yellow-400 drop-shadow-lg"
-                              : "text-gray-300 hover:text-yellow-200"
+                            ? "text-yellow-400 fill-yellow-400 drop-shadow-lg"
+                            : "text-gray-300 hover:text-yellow-200"
                             }`}
                         />
                       </button>
@@ -1113,8 +1116,8 @@ Order again from this restaurant in the ${companyName} app.`
                         >
                           <Star
                             className={`w-10 h-10 transition-all ${isActive
-                                ? "text-yellow-400 fill-yellow-400 drop-shadow-lg"
-                                : "text-gray-300 hover:text-yellow-200"
+                              ? "text-yellow-400 fill-yellow-400 drop-shadow-lg"
+                              : "text-gray-300 hover:text-yellow-200"
                               }`}
                           />
                         </button>

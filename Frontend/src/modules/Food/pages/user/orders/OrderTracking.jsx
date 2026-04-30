@@ -19,8 +19,6 @@ import {
   CircleSlash,
   Loader2
 } from "lucide-react"
-import { nativeShare } from '@food/utils/nativeShare'
-
 import AnimatedPage from "@food/components/user/AnimatedPage"
 import { Card, CardContent } from "@food/components/ui/card"
 import { Button } from "@food/components/ui/button"
@@ -347,12 +345,12 @@ const transformOrderForTracking = (apiOrder, previousOrder = null, explicitResta
       const prevDV = previousOrder?.deliveryVerification || null
       const apiDV = apiOrder?.deliveryVerification || null
       const handoverOtp = apiOrder?.handoverOtp || null
-      
+
       if (!prevDV && !apiDV && !handoverOtp) return null
 
       const prevDropOtp = prevDV?.dropOtp || null
       const apiDropOtp = apiDV?.dropOtp || null
-      
+
       const merged = {
         ...(prevDV || {}),
         ...(apiDV || {})
@@ -403,7 +401,7 @@ function mapOrderToTrackingUiStatus(orderLike) {
 
   // Live Ride / Phase-based mapping (Highest priority for precision)
   const isRiderAccepted = orderLike.dispatch?.status === "accepted" || orderLike.assignmentInfo?.status === "accepted" || orderLike.deliveryPartner?.status === "accepted";
-  
+
   if (phase === "reached_drop" || phase === "at_drop" || statusRaw === "at_drop") return "at_drop"
   if (phase === "en_route_to_delivery" || statusRaw === "picked_up" || statusRaw === "out_for_delivery") return "on_way"
   if (phase === "at_pickup" && orderLike.deliveryPartnerId && isRiderAccepted) return "at_pickup"
@@ -436,7 +434,7 @@ export default function OrderTracking() {
   const { location: userLiveLocation } = useUserLocation()
 
   const { isConnected: isSocketConnected } = useUserNotifications()
-  
+
   // State for order data
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -500,10 +498,10 @@ export default function OrderTracking() {
         if (!prev) return prev
         const prevDV = prev.deliveryVerification || {}
         const prevDropOtp = prevDV.dropOtp || {}
-        
+
         // Only update if code actually changed to avoid render loops
         if (prevDropOtp.code === otp) return prev;
-        
+
         return {
           ...prev,
           deliveryVerification: {
@@ -730,14 +728,14 @@ export default function OrderTracking() {
       '';
 
     const cleanPhone = String(rawPhone).replace(/[^\d+]/g, '');
-    
+
     if (!cleanPhone || cleanPhone.length < 5) {
       toast.error('Restaurant phone number not available');
       return;
     }
 
     debugLog('?? Attempting to call restaurant:', cleanPhone);
-    
+
     // Most compatible way to trigger dialer on overall mobile/web environments:
     // Create a temporary hidden anchor and programmatically click it.
     try {
@@ -756,7 +754,7 @@ export default function OrderTracking() {
 
   const handleCallRider = (e) => {
     if (e && e.stopPropagation) e.stopPropagation();
-    
+
     const rawPhone = order?.deliveryPartner?.phone || '';
     const cleanPhone = String(rawPhone).replace(/[^\d+]/g, '');
 
@@ -766,7 +764,7 @@ export default function OrderTracking() {
     }
 
     debugLog('?? Attempting to call rider:', cleanPhone);
-    
+
     try {
       const link = document.createElement('a');
       link.href = `tel:${cleanPhone}`;
@@ -863,7 +861,7 @@ export default function OrderTracking() {
               setLoading(false);
               return;
             }
-          } catch {}
+          } catch { }
           if (!isSubscribed) return;
           setError(err.response?.data?.message || 'Failed to fetch order details');
           terminalPollStopRef.current = true;
@@ -897,7 +895,7 @@ export default function OrderTracking() {
       // Delegate to the latest instance of our polling function capturing current state
       if (pollRef.current) pollRef.current(false);
     };
-    
+
     const pollInterval = (isSocketConnected || window.orderSocketConnected) ? 12000 : 5000;
     const interval = setInterval(tick, pollInterval);
 
@@ -1067,15 +1065,24 @@ export default function OrderTracking() {
   };
 
   const handleShare = async () => {
-    const result = await nativeShare({
-      title: `Track my order from ${order?.restaurant || companyName}`,
-      text: `Hey! Track my order from ${order?.restaurant || companyName} with ID #${order?.orderId || order?.id}.`,
-      url: window.location.href,
-    });
-    if (result === 'copied') toast.success('Tracking link copied to clipboard!');
-    if (result === 'failed') toast.error('Unable to share right now');
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `Track my order from ${order?.restaurant || companyName}`,
+          text: `Hey! Track my order from ${order?.restaurant || companyName} with ID #${order?.orderId || order?.id}.`,
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        toast.success("Tracking link copied to clipboard!");
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        debugError('Error sharing:', error);
+        toast.error("Failed to share link");
+      }
+    }
   };
-
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -1339,11 +1346,11 @@ export default function OrderTracking() {
                 animate={{ rotate: isRefreshing ? 360 : 0 }}
                 transition={{ duration: 0.5 }}
               >
-              <RefreshCw className="w-4 h-4" />
-            </motion.button>
-          </motion.div>
-        </div>
-      )}
+                <RefreshCw className="w-4 h-4" />
+              </motion.button>
+            </motion.div>
+          </div>
+        )}
       </motion.div>
 
       {/* Map Section */}
@@ -1414,16 +1421,15 @@ export default function OrderTracking() {
           transition={{ delay: 0.3 }}
         >
           <div className="flex items-center gap-4">
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm border border-gray-100 ${
-              currentStatus.iconType === 'rider' ? 'bg-blue-50' : 
-              currentStatus.iconType === 'cancelled' ? 'bg-red-50' : 
-              currentStatus.iconType === 'delivered' ? 'bg-green-50' : 
-              'bg-orange-50'
-            }`}>
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm border border-gray-100 ${currentStatus.iconType === 'rider' ? 'bg-blue-50' :
+                currentStatus.iconType === 'cancelled' ? 'bg-red-50' :
+                  currentStatus.iconType === 'delivered' ? 'bg-green-50' :
+                    'bg-orange-50'
+              }`}>
               {currentStatus.iconType === 'rider' ? (
-                <div 
-                  dangerouslySetInnerHTML={{ __html: RIDER_BIKE_SVG.replace(/width="\d+"/, 'width="100%"').replace(/height="\d+"/, 'height="100%"') }} 
-                  className="w-full h-full" 
+                <div
+                  dangerouslySetInnerHTML={{ __html: RIDER_BIKE_SVG.replace(/width="\d+"/, 'width="100%"').replace(/height="\d+"/, 'height="100%"') }}
+                  className="w-full h-full"
                 />
               ) : currentStatus.iconType === 'cancelled' ? (
                 <div className="w-full h-full flex items-center justify-center p-2 text-red-500">
@@ -1449,8 +1455,7 @@ export default function OrderTracking() {
         </motion.div>
 
         {/* Delivery Partner Info */}
-        {order?.deliveryPartnerId && !isDeliveredOrder && (
-
+        {order?.deliveryPartnerId && (
           <motion.div
             className="bg-white rounded-xl shadow-sm overflow-hidden"
             initial={{ opacity: 0, y: 20 }}
@@ -1462,9 +1467,9 @@ export default function OrderTracking() {
                 {order.deliveryPartner?.avatar ? (
                   <img src={order.deliveryPartner.avatar} alt="Rider" className="w-full h-full object-cover" />
                 ) : (
-                  <div 
-                    dangerouslySetInnerHTML={{ __html: RIDER_BIKE_SVG.replace(/width="\d+"/, 'width="100%"').replace(/height="\d+"/, 'height="100%"') }} 
-                    className="w-full h-full p-1" 
+                  <div
+                    dangerouslySetInnerHTML={{ __html: RIDER_BIKE_SVG.replace(/width="\d+"/, 'width="100%"').replace(/height="\d+"/, 'height="100%"') }}
+                    className="w-full h-full p-1"
                   />
                 )}
               </div>
@@ -1493,7 +1498,6 @@ export default function OrderTracking() {
         )}
 
         {/* Delivery Partner Safety */}
-        {!isDeliveredOrder && (
         <motion.button
           className="w-full bg-white rounded-xl p-4 shadow-sm flex items-center gap-3"
           initial={{ opacity: 0, y: 20 }}
@@ -1507,8 +1511,6 @@ export default function OrderTracking() {
           </span>
           <ChevronRight className="w-5 h-5 text-gray-400" />
         </motion.button>
-        )}
-
 
         {/* Delivery Details Banner */}
         <motion.div
@@ -1597,19 +1599,16 @@ export default function OrderTracking() {
             })()}
             showArrow={false}
           />
-          {!isDeliveredOrder && (
-            <SectionItem
-              icon={MessageSquare}
-              title={order?.note ? "Edit delivery instructions" : "Add delivery instructions"}
-              subtitle={order?.note ? order.note.substring(0, 35) + (order.note.length > 35 ? "..." : "") : ""}
-              onClick={() => {
-                setDeliveryInstructions(order?.note || "");
-                setIsInstructionsModalOpen(true);
-              }}
-            />
-          )}
+          <SectionItem
+            icon={MessageSquare}
+            title={order?.note ? "Edit delivery instructions" : "Add delivery instructions"}
+            subtitle={order?.note ? order.note.substring(0, 35) + (order.note.length > 35 ? "..." : "") : ""}
+            onClick={() => {
+              setDeliveryInstructions(order?.note || "");
+              setIsInstructionsModalOpen(true);
+            }}
+          />
         </motion.div>
-
 
         {/* Restaurant Section */}
         <motion.div
@@ -1662,8 +1661,7 @@ export default function OrderTracking() {
           </div>
         </motion.div>
 
-        {!isAdminAccepted && !isDeliveredOrder && orderStatus !== 'cancelled' && (
-
+        {!isAdminAccepted && orderStatus !== 'cancelled' && (
           <motion.div
             className="bg-white rounded-xl shadow-sm overflow-hidden"
             initial={{ opacity: 0, y: 20 }}
@@ -1806,7 +1804,7 @@ export default function OrderTracking() {
             {/* Bill Summary */}
             <div className="bg-gray-50 rounded-xl p-4 space-y-3">
               <p className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-1">Bill Summary</p>
-              
+
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">Item Total</span>
                 <span className="text-gray-900 font-medium">₹{Number(order?.subtotal || 0).toFixed(2)}</span>
@@ -1892,8 +1890,8 @@ export default function OrderTracking() {
               placeholder="E.g. Ring the doorbell, leave at the front desk..."
               className="min-h-[120px] resize-none border-gray-200 focus:ring-orange-500 rounded-xl bg-gray-50 text-base"
             />
-            <Button 
-              onClick={handleUpdateInstructions} 
+            <Button
+              onClick={handleUpdateInstructions}
               disabled={isUpdatingInstructions}
               className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold h-12 rounded-xl border-none"
             >

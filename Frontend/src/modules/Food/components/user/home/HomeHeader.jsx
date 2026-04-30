@@ -35,8 +35,10 @@ export default function HomeHeader({
   placeholders,
   handleVegModeChange,
   isVegMode,
-  vegModeToggleRef
+  vegModeToggleRef,
+  isCategoryStuck = false,
 }) {
+
   const [notifications, setNotifications] = useState(() => {
     const saved = localStorage.getItem('food_user_notifications');
     return saved ? JSON.parse(saved) : [];
@@ -342,8 +344,14 @@ export default function HomeHeader({
         </div>
       </div>
 
-      {/* Sticky Search Bar - Pulled exactly below Location Bar but rendered on top of sliding banner */}
-      <div className="relative sticky top-2 z-[60] px-3 pb-0 -mt-[256px] mb-[210px] pointer-events-none">
+      {/* Sticky Search Bar wrapper — glassmorphism bg only when categories are also stuck */}
+      <div
+        className={`relative sticky z-[60] px-3 pb-0 -mt-[256px] mb-[210px] pointer-events-none transition-all duration-300 ${
+          isCategoryStuck
+            ? 'top-0 pt-2 bg-white/70 dark:bg-[#0a0a0a]/70 backdrop-blur-xl'
+            : 'top-2'
+        }`}
+      >
         <div 
           className="relative z-[60] rounded-[1.5rem] flex items-center px-4 py-3.5 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl border border-white dark:border-gray-800 shadow-[0_12px_36px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.4)] cursor-pointer active:scale-[0.98] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(250,2,114,0.15)] group mx-1 pointer-events-auto"
           onClick={handleSearchFocus}
