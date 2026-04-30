@@ -344,12 +344,10 @@ export default function HomeHeader({
         </div>
       </div>
 
-      {/* Sticky Search Bar wrapper — glassmorphism bg only when categories are also stuck */}
+      {/* Sticky Search Bar wrapper — position adjusts when categories are also stuck */}
       <div
         className={`relative sticky z-[60] px-3 pb-0 -mt-[256px] mb-[210px] pointer-events-none transition-all duration-300 ${
-          isCategoryStuck
-            ? 'top-0 pt-2 bg-white/70 dark:bg-[#0a0a0a]/70 backdrop-blur-xl'
-            : 'top-2'
+          isCategoryStuck ? 'top-0 pt-2' : 'top-2'
         }`}
       >
         <div 

@@ -2557,17 +2557,24 @@ export default function Home() {
         {/* Category sticky anchor sentinel — must be immediately before the category rail */}
         <div ref={categoryAnchorRef} aria-hidden="true" />
 
-        {/* Category Rail — becomes sticky with glassmorphism once scrolled past anchor */}
+        {/* Single unified glassmorphism backdrop behind BOTH search bar + categories.
+            One blur context = no seam between the two sticky bars. */}
+        {isCategoryStuck && (
+          <div
+            className="fixed top-0 left-0 right-0 z-[48] bg-white/75 dark:bg-[#0a0a0a]/75 backdrop-blur-xl border-b border-white/20 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.07)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.35)]"
+            style={{ height: '170px' }}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Category Rail — sticky when scrolled, NO individual glass (backdrop handles it) */}
         <div
-          className={`${
-            isCategoryStuck
-              ? 'sticky z-[50] bg-white/70 dark:bg-[#0a0a0a]/70 backdrop-blur-xl border-b border-white/30 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)]'
-              : ''
-          } transition-all duration-300`}
+          className={`${isCategoryStuck ? 'sticky z-[50]' : ''} transition-all duration-300`}
           style={isCategoryStuck ? { top: '72px' } : {}}
         >
           {CategoryRailSection}
         </div>
+
 
         {HeroBannerSection}
 
