@@ -921,13 +921,33 @@ export default function OrderTracking() {
     return () => clearTimeout(timer1)
   }, [confirmed])
 
-  // Countdown timer
+  // Synchronize ETA with actual order creation time
   useEffect(() => {
+    if (!order) return;
+    
+    const calculateTimeRemaining = () => {
+      const orderTime = new Date(
+        order.createdAt || order.orderDate || order.created_at || order.date || Date.now()
+      );
+      const estimatedMinutes =
+        order.estimatedDeliveryTime ||
+        order.estimatedTime ||
+        order.estimated_delivery_time ||
+        35;
+      const deliveryTime = new Date(orderTime.getTime() + estimatedMinutes * 60000);
+      return Math.max(0, Math.floor((deliveryTime - new Date()) / 60000));
+    };
+
+    // Set initial
+    setEstimatedTime(calculateTimeRemaining());
+
+    // Update every minute
     const timer = setInterval(() => {
-      setEstimatedTime((prev) => Math.max(0, prev - 1))
-    }, 60000)
-    return () => clearInterval(timer)
-  }, [])
+      setEstimatedTime(calculateTimeRemaining());
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, [order?.createdAt, order?.estimatedDeliveryTime, order?.estimatedTime]);
 
   // Listen for order status updates from socket (e.g., "Delivery partner on the way")
   useEffect(() => {
