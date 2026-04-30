@@ -19,6 +19,8 @@ import {
   CircleSlash,
   Loader2
 } from "lucide-react"
+import { nativeShare } from '@food/utils/nativeShare'
+
 import AnimatedPage from "@food/components/user/AnimatedPage"
 import { Card, CardContent } from "@food/components/ui/card"
 import { Button } from "@food/components/ui/button"
@@ -1065,24 +1067,15 @@ export default function OrderTracking() {
   };
 
   const handleShare = async () => {
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `Track my order from ${order?.restaurant || companyName}`,
-          text: `Hey! Track my order from ${order?.restaurant || companyName} with ID #${order?.orderId || order?.id}.`,
-          url: window.location.href,
-        });
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        toast.success("Tracking link copied to clipboard!");
-      }
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        debugError('Error sharing:', error);
-        toast.error("Failed to share link");
-      }
-    }
+    const result = await nativeShare({
+      title: `Track my order from ${order?.restaurant || companyName}`,
+      text: `Hey! Track my order from ${order?.restaurant || companyName} with ID #${order?.orderId || order?.id}.`,
+      url: window.location.href,
+    });
+    if (result === 'copied') toast.success('Tracking link copied to clipboard!');
+    if (result === 'failed') toast.error('Unable to share right now');
   };
+
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -1456,7 +1449,8 @@ export default function OrderTracking() {
         </motion.div>
 
         {/* Delivery Partner Info */}
-        {order?.deliveryPartnerId && (
+        {order?.deliveryPartnerId && !isDeliveredOrder && (
+
           <motion.div
             className="bg-white rounded-xl shadow-sm overflow-hidden"
             initial={{ opacity: 0, y: 20 }}
@@ -1499,6 +1493,7 @@ export default function OrderTracking() {
         )}
 
         {/* Delivery Partner Safety */}
+        {!isDeliveredOrder && (
         <motion.button
           className="w-full bg-white rounded-xl p-4 shadow-sm flex items-center gap-3"
           initial={{ opacity: 0, y: 20 }}
@@ -1512,6 +1507,8 @@ export default function OrderTracking() {
           </span>
           <ChevronRight className="w-5 h-5 text-gray-400" />
         </motion.button>
+        )}
+
 
         {/* Delivery Details Banner */}
         <motion.div
@@ -1600,16 +1597,19 @@ export default function OrderTracking() {
             })()}
             showArrow={false}
           />
-          <SectionItem
-            icon={MessageSquare}
-            title={order?.note ? "Edit delivery instructions" : "Add delivery instructions"}
-            subtitle={order?.note ? order.note.substring(0, 35) + (order.note.length > 35 ? "..." : "") : ""}
-            onClick={() => {
-              setDeliveryInstructions(order?.note || "");
-              setIsInstructionsModalOpen(true);
-            }}
-          />
+          {!isDeliveredOrder && (
+            <SectionItem
+              icon={MessageSquare}
+              title={order?.note ? "Edit delivery instructions" : "Add delivery instructions"}
+              subtitle={order?.note ? order.note.substring(0, 35) + (order.note.length > 35 ? "..." : "") : ""}
+              onClick={() => {
+                setDeliveryInstructions(order?.note || "");
+                setIsInstructionsModalOpen(true);
+              }}
+            />
+          )}
         </motion.div>
+
 
         {/* Restaurant Section */}
         <motion.div
@@ -1662,7 +1662,8 @@ export default function OrderTracking() {
           </div>
         </motion.div>
 
-        {!isAdminAccepted && orderStatus !== 'cancelled' && (
+        {!isAdminAccepted && !isDeliveredOrder && orderStatus !== 'cancelled' && (
+
           <motion.div
             className="bg-white rounded-xl shadow-sm overflow-hidden"
             initial={{ opacity: 0, y: 20 }}

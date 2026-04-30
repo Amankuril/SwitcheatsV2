@@ -5,6 +5,7 @@ import { orderAPI } from "@food/api"
 import { useCart } from "@food/context/CartContext"
 import { toast } from "sonner"
 import { getCompanyNameAsync } from "@food/utils/businessSettings"
+import { nativeShare } from "@food/utils/nativeShare"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -457,15 +458,11 @@ export default function Orders() {
   }
 
   const tryNativeShare = async (payload) => {
-    if (typeof navigator === "undefined" || !navigator.share) return false
-    try {
-      await navigator.share(payload)
-      return true
-    } catch (error) {
-      if (error?.name === "AbortError") return true
-      return false
-    }
+    const result = await nativeShare(payload)
+    // 'shared' = sheet opened (user may have dismissed), 'copied' = fallback used
+    return result === 'shared' || result === 'copied'
   }
+
 
   const copyToClipboard = async (text) => {
     const textArea = document.createElement("textarea")

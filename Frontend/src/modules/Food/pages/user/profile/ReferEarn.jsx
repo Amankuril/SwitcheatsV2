@@ -8,6 +8,8 @@ import { useCompanyName } from "@food/hooks/useCompanyName";
 import { useProfile } from "@food/context/ProfileContext";
 import { toast } from "sonner";
 import { userAPI } from "@food/api";
+import { nativeShare } from "@food/utils/nativeShare";
+
 
 const statusMeta = {
   credited: {
@@ -90,32 +92,18 @@ export default function ReferEarn() {
 
   const handleShare = async () => {
     if (!referralLink) {
-      toast.error("Referral link unavailable");
+      toast.error('Referral link unavailable');
       return;
     }
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `${companyName} referral`,
-          text: shareText,
-          url: referralLink,
-        });
-        return;
-      }
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(`${shareText} ${referralLink}`);
-        toast.success("Referral link copied");
-      }
-
-      const fallbackUrl = `https://wa.me/?text=${encodeURIComponent(`${shareText} ${referralLink}`)}`;
-      window.open(fallbackUrl, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      if (error?.name !== "AbortError") {
-        toast.error("Unable to share right now");
-      }
-    }
+    const result = await nativeShare({
+      title: `${companyName} referral`,
+      text: shareText,
+      url: referralLink,
+    });
+    if (result === 'copied') toast.success('Referral link copied to clipboard!');
+    if (result === 'failed') toast.error('Unable to share right now');
   };
+
 
   return (
     <AnimatedPage className="min-h-screen bg-[#f5f5f5] dark:bg-[#0a0a0a]">

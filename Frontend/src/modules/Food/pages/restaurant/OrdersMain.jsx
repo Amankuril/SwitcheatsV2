@@ -2745,139 +2745,102 @@ function OrderCard({
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
-    <div className="w-full bg-white rounded-2xl p-4 mb-3 border border-gray-200 hover:border-gray-400 transition-colors relative">
-      {/* Cancel button - only show for preparing orders */}
-      {isPreparing && onCancel && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCancel({ orderId, mongoId, customerName });
-          }}
-          className="absolute top-2 right-2 p-1.5 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-colors z-10"
-          title="Cancel Order">
-          <X className="w-4 h-4" />
-        </button>
-      )}
+    <div className="w-full bg-white rounded-2xl border border-gray-200 mb-3 overflow-hidden shadow-sm">
+      {/* ── Header strip ── */}
+      <div className="flex items-center justify-between px-3 pt-3 pb-2 gap-2">
+        {/* Left: order id + customer */}
+        <div className="flex items-center gap-2 min-w-0">
+          {isPreparing && onCancel && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onCancel({ orderId, mongoId, customerName }); }}
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-500 active:bg-red-100 transition-colors"
+              title="Cancel Order">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-gray-900 truncate">Order #{orderId}</p>
+            <p className="text-[11px] text-gray-500 truncate">{customerName}</p>
+          </div>
+        </div>
+
+        {/* Right: status badge + time */}
+        <div className="flex flex-col items-end gap-0.5 shrink-0">
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${
+            isReady
+              ? "bg-green-50 border border-green-400 text-green-700"
+              : isPreparing
+                ? "bg-amber-50 border border-amber-400 text-amber-700"
+                : "bg-gray-100 border border-gray-300 text-gray-700"
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              isReady ? "bg-green-500" : isPreparing ? "bg-amber-500" : "bg-gray-500"
+            }`} />
+            {statusLabel}
+          </span>
+          <span className="text-[10px] text-gray-400">{timePlaced}</span>
+        </div>
+      </div>
+
+      {/* ── Body: photo + items ── */}
       <div
-        onClick={() =>
-          onSelect?.({
-            orderId,
-            status,
-            customerName,
-            type,
-            tableOrToken,
-            timePlaced,
-            eta,
-            itemsSummary,
-            paymentMethod,
-          })
-        }
-        className="w-full text-left flex gap-3 items-stretch cursor-pointer">
-        {/* Photo */}
-        <div className="h-20 w-20 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0 my-auto">
+        onClick={() => onSelect?.({ orderId, status, customerName, type, tableOrToken, timePlaced, eta, itemsSummary, paymentMethod })}
+        className="flex items-center gap-3 px-3 pb-3 cursor-pointer">
+        {/* Food image */}
+        <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0">
           {photoUrl ? (
-            <img
-              src={photoUrl}
-              alt={photoAlt}
-              className="h-full w-full object-cover"
-            />
+            <img src={photoUrl} alt={photoAlt} className="w-full h-full object-cover" />
           ) : (
-            <div className="h-full w-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center px-2">
-              <span className="text-[11px] font-medium text-gray-500 text-center leading-tight">
-                {photoAlt}
-              </span>
+            <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center px-1">
+              <span className="text-[10px] font-medium text-gray-400 text-center leading-tight">{photoAlt}</span>
             </div>
           )}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 flex flex-col justify-between min-h-[80px]">
-          {/* Top row */}
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-black leading-tight">
-                Order #{orderId}
-              </p>
-              <p className="text-[11px] text-gray-500 mt-1">{customerName}</p>
-            </div>
+        {/* Items + delivery type */}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-gray-800 line-clamp-2 leading-snug">{itemsSummary}</p>
+          <p className="text-[11px] text-gray-400 mt-1">{type}{tableOrToken ? ` · ${tableOrToken}` : ""}</p>
+        </div>
+      </div>
 
-            <div className="flex flex-col items-end gap-1">
-              <span
-                className={`inline-flex items-start gap-1 px-2 py-1 rounded-full text-[11px] font-medium border text-right whitespace-normal break-words max-w-[140px] leading-tight ${isReady
-                  ? "border-green-500 text-green-600"
-                  : "border-gray-800 text-gray-900"
-                  }`}>
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${isReady ? "bg-green-500" : "bg-gray-800"
-                    }`}
-                />
-                {statusLabel}
-              </span>
-              <span className="text-[11px] text-gray-500 text-right whitespace-normal break-words max-w-[120px] leading-tight">
-                {timePlaced}
-              </span>
-            </div>
-          </div>
+      {/* ── Footer action row ── */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-gray-100 bg-gray-50/60">
+        {/* Delivery assignment pill + resend */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {(isPreparing || isReady || normalizedStatus === "confirmed") && (
+            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold ${
+              deliveryPartnerId
+                ? "bg-green-100 text-green-700 border border-green-300"
+                : "bg-orange-100 text-orange-700 border border-orange-300"
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${deliveryPartnerId ? "bg-green-500" : "bg-orange-400"}`} />
+              {deliveryPartnerId ? "Assigned" : "Not Assigned"}
+            </span>
+          )}
+          {dispatchStatus !== "accepted" && (isPreparing || isReady || normalizedStatus === "confirmed") && (
+            <ResendNotificationButton orderId={orderId} mongoId={mongoId} onSuccess={onSelect} />
+          )}
+        </div>
 
-          {/* Middle row */}
-          <div className="mt-2">
-            <p className="text-xs text-gray-600 line-clamp-1">{itemsSummary}</p>
-          </div>
-
-          {/* Bottom row */}
-          <div className="mt-2 flex items-end justify-between gap-2">
-            <div className="flex flex-col gap-1">
-              <p className="text-[11px] text-gray-500">
-                {type}
-                {tableOrToken ? ` • ${tableOrToken}` : ""}
-              </p>
-              {/* Delivery Assignment Status - Only show for active orders */}
-              {(isPreparing || isReady || normalizedStatus === "confirmed") && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${deliveryPartnerId
-                      ? "bg-green-100 text-green-700 border border-green-300"
-                      : "bg-orange-100 text-orange-700 border border-orange-300"
-                      }`}>
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${deliveryPartnerId ? "bg-green-500" : "bg-orange-500"
-                        }`}
-                    />
-                    {deliveryPartnerId ? "Assigned" : "Not Assigned"}
-                  </span>
-                  {dispatchStatus !== "accepted" && (
-                    <ResendNotificationButton
-                      orderId={orderId}
-                      mongoId={mongoId}
-                      onSuccess={onSelect}
-                    />
-                  )}
-                </div>
-              )}
+        {/* Mark Ready + ETA */}
+        <div className="flex items-center gap-2 shrink-0">
+          {isPreparing && onMarkReady && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onMarkReady({ orderId, mongoId, customerName }); }}
+              disabled={isMarkingReady}
+              className="h-8 px-3 rounded-lg text-[11px] font-bold bg-green-600 text-white active:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm">
+              {isMarkingReady ? "Marking…" : "Mark Ready"}
+            </button>
+          )}
+          {!isReady && eta && (
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-[10px] text-gray-400">ETA</span>
+              <span className="text-[11px] font-bold text-gray-800">{eta}</span>
             </div>
-            <div className="flex items-center gap-2">
-              {isPreparing && onMarkReady && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMarkReady({ orderId, mongoId, customerName });
-                  }}
-                  disabled={isMarkingReady}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-green-600 text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
-                  {isMarkingReady ? "Marking..." : "Mark Ready"}
-                </button>
-              )}
-              {/* Hide ETA for ready orders */}
-              {!isReady && eta && (
-                <div className="flex items-baseline gap-1">
-                  <span className="text-[11px] text-gray-500">ETA</span>
-                  <span className="text-xs font-medium text-black">{eta}</span>
-                </div>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
