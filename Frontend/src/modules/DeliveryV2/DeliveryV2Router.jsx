@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import Loader from "@food/components/Loader";
@@ -33,6 +33,17 @@ import NotificationsV2 from './pages/NotificationsV2';
 
 
 const DeliveryV2Router = () => {
+  // Safely enforce light mode for the Delivery app to prevent User dark mode bleeding
+  useEffect(() => {
+    document.documentElement.classList.remove('dark');
+    return () => {
+      const savedTheme = localStorage.getItem('appTheme') || 'light';
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+    };
+  }, []);
+
   return (
     <Suspense fallback={<Loader />}>
       <Routes>

@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react"
+import { Suspense, lazy, useEffect } from "react"
 import { Routes, Route } from "react-router-dom"
 import ProtectedRoute from "@food/components/ProtectedRoute"
 import Loader from "@food/components/Loader"
@@ -50,6 +50,17 @@ const ForgotPassword = lazy(() => import("@food/pages/restaurant/auth/ForgotPass
 const VerificationPending = lazy(() => import("@food/pages/restaurant/auth/VerificationPending"))
 
 export default function RestaurantRouter() {
+  // Safely enforce light mode for the Restaurant app to prevent User dark mode bleeding
+  useEffect(() => {
+    document.documentElement.classList.remove('dark');
+    return () => {
+      const savedTheme = localStorage.getItem('appTheme') || 'light';
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+    };
+  }, []);
+
   return (
     <Suspense fallback={<Loader />}>
       <Routes>
