@@ -926,6 +926,7 @@ export async function updateOrderStatusRestaurant(
   orderId,
   restaurantId,
   orderStatus,
+  note = "",
 ) {
   const identity = buildOrderIdentityFilter(orderId);
   let order = await FoodOrder.findOne({
@@ -935,14 +936,22 @@ export async function updateOrderStatusRestaurant(
   if (!order) throw new NotFoundError("Order not found");
   const from = order.orderStatus;
   if (!isStatusAdvance(from, orderStatus)) {
-      throw new ValidationError(`Current order status '${from}' is further ahead than '${orderStatus}'. Order cannot be moved backwards.`);
+    throw new ValidationError(
+      `Current order status '${from}' is further ahead than '${orderStatus}'. Order cannot be moved backwards.`
+    );
   }
+
   order.orderStatus = orderStatus;
+  if (note && String(note).trim()) {
+    order.note = String(note).trim();
+  }
+
   pushStatusHistory(order, {
     byRole: "RESTAURANT",
     byId: restaurantId,
     from,
     to: orderStatus,
+    note: note || "",
   });
   await order.save();
 
@@ -964,7 +973,7 @@ export async function updateOrderStatusRestaurant(
     const refundDetail = isOnlinePaid ? ` Your refund of ₹${order.pricing.total} is being processed and will be credited to your original payment method within 5-7 working days.` : "";
     
     title = "Order Cancelled ❌";
-    body = `Unfortunately, your order has been cancelled by the restaurant.${refundDetail}`;
+    body = (note && String(note).trim()) ? note : `Unfortunately, your order has been cancelled by the restaurant.${refundDetail}`;
   }
 
   // Real-time: status update to restaurant room.
@@ -978,6 +987,7 @@ export async function updateOrderStatusRestaurant(
         orderMongoId: order._id?.toString?.(),
         orderId: order._id.toString(),
         orderStatus: order.orderStatus,
+        note: order.note || note || "",
         title,
         message: body,
       };

@@ -121,7 +121,8 @@ export function validateOrderStatusDto(body) {
             'picked_up',
             'delivered',
             'cancelled_by_restaurant'
-        ])
+        ]),
+        note: z.string().optional()
     });
     const result = schema.safeParse(body);
     if (!result.success) {

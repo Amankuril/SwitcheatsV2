@@ -103,6 +103,7 @@ export const useUserNotifications = () => {
           orderStatus: data.orderStatus, // Ensure compatibility with different UI checks
           title,
           message,
+          note: data.note,
           deliveryState: data.deliveryState,
           deliveryVerification: data.deliveryVerification,
           timestamp: new Date().toISOString()
