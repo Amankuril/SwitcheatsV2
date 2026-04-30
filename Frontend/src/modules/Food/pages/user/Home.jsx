@@ -673,10 +673,10 @@ export default function Home() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // Fire when sentinel disappears behind the sticky search bar (~64px from top)
+        // Fire when sentinel hits 72px from top (matches sticky top value)
         setIsCategoryStuck(!entry.isIntersecting);
       },
-      { threshold: 0, rootMargin: '-65px 0px 0px 0px' }
+      { threshold: 0, rootMargin: '-72px 0px 0px 0px' }
     );
     if (categoryAnchorRef.current) observer.observe(categoryAnchorRef.current);
     return () => observer.disconnect();
@@ -2349,24 +2349,28 @@ export default function Home() {
     );
   }, [heroBannerImages, currentBannerIndex, showBannerSkeleton, heroBannersData, navigate]);
 
+  // Memoized Category Rail Header
+  const CategoryRailHeader = useMemo(() => {
+    return (
+      <section className="space-y-4 pt-4 sm:pt-6">
+        <div className="px-4 flex items-center justify-between">
+          <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+            What's on your mind today?
+          </h2>
+          <Link
+            to="/food/user/categories"
+            className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors">
+            View All
+            <ArrowRightLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          </Link>
+        </div>
+      </section>
+    );
+  }, []);
+
   // Memoized Category Rail Component
   const CategoryRailSection = useMemo(() => {
     return (
-      <section className={isCategoryStuck ? 'pt-0' : 'space-y-4 pt-4 sm:pt-6'}>
-        {/* Header row — hidden when sticky so rail is compact */}
-        {!isCategoryStuck && (
-          <div className="px-4 flex items-center justify-between">
-            <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-              What's on your mind today?
-            </h2>
-            <Link
-              to="/food/user/categories"
-              className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors">
-              View All
-              <ArrowRightLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-            </Link>
-          </div>
-        )}
         <div
           ref={categoryScrollRef}
           className="flex gap-3 sm:gap-4 lg:gap-5 overflow-x-auto overflow-y-visible scrollbar-hide scroll-smooth px-2 sm:px-3 py-2 sm:py-3"
@@ -2410,7 +2414,6 @@ export default function Home() {
             </div>
           )}
         </div>
-      </section>
     );
   }, [displayCategories, showCategorySkeleton, navigate, isCategoryStuck]);
 
@@ -2554,6 +2557,8 @@ export default function Home() {
 
         <PromotionBannerCarousel zoneId={zoneId} />
 
+        {CategoryRailHeader}
+
         {/* Category sticky anchor sentinel — must be immediately before the category rail */}
         <div ref={categoryAnchorRef} aria-hidden="true" />
 
@@ -2567,11 +2572,8 @@ export default function Home() {
           />
         )}
 
-        {/* Category Rail — sticky when scrolled, NO individual glass (backdrop handles it) */}
-        <div
-          className={`${isCategoryStuck ? 'sticky z-[50]' : ''} transition-all duration-300`}
-          style={isCategoryStuck ? { top: '72px' } : {}}
-        >
+        {/* Category Rail — permanently sticky using native CSS for 0 latency. */}
+        <div className="sticky top-[72px] z-[50]">
           {CategoryRailSection}
         </div>
 
