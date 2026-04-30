@@ -52,7 +52,8 @@ export default function SignupStep1() {
 
   const isValidNameValue = (value) =>
     /^[A-Za-z][A-Za-z\s]*[A-Za-z]$/.test(value.trim())
-  const drivingLicenseRegex = /^[A-Z]{2}[0-9]{1,2}(?:[0-9]{2}|[0-9]{4})[0-9]{4,7}$/
+
+  const drivingLicenseRegex = /^[A-Z]{2}[0-9A-Z]{8,16}$/
 
   const isValidEmailValue = (value) => {
     const normalizedValue = value.trim()
