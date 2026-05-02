@@ -11,6 +11,7 @@ import { useLocation } from "@food/hooks/useLocation"
 import { useZone } from "@food/hooks/useZone"
 import { restaurantAPI, adminAPI } from "@food/api"
 import { useDelayedLoading } from "@food/hooks/useDelayedLoading"
+import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailability"
 
 const debugLog = (...args) => { }
 const debugWarn = (...args) => { }
@@ -49,6 +50,15 @@ export default function SearchResults() {
   const [categoryKeywords, setCategoryKeywords] = useState({})
   const showRestaurantSkeleton = useDelayedLoading(loadingRestaurants)
   const deferredQuery = useDeferredValue(query)
+  const [availabilityTick, setAvailabilityTick] = useState(Date.now())
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setAvailabilityTick(Date.now());
+    }, 60000);
+
+    return () => clearInterval(intervalId);
+  }, []);
   const slugify = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
   const uniqueRestaurants = (list) => {
     const seen = new Set()
@@ -641,8 +651,16 @@ export default function SearchResults() {
       filtered = filtered.filter(r => r.offer && r.offer.includes('50%'))
     }
 
+    // Switch 99 filter - exclude closed restaurants
+    if (activeFilters.has('under-250')) {
+      filtered = filtered.filter(r => {
+        const availability = getRestaurantAvailabilityStatus(r, new Date(availabilityTick));
+        return r.featuredPrice && r.featuredPrice <= 99 && availability.isOpen;
+      })
+    }
+
     return uniqueRestaurants(filtered)
-  }, [deferredQuery, selectedCategory, activeFilters, restaurantsData, categoryKeywords, loadingCategories])
+  }, [deferredQuery, selectedCategory, activeFilters, restaurantsData, categoryKeywords, loadingCategories, availabilityTick])
 
   const filteredAllRestaurants = useMemo(() => {
     // Use ONLY backend data - no hardcoded fallback
@@ -742,15 +760,19 @@ export default function SearchResults() {
     if (activeFilters.has('rating-4-plus')) {
       filtered = filtered.filter(r => r.rating && r.rating >= 4.0)
     }
+    // Switch 99 filter - exclude closed restaurants (already handled above but ensuring consistency if logic differs)
     if (activeFilters.has('under-250')) {
-      filtered = filtered.filter(r => r.featuredPrice && r.featuredPrice <= 99)
+      filtered = filtered.filter(r => {
+        const availability = getRestaurantAvailabilityStatus(r, new Date(availabilityTick));
+        return r.featuredPrice && r.featuredPrice <= 99 && availability.isOpen;
+      })
     }
     if (activeFilters.has('flat-50-off')) {
       filtered = filtered.filter(r => r.offer && r.offer.includes('50%'))
     }
 
     return uniqueRestaurants(filtered)
-  }, [deferredQuery, selectedCategory, activeFilters, restaurantsData, categoryKeywords, loadingCategories])
+  }, [deferredQuery, selectedCategory, activeFilters, restaurantsData, categoryKeywords, loadingCategories, availabilityTick])
 
   const recommendedIds = useMemo(
     () => new Set(filteredRecommended.slice(0, 6).map((restaurant) => restaurant.id)),

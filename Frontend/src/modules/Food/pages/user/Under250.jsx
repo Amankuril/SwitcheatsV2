@@ -23,6 +23,7 @@ import { restaurantAPI, adminAPI } from "@food/api"
 import { isModuleAuthenticated } from "@food/utils/auth"
 import { flattenMenuItems, getMenuFromResponse } from "@food/utils/menuItems"
 import { calculateDistance, formatDistance } from "@food/utils/common"
+import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailability"
 const debugLog = (...args) => { }
 const debugWarn = (...args) => { }
 const debugError = (...args) => { }
@@ -168,6 +169,7 @@ export default function Under250() {
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
   const [under250Restaurants, setUnder250Restaurants] = useState([])
   const [loadingRestaurants, setLoadingRestaurants] = useState(true)
+  const [availabilityTick, setAvailabilityTick] = useState(Date.now())
   const [hasScrolledPastBanner, setHasScrolledPastBanner] = useState(false)
   const bannerShellRef = useRef(null)
   const stickyHeaderRef = useRef(null)
@@ -233,7 +235,12 @@ export default function Under250() {
 
   // Sort and filter restaurants based on selected sort and filters
   const sortedAndFilteredRestaurants = useMemo(() => {
-    let filtered = under250Restaurants.map(r => ({ ...r, menuItems: [...(r.menuItems || [])] }))
+    let filtered = under250Restaurants
+      .filter(r => {
+        const availability = getRestaurantAvailabilityStatus(r, new Date(availabilityTick));
+        return availability.isOpen;
+      })
+      .map(r => ({ ...r, menuItems: [...(r.menuItems || [])] }))
 
     // Apply category filter
     if (activeCategory) {
@@ -303,7 +310,7 @@ export default function Under250() {
     }
 
     return filtered
-  }, [under250Restaurants, selectedSort, under30MinsFilter, activeCategory, categories])
+  }, [under250Restaurants, selectedSort, under30MinsFilter, activeCategory, categories, availabilityTick])
 
   // Fetch under-250 banner from public API
   const displayBanners = useMemo(() => {
@@ -473,6 +480,10 @@ export default function Under250() {
             const restaurantId = restaurant?.restaurantId || restaurant?._id
             if (!restaurantId) return null
 
+            // Initial filter to avoid menu fetch for closed restaurants
+            const availability = getRestaurantAvailabilityStatus(restaurant, new Date());
+            if (!availability.isOpen) return null;
+
             try {
               const menuResponse = await restaurantAPI.getMenuByRestaurantId(restaurantId)
               const menu = getMenuFromResponse(menuResponse)
@@ -546,6 +557,14 @@ export default function Under250() {
                 distanceInKm,
                 originalIndex: index,
                 menuItems,
+                // Include timing data for reactive filtering in useMemo
+                isActive: restaurant.isActive,
+                isAcceptingOrders: restaurant.isAcceptingOrders,
+                outletTimings: restaurant.outletTimings,
+                openDays: restaurant.openDays,
+                deliveryTimings: restaurant.deliveryTimings,
+                openingTime: restaurant.openingTime,
+                closingTime: restaurant.closingTime,
               }
             } catch {
               return null
@@ -618,6 +637,14 @@ export default function Under250() {
     })
     setQuantities(cartQuantities)
   }, [cart])
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setAvailabilityTick(Date.now());
+    }, 60000);
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     if (!selectedItem || !showItemDetail) return
