@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
+import AuthRedirect from "@food/components/AuthRedirect";
 import AdminLayout from "./AdminLayout";
 import Loader from "@food/components/Loader";
 
@@ -144,9 +145,9 @@ export default function AdminRouter() {
       <Routes>
         {/* Protected Routes - With Layout */}
         {/* Admin Login - Same as earlier */}
-        <Route path="login" element={<AdminLogin />} />
-        <Route path="forgot-password" element={<AdminForgotPassword />} />
-        <Route path="signup" element={<AdminSignup />} />
+        <Route path="login" element={<AuthRedirect module="admin"><AdminLogin /></AuthRedirect>} />
+        <Route path="forgot-password" element={<AuthRedirect module="admin"><AdminForgotPassword /></AuthRedirect>} />
+        <Route path="signup" element={<AuthRedirect module="admin"><AdminSignup /></AuthRedirect>} />
 
         {/* Protected Routes - With Layout */}
         <Route

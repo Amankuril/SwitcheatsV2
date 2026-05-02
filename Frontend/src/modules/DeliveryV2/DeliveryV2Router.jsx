@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
+import AuthRedirect from "@food/components/AuthRedirect"
 import Loader from "@food/components/Loader";
 
 // Auth Pages (Lazy loaded)
@@ -48,13 +49,13 @@ const DeliveryV2Router = () => {
     <Suspense fallback={<Loader />}>
       <Routes>
         {/* Auth routes */}
-        <Route path="welcome" element={<Welcome />} />
-        <Route path="login" element={<SignIn />} />
-        <Route path="otp" element={<OTP />} />
+        <Route path="welcome" element={<AuthRedirect module="delivery"><Welcome /></AuthRedirect>} />
+        <Route path="login" element={<AuthRedirect module="delivery"><SignIn /></AuthRedirect>} />
+        <Route path="otp" element={<AuthRedirect module="delivery"><OTP /></AuthRedirect>} />
         <Route path="signup" element={<Navigate to="/food/delivery/login" replace />} />
-        <Route path="signup/details" element={<SignupStep1 />} />
-        <Route path="signup/documents" element={<SignupStep2 />} />
-        <Route path="terms" element={<TermsAndConditionsV2 />} />
+        <Route path="signup/details" element={<AuthRedirect module="delivery"><SignupStep1 /></AuthRedirect>} />
+        <Route path="signup/documents" element={<AuthRedirect module="delivery"><SignupStep2 /></AuthRedirect>} />
+        <Route path="terms" element={<ProtectedRoute><TermsAndConditionsV2 /></ProtectedRoute>} />
 
         {/* Protected Core Routes */}
         <Route path="/" element={<ProtectedRoute><DeliveryHomeV2 tab="feed" /></ProtectedRoute>} />
