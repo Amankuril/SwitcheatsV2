@@ -22,6 +22,7 @@ import { useLocation } from "@food/hooks/useLocation"
 import { useZone } from "@food/hooks/useZone"
 import { useDelayedLoading } from "@food/hooks/useDelayedLoading"
 import { getMenuFromResponse } from "@food/utils/menuItems"
+import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailability"
 
 // Filter options
 const filterOptions = [
@@ -70,6 +71,16 @@ export default function CategoryPage() {
   const [isEnrichingMenus, setIsEnrichingMenus] = useState(false)
   const [approvedFoodsData, setApprovedFoodsData] = useState([])
   const [categoryKeywords, setCategoryKeywords] = useState({})
+  const [availabilityTick, setAvailabilityTick] = useState(Date.now())
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setAvailabilityTick(Date.now());
+    }, 60000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   const showCategorySkeleton = useDelayedLoading(loadingCategories)
   const deferredSearchQuery = useDeferredValue(searchQuery)
   const BACKEND_ORIGIN = useMemo(() => API_BASE_URL.replace(/\/api\/?$/, ""), [])
@@ -804,9 +815,14 @@ export default function CategoryPage() {
     const fetchRestaurants = async () => {
       try {
         setLoadingRestaurants(true)
-        // IMPORTANT: Do NOT pass zoneId as a hard filter.
-        // UX is "show all restaurants", and we only style out-of-service state.
-        const params = {}
+        // Strict zone check: if no zoneId, don't fetch/show anything
+        if (!zoneId) {
+          setRestaurantsData([])
+          setLoadingRestaurants(false)
+          return
+        }
+        
+        const params = { zoneId }
         const response = await restaurantAPI.getRestaurants(params)
 
         if (response.data && response.data.success && response.data.data && response.data.data.restaurants) {
@@ -849,10 +865,6 @@ export default function CategoryPage() {
               if (isDefaultValue(distance, 'distance')) distance = null
               if (isDefaultValue(offer, 'offer')) offer = null
 
-              const cuisine = restaurant.cuisines && restaurant.cuisines.length > 0
-                ? restaurant.cuisines.join(", ")
-                : null
-
               const coverImages = restaurant.coverImages && restaurant.coverImages.length > 0
                 ? restaurant.coverImages.map(img => normalizeImageUrl(img.url || img)).filter(Boolean)
                 : []
@@ -867,38 +879,36 @@ export default function CategoryPage() {
                   ? fallbackImages
                   : (restaurant.profileImage?.url ? [normalizeImageUrl(restaurant.profileImage.url)] : []))
 
-              const image = allImages[0] || null
-              const restaurantId = restaurant.restaurantId || restaurant._id
-
-              let featuredDish = restaurant.featuredDish || null
-              let featuredPrice = restaurant.featuredPrice || null
-
-              if (featuredPrice && isDefaultValue(featuredPrice, 'featuredPrice')) {
-                featuredPrice = null
-              }
-
-              const restaurantName = (restaurant.restaurantName || restaurant.name || "").toLowerCase()
+              const image = allImages[0] || normalizeImageUrl(restaurant.coverImage || restaurant.profileImage?.url || restaurant.profileImage) || ""
 
               return {
-                id: restaurantId,
-                name: restaurant.restaurantName || restaurant.name,
-                cuisine: cuisine,
-                rating: restaurant.rating || null,
-                deliveryTime: deliveryTime,
-                distance: distance,
+                id: restaurant._id || restaurant.id,
+                restaurantId: restaurant.restaurantId || restaurant.id,
+                mongoId: restaurant._id || restaurant.id,
+                slug: restaurant.slug || slugify(restaurant.restaurantName || restaurant.name || ""),
+                name: restaurant.restaurantName || restaurant.name || "Unknown Restaurant",
                 image: image,
                 images: allImages,
-                priceRange: restaurant.priceRange || null,
-                featuredDish: featuredDish,
-                featuredPrice: featuredPrice,
-                offer: offer,
-                slug: restaurant.slug || (restaurant.restaurantName || restaurant.name)?.toLowerCase().replace(/\s+/g, '-'),
-                restaurantId: restaurantId,
-                mongoId: restaurant._id || null,
-                hasPaneer: false,
-                category: 'all',
+                cuisine: Array.isArray(restaurant.cuisines) && restaurant.cuisines.length > 0 ? restaurant.cuisines[0] : "Multi-cuisine",
+                rating: Number(restaurant.rating || restaurant.avgRating || 0) || 4.5,
+                deliveryTime: deliveryTime || (restaurant.estimatedDeliveryTimeMinutes ? `${restaurant.estimatedDeliveryTimeMinutes} mins` : "25-30 mins"),
+                distance: distance || (restaurant.distance ? (typeof restaurant.distance === 'number' ? `${restaurant.distance.toFixed(1)} km` : restaurant.distance) : "1.2 km"),
+                priceRange: restaurant.priceRange || "$$",
+                offer: offer || "Flat 50% OFF",
+                featuredDish: restaurant.featuredDish || "Special Dish",
+                featuredPrice: Number(restaurant.featuredPrice || 249),
+                // Critical timing fields for availability utility
+                isActive: restaurant.isActive,
+                isAcceptingOrders: restaurant.isAcceptingOrders,
+                outletTimings: restaurant.outletTimings,
+                openDays: restaurant.openDays,
+                deliveryTimings: restaurant.deliveryTimings,
+                openingTime: restaurant.openingTime,
+                closingTime: restaurant.closingTime,
+                // Zone info for strict frontend filtering
+                zoneId: restaurant.zoneId || restaurant.zone?._id || restaurant.zone || null,
               }
-            }).filter(Boolean)
+            })
 
           startTransition(() => {
             setRestaurantsData(restaurantsWithIds)
@@ -1011,7 +1021,7 @@ export default function CategoryPage() {
           setRestaurantsData([])
         }
       } catch (error) {
-        debugError('Error fetching restaurants:', error)
+        console.error("Error fetching restaurants:", error)
         setRestaurantsData([])
       } finally {
         setLoadingRestaurants(false)
@@ -1200,8 +1210,23 @@ export default function CategoryPage() {
       }
     }
 
+    // Strict zone filter: double check that restaurant belongs to current zone
+    filtered = filtered.filter(row => {
+      const restaurantZoneId = row.zoneId || null;
+      if (zoneId && restaurantZoneId && String(restaurantZoneId) !== String(zoneId)) {
+        return false;
+      }
+      return true;
+    })
+
+    // Filter by availability
+    filtered = filtered.filter(row => {
+      const availability = getRestaurantAvailabilityStatus(row, new Date(availabilityTick));
+      return availability.isOpen;
+    })
+
     return applyFiltersAndSorting(filtered)
-  }, [selectedCategory, activeFilters, deferredSearchQuery, restaurantsData, categoryKeywords, vegMode, approvedFoodsData, sortBy])
+  }, [selectedCategory, activeFilters, deferredSearchQuery, restaurantsData, categoryKeywords, vegMode, approvedFoodsData, sortBy, availabilityTick, zoneId])
 
   const filteredAllRestaurants = useMemo(() => {
     const sourceData = restaurantsData.length > 0 ? restaurantsData : []
@@ -1250,8 +1275,23 @@ export default function CategoryPage() {
       }
     }
 
+    // Strict zone filter: double check that restaurant belongs to current zone
+    filtered = filtered.filter(row => {
+      const restaurantZoneId = row.zoneId || null;
+      if (zoneId && restaurantZoneId && String(restaurantZoneId) !== String(zoneId)) {
+        return false;
+      }
+      return true;
+    })
+
+    // Filter by availability
+    filtered = filtered.filter(row => {
+      const availability = getRestaurantAvailabilityStatus(row, new Date(availabilityTick));
+      return availability.isOpen;
+    })
+
     return applyFiltersAndSorting(filtered)
-  }, [selectedCategory, activeFilters, deferredSearchQuery, restaurantsData, categoryKeywords, vegMode, approvedFoodsData, sortBy])
+  }, [selectedCategory, activeFilters, deferredSearchQuery, restaurantsData, categoryKeywords, vegMode, approvedFoodsData, sortBy, availabilityTick, zoneId])
 
   const showRestaurantSkeleton = useDelayedLoading(
     isLoadingFilterResults || loadingRestaurants || (isEnrichingMenus && selectedCategory !== 'all' && filteredRecommended.length === 0),
