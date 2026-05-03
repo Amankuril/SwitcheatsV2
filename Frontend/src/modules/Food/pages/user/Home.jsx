@@ -483,75 +483,73 @@ const RestaurantCard = React.memo(({
             : "none",
       }}>
       <div className="h-full group">
-        <Link
-          to={targetUrl}
-          className="h-full flex">
-          <Card
-            className={`overflow-hidden gap-0 cursor-pointer border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] border-background transition-all duration-500 py-0 rounded-[28px] flex flex-col h-full w-full relative shadow-sm hover:shadow-xl ${
-              isOutOfService || !availability.isOpen
-                ? "grayscale opacity-75"
-                : ""
-            }`}>
-            {/* Image Section with Carousel */}
-            <div className="relative">
-              <RestaurantImageCarousel
-                restaurant={restaurant}
-                priority={index < 3}
-                backendOrigin={BACKEND_ORIGIN}
-                externalIndex={slideIndex}
-                onIndexChange={setSlideIndex}
-              />
+        <Card
+          className={`overflow-hidden gap-0 border-0 dark:border-gray-800 bg-white dark:bg-[#1a1a1a] border-background transition-all duration-500 py-0 rounded-[28px] flex flex-col h-full w-full relative shadow-sm hover:shadow-xl ${
+            isOutOfService || !availability.isOpen
+              ? "grayscale opacity-75"
+              : ""
+          }`}>
+          {/* Image Section with Carousel - Deep links to dish */}
+          <Link to={targetUrl} className="relative block">
+            <RestaurantImageCarousel
+              restaurant={restaurant}
+              priority={index < 3}
+              backendOrigin={BACKEND_ORIGIN}
+              externalIndex={slideIndex}
+              onIndexChange={setSlideIndex}
+            />
 
-              {/* Featured Dish Badge - Top Left */}
-              <div className="absolute top-4 left-4 flex items-center z-10 transform transition-transform duration-300 group-hover:scale-105">
-                <div className="bg-black/70 backdrop-blur-lg text-white px-4 py-1.5 rounded-full text-[11px] font-medium tracking-tight flex items-center shadow-2xl border border-white/20 min-h-[28px] min-w-[100px] justify-center overflow-hidden">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={`${name}-${price}`}
-                      initial={{ y: 10, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: -10, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: "easeOut" }}
-                      className="whitespace-nowrap flex items-center"
-                    >
-                      {name} • ₹{price}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              {/* Bookmark Icon - Top Right */}
-              <div className="absolute top-4 right-4 z-10 transform transition-transform duration-300 group-hover:scale-110">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onToggleFavorite(restaurantSlug, restaurant);
-                  }}
-                  aria-label={
-                    favorite
-                      ? "Remove from favorites"
-                      : "Add to favorites"
-                  }
-                  className={`h-11 w-11 rounded-[20px] shadow-xl flex items-center justify-center transition-all duration-300 ${
-                    favorite
-                      ? "bg-red-500 text-white"
-                      : "bg-white/90 backdrop-blur-sm text-gray-800 hover:bg-white"
-                  }`}>
-                  <Bookmark
-                    className={`h-5 w-5 transition-all duration-300 ${
-                      favorite ? "fill-white" : ""
-                    }`}
-                  />
-                </Button>
+            {/* Featured Dish Badge - Top Left */}
+            <div className="absolute top-4 left-4 flex items-center z-10 transform transition-transform duration-300 group-hover:scale-105">
+              <div className="bg-black/70 backdrop-blur-lg text-white px-4 py-1.5 rounded-full text-[11px] font-medium tracking-tight flex items-center shadow-2xl border border-white/20 min-h-[28px] min-w-[100px] justify-center overflow-hidden">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={`${name}-${price}`}
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -10, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    className="whitespace-nowrap flex items-center"
+                  >
+                    {name} • ₹{price}
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </div>
+          </Link>
 
-            {/* Content Section */}
+          {/* Bookmark Icon - Top Right (Moved outside Image Link to ensure click-through works) */}
+          <div className="absolute top-4 right-4 z-20 transform transition-transform duration-300 group-hover:scale-110">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleFavorite(restaurantSlug, restaurant);
+              }}
+              aria-label={
+                favorite
+                  ? "Remove from favorites"
+                  : "Add to favorites"
+              }
+              className={`h-11 w-11 rounded-[20px] shadow-xl flex items-center justify-center transition-all duration-300 ${
+                favorite
+                  ? "bg-red-500 text-white"
+                  : "bg-white/90 backdrop-blur-sm text-gray-800 hover:bg-white"
+              }`}>
+              <Bookmark
+                className={`h-5 w-5 transition-all duration-300 ${
+                  favorite ? "fill-white" : ""
+                }`}
+              />
+            </Button>
+          </div>
+
+          {/* Content Section - Links to restaurant ONLY */}
+          <Link to={`/user/restaurants/${restaurantSlug}`} className="flex-grow">
             <div className="transform transition-transform duration-300 group-hover:-translate-y-1">
-              <CardContent className="p-3 sm:p-4 lg:p-5 pt-3 sm:pt-4 lg:pt-5 flex flex-col flex-grow">
+              <CardContent className="p-3 sm:p-4 lg:p-5 pt-3 sm:pt-4 lg:pt-5 flex flex-col h-full">
                 {/* Restaurant Name & Rating */}
                 <div className="flex items-start justify-between gap-2 mb-2 lg:mb-3">
                   <div className="flex-1 min-w-0">
@@ -630,8 +628,8 @@ const RestaurantCard = React.memo(({
                 </div>
               </CardContent>
             </div>
-          </Card>
-        </Link>
+          </Link>
+        </Card>
       </div>
     </div>
   );
