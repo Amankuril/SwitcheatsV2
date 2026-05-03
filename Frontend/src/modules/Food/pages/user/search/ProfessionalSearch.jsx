@@ -59,6 +59,15 @@ export default function ProfessionalSearch() {
     const savedHistory = localStorage.getItem(SEARCH_HISTORY_KEY)
     if (savedHistory) setHistory(JSON.parse(savedHistory))
     fetchCategories()
+
+    // Trigger voice search if param is present
+    if (searchParams.get('voice') === 'true') {
+      handleVoiceSearch();
+      // Clear the param so it doesn't trigger again on reload
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('voice');
+      setSearchParams(newParams, { replace: true });
+    }
   }, [])
 
   const fetchCategories = async () => {
@@ -128,8 +137,8 @@ export default function ProfessionalSearch() {
     recognition.onend = () => setIsListening(false)
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript
-      setQuery(transcript)
-      addToHistory(transcript)
+      setQuery(transcript.trim())
+      addToHistory(transcript.trim())
     }
     recognition.start()
   }
@@ -163,22 +172,22 @@ export default function ProfessionalSearch() {
           </button>
           
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
             <Input 
               autoFocus
               placeholder="Search for restaurants or dishes..." 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-10 pr-10 h-11 bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-rose-500 rounded-xl"
+              className="pl-12 pr-12 h-12 w-full bg-slate-100 dark:bg-zinc-800 border-none focus:ring-2 focus:ring-rose-500 rounded-full text-base"
             />
             {query && (
-              <button onClick={handleClear} className="absolute right-10 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={handleClear} className="absolute right-12 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600">
                 <X className="w-4 h-4" />
               </button>
             )}
             <button 
               onClick={handleVoiceSearch}
-              className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full transition-all ${isListening ? 'text-rose-500 scale-125 animate-pulse' : 'text-slate-400'}`}
+              className={`absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all ${isListening ? 'bg-rose-500 text-white animate-pulse' : 'text-gray-400 hover:text-rose-500 hover:bg-rose-50'}`}
             >
               <Mic className="w-5 h-5" />
             </button>
@@ -368,6 +377,58 @@ export default function ProfessionalSearch() {
           </div>
         )}
       </div>
+      {/* Speak Now Overlay */}
+      {isListening && (
+        <div className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md">
+          <div className="relative flex items-center justify-center">
+            {/* Animated Ripples */}
+            <div className="absolute w-40 h-40 bg-rose-500/20 rounded-full animate-ping" />
+            <div className="absolute w-32 h-32 bg-rose-500/30 rounded-full animate-pulse" />
+            
+            {/* Mic Icon Container */}
+            <div className="relative bg-gradient-to-tr from-rose-600 to-rose-400 p-8 rounded-full text-white shadow-[0_0_40px_rgba(225,29,72,0.4)] border-4 border-white dark:border-zinc-800">
+              <Mic className="h-12 w-12" />
+            </div>
+
+            {/* Sound Wave Bars */}
+            <div className="absolute -bottom-16 flex items-end gap-1.5 h-12">
+              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <div 
+                  key={i}
+                  className="w-1.5 bg-rose-500 rounded-full animate-voice-bar"
+                  style={{ 
+                    animationDelay: `${i * 0.1}s`,
+                    height: `${20 + Math.random() * 80}%`
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-24 text-center">
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Speak Now</h2>
+            <p className="mt-3 text-gray-500 dark:text-gray-400 font-medium">I'm listening for dishes or restaurants...</p>
+          </div>
+
+          <Button
+            variant="ghost"
+            onClick={() => setIsListening(false)}
+            className="mt-16 text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-full px-8"
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+
+      <style>{`
+          @keyframes voice-bar {
+            0%, 100% { height: 20%; }
+            50% { height: 100%; }
+          }
+          .animate-voice-bar {
+            animation: voice-bar 0.6s ease-in-out infinite;
+          }
+      `}</style>
     </div>
   )
 }

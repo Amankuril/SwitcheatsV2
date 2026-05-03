@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { X, Search, Clock, Loader2 } from "lucide-react"
+import { X, Search, Clock, Loader2, Mic } from "lucide-react"
 import { Button } from "@food/components/ui/button"
 import { Input } from "@food/components/ui/input"
 import { restaurantAPI } from "@food/api"
 
 const SEARCH_HISTORY_KEY = "user_recent_searches_v1"
 
-export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchChange }) {
+export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchChange, isListening, startVoiceSearch }) {
   const navigate = useNavigate()
   const inputRef = useRef(null)
   const [allFoods, setAllFoods] = useState([])
@@ -165,8 +165,15 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
                 value={searchValue}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Search for food, restaurants..."
-                className="pl-12 pr-4 h-12 w-full bg-white dark:bg-[#1a1a1a] border-gray-100 dark:border-gray-800 focus:border-primary-orange dark:focus:border-primary-orange rounded-full text-lg dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
+                className="pl-12 pr-12 h-12 w-full bg-white dark:bg-[#1a1a1a] border-gray-100 dark:border-gray-800 focus:border-[#FA0272] dark:focus:border-[#FA0272] rounded-full text-lg dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
               />
+              <button
+                type="button"
+                onClick={startVoiceSearch}
+                className={`absolute right-4 top-1/2 transform -translate-y-1/2 p-1.5 rounded-full transition-all ${isListening ? 'bg-[#FA0272] text-white animate-pulse' : 'text-gray-400 hover:text-[#FA0272] hover:bg-[#FA0272]/5'}`}
+              >
+                <Mic className="h-5 w-5" />
+              </button>
             </div>
             <Button
               type="button"
@@ -274,7 +281,57 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
           )}
         </div>
       </div>
+      {/* Speak Now Overlay */}
+      {isListening && (
+        <div className="absolute inset-0 z-[10000] flex flex-col items-center justify-center bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md">
+          <div className="relative flex items-center justify-center">
+            {/* Animated Ripples */}
+            <div className="absolute w-40 h-40 bg-[#FA0272]/20 rounded-full animate-ping" />
+            <div className="absolute w-32 h-32 bg-[#FA0272]/30 rounded-full animate-pulse" />
+            
+            {/* Mic Icon Container */}
+            <div className="relative bg-gradient-to-tr from-[#FA0272] to-[#ff4b9c] p-8 rounded-full text-white shadow-[0_0_40px_rgba(250,2,114,0.4)] border-4 border-white dark:border-gray-800">
+              <Mic className="h-12 w-12" />
+            </div>
+
+            {/* Sound Wave Bars */}
+            <div className="absolute -bottom-16 flex items-end gap-1.5 h-12">
+              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <div 
+                  key={i}
+                  className="w-1.5 bg-[#FA0272] rounded-full animate-voice-bar"
+                  style={{ 
+                    animationDelay: `${i * 0.1}s`,
+                    height: `${20 + Math.random() * 80}%`
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-24 text-center">
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Speak Now</h2>
+            <p className="mt-3 text-gray-500 dark:text-gray-400 font-medium">I'm listening for dishes or restaurants...</p>
+          </div>
+
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className="mt-16 text-gray-400 hover:text-[#FA0272] hover:bg-[#FA0272]/5 rounded-full px-8"
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+
       <style>{`
+          @keyframes voice-bar {
+            0%, 100% { height: 20%; }
+            50% { height: 100%; }
+          }
+          .animate-voice-bar {
+            animation: voice-bar 0.6s ease-in-out infinite;
+          }
           @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }

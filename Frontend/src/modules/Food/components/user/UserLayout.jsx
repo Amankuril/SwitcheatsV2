@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom"
-import { useEffect, useState, createContext, useContext } from "react"
+import { useEffect, useState, createContext, useContext, useRef, useCallback } from "react"
 import { ProfileProvider } from "@food/context/ProfileContext"
 import LocationPrompt from "./LocationPrompt"
 import { CartProvider } from "@food/context/CartContext"
@@ -17,13 +17,17 @@ import { useUserNotifications } from "../../hooks/useUserNotifications"
 const SearchOverlayContext = createContext({
   isSearchOpen: false,
   searchValue: "",
+  isListening: false,
   setSearchValue: () => {
     debugWarn("SearchOverlayProvider not available")
   },
   openSearch: () => {
     debugWarn("SearchOverlayProvider not available")
   },
-  closeSearch: () => { }
+  closeSearch: () => { },
+  startVoiceSearch: () => {
+    debugWarn("SearchOverlayProvider not available")
+  }
 })
 
 export function useSearchOverlay() {
@@ -35,6 +39,8 @@ export function useSearchOverlay() {
 function SearchOverlayProvider({ children }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchValue, setSearchValue] = useState("")
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef(null)
 
   const openSearch = () => {
     setIsSearchOpen(true)
@@ -43,10 +49,64 @@ function SearchOverlayProvider({ children }) {
   const closeSearch = () => {
     setIsSearchOpen(false)
     setSearchValue("")
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
   }
 
+  const startVoiceSearch = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn("Voice search is not supported in this browser.");
+      return;
+    }
+
+    // Stop existing if any
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-IN';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognitionRef.current = recognition;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setIsSearchOpen(true); 
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setSearchValue(transcript.trim());
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    try {
+      recognition.start();
+    } catch (err) {
+      console.error("Failed to start recognition", err);
+      setIsListening(false);
+    }
+  }, []);
+
   return (
-    <SearchOverlayContext.Provider value={{ isSearchOpen, searchValue, setSearchValue, openSearch, closeSearch }}>
+    <SearchOverlayContext.Provider value={{ isSearchOpen, searchValue, setSearchValue, isListening, openSearch, closeSearch, startVoiceSearch }}>
       {children}
       {isSearchOpen && (
         <SearchOverlay
@@ -54,6 +114,8 @@ function SearchOverlayProvider({ children }) {
           onClose={closeSearch}
           searchValue={searchValue}
           onSearchChange={setSearchValue}
+          isListening={isListening}
+          startVoiceSearch={startVoiceSearch}
         />
       )}
     </SearchOverlayContext.Provider>

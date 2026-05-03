@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, ChevronDown, Search, Mic, Bell, CheckCircle2, Tag, Gift, AlertCircle, Clock, BellOff, X, ChevronRight, ShoppingBag, Sparkles } from 'lucide-react';
 import { 
@@ -14,7 +14,7 @@ import quickIcon from "@food/assets/category-icons/quick.png";
 import taxiIcon from "@food/assets/category-icons/taxi.png";
 import hotelIcon from "@food/assets/category-icons/hotel.png";
 import useNotificationInbox from "@food/hooks/useNotificationInbox";
-
+import { useSearchOverlay } from "../UserLayout";
 const ICON_MAP = {
   CheckCircle2,
   Tag,
@@ -38,6 +38,8 @@ export default function HomeHeader({
   vegModeToggleRef,
   isCategoryStuck = false,
 }) {
+  const { startVoiceSearch } = useSearchOverlay();
+  const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState(() => {
     const saved = localStorage.getItem('food_user_notifications');
@@ -385,7 +387,17 @@ export default function HomeHeader({
               </motion.span>
             </AnimatePresence>
           </div>
-          <div className="bg-[#FA0272]/5 dark:bg-[#FA0272]/10 p-2 rounded-full border border-[#FA0272]/10 ml-2 group-hover:bg-[#FA0272]/10 transition-all flex items-center justify-center">
+          <div 
+            className="bg-[#FA0272]/5 dark:bg-[#FA0272]/10 p-2 rounded-full border border-[#FA0272]/10 ml-2 group-hover:bg-[#FA0272]/10 transition-all flex items-center justify-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate('/user/search?voice=true');
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              navigate('/user/search?voice=true');
+            }}
+          >
             <Mic className="h-4 w-4 text-[#FA0272]" strokeWidth={2.5} />
           </div>
         </div>
