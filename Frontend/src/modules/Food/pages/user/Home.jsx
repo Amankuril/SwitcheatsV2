@@ -144,6 +144,8 @@ const RestaurantImageCarousel = React.memo(
     backendOrigin = "",
     className = "h-48 sm:h-56 md:h-60 lg:h-64 xl:h-72",
     roundedClass = "rounded-t-md",
+    externalIndex = null,
+    onIndexChange = null,
   }) => {
     const webviewSessionKeyRef = useRef(WEBVIEW_SESSION_CACHE_BUSTER);
     const imageElementRef = useRef(null);
@@ -190,6 +192,14 @@ const RestaurantImageCarousel = React.memo(
     );
 
     const images = useMemo(() => {
+      const hasRecommended = Array.isArray(restaurant.recommendedItems) && restaurant.recommendedItems.length > 0;
+      
+      if (hasRecommended) {
+        return restaurant.recommendedItems
+          .filter(item => item && item.image)
+          .map(item => withCacheBuster(item.image));
+      }
+
       const sourceImages =
         Array.isArray(restaurant.images) && restaurant.images.length > 0
           ? restaurant.images
@@ -201,8 +211,19 @@ const RestaurantImageCarousel = React.memo(
         .filter(Boolean);
 
       return validImages.map((img) => withCacheBuster(img));
-    }, [restaurant.images, restaurant.image, withCacheBuster]);
-    const [currentIndex, setCurrentIndex] = useState(0);
+    }, [restaurant.recommendedItems, restaurant.images, restaurant.image, withCacheBuster]);
+    const [internalIndex, setInternalIndex] = useState(0);
+    const currentIndex = externalIndex !== null ? externalIndex : internalIndex;
+    
+    const setCurrentIndex = useCallback((val) => {
+      const nextIndex = typeof val === 'function' ? val(currentIndex) : val;
+      if (onIndexChange) {
+        onIndexChange(nextIndex);
+      } else {
+        setInternalIndex(nextIndex);
+      }
+    }, [currentIndex, onIndexChange]);
+
     const [loadedBySrc, setLoadedBySrc] = useState({});
     const [, setAttemptedSrcs] = useState({});
     const [isImageUnavailable, setIsImageUnavailable] = useState(false);
@@ -299,6 +320,18 @@ const RestaurantImageCarousel = React.memo(
       touchEndX.current = 0;
     };
 
+    // Auto-sliding for recommended items
+    useEffect(() => {
+      const hasRecommended = Array.isArray(restaurant.recommendedItems) && restaurant.recommendedItems.length > 0;
+      if (!hasRecommended || images.length <= 1) return;
+
+      const interval = setInterval(() => {
+        setCurrentIndex((prev) => (prev + 1) % images.length);
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }, [restaurant.recommendedItems, images.length, setCurrentIndex]);
+
     const showMultipleImages = images.length > 1;
 
     return (
@@ -314,41 +347,48 @@ const RestaurantImageCarousel = React.memo(
         )}
 
         <div className="absolute inset-0 transition-transform duration-700 ease-out group-hover:scale-110">
-          {renderSrc && (
-            <img
-              ref={imageElementRef}
-              src={renderSrc}
-              alt={`${restaurant.name} - Image ${safeIndex + 1}`}
-              className="w-full h-full object-cover"
-              loading={priority ? "eager" : "lazy"}
-              fetchPriority={priority ? "high" : "auto"}
-              decoding="async"
-              onLoad={() => {
-                setLoadedBySrc((prev) => ({ ...prev, [renderSrc]: true }));
-                setLastGoodSrc(renderSrc);
-                setShowShimmer(false);
-              }}
-              onError={() => {
-                setAttemptedSrcs((prev) => {
-                  const next = { ...prev, [primarySrc]: true };
-                  const attemptedCount = Object.keys(next).length;
+          <AnimatePresence mode="wait" initial={false}>
+            {renderSrc && (
+              <motion.img
+                key={renderSrc}
+                ref={imageElementRef}
+                src={renderSrc}
+                alt={`${restaurant.name} - Image ${safeIndex + 1}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+                className="w-full h-full absolute inset-0 object-cover"
+                loading={priority ? "eager" : "lazy"}
+                fetchPriority={priority ? "high" : "auto"}
+                decoding="async"
+                onLoad={() => {
+                  setLoadedBySrc((prev) => ({ ...prev, [renderSrc]: true }));
+                  setLastGoodSrc(renderSrc);
+                  setShowShimmer(false);
+                }}
+                onError={() => {
+                  setAttemptedSrcs((prev) => {
+                    const next = { ...prev, [primarySrc]: true };
+                    const attemptedCount = Object.keys(next).length;
 
-                  if (attemptedCount >= images.length) {
+                    if (attemptedCount >= images.length) {
+                      setIsImageUnavailable(true);
+                    } else if (images.length > 1) {
+                      setCurrentIndex(
+                        (prevIndex) => (prevIndex + 1) % images.length,
+                      );
+                    }
+
+                    return next;
+                  });
+                  if (images.length === 1) {
                     setIsImageUnavailable(true);
-                  } else if (images.length > 1) {
-                    setCurrentIndex(
-                      (prevIndex) => (prevIndex + 1) % images.length,
-                    );
                   }
-
-                  return next;
-                });
-                if (images.length === 1) {
-                  setIsImageUnavailable(true);
-                }
-              }}
-            />
-          )}
+                }}
+              />
+            )}
+          </AnimatePresence>
         </div>
 
         {isImageUnavailable && (
@@ -391,6 +431,211 @@ const RestaurantImageCarousel = React.memo(
     );
   },
 );
+
+const RestaurantCard = React.memo(({
+  restaurant,
+  index,
+  availabilityTick,
+  isOutOfService,
+  favorite,
+  onToggleFavorite,
+  BACKEND_ORIGIN,
+  restaurantSlug: propRestaurantSlug,
+}) => {
+  const [slideIndex, setSlideIndex] = useState(0);
+  const validRecommendedItems = useMemo(() => {
+    return (restaurant.recommendedItems || []).filter(item => item && item.image);
+  }, [restaurant.recommendedItems]);
+
+  const hasRecommended = validRecommendedItems.length > 0;
+  
+  const currentDish = hasRecommended ? validRecommendedItems[slideIndex] : null;
+  const name = currentDish ? currentDish.name : restaurant.featuredDish;
+  const price = currentDish ? currentDish.price : restaurant.featuredPrice;
+  
+  const availability = getRestaurantAvailabilityStatus(
+    restaurant,
+    new Date(availabilityTick),
+    { ignoreOperationalStatus: true },
+  );
+
+  const restaurantSlug = useMemo(() => {
+    if (propRestaurantSlug) return propRestaurantSlug;
+    if (restaurant.slug) return restaurant.slug;
+    return (restaurant.name || restaurant.restaurantName || "restaurant")
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-");
+  }, [propRestaurantSlug, restaurant.slug, restaurant.name, restaurant.restaurantName]);
+
+  const targetUrl = currentDish 
+    ? `/user/restaurants/${restaurantSlug}?dish=${currentDish.id}`
+    : `/user/restaurants/${restaurantSlug}`;
+
+  return (
+    <div
+      className="h-full transform transition-all duration-300 hover:-translate-y-3 hover:scale-[1.02]"
+      style={{
+        perspective: 1000,
+        animation:
+          index < 10
+            ? `fade-in-up 0.5s ease-out ${index * 0.05}s backwards`
+            : "none",
+      }}>
+      <div className="h-full group">
+        <Link
+          to={targetUrl}
+          className="h-full flex">
+          <Card
+            className={`overflow-hidden gap-0 cursor-pointer border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] border-background transition-all duration-500 py-0 rounded-[28px] flex flex-col h-full w-full relative shadow-sm hover:shadow-xl ${
+              isOutOfService || !availability.isOpen
+                ? "grayscale opacity-75"
+                : ""
+            }`}>
+            {/* Image Section with Carousel */}
+            <div className="relative">
+              <RestaurantImageCarousel
+                restaurant={restaurant}
+                priority={index < 3}
+                backendOrigin={BACKEND_ORIGIN}
+                externalIndex={slideIndex}
+                onIndexChange={setSlideIndex}
+              />
+
+              {/* Featured Dish Badge - Top Left */}
+              <div className="absolute top-4 left-4 flex items-center z-10 transform transition-transform duration-300 group-hover:scale-105">
+                <div className="bg-black/70 backdrop-blur-lg text-white px-4 py-1.5 rounded-full text-[11px] font-medium tracking-tight flex items-center shadow-2xl border border-white/20 min-h-[28px] min-w-[100px] justify-center overflow-hidden">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={`${name}-${price}`}
+                      initial={{ y: 10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -10, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      className="whitespace-nowrap flex items-center"
+                    >
+                      {name} • ₹{price}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* Bookmark Icon - Top Right */}
+              <div className="absolute top-4 right-4 z-10 transform transition-transform duration-300 group-hover:scale-110">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onToggleFavorite(restaurantSlug, restaurant);
+                  }}
+                  aria-label={
+                    favorite
+                      ? "Remove from favorites"
+                      : "Add to favorites"
+                  }
+                  className={`h-11 w-11 rounded-[20px] shadow-xl flex items-center justify-center transition-all duration-300 ${
+                    favorite
+                      ? "bg-red-500 text-white"
+                      : "bg-white/90 backdrop-blur-sm text-gray-800 hover:bg-white"
+                  }`}>
+                  <Bookmark
+                    className={`h-5 w-5 transition-all duration-300 ${
+                      favorite ? "fill-white" : ""
+                    }`}
+                  />
+                </Button>
+              </div>
+            </div>
+
+            {/* Content Section */}
+            <div className="transform transition-transform duration-300 group-hover:-translate-y-1">
+              <CardContent className="p-3 sm:p-4 lg:p-5 pt-3 sm:pt-4 lg:pt-5 flex flex-col flex-grow">
+                {/* Restaurant Name & Rating */}
+                <div className="flex items-start justify-between gap-2 mb-2 lg:mb-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg lg:text-2xl font-medium text-gray-950 dark:text-white line-clamp-1 leading-tight tracking-tight transition-colors duration-300 group-hover:text-[#FA0272]">
+                      {restaurant.name}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-[10px] font-medium uppercase tracking-widest shadow-sm ${availability.isOpen ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
+                        {availability.isOpen
+                          ? "Open now"
+                          : "Offline"}
+                      </span>
+                      {availability.isOpen &&
+                        availability.closingCountdownLabel &&
+                        availability.openingTime &&
+                        availability.closingTime && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-medium uppercase tracking-wide">
+                            <Timer
+                              className="h-3 w-3 flex-shrink-0"
+                              strokeWidth={2.5}
+                            />
+                            <span>
+                              {availability.closingCountdownLabel}
+                            </span>
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                  <div className={`flex-shrink-0 ${Number(restaurant.rating) > 0 ? "bg-[#259539]" : "bg-gray-400"} text-white px-3 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-md transform transition-transform duration-300 group-hover:scale-110`}>
+                    <span className="text-sm lg:text-lg font-medium tracking-tight">
+                      {Number(restaurant.rating) > 0 ? Number(restaurant.rating).toFixed(1) : "NEW"}
+                    </span>
+                    {Number(restaurant.rating) > 0 && <Star className="h-3.5 w-3.5 lg:h-4.5 lg:w-4.5 fill-white text-white" strokeWidth={0} />}
+                  </div>
+                </div>
+
+                {/* Delivery Time & Distance */}
+                <div className="flex items-center gap-1 text-sm lg:text-base text-gray-500 mb-2 lg:mb-3 transition-opacity duration-300 opacity-70 group-hover:opacity-100">
+                  <Clock
+                    className="h-4 w-4 lg:h-5 lg:w-5 text-gray-500 dark:text-gray-400"
+                    strokeWidth={1.5}
+                  />
+                  <span className="font-medium dark:text-gray-300 text-gray-700">
+                    {restaurant.deliveryTime}
+                  </span>
+                  <span className="mx-1">|</span>
+                  <MapPin
+                    className="h-4 w-4 lg:h-5 lg:w-5 text-gray-500 dark:text-gray-400"
+                    strokeWidth={1.5}
+                  />
+                  <span className="font-medium dark:text-gray-300 text-gray-700">
+                    {restaurant.distance}
+                  </span>
+                </div>
+
+                {/* Cuisine & Offers */}
+                <div className="flex items-center justify-between mt-auto">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs lg:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors duration-300">
+                      {restaurant.cuisine}
+                    </p>
+                    {restaurant.pureVegRestaurant && (
+                      <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold uppercase tracking-wider">
+                        <Leaf className="h-3 w-3 fill-emerald-600" />
+                        <span>Pure Veg</span>
+                      </div>
+                    )}
+                  </div>
+                  {restaurant.offer && (
+                    <div className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl text-[10px] lg:text-xs font-bold shadow-sm border border-blue-100 dark:border-blue-900/30 transform transition-transform duration-300 group-hover:scale-105 group-hover:bg-blue-100">
+                      <BadgePercent className="h-3.5 w-3.5" />
+                      <span className="uppercase">{restaurant.offer}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </div>
+          </Card>
+        </Link>
+      </div>
+    </div>
+  );
+});
 
 export default function Home() {
   const HERO_BANNER_AUTO_SLIDE_MS = 3500;
@@ -1645,6 +1890,7 @@ export default function Home() {
                 outletTimings: restaurant.outletTimings || null,
                 openingTime: restaurant.openingTime || restaurant?.deliveryTimings?.openingTime || null,
                 closingTime: restaurant.closingTime || restaurant?.deliveryTimings?.closingTime || null,
+                recommendedItems: Array.isArray(restaurant.recommendedItems) ? restaurant.recommendedItems : [],
               };
             },
           );
@@ -2697,32 +2943,23 @@ export default function Home() {
                     restaurant.slug.trim()
                       ? restaurant.slug.trim()
                       : fallbackSlugSource.toLowerCase().replace(/\s+/g, "-");
-                  const availability = getRestaurantAvailabilityStatus(
-                    restaurant,
-                    new Date(availabilityTick),
-                    { ignoreOperationalStatus: true },
-                  );
-                  // Direct favorite check - isFavorite is already memoized in context
+                  
                   const favorite = isFavorite(restaurantSlug);
 
-                  const handleToggleFavorite = (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                  const handleToggleFavorite = (slug, res) => {
                     if (favorite) {
-                      // If already bookmarked, show Manage Collections modal
-                      setSelectedRestaurantSlug(restaurantSlug);
+                      setSelectedRestaurantSlug(slug);
                       setShowManageCollections(true);
                     } else {
-                      // Add to favorites and show toast
                       addFavorite({
-                        slug: restaurantSlug,
-                        name: restaurant.name,
-                        cuisine: restaurant.cuisine,
-                        rating: restaurant.rating,
-                        deliveryTime: restaurant.deliveryTime,
-                        distance: restaurant.distance,
-                        priceRange: restaurant.priceRange,
-                        image: restaurant.image,
+                        slug: slug,
+                        name: res.name,
+                        cuisine: res.cuisine,
+                        rating: res.rating,
+                        deliveryTime: res.deliveryTime,
+                        distance: res.distance,
+                        priceRange: res.priceRange,
+                        image: res.image,
                       });
                       setShowToast(true);
                       setTimeout(() => {
@@ -2732,148 +2969,17 @@ export default function Home() {
                   };
 
                   return (
-                    <div
-                      key={
-                        restaurant?.id ||
-                        restaurant?._id ||
-                        restaurantSlug ||
-                        index
-                      }
-                      className="h-full transform transition-all duration-300 hover:-translate-y-3 hover:scale-[1.02]"
-                      style={{
-                        perspective: 1000,
-                        animation:
-                          index < 10
-                            ? `fade-in-up 0.5s ease-out ${index * 0.05}s backwards`
-                            : "none",
-                      }}>
-                      <div className="h-full group">
-                        <Link
-                          to={`/user/restaurants/${restaurantSlug}`}
-                          className="h-full flex">
-                          <Card
-                            className={`overflow-hidden gap-0 cursor-pointer border-0 dark:border-gray-800 group bg-white dark:bg-[#1a1a1a] border-background transition-all duration-500 py-0 rounded-[28px] flex flex-col h-full w-full relative shadow-sm hover:shadow-xl ${
-                              isOutOfService || !availability.isOpen
-                                ? "grayscale opacity-75"
-                                : ""
-                            }`}>
-                            {/* Image Section with Carousel */}
-                            <div className="relative">
-                              <RestaurantImageCarousel
-                                restaurant={restaurant}
-                                priority={index < 3}
-                                backendOrigin={BACKEND_ORIGIN}
-                              />
-
-                              {/* Featured Dish Badge - Top Left */}
-                              <div className="absolute top-4 left-4 flex items-center z-10 transform transition-transform duration-300 group-hover:scale-105">
-                                <div className="bg-black/70 backdrop-blur-lg text-white px-4 py-1.5 rounded-full text-[11px] font-medium tracking-tight flex items-center shadow-2xl border border-white/20">
-                                  {restaurant.featuredDish} • ₹
-                                  {restaurant.featuredPrice}
-                                </div>
-                              </div>
-
-                              {/* Bookmark Icon - Top Right */}
-                              <div className="absolute top-4 right-4 z-10 transform transition-transform duration-300 group-hover:scale-110">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={handleToggleFavorite}
-                                  aria-label={
-                                    favorite
-                                      ? "Remove from favorites"
-                                      : "Add to favorites"
-                                  }
-                                  className={`h-11 w-11 rounded-[20px] shadow-xl flex items-center justify-center transition-all duration-300 ${
-                                    favorite
-                                      ? "bg-red-500 text-white"
-                                      : "bg-white/90 backdrop-blur-sm text-gray-800 hover:bg-white"
-                                  }`}>
-                                  <Bookmark
-                                    className={`h-5 w-5 transition-all duration-300 ${
-                                      favorite ? "fill-white" : ""
-                                    }`}
-                                  />
-                                </Button>
-                              </div>
-                            </div>
-
-                            {/* Content Section */}
-                            <div className="transform transition-transform duration-300 group-hover:-translate-y-1">
-                              <CardContent className="p-3 sm:p-4 lg:p-5 pt-3 sm:pt-4 lg:pt-5 flex flex-col flex-grow">
-                                {/* Restaurant Name & Rating */}
-                                <div className="flex items-start justify-between gap-2 mb-2 lg:mb-3">
-                                  <div className="flex-1 min-w-0">
-                                    <h3 className="text-lg lg:text-2xl font-medium text-gray-950 dark:text-white line-clamp-1 leading-tight tracking-tight transition-colors duration-300 group-hover:text-[#FA0272]">
-                                      {restaurant.name}
-                                    </h3>
-                                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                                      <span
-                                        className={`inline-flex rounded-full px-3 py-1 text-[10px] font-medium uppercase tracking-widest shadow-sm ${availability.isOpen ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
-                                        {availability.isOpen
-                                          ? "Open now"
-                                          : "Offline"}
-                                      </span>
-                                      {availability.isOpen &&
-                                        availability.closingCountdownLabel &&
-                                        availability.openingTime &&
-                                        availability.closingTime && (
-                                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-medium uppercase tracking-wide">
-                                            <Timer
-                                              className="h-3 w-3 flex-shrink-0"
-                                              strokeWidth={2.5}
-                                            />
-                                            <span>
-                                              {availability.closingCountdownLabel}
-                                            </span>
-                                          </div>
-                                        )}
-                                    </div>
-                                  </div>
-                                  <div className={`flex-shrink-0 ${Number(restaurant.rating) > 0 ? "bg-[#259539]" : "bg-gray-400"} text-white px-3 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-md transform transition-transform duration-300 group-hover:scale-110`}>
-                                    <span className="text-sm lg:text-lg font-medium tracking-tight">
-                                      {Number(restaurant.rating) > 0 ? Number(restaurant.rating).toFixed(1) : "NEW"}
-                                    </span>
-                                    {Number(restaurant.rating) > 0 && <Star className="h-3.5 w-3.5 lg:h-4.5 lg:w-4.5 fill-white text-white" strokeWidth={0} />}
-                                  </div>
-                                </div>
-
-                                {/* Delivery Time & Distance */}
-                                <div className="flex items-center gap-1 text-sm lg:text-base text-gray-500 mb-2 lg:mb-3 transition-opacity duration-300 opacity-70 group-hover:opacity-100">
-                                  <Clock
-                                    className="h-4 w-4 lg:h-5 lg:w-5 text-gray-500 dark:text-gray-400"
-                                    strokeWidth={1.5}
-                                  />
-                                  <span className="font-medium dark:text-gray-300 text-gray-700">
-                                    {restaurant.deliveryTime}
-                                  </span>
-                                  <span className="mx-1">|</span>
-                                  <span className="font-medium dark:text-gray-300 text-gray-700">
-                                    {restaurant.distance}
-                                  </span>
-                                </div>
-
-                                {/* Offer Badge */}
-                                {restaurant.offer && (
-                                  <div className="flex items-center gap-2 text-sm lg:text-base mt-auto transform transition-transform duration-300 group-hover:translate-x-1">
-                                    <BadgePercent
-                                      className="h-4 w-4 lg:h-5 lg:w-5 text-black"
-                                      strokeWidth={2}
-                                    />
-                                    <span className="text-gray-700 dark:text-gray-300 font-medium">
-                                      {restaurant.offer}
-                                    </span>
-                                  </div>
-                                )}
-                              </CardContent>
-                            </div>
-
-                            {/* Border Glow Effect */}
-                            <div className="absolute inset-0 rounded-md pointer-events-none z-0 transition-all duration-300 border border-transparent group-hover:border-[#EB590E]/30 group-hover:shadow-[inset_0_0_0_1px_rgba(235,89,14,0.2)]" />
-                          </Card>
-                        </Link>
-                      </div>
-                    </div>
+                    <RestaurantCard
+                      key={restaurant?.id || restaurant?._id || restaurantSlug || index}
+                      restaurant={restaurant}
+                      index={index}
+                      availabilityTick={availabilityTick}
+                      isOutOfService={isOutOfService}
+                      favorite={favorite}
+                      onToggleFavorite={handleToggleFavorite}
+                      BACKEND_ORIGIN={BACKEND_ORIGIN}
+                      restaurantSlug={restaurantSlug}
+                    />
                   );
                 })}
               </div>

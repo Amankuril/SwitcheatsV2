@@ -2371,9 +2371,19 @@ function RestaurantDetailsContent() {
                                 delete dishCardRefs.current[item.id]
                               }
                             }}
-                            className={`flex gap-4 p-4 border-b border-gray-100 last:border-none relative cursor-pointer transition-all duration-300 ${highlightedDishId === item.id ? "bg-orange-50 ring-2 ring-[#EB590E] ring-inset dark:bg-orange-950/20" : ""}`}
+                            className={`flex gap-4 p-4 border-b border-gray-100 last:border-none relative cursor-pointer transition-all duration-500 ${highlightedDishId === item.id 
+                                ? "bg-gradient-to-r from-pink-50/80 to-white dark:from-pink-950/20 dark:to-[#1a1a1a] border-l-4 border-l-[#FA0272] shadow-[0_20px_50px_-12px_rgba(250,2,114,0.5)] scale-[1.02] z-20 rounded-3xl" 
+                                : ""
+                            }`}
                             onClick={() => handleItemClick(item)}
                           >
+                            {highlightedDishId === item.id && (
+                              <div className="absolute -top-2 left-4 z-30">
+                                <span className="bg-[#FA0272] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg animate-bounce uppercase tracking-wider">
+                                  Selected
+                                </span>
+                              </div>
+                            )}
                             {/* Left Side - Details */}
                             <div className="flex-1 min-w-0">
                               {/* Veg Icon & Spicy Indicator */}
@@ -2396,7 +2406,7 @@ function RestaurantDetailsContent() {
                               {isRecommendedItem(item) && (
                                 <div className="flex items-center gap-2 mt-1">
                                   <div className="h-1.5 w-16 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                    <div className="h-full bg-[#EB590E] w-3/4"></div>
+                                    <div className="h-full bg-[#FA0272] w-3/4"></div>
                                   </div>
                                   <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Highly reordered</span>
                                 </div>
@@ -2592,9 +2602,19 @@ function RestaurantDetailsContent() {
                                           delete dishCardRefs.current[item.id]
                                         }
                                       }}
-                                      className={`flex gap-4 p-4 border-b border-gray-100 last:border-none relative cursor-pointer transition-all duration-300 ${highlightedDishId === item.id ? "bg-orange-50 ring-2 ring-[#EB590E] ring-inset dark:bg-orange-950/20" : ""}`}
+                                      className={`flex gap-4 p-4 border-b border-gray-100 last:border-none relative cursor-pointer transition-all duration-500 ${highlightedDishId === item.id 
+                                        ? "bg-gradient-to-r from-pink-50/80 to-white dark:from-pink-950/20 dark:to-[#1a1a1a] border-l-4 border-l-[#FA0272] shadow-[0_20px_50px_-12px_rgba(250,2,114,0.5)] scale-[1.02] z-20 rounded-3xl" 
+                                        : ""
+                                    }`}
                                       onClick={() => handleItemClick(item)}
                                     >
+                                      {highlightedDishId === item.id && (
+                                        <div className="absolute -top-2 left-4 z-30">
+                                          <span className="bg-[#FA0272] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg animate-bounce uppercase tracking-wider">
+                                            Selected
+                                          </span>
+                                        </div>
+                                      )}
                                       {/* Left Side - Details */}
                                       <div className="flex-1 min-w-0">
                                         {/* Veg Icon & Spicy Indicator */}

@@ -5,6 +5,8 @@ import mongoose from 'mongoose';
 import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyPaymentSignature } from '../../orders/helpers/razorpay.helper.js';
 import { FoodZone } from '../../admin/models/zone.model.js';
 import { FoodOffer } from '../../admin/models/offer.model.js';
+import { FoodRestaurantMenu } from '../models/restaurantMenu.model.js';
+import { FoodItem } from '../../admin/models/food.model.js';
 
 const normalizeName = (value) =>
     String(value || '')
@@ -104,6 +106,49 @@ const normalizeRestaurantTime = (value) => {
     }
 
     return '';
+};
+
+const extractRecommendedItems = (sections) => {
+    const recommended = [];
+    if (!Array.isArray(sections)) return recommended;
+
+    for (const section of sections) {
+        if (!section) continue;
+
+        // Items in main section
+        if (Array.isArray(section.items)) {
+            for (const item of section.items) {
+                if (item && (item.isRecommended === true || item.isRecommended === 'true')) {
+                    recommended.push({
+                        id: item.id || item._id,
+                        name: item.name || 'Unnamed Item',
+                        price: item.price || item.featuredPrice || 0,
+                        image: item.image || item.profileImage || ''
+                    });
+                }
+                if (recommended.length >= 10) return recommended;
+            }
+        }
+
+        // Items in subsections
+        if (Array.isArray(section.subsections)) {
+            for (const sub of section.subsections) {
+                if (!sub || !Array.isArray(sub.items)) continue;
+                for (const item of sub.items) {
+                    if (item && (item.isRecommended === true || item.isRecommended === 'true')) {
+                        recommended.push({
+                            id: item.id || item._id,
+                            name: item.name || 'Unnamed Item',
+                            price: item.price || item.featuredPrice || 0,
+                            image: item.image || item.profileImage || ''
+                        });
+                    }
+                    if (recommended.length >= 10) return recommended;
+                }
+            }
+        }
+    }
+    return recommended;
 };
 
 const timeToMinutes = (value) => {
@@ -469,8 +514,8 @@ export const registerRestaurant = async (payload, files) => {
     // If we have pre-uploaded menu images, use them
     if (preUploadedMenuImages) {
         try {
-            menuImages = Array.isArray(preUploadedMenuImages) 
-                ? preUploadedMenuImages 
+            menuImages = Array.isArray(preUploadedMenuImages)
+                ? preUploadedMenuImages
                 : (typeof preUploadedMenuImages === 'string' ? JSON.parse(preUploadedMenuImages) : []);
         } catch (e) {
             console.error('Error parsing preUploadedMenuImages:', e);
@@ -614,11 +659,11 @@ export const payRestaurantDues = async (restaurantId, paymentDetails = {}) => {
 
     // In a real flow, we would verify the paymentDetails.razorpayPaymentId here.
     // For this end-to-end "direct" implementation, we'll mark it as paid.
-    
+
     restaurant.subscriptionPaidAmount = (Number(restaurant.subscriptionPaidAmount) || 0) + dueAmount;
     restaurant.subscriptionDueAmount = 0;
     restaurant.subscriptionStatus = 'paid';
-    
+
     // Log payment metadata if provided
     if (paymentDetails.razorpayPaymentId) {
         restaurant.subscriptionPaymentId = paymentDetails.razorpayPaymentId;
@@ -1304,10 +1349,10 @@ export const updateRestaurantProfile = async (restaurantId, body = {}) => {
                     'ownerEmail',
                     'ownerPhone',
                     'primaryContactNumber',
-                'pureVegRestaurant',
-                'profileImage',
-                'coverImages',
-                'menuImages',
+                    'pureVegRestaurant',
+                    'profileImage',
+                    'coverImages',
+                    'menuImages',
                     'openingTime',
                     'closingTime',
                     'openDays',
@@ -1651,7 +1696,38 @@ export const listApprovedRestaurants = async (query = {}) => {
         ]);
 
         const total = totalDocs?.[0]?.count || 0;
-        return { restaurants: pageDocs, total, page, limit };
+        const restaurants = pageDocs || [];
+
+        // Fetch recommended items for each restaurant from FoodItem model
+        const restaurantIds = restaurants.map(r => r._id);
+        const recommendedItemsRaw = await FoodItem.find({
+            restaurantId: { $in: restaurantIds },
+            isRecommended: true,
+            approvalStatus: 'approved'
+        }).sort({ createdAt: -1 }).lean();
+
+        const recommendedMap = recommendedItemsRaw.reduce((acc, item) => {
+            const rId = String(item.restaurantId);
+            if (!acc[rId]) acc[rId] = [];
+            if (acc[rId].length < 10) {
+                acc[rId].push({
+                    id: String(item._id),
+                    name: item.name,
+                    price: item.price,
+                    image: item.image
+                });
+            }
+            return acc;
+        }, {});
+
+        const restaurantsWithRecommended = restaurants.map(r => {
+            return {
+                ...r,
+                recommendedItems: recommendedMap[String(r._id)] || []
+            };
+        });
+
+        return { restaurants: restaurantsWithRecommended, total, page, limit };
     }
 
     // Non-geo path: normal query + sort.
@@ -1691,7 +1767,36 @@ export const listApprovedRestaurants = async (query = {}) => {
         menuImages: Array.isArray(r.menuImages) ? r.menuImages : []
     }));
 
-    return { restaurants, total, page, limit };
+    // Fetch recommended items for each restaurant from FoodItem model
+    const restaurantIds = restaurants.map(r => r._id);
+    const recommendedItemsRaw = await FoodItem.find({
+        restaurantId: { $in: restaurantIds },
+        isRecommended: true,
+        approvalStatus: 'approved'
+    }).sort({ createdAt: -1 }).lean();
+
+    const recommendedMap = recommendedItemsRaw.reduce((acc, item) => {
+        const rId = String(item.restaurantId);
+        if (!acc[rId]) acc[rId] = [];
+        if (acc[rId].length < 10) {
+            acc[rId].push({
+                id: String(item._id),
+                name: item.name,
+                price: item.price,
+                image: item.image
+            });
+        }
+        return acc;
+    }, {});
+
+    const restaurantsWithRecommended = restaurants.map(r => {
+        return {
+            ...r,
+            recommendedItems: recommendedMap[String(r._id)] || []
+        };
+    });
+
+    return { restaurants: restaurantsWithRecommended, total, page, limit };
 };
 
 export const getApprovedRestaurantByIdOrSlug = async (idOrSlug) => {
@@ -1823,7 +1928,7 @@ export async function createRestaurantOffer(restaurantId, body) {
  * List offers for a specific restaurant.
  */
 export async function listRestaurantOffers(restaurantId) {
-    const list = await FoodOffer.find({ 
+    const list = await FoodOffer.find({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         restaurantScope: 'selected'
     }).sort({ createdAt: -1 }).lean();
@@ -1839,7 +1944,7 @@ export async function listRestaurantOffers(restaurantId) {
  * Delete a restaurant offer.
  */
 export async function deleteRestaurantOffer(restaurantId, offerId) {
-    const res = await FoodOffer.deleteOne({ 
+    const res = await FoodOffer.deleteOne({
         _id: new mongoose.Types.ObjectId(offerId),
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         createdByRole: 'RESTAURANT'
@@ -1860,7 +1965,7 @@ export async function updateRestaurantOfferStatus(restaurantId, offerId, status)
     }
 
     const doc = await FoodOffer.findOneAndUpdate(
-        { 
+        {
             _id: new mongoose.Types.ObjectId(offerId),
             restaurantId: new mongoose.Types.ObjectId(restaurantId),
             createdByRole: 'RESTAURANT'
