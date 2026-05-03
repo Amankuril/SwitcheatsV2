@@ -301,8 +301,8 @@ export default function DiningReservations() {
 
     const getStatusPriority = (status) => {
         const key = String(status || "").toLowerCase()
-        if (key === "confirmed") return 0
-        if (key === "accepted") return 1
+        if (key === "pending") return 0
+        if (key === "confirmed" || key === "accepted") return 1
         if (key === "checked-in") return 2
         if (key === "completed") return 3
         if (key === "cancelled") return 4
@@ -324,7 +324,8 @@ export default function DiningReservations() {
     }
 
     const isNewRequest = (booking) => {
-        if (String(booking?.status || "").toLowerCase() !== "confirmed") return false
+        const status = String(booking?.status || "").toLowerCase()
+        if (status !== "pending" && status !== "confirmed") return false
         const createdAt = new Date(booking?.createdAt || booking?.date || "").getTime()
         if (Number.isNaN(createdAt)) return true
         return Date.now() - createdAt <= 2 * 60 * 60 * 1000
@@ -455,7 +456,7 @@ export default function DiningReservations() {
                             <div>
                                 <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider">Active</p>
                                 <p className="text-3xl font-black text-slate-900 leading-none mt-1">
-                                    {bookings.filter(b => ['confirmed', 'accepted', 'checked-in'].includes(String(b.status || '').toLowerCase())).length}
+                                    {bookings.filter(b => ['pending', 'confirmed', 'accepted', 'checked-in'].includes(String(b.status || '').toLowerCase())).length}
                                 </p>
                             </div>
                         </div>
@@ -807,27 +808,29 @@ export default function DiningReservations() {
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center gap-2">
-                                                                <Badge className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${booking.status === 'confirmed' ? 'bg-amber-100 text-amber-700' :
-                                                                        booking.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
-                                                                            booking.status === 'checked-in' ? 'bg-orange-100 text-orange-700' :
-                                                                                booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                                                                                    'bg-rose-100 text-rose-700'
+                                                                <Badge className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                                                                    booking.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                                                        booking.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' :
+                                                                            booking.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                booking.status === 'checked-in' ? 'bg-orange-100 text-orange-700' :
+                                                                                    booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                                                                                        'bg-rose-100 text-rose-700'
                                                                     }`}>
-                                                                    {booking.status}
+                                                                    {booking.status === 'pending' ? 'Request' : booking.status}
                                                                 </Badge>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2">
-                                                                {booking.status === 'confirmed' && (
+                                                                {(booking.status === 'pending' || booking.status === 'confirmed') && (
                                                                     <button
-                                                                        onClick={() => handleStatusUpdate(booking._id, 'accepted')}
+                                                                        onClick={() => handleStatusUpdate(booking._id, 'confirmed')}
                                                                         className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                                                                     >
                                                                         Accept
                                                                     </button>
                                                                 )}
-                                                                {booking.status === 'confirmed' && (
+                                                                {(booking.status === 'pending' || booking.status === 'confirmed') && (
                                                                     <button
                                                                         onClick={() => handleStatusUpdate(booking._id, 'cancelled')}
                                                                         className="px-3 py-1.5 bg-white border border-rose-200 text-rose-600 text-xs font-bold rounded-lg hover:bg-rose-50 transition-colors"
@@ -890,13 +893,15 @@ export default function DiningReservations() {
                                                             <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">#{booking.bookingId}</p>
                                                         </div>
                                                     </div>
-                                                    <Badge className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${booking.status === 'confirmed' ? 'bg-amber-100 text-amber-700' :
-                                                            booking.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
-                                                                booking.status === 'checked-in' ? 'bg-orange-100 text-orange-700' :
-                                                                    booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                                                                        'bg-rose-100 text-rose-700'
+                                                    <Badge className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                                            booking.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                                                booking.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' :
+                                                                    booking.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
+                                                                        booking.status === 'checked-in' ? 'bg-orange-100 text-orange-700' :
+                                                                            booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                                                                                'bg-rose-100 text-rose-700'
                                                         }`}>
-                                                        {booking.status}
+                                                        {booking.status === 'pending' ? 'Request' : booking.status}
                                                     </Badge>
                                                 </div>
 
@@ -929,15 +934,15 @@ export default function DiningReservations() {
                                                 )}
 
                                                 <div className="flex items-center gap-2">
-                                                    {booking.status === 'confirmed' && (
+                                                    {(booking.status === 'pending' || booking.status === 'confirmed') && (
                                                         <button
-                                                            onClick={() => handleStatusUpdate(booking._id, 'accepted')}
+                                                            onClick={() => handleStatusUpdate(booking._id, 'confirmed')}
                                                             className="flex-1 py-2.5 bg-emerald-600 text-white text-xs font-black rounded-xl hover:bg-emerald-700 transition-colors uppercase tracking-widest"
                                                         >
                                                             Accept
                                                         </button>
                                                     )}
-                                                    {booking.status === 'confirmed' && (
+                                                    {(booking.status === 'pending' || booking.status === 'confirmed') && (
                                                         <button
                                                             onClick={() => handleStatusUpdate(booking._id, 'cancelled')}
                                                             className="flex-1 py-2.5 bg-slate-100 text-slate-600 text-xs font-black rounded-xl hover:bg-slate-200 transition-colors uppercase tracking-widest"

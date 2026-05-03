@@ -88,8 +88,8 @@ export default function MyBookings() {
 
     const getStatusLabel = (status) => {
         const key = String(status || "").toLowerCase()
-        if (key === "confirmed") return "Pending"
-        if (key === "accepted") return "Accepted"
+        if (key === "pending") return "Pending"
+        if (key === "confirmed" || key === "accepted") return "Confirmed"
         if (key === "checked-in") return "Checked-in"
         if (key === "completed") return "Completed"
         if (key === "cancelled") return "Cancelled"
@@ -98,8 +98,8 @@ export default function MyBookings() {
 
     const getStatusBadgeClass = (status) => {
         const key = String(status || "").toLowerCase()
-        if (key === "confirmed") return "bg-amber-100 text-amber-700"
-        if (key === "accepted") return "bg-green-100 text-green-700"
+        if (key === "pending") return "bg-amber-100 text-amber-700"
+        if (key === "confirmed" || key === "accepted") return "bg-green-100 text-green-700"
         if (key === "checked-in") return "bg-[#FFF2EB] text-[#EB590E]"
         if (key === "completed") return "bg-blue-100 text-blue-700"
         if (key === "cancelled") return "bg-red-100 text-red-700"

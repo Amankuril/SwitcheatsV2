@@ -115,7 +115,11 @@ router.patch('/availability', authMiddleware, requireRestaurant, async (req, res
 router.patch('/profile', authMiddleware, requireRestaurant, updateRestaurantProfileController);
 router.delete('/profile/account', authMiddleware, requireRestaurant, deleteCurrentRestaurantAccountController);
 router.patch('/availability', authMiddleware, requireRestaurant, updateRestaurantAcceptingOrdersController);
-router.patch('/dining-settings', authMiddleware, requireRestaurant, updateCurrentRestaurantDiningSettingsController);
+router.patch('/dining-settings', authMiddleware, requireRestaurant, async (req, res, next) => {
+    await invalidateCache('restaurants:*');
+    next();
+}, updateCurrentRestaurantDiningSettingsController);
+
 router.get('/outlet-timings', authMiddleware, requireRestaurant, getCurrentRestaurantOutletTimingsController);
 router.put('/outlet-timings', authMiddleware, requireRestaurant, upsertCurrentRestaurantOutletTimingsController);
 router.get('/finance', authMiddleware, requireRestaurant, getRestaurantFinanceController);

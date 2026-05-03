@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
-import { MapPin, Search, Mic, SlidersHorizontal, Star, X, ArrowDownUp, Timer, IndianRupee, Clock, Bookmark, UtensilsCrossed, ChevronDown, Bell, ShoppingCart, Wallet } from "lucide-react"
+import { ArrowLeft, MapPin, Search, Mic, SlidersHorizontal, Star, X, ArrowDownUp, Timer, IndianRupee, Clock, Bookmark, UtensilsCrossed, ChevronDown, Bell, ShoppingCart, Wallet, User, Calendar } from "lucide-react"
 import { Button } from "@food/components/ui/button"
 import { Input } from "@food/components/ui/input"
 import { Card, CardContent } from "@food/components/ui/card"
@@ -480,7 +480,7 @@ export default function Dining() {
   }, [heroSearch, openSearch, setSearchValue])
 
   return (
-    <AnimatedPage className="bg-white dark:bg-[#0a0a0a]" style={{ minHeight: '100vh', paddingBottom: '80px', overflow: 'visible' }}>
+    <AnimatedPage className="bg-white dark:bg-[#0a0a0a] pb-[140px] overflow-visible" style={{ minHeight: '100vh' }}>
       <style>{`
         @keyframes shimmer {
           100% {
@@ -490,12 +490,20 @@ export default function Dining() {
       `}</style>
       {/* Premium Glassmorphic Header Wrapper for Dining */}
       <div className="sticky top-0 z-50 w-full bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl shadow-sm border-b border-gray-100 dark:border-gray-900 md:hidden pb-3">
-        {/* Top Row: Location & Profile */}
+        {/* Top Row: Back, Location & Profile */}
         <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-          <div 
-            className="flex items-center gap-2 cursor-pointer group max-w-[70%]"
-            onClick={openLocationSelector}
-          >
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button 
+              onClick={() => navigate(-1)}
+              className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-100/80 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700 shadow-sm transition active:scale-90"
+            >
+              <ArrowLeft className="h-4 w-4 text-gray-700 dark:text-gray-300" strokeWidth={2.5} />
+            </button>
+
+            <div 
+              className="flex items-center gap-2 cursor-pointer group min-w-0"
+              onClick={openLocationSelector}
+            >
             <div className="bg-[#FA0272]/10 p-2 rounded-full border border-[#FA0272]/20">
               <MapPin className="h-[18px] w-[18px] text-[#FA0272]" />
             </div>
@@ -508,29 +516,20 @@ export default function Dining() {
                 {displayLocation}
               </span>
             </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-x-2 sm:gap-x-3">
-            {/* Wallet Action */}
-            <Link to="/user/wallet" className="flex items-center justify-center h-8 w-8 sm:h-[38px] sm:w-[38px] rounded-full bg-gray-100/80 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700 shadow-sm transition hover:bg-gray-200 active:scale-95">
-              <Wallet className="h-[15px] w-[15px] sm:h-[18px] sm:w-[18px] text-gray-800 dark:text-gray-200" strokeWidth={2} />
+            {/* Bookings Action */}
+            <Link to="/food/user/bookings" className="flex items-center justify-center h-8 w-8 sm:h-[38px] sm:w-[38px] rounded-full bg-gray-100/80 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700 shadow-sm transition hover:bg-gray-200 active:scale-95">
+              <Calendar className="h-[15px] w-[15px] sm:h-[18px] sm:w-[18px] text-gray-800 dark:text-gray-200" strokeWidth={2} />
             </Link>
 
-            {/* Cart Action */}
-            <Link to="/user/cart" className="flex items-center justify-center h-8 w-8 sm:h-[38px] sm:w-[38px] relative rounded-full bg-gray-100/80 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700 shadow-sm transition hover:bg-gray-200 active:scale-95">
-              <ShoppingCart className="h-[15px] w-[15px] sm:h-[18px] sm:w-[18px] text-gray-800 dark:text-gray-200" strokeWidth={2} />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-[16px] h-[16px] sm:w-[18px] sm:h-[18px] bg-[#EB590E] rounded-full flex items-center justify-center ring-2 ring-white dark:ring-[#0a0a0a]">
-                  <span className="text-[9px] font-bold text-white">{cartCount > 99 ? "99+" : cartCount}</span>
-                </span>
-              )}
-            </Link>
+
 
             {/* Minimalist Profile/Avatar */}
-            <Link to="/user/profile" className="relative group hover:scale-105 transition-transform ml-1">
-              <div className="h-8 w-8 sm:h-[38px] sm:w-[38px] rounded-full bg-gradient-to-tr from-[#FA0272] to-[#ffb800] p-[2px] shadow-sm">
-                <div className="h-full w-full rounded-full border-2 border-white dark:border-[#0a0a0a] overflow-hidden bg-[#FA0272]/10 backdrop-blur-sm" />
-              </div>
+            <Link to="/user/profile" className="flex items-center justify-center h-8 w-8 sm:h-[38px] sm:w-[38px] rounded-full bg-gray-100/80 dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700 shadow-sm transition hover:bg-gray-200 active:scale-95 ml-1">
+              <User className="h-[15px] w-[15px] sm:h-[18px] sm:w-[18px] text-gray-800 dark:text-gray-200" strokeWidth={2} />
             </Link>
           </div>
         </div>
@@ -574,7 +573,7 @@ export default function Dining() {
 
       {/* Banner Section */}
       <div
-        className="relative w-full px-3 sm:px-4 md:px-6 lg:px-8 pb-4 sm:pb-6 cursor-pointer"
+        className="relative w-full px-3 sm:px-4 md:px-6 lg:px-8 pt-4 pb-4 sm:pb-6 cursor-pointer"
         onClick={() => navigate('/user/dining/restaurants')}
       >
         <motion.div

@@ -2678,7 +2678,7 @@ export const diningAPI = {
       date: new Date(payload?.date || nowIso).toISOString(),
       timeSlot: String(payload?.timeSlot || "").trim(),
       specialRequest: String(payload?.specialRequest || "").trim(),
-      status: "confirmed",
+      status: "pending",
       createdAt: nowIso,
       updatedAt: nowIso,
     };

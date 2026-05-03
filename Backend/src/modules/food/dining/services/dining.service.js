@@ -337,10 +337,24 @@ export async function listDiningCategoriesPublic() {
 }
 
 export async function listDiningRestaurantsPublic(query = {}) {
-    const filter = { isEnabled: true };
     const categoryValue = String(query.category || '').trim();
     const cityValue = String(query.city || '').trim();
 
+    // 1. Build the base filter for FoodRestaurant
+    const restaurantFilter = {
+        'diningSettings.isEnabled': true,
+        status: 'approved'
+    };
+
+    // 2. Apply city filter if provided
+    if (cityValue) {
+        restaurantFilter.$or = [
+            { city: { $regex: cityValue, $options: 'i' } },
+            { 'location.city': { $regex: cityValue, $options: 'i' } }
+        ];
+    }
+
+    // 3. Apply category filter if provided
     if (categoryValue) {
         const category = await FoodDiningCategory.findOne({
             $or: [
@@ -348,39 +362,49 @@ export async function listDiningRestaurantsPublic(query = {}) {
                 { slug: categoryValue.toLowerCase() }
             ].filter(Boolean)
         }).lean();
+
         if (!category) {
             return [];
         }
-        filter.categoryIds = category._id;
+        restaurantFilter._id = { $in: category.restaurantIds || [] };
     }
 
-    const diningDocs = await FoodDiningRestaurant.find(filter)
-        .populate({
-            path: 'restaurantId',
-            select: 'restaurantName restaurantNameNormalized ownerName ownerPhone profileImage coverImages menuImages cuisines location area city status rating diningSettings estimatedDeliveryTime estimatedDeliveryTimeMinutes featuredDish featuredPrice offer openingTime closingTime openDays isAcceptingOrders costForTwo',
-            match: cityValue
-                ? {
-                    $or: [
-                        { city: { $regex: cityValue, $options: 'i' } },
-                        { 'location.city': { $regex: cityValue, $options: 'i' } }
-                    ]
-                }
-                : {}
-        })
-        .populate('categoryIds', 'name slug imageUrl')
+    // 4. Fetch restaurants
+    const restaurants = await FoodRestaurant.find(restaurantFilter)
+        .select('restaurantName restaurantNameNormalized ownerName ownerPhone profileImage coverImages menuImages cuisines location area city status rating diningSettings estimatedDeliveryTime estimatedDeliveryTimeMinutes featuredDish featuredPrice offer openingTime closingTime openDays isAcceptingOrders costForTwo pureVegRestaurant')
         .lean();
 
-    return diningDocs
-        .filter((doc) => doc.restaurantId)
-        .map((doc) => ({
-            ...doc.restaurantId,
-            restaurant: doc.restaurantId,
-            categories: doc.categoryIds || [],
+    if (restaurants.length === 0) {
+        return [];
+    }
+
+    const restaurantIds = restaurants.map(r => r._id);
+
+    // 5. Fetch dining metadata from FoodDiningRestaurant for these restaurants
+    const diningMetadata = await FoodDiningRestaurant.find({
+        restaurantId: { $in: restaurantIds }
+    })
+    .populate('categoryIds', 'name slug imageUrl')
+    .lean();
+
+    const metadataMap = new Map();
+    diningMetadata.forEach(m => {
+        metadataMap.set(String(m.restaurantId), m);
+    });
+
+    // 6. Map combined results
+    return restaurants.map((r) => {
+        const meta = metadataMap.get(String(r._id));
+        return {
+            ...r,
+            restaurant: r,
+            categories: meta?.categoryIds || [],
             diningSettings: {
                 isEnabled: true,
-                maxGuests: Math.max(1, Number(doc.maxGuests) || 6),
-                pureVegRestaurant: doc.pureVegRestaurant === true || doc.restaurantId?.pureVegRestaurant === true,
-                diningType: doc.categoryIds?.[0]?.slug || doc.restaurantId?.diningSettings?.diningType || ''
+                maxGuests: Math.max(1, Number(meta?.maxGuests || r.diningSettings?.maxGuests) || 6),
+                pureVegRestaurant: r.pureVegRestaurant === true || meta?.pureVegRestaurant === true,
+                diningType: meta?.categoryIds?.[0]?.slug || r.diningSettings?.diningType || 'family-dining'
             }
-        }));
+        };
+    });
 }

@@ -57,8 +57,8 @@ export default function TableBookingSuccess() {
                 transition={{ delay: 0.2 }}
                 className="text-center space-y-2 mb-10"
             >
-                <h1 className="text-3xl font-black text-gray-900">Seat Confirmed!</h1>
-                <p className="text-gray-500 font-medium tracking-wide italic">Your table is ready for you</p>
+                <h1 className="text-3xl font-black text-gray-900">Table is Booked!</h1>
+                <p className="text-gray-500 font-medium tracking-wide italic">Restaurant will confirm your request soon</p>
                 <div className="pt-2">
                     <span className="bg-[#FFF2EB] text-[#EB590E] px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest border border-[#EB590E]/20">
                         BOOKING ID: {booking.bookingId}
@@ -126,8 +126,8 @@ export default function TableBookingSuccess() {
                         </div>
                         <div className="space-y-1">
                             <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Status</p>
-                            <div className="bg-[#EB590E] text-white px-2 py-0.5 rounded-lg text-xs font-bold w-fit">
-                                CONFIRMED
+                            <div className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-lg text-xs font-bold w-fit">
+                                PENDING
                             </div>
                         </div>
                     </div>
@@ -165,7 +165,7 @@ export default function TableBookingSuccess() {
                 </Button>
             </motion.div>
 
-            <p className="fixed bottom-10 text-[10px] font-bold text-slate-300 uppercase tracking-widest px-10 text-center">
+            <p className="mt-8 text-[10px] font-bold text-slate-300 uppercase tracking-widest px-10 text-center">
                 Show this ticket at the restaurant for a smooth entry
             </p>
         </AnimatedPage>
