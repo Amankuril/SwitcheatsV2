@@ -76,15 +76,11 @@ const buildFormDataFromProfile = (profile = {}) => ({
   mobile: normalizePhoneToTenDigits(profile.mobile || profile.phone || ""),
   email: profile.email || "",
   dateOfBirth: profile.dateOfBirth
-    ? (typeof profile.dateOfBirth === 'string'
-      ? dayjs(profile.dateOfBirth)
-      : dayjs(profile.dateOfBirth))
-    : null,
+    ? dayjs(profile.dateOfBirth).format('YYYY-MM-DD')
+    : "",
   anniversary: profile.anniversary
-    ? (typeof profile.anniversary === 'string'
-      ? dayjs(profile.anniversary)
-      : dayjs(profile.anniversary))
-    : null,
+    ? dayjs(profile.anniversary).format('YYYY-MM-DD')
+    : "",
   gender: profile.gender || "",
 })
 
@@ -165,8 +161,8 @@ export default function EditProfile() {
       mobile: formData.mobile,
       email: formData.email,
       profileImage,
-      dateOfBirth: formData.dateOfBirth ? formData.dateOfBirth.format('YYYY-MM-DD') : null,
-      anniversary: formData.anniversary ? formData.anniversary.format('YYYY-MM-DD') : null,
+      dateOfBirth: formData.dateOfBirth || null,
+      anniversary: formData.anniversary || null,
       gender: formData.gender || "",
     })
   }, [formData, profileImage])
@@ -271,8 +267,8 @@ export default function EditProfile() {
           phone: formData.mobile,
           mobile: formData.mobile,
           email: formData.email,
-          dateOfBirth: formData.dateOfBirth ? formData.dateOfBirth.format('YYYY-MM-DD') : null,
-          anniversary: formData.anniversary ? formData.anniversary.format('YYYY-MM-DD') : null,
+          dateOfBirth: formData.dateOfBirth || null,
+          anniversary: formData.anniversary || null,
           gender: formData.gender || "",
           profileImage: imageUrl,
         }
@@ -337,8 +333,8 @@ export default function EditProfile() {
         name: formData.name,
         email: formData.email || undefined,
         phone: formData.mobile || undefined,
-        dateOfBirth: formData.dateOfBirth ? formData.dateOfBirth.format('YYYY-MM-DD') : undefined,
-        anniversary: formData.anniversary ? formData.anniversary.format('YYYY-MM-DD') : undefined,
+        dateOfBirth: formData.dateOfBirth || undefined,
+        anniversary: formData.anniversary || undefined,
         gender: formData.gender || undefined,
         profileImage: profileImage || undefined, // Include profileImage in update
       }
@@ -362,8 +358,8 @@ export default function EditProfile() {
           mobile: updatedUser.phone || formData.mobile,
           email: updatedUser.email || formData.email,
           profileImage: updatedUser.profileImage || profileImage,
-          dateOfBirth: updatedUser.dateOfBirth || formData.dateOfBirth?.format('YYYY-MM-DD'),
-          anniversary: updatedUser.anniversary || formData.anniversary?.format('YYYY-MM-DD'),
+          dateOfBirth: updatedUser.dateOfBirth || formData.dateOfBirth,
+          anniversary: updatedUser.anniversary || formData.anniversary,
           gender: updatedUser.gender || formData.gender,
         })
         clearEditProfileDraft()
@@ -521,38 +517,16 @@ export default function EditProfile() {
               <Label htmlFor="dateOfBirth" className="text-sm font-medium text-gray-700 dark:text-white">
                 Date of birth
               </Label>
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
+              <div className="flex items-center gap-2">
+                <Input
+                  id="dateOfBirth"
+                  type="date"
                   value={formData.dateOfBirth}
-                  onChange={(newValue) => handleChange('dateOfBirth', newValue)}
-                  maxDate={dayjs()}
-                  slotProps={{
-                    textField: {
-                      className: "w-full",
-                      sx: {
-                        '& .MuiOutlinedInput-root': {
-                          height: '48px',
-                          borderRadius: '8px',
-                          '& fieldset': {
-                            borderColor: '#d1d5db',
-                          },
-                          '&:hover fieldset': {
-                            borderColor: '#9ca3af',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#EB590E',
-                            borderWidth: '1px',
-                          },
-                        },
-                        '& .MuiInputBase-input': {
-                          padding: '12px 14px',
-                          fontSize: '16px',
-                        },
-                      },
-                    },
-                  }}
+                  onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                  max={dayjs().format('YYYY-MM-DD')}
+                  className="flex-1 h-12 text-base border border-gray-300 dark:border-gray-700 focus:border-[#EB590E] focus:ring-1 focus:ring-[#EB590E] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white [&::-webkit-calendar-picker-indicator]:dark:invert"
                 />
-              </LocalizationProvider>
+              </div>
               {fieldErrors.dateOfBirth && (
                 <p className="text-xs text-red-600">{fieldErrors.dateOfBirth}</p>
               )}
@@ -563,37 +537,16 @@ export default function EditProfile() {
               <Label htmlFor="anniversary" className="text-sm font-medium text-gray-700 dark:text-white">
                 Anniversary <span className="text-gray-400 dark:text-gray-500 font-normal">(Optional)</span>
               </Label>
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
+              <div className="flex items-center gap-2">
+                <Input
+                  id="anniversary"
+                  type="date"
                   value={formData.anniversary}
-                  onChange={(newValue) => handleChange('anniversary', newValue)}
-                  slotProps={{
-                    textField: {
-                      className: "w-full",
-                      sx: {
-                        '& .MuiOutlinedInput-root': {
-                          height: '48px',
-                          borderRadius: '8px',
-                          '& fieldset': {
-                            borderColor: '#d1d5db',
-                          },
-                          '&:hover fieldset': {
-                            borderColor: '#9ca3af',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#EB590E',
-                            borderWidth: '1px',
-                          },
-                        },
-                        '& .MuiInputBase-input': {
-                          padding: '12px 14px',
-                          fontSize: '16px',
-                        },
-                      },
-                    },
-                  }}
+                  onChange={(e) => handleChange('anniversary', e.target.value)}
+                  max={dayjs().format('YYYY-MM-DD')}
+                  className="flex-1 h-12 text-base border border-gray-300 dark:border-gray-700 focus:border-[#EB590E] focus:ring-1 focus:ring-[#EB590E] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white [&::-webkit-calendar-picker-indicator]:dark:invert"
                 />
-              </LocalizationProvider>
+              </div>
             </div>
 
             {/* Gender Field */}
