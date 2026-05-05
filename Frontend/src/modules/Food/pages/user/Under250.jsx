@@ -985,7 +985,7 @@ export default function Under250() {
 
   return (
 
-    <div className={`relative min-h-screen bg-white dark:bg-[#0a0a0a] ${shouldShowGrayscale ? 'grayscale opacity-75' : ''}`}>
+    <div className={`relative min-h-screen bg-white dark:bg-[#0a0a0a]`}>
       {/* Premium Glassmorphic Header Wrapper (Replica of Dining) */}
       <div className="sticky top-0 z-50 w-full bg-white/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl shadow-sm border-b border-gray-100 dark:border-gray-900 md:hidden">
         {/* Top Row: Location & Profile */}
