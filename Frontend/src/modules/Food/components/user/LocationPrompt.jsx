@@ -5,6 +5,7 @@ import { Button } from "@food/components/ui/button"
 import { useLocation } from "@food/hooks/useLocation"
 
 export default function LocationPrompt() {
+  return null;
   const { location, loading, permissionGranted, requestLocation } = useLocation()
   const [showPrompt, setShowPrompt] = useState(false)
   const cardRef = useRef(null)
