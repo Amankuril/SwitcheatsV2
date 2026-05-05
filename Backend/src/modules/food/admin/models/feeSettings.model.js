@@ -4,7 +4,9 @@ const deliveryFeeRangeSchema = new mongoose.Schema(
     {
         min: { type: Number, required: true, min: 0 },
         max: { type: Number, required: true, min: 0 },
-        fee: { type: Number, required: true, min: 0 }
+        fee: { type: Number, required: true, min: 0 },
+        deliveryBoyPerKm: { type: Number, min: 0, default: 0 },
+        deliveryBoyBasePay: { type: Number, min: 0, default: 0 }
     },
     { _id: false }
 );

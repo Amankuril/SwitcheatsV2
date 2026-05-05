@@ -4,7 +4,9 @@ import { ValidationError } from '../../../../core/auth/errors.js';
 const rangeSchema = z.object({
     min: z.number().min(0),
     max: z.number().min(0),
-    fee: z.number().min(0)
+    fee: z.number().min(0),
+    deliveryBoyPerKm: z.number().min(0).optional().default(0),
+    deliveryBoyBasePay: z.number().min(0).optional().default(0)
 });
 
 const feeSettingsUpsertSchema = z.object({
@@ -28,7 +30,9 @@ export const validateFeeSettingsUpsertDto = (body) => {
             ? body.deliveryFeeRanges.map((r) => ({
                 min: Number(r?.min),
                 max: Number(r?.max),
-                fee: Number(r?.fee)
+                fee: Number(r?.fee),
+                deliveryBoyPerKm: Number(r?.deliveryBoyPerKm || 0),
+                deliveryBoyBasePay: Number(r?.deliveryBoyBasePay || 0)
             }))
             : undefined,
         freeDeliveryThreshold:

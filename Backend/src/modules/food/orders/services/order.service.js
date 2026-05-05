@@ -79,33 +79,74 @@ async function getActiveCommissionRules() {
 
 async function getRiderEarning(distanceKm) {
   const d = Number(distanceKm);
-  if (!Number.isFinite(d) || d <= 0) return 0;
-  const rules = await getActiveCommissionRules();
-  if (!rules.length) return 0;
+  console.log(`[DEBUG] getRiderEarning - Calculated Distance: ${d}`);
+  if (!Number.isFinite(d) || d < 0) {
+    console.log(`[DEBUG] getRiderEarning - Invalid distance, returning 0`);
+    return 0;
+  }
 
-  const sorted = [...rules].sort(
-    (a, b) => (a.minDistance || 0) - (b.minDistance || 0),
-  );
-  const baseRule = sorted.find((r) => Number(r.minDistance || 0) === 0) || null;
-  if (!baseRule) return 0;
+  // Fetch fee settings to get distance-based delivery boy payment ranges
+  const feeDoc = await FoodFeeSettings.findOne().sort({ createdAt: -1 }).lean();
+  if (!feeDoc) {
+    console.log(`[DEBUG] getRiderEarning - No fee settings document found`);
+    return 0;
+  }
 
-  let earning = Number(baseRule.basePayout || 0);
+  console.log(`[DEBUG] getRiderEarning - Fee Settings Doc:`, JSON.stringify({
+    _id: feeDoc._id,
+    deliveryFee: feeDoc.deliveryFee,
+    rangesCount: feeDoc.deliveryFeeRanges?.length
+  }));
 
-  for (const r of sorted) {
-    const perKm = Number(r.commissionPerKm || 0);
-    if (!Number.isFinite(perKm) || perKm <= 0) continue;
-    const min = Number(r.minDistance || 0);
-    const max = r.maxDistance == null ? null : Number(r.maxDistance);
-    if (d <= min) continue;
-    const upper = max == null ? d : Math.min(d, max);
-    const kmInSlab = Math.max(0, upper - min);
-    if (kmInSlab > 0) {
-      earning += kmInSlab * perKm;
+  if (!Array.isArray(feeDoc.deliveryFeeRanges) || feeDoc.deliveryFeeRanges.length === 0) {
+    console.log(`[DEBUG] getRiderEarning - No ranges found in document`);
+    return 0;
+  }
+
+  const ranges = [...feeDoc.deliveryFeeRanges].sort((a, b) => Number(a.min) - Number(b.min));
+  
+  let earning = 0;
+  let matched = false;
+
+  for (let i = 0; i < ranges.length; i++) {
+    const r = ranges[i];
+    const min = Number(r.min);
+    const max = Number(r.max);
+    
+    const isLast = i === ranges.length - 1;
+    const inRange = isLast
+      ? d >= min && d <= max
+      : d >= min && d < max;
+
+    if (inRange) {
+      console.log(`[DEBUG] getRiderEarning - Matched range: ${min}-${max}`);
+      console.log(`[DEBUG] getRiderEarning - Range Config:`, JSON.stringify(r));
+      
+      const basePay = Number(r.deliveryBoyBasePay || 0);
+      const perKm = Number(r.deliveryBoyPerKm || 0);
+
+      if (basePay > 0) {
+        earning = basePay;
+        console.log(`[DEBUG] getRiderEarning - Using Base Pay: ${earning}`);
+      } else if (perKm > 0) {
+        earning = d * perKm;
+        console.log(`[DEBUG] getRiderEarning - Using Per KM: ${d} * ${perKm} = ${earning}`);
+      } else {
+        console.log(`[DEBUG] getRiderEarning - No rider payment config (> 0) in matched range`);
+      }
+      matched = true;
+      break;
     }
   }
 
-  if (!Number.isFinite(earning) || earning <= 0) return 0;
-  return Math.round(earning);
+  if (!matched) {
+    console.log(`[DEBUG] getRiderEarning - No range matched for distance ${d}`);
+    return 0;
+  }
+
+  const finalEarning = Math.round(earning);
+  console.log(`[DEBUG] getRiderEarning - Final earning: ${finalEarning}`);
+  return finalEarning;
 }
 
 /** Append-only food_order_payments row; never blocks main flow on failure */
