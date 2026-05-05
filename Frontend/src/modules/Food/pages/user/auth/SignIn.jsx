@@ -206,8 +206,10 @@ export default function SignIn() {
 
           <footer className="mt-auto pt-10 text-center">
             <p className="text-[10px] text-zinc-400 dark:text-zinc-600 font-medium tracking-wide uppercase">
-              By joining, you agree to our<br />
-              <span className="text-[#FA0272] font-black">Terms of Service</span> & <span className="text-[#FA0272] font-black">Privacy Policy</span>
+              By joining, you agree to our policies
+            </p>
+            <p className="text-[10px] text-zinc-300 dark:text-zinc-700 font-bold mt-2 uppercase tracking-widest">
+              <Link to="/food/user/profile/terms" className="hover:text-[#FA0272]">Terms</Link> • <Link to="/food/user/profile/privacy" className="hover:text-[#FA0272]">Privacy</Link> • <Link to="/food/user/profile/help-content" className="hover:text-[#FA0272]">Support</Link>
             </p>
           </footer>
         </div>

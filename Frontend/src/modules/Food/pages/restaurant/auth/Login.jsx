@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 import { ShieldCheck, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@food/components/ui/button"
 import { restaurantAPI } from "@food/api"
@@ -186,6 +186,9 @@ export default function RestaurantLogin() {
             <p className="text-[10px] text-zinc-400 dark:text-zinc-600 font-medium leading-relaxed uppercase tracking-wide">
               Secure partner login powered by<br />
               <span className="text-[#FF5F00] font-black">{companyName} Network</span>
+            </p>
+            <p className="text-[10px] text-zinc-300 dark:text-zinc-700 font-bold mt-2 uppercase tracking-widest">
+              <Link to="/food/restaurant/terms" className="hover:text-[#FF5F00]">Terms</Link> • <Link to="/food/restaurant/privacy" className="hover:text-[#FF5F00]">Privacy</Link> • <Link to="/food/restaurant/help-content" className="hover:text-[#FF5F00]">Support</Link>
             </p>
           </footer>
         </div>

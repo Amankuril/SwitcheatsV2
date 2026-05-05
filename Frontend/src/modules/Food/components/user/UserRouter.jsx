@@ -64,6 +64,7 @@ const Coupons = lazy(() => import("@food/pages/user/profile/Coupons"))
 const About = lazy(() => import("@food/pages/user/profile/About"))
 const Terms = lazy(() => import("@food/pages/user/profile/Terms"))
 const Privacy = lazy(() => import("@food/pages/user/profile/Privacy"))
+const CMSHelpSupport = lazy(() => import("@food/pages/user/profile/CMSHelpSupport"))
 const Refund = lazy(() => import("@food/pages/user/profile/Refund"))
 const Shipping = lazy(() => import("@food/pages/user/profile/Shipping"))
 const Cancellation = lazy(() => import("@food/pages/user/profile/Cancellation"))
@@ -286,6 +287,7 @@ export default function UserRouter() {
           {/* Public Legal Policies (stay public) */}
           <Route path="profile/terms" element={<Terms />} />
           <Route path="profile/privacy" element={<Privacy />} />
+<Route path="profile/help-content" element={<CMSHelpSupport />} />
           <Route path="profile/refund" element={<Refund />} />
           <Route path="profile/shipping" element={<Shipping />} />
           <Route path="profile/cancellation" element={<Cancellation />} />

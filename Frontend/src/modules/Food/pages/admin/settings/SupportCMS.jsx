@@ -4,53 +4,55 @@ import api from "@food/api"
 import { API_ENDPOINTS } from "@food/api/config"
 import { Textarea } from "@food/components/ui/textarea"
 import { legalHtmlToPlainText, plainTextToLegalHtml } from "@food/utils/legalContentFormat"
-const debugLog = (...args) => {}
-const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
-
-export default function PrivacyPolicy() {
+export default function SupportCMS() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [viewMode, setViewMode] = useState("edit") // "edit" | "preview"
   const [selectedModule, setSelectedModule] = useState("USER")
-  const [privacyData, setPrivacyData] = useState({
-    title: 'Privacy Policy',
-    content: ''
+  const [supportData, setSupportData] = useState({
+    title: 'Help & Support',
+    content: '',
+    email: '',
+    mobile: ''
   })
 
   useEffect(() => {
-    fetchPrivacyData()
+    fetchSupportData()
   }, [selectedModule])
 
-  const fetchPrivacyData = async () => {
+  const fetchSupportData = async () => {
     try {
       setLoading(true)
-      const response = await api.get(`${API_ENDPOINTS.ADMIN.PRIVACY}?module=${selectedModule}`, { contextModule: "admin" })
+      const response = await api.get(`${API_ENDPOINTS.ADMIN.SUPPORT}?module=${selectedModule}`, { contextModule: "admin" })
       if (response.data.success && response.data.data) {
         // Convert HTML to plain text for textarea
         const content = response.data.data.content || ''
         const textContent = legalHtmlToPlainText(content)
-        setPrivacyData({
+        setSupportData({
           ...response.data.data,
           content: textContent
         })
       } else {
-        setPrivacyData({
-          title: 'Privacy Policy',
-          content: ''
+        setSupportData({
+          title: 'Help & Support',
+          content: '',
+          email: '',
+          mobile: ''
         })
       }
     } catch (error) {
-      debugError('Error fetching privacy data:', error)
-      // If 404, just clear the data
+      debugError('Error fetching support data:', error)
       if (error.response?.status === 404) {
-        setPrivacyData({
-          title: 'Privacy Policy',
-          content: ''
+        setSupportData({
+          title: 'Help & Support',
+          content: '',
+          email: '',
+          mobile: ''
         })
       } else {
-        toast.error('Failed to load privacy policy')
+        toast.error('Failed to load support content')
       }
     } finally {
       setLoading(false)
@@ -62,30 +64,32 @@ export default function PrivacyPolicy() {
     try {
       setSaving(true)
       // Convert plain text/markdown to HTML for storage + user rendering
-      const htmlContent = plainTextToLegalHtml(privacyData.content)
+      const htmlContent = plainTextToLegalHtml(supportData.content)
       
       const response = await api.put(
-        API_ENDPOINTS.ADMIN.PRIVACY,
+        API_ENDPOINTS.ADMIN.SUPPORT,
         { 
-          title: privacyData.title, 
+          title: supportData.title, 
           content: htmlContent,
+          email: supportData.email,
+          mobile: supportData.mobile,
           module: selectedModule
         },
         { contextModule: "admin" }
       )
       if (response.data.success) {
-        toast.success('Privacy policy updated successfully')
+        toast.success('Support content updated successfully')
         // Convert HTML to plain text for display in textarea
         const content = response.data.data.content || ''
         const textContent = legalHtmlToPlainText(content)
-        setPrivacyData({
+        setSupportData({
           ...response.data.data,
           content: textContent
         })
       }
     } catch (error) {
-      debugError('Error saving privacy policy:', error)
-      toast.error(error.response?.data?.message || 'Failed to save privacy policy')
+      debugError('Error saving support:', error)
+      toast.error(error.response?.data?.message || 'Failed to save support content')
     } finally {
       setSaving(false)
     }
@@ -108,8 +112,8 @@ export default function PrivacyPolicy() {
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Privacy Policy</h1>
-            <p className="text-sm text-slate-600 mt-1">Manage module-specific Privacy Policy content</p>
+            <h1 className="text-2xl font-bold text-slate-900">Help & Support</h1>
+            <p className="text-sm text-slate-600 mt-1">Manage module-specific Help & Support content</p>
           </div>
           
           <div className="flex items-center gap-3">
@@ -127,12 +131,40 @@ export default function PrivacyPolicy() {
             </select>
           </div>
         </div>
+        {/* Contact Info Inputs */}
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Contact Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label htmlFor="support-email" className="text-sm font-medium text-slate-700">Support Email</label>
+              <input
+                id="support-email"
+                type="email"
+                value={supportData.email || ""}
+                onChange={(e) => setSupportData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="support@example.com"
+                className="bg-white border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="support-mobile" className="text-sm font-medium text-slate-700">Support Mobile</label>
+              <input
+                id="support-mobile"
+                type="text"
+                value={supportData.mobile || ""}
+                onChange={(e) => setSupportData(prev => ({ ...prev, mobile: e.target.value }))}
+                placeholder="+91 00000 00000"
+                className="bg-white border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 outline-none"
+              />
+            </div>
+          </div>
+        </div>
 
         {/* Text Area */}
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="text-sm text-slate-600">
-              Editing Privacy Policy for <span className="font-semibold text-blue-600">{selectedModule}</span>
+              Editing Support Content for <span className="font-semibold text-blue-600">{selectedModule}</span>
             </div>
             <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
               <button
@@ -154,9 +186,9 @@ export default function PrivacyPolicy() {
 
           {viewMode === "edit" ? (
             <Textarea
-              value={privacyData.content}
-              onChange={(e) => setPrivacyData(prev => ({ ...prev, content: e.target.value }))}
-              placeholder={`Enter privacy policy content for ${selectedModule}...`}
+              value={supportData.content}
+              onChange={(e) => setSupportData(prev => ({ ...prev, content: e.target.value }))}
+              placeholder={`Enter help & support content for ${selectedModule}...`}
               className="min-h-[600px] w-full text-sm text-slate-700 leading-relaxed resize-y"
               dir="ltr"
               style={{
@@ -177,7 +209,7 @@ export default function PrivacyPolicy() {
                   prose-ul:text-slate-700
                   prose-li:my-1
                   leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: plainTextToLegalHtml(privacyData.content) }}
+                dangerouslySetInnerHTML={{ __html: plainTextToLegalHtml(supportData.content) }}
               />
             </div>
           )}
@@ -191,7 +223,7 @@ export default function PrivacyPolicy() {
             disabled={saving}
             className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? 'Saving...' : `Save ${selectedModule} Privacy Policy`}
+            {saving ? 'Saving...' : `Save ${selectedModule} Support Content`}
           </button>
         </div>
       </div>

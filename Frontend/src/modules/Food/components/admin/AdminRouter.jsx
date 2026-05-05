@@ -103,6 +103,8 @@ const RefundPolicy = lazy(() => import("@food/pages/admin/settings/RefundPolicy"
 const ShippingPolicy = lazy(() => import("@food/pages/admin/settings/ShippingPolicy"));
 const CancellationPolicy = lazy(() => import("@food/pages/admin/settings/CancellationPolicy"));
 const ReactRegistration = lazy(() => import("@food/pages/admin/settings/ReactRegistration"));
+const SupportCMS = lazy(() => import("@food/pages/admin/settings/SupportCMS"));
+
 // System Settings
 const ThirdParty = lazy(() => import("@food/pages/admin/system/ThirdParty"));
 const FirebaseNotification = lazy(() => import("@food/pages/admin/system/FirebaseNotification"));
@@ -128,14 +130,13 @@ const AdminSignup = lazy(() => import("@food/pages/admin/auth/AdminSignup"));
 const AdminForgotPassword = lazy(() => import("@food/pages/admin/auth/AdminForgotPassword"));
 
 export default function AdminRouter() {
-
   // Safely enforce light mode for the Admin app to prevent User dark mode bleeding
   useEffect(() => {
-    document.documentElement.classList.remove('dark');
+    document.documentElement.classList.remove("dark");
     return () => {
-      const savedTheme = localStorage.getItem('appTheme') || 'light';
-      if (savedTheme === 'dark') {
-        document.documentElement.classList.add('dark');
+      const savedTheme = localStorage.getItem("appTheme") || "light";
+      if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark");
       }
     };
   }, []);
@@ -143,8 +144,7 @@ export default function AdminRouter() {
   return (
     <Suspense fallback={<Loader />}>
       <Routes>
-        {/* Protected Routes - With Layout */}
-        {/* Admin Login - Same as earlier */}
+        {/* Admin Auth Routes */}
         <Route path="login" element={<AuthRedirect module="admin"><AdminLogin /></AuthRedirect>} />
         <Route path="forgot-password" element={<AuthRedirect module="admin"><AdminForgotPassword /></AuthRedirect>} />
         <Route path="signup" element={<AuthRedirect module="admin"><AdminSignup /></AuthRedirect>} />
@@ -171,7 +171,6 @@ export default function AdminRouter() {
             <Route path="orders/all" element={<OrdersPage statusKey="all" />} />
             <Route path="orders/scheduled" element={<OrdersPage statusKey="scheduled" />} />
             <Route path="orders/pending" element={<OrdersPage statusKey="pending" />} />
-            {/* ... other order routes ... */}
             <Route path="orders/accepted" element={<OrdersPage statusKey="accepted" />} />
             <Route path="orders/processing" element={<OrdersPage statusKey="processing" />} />
             <Route path="orders/food-on-the-way" element={<OrdersPage statusKey="food-on-the-way" />} />
@@ -248,7 +247,6 @@ export default function AdminRouter() {
             <Route path="delivery-partners/earning-addon-history" element={<EarningAddonHistory />} />
             <Route path="delivery-partners/earnings" element={<DeliveryEarnings />} />
 
-
             {/* REPORTS & SETTINGS */}
             <Route path="transaction-report" element={<TransactionReport />} />
             <Route path="expense-report" element={<ExpenseReport />} />
@@ -274,16 +272,17 @@ export default function AdminRouter() {
             <Route path="theme-settings" element={<ThemeSettings />} />
             <Route path="gallery" element={<Gallery />} />
             <Route path="login-setup" element={<LoginSetup />} />
-            <Route path="business-settings/fcm-index" element={<FirebaseNotification />} />
+            
+            {/* PAGES & SOCIAL MEDIA */}
             <Route path="pages-social-media/terms" element={<TermsAndCondition />} />
             <Route path="pages-social-media/privacy" element={<PrivacyPolicy />} />
+            <Route path="pages-social-media/support" element={<SupportCMS />} />
             <Route path="pages-social-media/about" element={<AboutUs />} />
             <Route path="pages-social-media/refund" element={<RefundPolicy />} />
             <Route path="pages-social-media/shipping" element={<ShippingPolicy />} />
             <Route path="pages-social-media/cancellation" element={<CancellationPolicy />} />
             <Route path="pages-social-media/react-registration" element={<ReactRegistration />} />
-            
-            <Route path="3rd-party-configurations/party" element={<ThirdParty />} />
+
             <Route path="3rd-party-configurations/firebase" element={<FirebaseNotification />} />
             <Route path="3rd-party-configurations/offline-payment" element={<OfflinePaymentSetup />} />
             <Route path="3rd-party-configurations/join-us" element={<JoinUsPageSetup />} />

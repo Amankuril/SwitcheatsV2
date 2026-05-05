@@ -1,12 +1,12 @@
-import DeliveryCMSPage from "./DeliveryCMSPage"
+import RestaurantCMSPage from "./RestaurantCMSPage"
 import { API_ENDPOINTS } from "@food/api/config"
 
-export default function PrivacyPolicyV2() {
+export default function RestaurantPrivacy() {
   return (
-    <DeliveryCMSPage 
+    <RestaurantCMSPage 
       endpoint={API_ENDPOINTS.ADMIN.PRIVACY_PUBLIC} 
       title="Privacy Policy" 
-      module="DELIVERY"
+      module="RESTAURANT"
     />
   )
 }
