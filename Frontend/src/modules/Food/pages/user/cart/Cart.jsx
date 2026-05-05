@@ -79,6 +79,18 @@ const RUPEE_SYMBOL = "\u20B9"
 const CART_RECIPIENT_DETAILS_STORAGE_KEY = "food-cart-recipient-details-v1"
 const CART_ORDER_NOTE_STORAGE_KEY = "food-cart-order-note-v1"
 
+const haversineKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
 export default function Cart() {
   const companyName = useCompanyName()
   const navigate = useNavigate()
@@ -217,11 +229,11 @@ export default function Cart() {
 
   // Fee settings from database (used for platform fee and GST fallback only)
   const [feeSettings, setFeeSettings] = useState({
-    deliveryFee: 25,
+    deliveryFee: 0,
     deliveryFeeRanges: [],
-    freeDeliveryThreshold: 149,
-    platformFee: 5,
-    gstRate: 5,
+    freeDeliveryThreshold: 999999,
+    platformFee: 0,
+    gstRate: 0,
   })
 
 
@@ -956,9 +968,9 @@ export default function Cart() {
           setFeeSettings({
             deliveryFee: response.data.data.feeSettings.deliveryFee ?? 25,
             deliveryFeeRanges: response.data.data.feeSettings.deliveryFeeRanges || [],
-            freeDeliveryThreshold: response.data.data.feeSettings.freeDeliveryThreshold ?? 149,
-            platformFee: response.data.data.feeSettings.platformFee ?? 5,
-            gstRate: response.data.data.feeSettings.gstRate ?? 5,
+            freeDeliveryThreshold: response.data.data.feeSettings.freeDeliveryThreshold ?? 999999,
+            platformFee: response.data.data.feeSettings.platformFee ?? 0,
+            gstRate: response.data.data.feeSettings.gstRate ?? 0,
           })
         }
       } catch (error) {
@@ -989,28 +1001,43 @@ export default function Cart() {
     }
 
     const ranges = Array.isArray(feeSettings.deliveryFeeRanges) ? [...feeSettings.deliveryFeeRanges] : []
+    
+    // Priority 1: Distance-based ranges
     if (ranges.length > 0) {
-      const sortedRanges = ranges.sort((a, b) => Number(a.min) - Number(b.min))
-      for (let i = 0; i < sortedRanges.length; i += 1) {
-        const range = sortedRanges[i]
-        const min = Number(range.min)
-        const max = Number(range.max)
-        const fee = Number(range.fee)
-        const isLastRange = i === sortedRanges.length - 1
-        const inRange = isLastRange
-          ? subtotal >= min && subtotal <= max
-          : subtotal >= min && subtotal < max
-
-        if (inRange) return fee
+      let distanceKm = null
+      if (
+        restaurantData?.location?.coordinates?.length === 2 &&
+        defaultAddress?.location?.coordinates?.length === 2
+      ) {
+        const [rLng, rLat] = restaurantData.location.coordinates
+        const [dLng, dLat] = defaultAddress.location.coordinates
+        distanceKm = haversineKm(rLat, rLng, dLat, dLng)
       }
 
+      if (Number.isFinite(distanceKm)) {
+        const sortedRanges = ranges.sort((a, b) => Number(a.min) - Number(b.min))
+        for (let i = 0; i < sortedRanges.length; i += 1) {
+          const range = sortedRanges[i]
+          const min = Number(range.min)
+          const max = Number(range.max)
+          const fee = Number(range.fee)
+          const isLastRange = i === sortedRanges.length - 1
+          const inRange = isLastRange
+            ? distanceKm >= min && distanceKm <= max
+            : distanceKm >= min && distanceKm < max
+
+          if (inRange) return fee
+        }
+      }
+    }
+
+    // Priority 2: Free Delivery Threshold (Only if explicitly set > 0)
+    const threshold = Number(feeSettings.freeDeliveryThreshold)
+    if (Number.isFinite(threshold) && threshold > 0 && subtotal >= threshold) {
       return 0
     }
 
-    if (subtotal >= feeSettings.freeDeliveryThreshold) {
-      return 0
-    }
-
+    // Priority 3: Default Base Fee
     return Number(feeSettings.deliveryFee || 0)
   })()
   const deliveryFee = pricing?.deliveryFee || fallbackDeliveryFee
@@ -1019,7 +1046,7 @@ export default function Cart() {
     deliveryFeeBreakdown?.source === "distance" &&
     Number.isFinite(Number(deliveryFeeBreakdown?.distanceKm))
   const deliveryFeeBreakdownText = hasDistanceDeliveryBreakdown
-    ? `Distance ${Number(deliveryFeeBreakdown.distanceKm).toFixed(1)} km: ${RUPEE_SYMBOL}${Number(deliveryFeeBreakdown.basePayout || 0).toFixed(0)} base + ${Number(deliveryFeeBreakdown.extraDistanceKm || 0).toFixed(1)} km x ${RUPEE_SYMBOL}${Number(deliveryFeeBreakdown.commissionPerKm || 0).toFixed(0)}`
+    ? deliveryFeeBreakdown.message || `Distance: ${Number(deliveryFeeBreakdown.distanceKm).toFixed(1)} km`
     : null
   const platformFee = pricing?.platformFee || feeSettings.platformFee
   const gstCharges = pricing?.tax || Math.round(subtotal * (feeSettings.gstRate / 100))

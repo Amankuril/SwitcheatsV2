@@ -1702,14 +1702,15 @@ export async function toggleDeliveryCommissionRuleStatus(id, status) {
 
 // ----- Fee Settings (admin) -----
 export async function getFeeSettings() {
-    const doc = await FoodFeeSettings.findOne({ isActive: true }).sort({ createdAt: -1 }).lean();
+    const doc = await FoodFeeSettings.findOne().sort({ createdAt: -1 }).lean();
     // If not configured yet, return null so UI does not show defaults automatically.
     return { feeSettings: doc || null };
 }
 
 export async function upsertFeeSettings(body) {
     // Single active doc pattern: keep only one active record.
-    const existing = await FoodFeeSettings.findOne({ isActive: true }).sort({ createdAt: -1 });
+    const existing = await FoodFeeSettings.findOne().sort({ createdAt: -1 });
+    console.log('[DEBUG] upsertFeeSettings - existing:', existing ? 'Yes' : 'No');
     if (existing) {
         const $set = {};
         const $unset = {};
@@ -1748,6 +1749,7 @@ export async function upsertFeeSettings(body) {
     if (body.platformFee !== undefined && body.platformFee !== null) payload.platformFee = body.platformFee;
     if (body.gstRate !== undefined && body.gstRate !== null) payload.gstRate = body.gstRate;
 
+    console.log('[DEBUG] Creating NEW settings with payload:', JSON.stringify(payload, null, 2));
     const created = await FoodFeeSettings.create(payload);
     return created.toObject();
 }

@@ -5,6 +5,7 @@ import { FoodFeeSettings } from '../../admin/models/feeSettings.model.js';
 import { FoodOffer } from '../../admin/models/offer.model.js';
 import { FoodOfferUsage } from '../../admin/models/offerUsage.model.js';
 import { ValidationError } from '../../../../core/auth/errors.js';
+import { haversineKm } from './order.helpers.js';
 
 export async function calculateOrderPricing(userId, dto) {
   const restaurant = await FoodRestaurant.findById(dto.restaurantId)
@@ -20,15 +21,13 @@ export async function calculateOrderPricing(userId, dto) {
     0,
   );
 
-  const feeDoc = await FoodFeeSettings.findOne({ isActive: true })
-    .sort({ createdAt: -1 })
-    .lean();
+  const feeDoc = await FoodFeeSettings.findOne().sort({ createdAt: -1 }).lean();
   const feeSettings = feeDoc || {
-    deliveryFee: 25,
+    deliveryFee: 0,
     deliveryFeeRanges: [],
-    freeDeliveryThreshold: 149,
-    platformFee: 5,
-    gstRate: 5,
+    freeDeliveryThreshold: null,
+    platformFee: 0,
+    gstRate: 0,
   };
 
   const packagingFee = 0;
@@ -43,10 +42,21 @@ export async function calculateOrderPricing(userId, dto) {
   ) {
     deliveryFee = 0;
   } else {
+    // Calculate distance if coordinates are available
+    let distanceKm = null;
+    if (
+      restaurant?.location?.coordinates?.length === 2 &&
+      dto.deliveryAddress?.location?.coordinates?.length === 2
+    ) {
+      const [rLng, rLat] = restaurant.location.coordinates;
+      const [dLng, dLat] = dto.deliveryAddress.location.coordinates;
+      distanceKm = haversineKm(rLat, rLng, dLat, dLng);
+    }
+
     const ranges = Array.isArray(feeSettings.deliveryFeeRanges)
       ? [...feeSettings.deliveryFeeRanges]
       : [];
-    if (ranges.length > 0) {
+    if (ranges.length > 0 && Number.isFinite(distanceKm)) {
       ranges.sort((a, b) => Number(a.min) - Number(b.min));
       let matched = null;
       for (let i = 0; i < ranges.length; i += 1) {
@@ -63,8 +73,8 @@ export async function calculateOrderPricing(userId, dto) {
         }
         const isLast = i === ranges.length - 1;
         const inRange = isLast
-          ? subtotal >= min && subtotal <= max
-          : subtotal >= min && subtotal < max;
+          ? distanceKm >= min && distanceKm <= max
+          : distanceKm >= min && distanceKm < max;
         if (inRange) {
           matched = fee;
           break;
@@ -179,6 +189,12 @@ export async function calculateOrderPricing(userId, dto) {
       currency: "INR",
       couponCode: appliedCoupon?.code || codeRaw || null,
       appliedCoupon,
+      distanceKm: Number.isFinite(distanceKm) ? Number(distanceKm.toFixed(2)) : null,
+      deliveryFeeBreakdown: Number.isFinite(distanceKm) ? {
+        source: "distance",
+        distanceKm: Number(distanceKm.toFixed(2)),
+        message: matched ? `Distance-based fee for ${distanceKm.toFixed(2)} km` : "Default delivery fee"
+      } : null
     },
   };
 }

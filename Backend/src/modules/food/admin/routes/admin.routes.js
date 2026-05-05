@@ -15,6 +15,7 @@ const router = express.Router();
 
 // ----- Public Business Settings (No Admin Required) -----
 router.get('/business-settings/public', businessSettingsController.getBusinessSettings);
+router.get('/fee-settings/public', adminController.getFeeSettings);
 
 const requireAdmin = (req, _res, next) => {
     const user = req.user;
