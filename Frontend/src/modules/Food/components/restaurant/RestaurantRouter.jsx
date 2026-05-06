@@ -78,7 +78,7 @@ export default function RestaurantRouter() {
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><OrdersMain /></ProtectedRoute>} path="" />
-        <Route path="onboarding" element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><RestaurantOnboarding /></ProtectedRoute>} />
+        <Route path="onboarding" element={<RestaurantOnboarding />} />
         <Route element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><RestaurantNotifications /></ProtectedRoute>} path="notifications" />
         <Route element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><AllOrdersPage /></ProtectedRoute>} path="orders/all" />
         <Route element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><CouponListPage /></ProtectedRoute>} path="coupon" />
