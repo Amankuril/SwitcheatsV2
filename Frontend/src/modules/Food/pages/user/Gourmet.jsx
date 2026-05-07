@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { ArrowLeft, Star, Clock, Bookmark, BadgePercent } from "lucide-react"
 import { Button } from "@food/components/ui/button"
 import { Card, CardContent } from "@food/components/ui/card"
-import api from "@food/api"
+import api, { publicGetOnce } from "@food/api"
 import useAppBackNavigation from "@food/hooks/useAppBackNavigation"
 import { toast } from "sonner"
 import { API_BASE_URL } from "@food/api/config"
@@ -11,13 +11,15 @@ import OptimizedImage from "@food/components/OptimizedImage"
 import { RestaurantGridSkeleton } from "@food/components/ui/loading-skeletons"
 import { useDelayedLoading } from "@food/hooks/useDelayedLoading"
 import { useLocation } from "@food/hooks/useLocation"
+import { useZone } from "@food/hooks/useZone"
+import { useProfile } from "@food/context/ProfileContext"
 
 // Import banner
 import gourmetBanner from "@food/assets/groumetpagebanner.png"
+
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
-
 
 export default function Gourmet() {
   const navigate = useNavigate()
@@ -27,7 +29,60 @@ export default function Gourmet() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const { location } = useLocation()
-  const showGourmetSkeleton = useDelayedLoading(loading)
+  const { getDefaultAddress } = useProfile()
+  
+  const [deliveryAddressMode, setDeliveryAddressMode] = useState(() => {
+    if (typeof window === "undefined") return "saved";
+    return window.localStorage.getItem("deliveryAddressMode") || "saved";
+  });
+
+  useEffect(() => {
+    const readMode = () => {
+      if (typeof window === "undefined") return;
+      const mode = window.localStorage.getItem("deliveryAddressMode") || "saved";
+      setDeliveryAddressMode(mode);
+    };
+    window.addEventListener("deliveryAddressModeChanged", readMode);
+    window.addEventListener("storage", readMode);
+    return () => {
+      window.removeEventListener("deliveryAddressModeChanged", readMode);
+      window.removeEventListener("storage", readMode);
+    };
+  }, []);
+
+  const defaultSavedAddress = useMemo(
+    () => getDefaultAddress?.() || null,
+    [getDefaultAddress],
+  );
+
+  const defaultSavedAddressLocation = useMemo(() => {
+    const coords = defaultSavedAddress?.location?.coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+      const lng = Number(coords[0]);
+      const lat = Number(coords[1]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+    return null;
+  }, [defaultSavedAddress]);
+
+  const effectiveLocation = useMemo(() => {
+    const useSavedAddress =
+      deliveryAddressMode === "saved" &&
+      Number.isFinite(defaultSavedAddressLocation?.latitude) &&
+      Number.isFinite(defaultSavedAddressLocation?.longitude);
+
+    return useSavedAddress ? defaultSavedAddressLocation : location;
+  }, [deliveryAddressMode, defaultSavedAddressLocation, location]);
+
+  const {
+    zoneId,
+    zoneStatus,
+    loading: zoneLoading,
+  } = useZone(effectiveLocation);
+  
+  const showGourmetSkeleton = useDelayedLoading(loading || zoneStatus === 'loading' || zoneLoading)
 
   const backendOrigin = (API_BASE_URL || "").replace(/\/api\/v1\/?$/, "")
 
@@ -42,27 +97,45 @@ export default function Gourmet() {
 
   // Fetch Gourmet restaurants from public API
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+
     const fetchGourmetRestaurants = async () => {
+      if (!zoneId) {
+        if (zoneStatus !== 'loading' && !zoneLoading) {
+          setGourmetRestaurants([]);
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
-        setLoading(true)
         setError(null)
-        const response = await api.get('/food/hero-banners/gourmet/public')
+        const response = await api.get('/food/hero-banners/gourmet/public', {
+          params: { zoneId }
+        })
+        
+        if (cancelled) return;
+        
         const data = response?.data?.data
         const list = data?.restaurants ?? (Array.isArray(data) ? data : [])
-        setGourmetRestaurants(list)
+        setGourmetRestaurants(list);
       } catch (err) {
-        debugError('Error fetching Gourmet restaurants:', err)
+        if (cancelled) return;
         const errorMessage = err?.response?.data?.message || err?.message || 'Failed to load Gourmet restaurants'
         setError(errorMessage)
-        toast.error(errorMessage)
         setGourmetRestaurants([])
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     fetchGourmetRestaurants()
-  }, [])
+    
+    return () => {
+      cancelled = true;
+    }
+  }, [zoneId, zoneStatus, zoneLoading])
 
   const toggleFavorite = (id) => {
     setFavorites(prev => {
@@ -258,5 +331,3 @@ export default function Gourmet() {
     </div>
   )
 }
-
-

@@ -8,6 +8,7 @@ import { HomePromotionBanner } from '../models/homePromotionBanner.model.js';
 import { FoodRestaurant } from '../../restaurant/models/restaurant.model.js';
 import { getPublicHomePromotionBanners } from '../services/homePromotionBanner.service.js';
 import { sendResponse } from '../../../../utils/response.js';
+import mongoose from 'mongoose';
 
 /** Public hero banners for user home: active only, sorted, with linkedRestaurants populated for click-through */
 export const getPublicHeroBannersController = async (req, res, next) => {
@@ -74,12 +75,15 @@ export const getPublicHomePromotionBannersController = async (req, res, next) =>
 
 export const getPublicGourmetController = async (req, res, next) => {
     try {
-        const docs = await getPublicGourmetRestaurants();
-        const restaurants = (docs || []).map((d) => ({
-            ...(d.restaurant || {}),
-            _id: d.restaurant?._id || d.restaurantId,
-            priority: d.priority
-        })).filter((r) => r && r._id);
+        const { zoneId } = req.query;
+        const docs = await getPublicGourmetRestaurants(zoneId);
+        const restaurants = (docs || [])
+            .filter((d) => d.restaurant) // Only include if restaurant data is populated (matches zone)
+            .map((d) => ({
+                ...(d.restaurant || {}),
+                _id: d.restaurant?._id || d.restaurantId,
+                priority: d.priority
+            }));
         return sendResponse(res, 200, 'Gourmet restaurants fetched', { restaurants });
     } catch (error) {
         next(error);
@@ -88,12 +92,17 @@ export const getPublicGourmetController = async (req, res, next) => {
 
 export const getPublicLandingSettingsController = async (req, res, next) => {
     try {
+        const { zoneId } = req.query;
         const settings = await getLandingSettings();
         const ids = settings?.recommendedRestaurantIds || [];
         let recommendedRestaurants = [];
         if (Array.isArray(ids) && ids.length > 0) {
-            recommendedRestaurants = await FoodRestaurant.find({ _id: { $in: ids }, status: 'approved' })
-                .select('restaurantName area city profileImage coverImages menuImages slug rating cuisines pureVegRestaurant')
+            const query = { _id: { $in: ids }, status: 'approved' };
+            if (zoneId && mongoose.Types.ObjectId.isValid(zoneId)) {
+                query.zoneId = new mongoose.Types.ObjectId(zoneId);
+            }
+            recommendedRestaurants = await FoodRestaurant.find(query)
+                .select('restaurantName area city profileImage coverImages menuImages slug rating cuisines pureVegRestaurant zoneId')
                 .lean();
         }
         const payload = {

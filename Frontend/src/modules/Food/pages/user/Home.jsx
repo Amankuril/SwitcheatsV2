@@ -1130,52 +1130,7 @@ export default function Home() {
     setLoadingRealCategories(false);
   }, []);
 
-  // Fetch explore icons and landing settings from public APIs
-  useEffect(() => {
-    let cancelled = false;
-    setLoadingLandingConfig(true);
-    Promise.all([
-      publicGetOnce("/food/explore-icons/public")
-        .catch(() => ({ data: { data: {} } })),
-      publicGetOnce("/food/landing/settings/public")
-        .catch(() => ({ data: { data: {} } })),
-    ])
-      .then(([exploreRes, settingsRes]) => {
-        if (cancelled) return;
-        const exploreData = exploreRes?.data?.data;
-        const items = Array.isArray(exploreData?.items)
-          ? exploreData.items
-          : Array.isArray(exploreData)
-            ? exploreData
-            : [];
-        setLandingExploreMore(
-          items.map((it) => ({
-            ...it,
-            imageUrl: it.imageUrl || it.iconUrl,
-            label: it.label || it.name,
-          })),
-        );
-        const settings = settingsRes?.data?.data || {};
-        setExploreMoreHeading(settings.exploreMoreHeading || "Explore More");
-        setRecommendedRestaurantIds(settings.recommendedRestaurantIds || []);
-        setRecommendedRestaurantsFromSettings(
-          settings.recommendedRestaurants || [],
-        );
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLandingExploreMore([]);
-          setExploreMoreHeading("Explore More");
-          setRecommendedRestaurantsFromSettings([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingLandingConfig(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+
 
   // Keep index within current banner bounds after admin updates/reloads.
   useEffect(() => {
@@ -1407,6 +1362,59 @@ export default function Home() {
     error: zoneError,
     refreshZone,
   } = useZone(effectiveLocation);
+
+  // Fetch explore icons and landing settings from public APIs
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingLandingConfig(true);
+    
+    // Construct the settings endpoint with zoneId if available
+    const settingsEndpoint = zoneId 
+      ? `/food/landing/settings/public?zoneId=${zoneId}`
+      : "/food/landing/settings/public";
+
+    Promise.all([
+      publicGetOnce("/food/explore-icons/public")
+        .catch(() => ({ data: { data: {} } })),
+      publicGetOnce(settingsEndpoint)
+        .catch(() => ({ data: { data: {} } })),
+    ])
+      .then(([exploreRes, settingsRes]) => {
+        if (cancelled) return;
+        const exploreData = exploreRes?.data?.data;
+        const items = Array.isArray(exploreData?.items)
+          ? exploreData.items
+          : Array.isArray(exploreData)
+            ? exploreData
+            : [];
+        setLandingExploreMore(
+          items.map((it) => ({
+            ...it,
+            imageUrl: it.imageUrl || it.iconUrl,
+            label: it.label || it.name,
+          })),
+        );
+        const settings = settingsRes?.data?.data || {};
+        setExploreMoreHeading(settings.exploreMoreHeading || "Explore More");
+        setRecommendedRestaurantIds(settings.recommendedRestaurantIds || []);
+        
+        const allRecommended = settings.recommendedRestaurants || [];
+        setRecommendedRestaurantsFromSettings(allRecommended);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLandingExploreMore([]);
+          setExploreMoreHeading("Explore More");
+          setRecommendedRestaurantsFromSettings([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLandingConfig(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [zoneId]);
   const [showToast, setShowToast] = useState(false);
   const [showManageCollections, setShowManageCollections] = useState(false);
   const [selectedRestaurantSlug, setSelectedRestaurantSlug] = useState(null);
