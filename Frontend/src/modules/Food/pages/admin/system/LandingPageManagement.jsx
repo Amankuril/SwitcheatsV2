@@ -43,7 +43,7 @@ export default function LandingPageManagement() {
   const [exploreIconsUploading, setExploreIconsUploading] = useState({})
   const exploreMoreFileInputRef = useRef(null)
 
-  // Under 250 Banners
+  // Switch 99 Banners
   const [under250Banners, setUnder250Banners] = useState([])
   const [under250BannersLoading, setUnder250BannersLoading] = useState(true)
   const [under250BannersUploading, setUnder250BannersUploading] = useState(false)
@@ -773,7 +773,7 @@ export default function LandingPageManagement() {
     }
   }
 
-  // ==================== UNDER 250 BANNERS ====================
+  // ==================== Switch 99 BANNERS ====================
   const fetchUnder250Banners = async () => {
     try {
       setUnder250BannersLoading(true)
@@ -791,7 +791,7 @@ export default function LandingPageManagement() {
         setUnder250Banners([])
         setError(null)
       } else {
-        const errorMessage = err.response?.data?.message || 'Failed to load under 250 banners'
+        const errorMessage = err.response?.data?.message || 'Failed to load Switch 99 banners'
         setErrorSafely(errorMessage)
       }
     } finally {
@@ -834,12 +834,12 @@ export default function LandingPageManagement() {
       }))
 
       if (response.data.success) {
-        setSuccess(`${response.data.data.banners?.length || files.length} under 250 banner(s) uploaded successfully!`)
+        setSuccess(`${response.data.data.banners?.length || files.length} Switch 99 banner(s) uploaded successfully!`)
         await fetchUnder250Banners()
         setTimeout(() => setSuccess(null), 3000)
       }
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Failed to upload under 250 banners'
+      const errorMessage = err.response?.data?.message || 'Failed to upload Switch 99 banners'
       setErrorSafely(errorMessage)
 
       setUnder250BannersUploadProgress({ current: 0, total: 0 })
@@ -849,14 +849,14 @@ export default function LandingPageManagement() {
   }
 
   const handleDeleteUnder250Banner = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this under 250 banner?')) return
+    if (!window.confirm('Are you sure you want to delete this Switch 99 banner?')) return
     try {
       setUnder250BannersDeleting(id)
       setError(null)
       setSuccess(null)
       const response = await api.delete(`/food/hero-banners/under-250/${id}`, getAuthConfig())
       if (response.data.success) {
-        setSuccess('Under 250 banner deleted successfully!')
+        setSuccess('Switch 99 banner deleted successfully!')
         await fetchUnder250Banners()
         setTimeout(() => setSuccess(null), 3000)
       }
@@ -1205,8 +1205,8 @@ export default function LandingPageManagement() {
   // ==================== RENDER ====================
   const tabs = [
     { id: 'banners', label: 'Hero Banners', icon: ImageIcon },
-    { id: 'under-250', label: '250 Banner', icon: Tag },
-    { id: 'dining', label: 'Dining', icon: UtensilsCrossed },
+    { id: 'under-250', label: 'Switch 99 Banner', icon: Tag },
+    // { id: 'dining', label: 'Dining', icon: UtensilsCrossed },
     { id: 'explore-more', label: 'Explore More', icon: Layout },
   ]
 
@@ -1369,7 +1369,7 @@ export default function LandingPageManagement() {
                             </button>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <button
+                            {/* <button
                               onClick={() => {
                                 setSelectedBannerId(banner._id)
                                 setSelectedRestaurantIds(banner.linkedRestaurants?.map(r => r._id || r) || [])
@@ -1379,7 +1379,7 @@ export default function LandingPageManagement() {
                             >
                               <Megaphone className="w-4 h-4" />
                               Advertise
-                            </button>
+                            </button> */}
                             <button onClick={() => handleToggleBannerStatus(banner._id, banner.isActive)} className={`px-3 py-1.5 rounded text-sm font-medium ${banner.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
                               {banner.isActive ? 'Deactivate' : 'Activate'}
                             </button>
@@ -1414,7 +1414,7 @@ export default function LandingPageManagement() {
           </>
         )}
 
-        {/* Under 250 Banner Tab */}
+        {/* Switch 99 Banner Tab */}
         {activeTab === 'under-250' && (
           <>
             {/* Upload Section */}
@@ -1487,14 +1487,14 @@ export default function LandingPageManagement() {
               ) : under250Banners.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
                   <Tag className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                  <p>No under 250 banners uploaded yet.</p>
+                  <p>No Switch 99 banners uploaded yet.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {under250Banners.map((banner, index) => (
                     <div key={banner._id} className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                       <div className="relative aspect-video bg-slate-100">
-                        <img src={banner.imageUrl} alt={`Under 250 Banner ${index + 1}`} className="w-full h-full object-cover" />
+                        <img src={banner.imageUrl} alt={`Switch 99 Banner ${index + 1}`} className="w-full h-full object-cover" />
                         <div className="absolute top-2 right-2">
                           <span className={`px-2 py-1 rounded text-xs font-medium ${banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                             {banner.isActive ? 'Active' : 'Inactive'}
