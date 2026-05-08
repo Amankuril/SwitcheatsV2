@@ -310,6 +310,10 @@ export const adminAPI = {
       params,
       contextModule: "admin",
     }),
+  updateDeliveryBoyWallet: (body) =>
+    apiClient.patch("/food/admin/delivery/wallets", body ?? {}, {
+      contextModule: "admin",
+    }),
   getDeliveryPartnerById: (id) =>
     apiClient.get(`/food/admin/delivery/${id}`, { contextModule: "admin" }),
   approveDeliveryPartner: (id) =>

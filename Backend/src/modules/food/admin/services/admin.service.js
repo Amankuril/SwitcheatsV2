@@ -3583,6 +3583,89 @@ export async function updateDeliverySupportTicket(id, body = {}) {
 }
 
 // ----- Delivery partners (approved list) -----
+/**
+ * Private helper to get financial stats for multiple delivery partners in bulk.
+ */
+async function getBulkDeliveryPartnerStats(partnerIds) {
+    if (!partnerIds || partnerIds.length === 0) return new Map();
+
+    const [earnings, cash, deposits, bonuses, withdrawals, ordersCount] = await Promise.all([
+        // Total Earnings
+        FoodOrder.aggregate([
+            { $match: { 'dispatch.deliveryPartnerId': { $in: partnerIds }, orderStatus: 'delivered' } },
+            { $group: { _id: '$dispatch.deliveryPartnerId', total: { $sum: { $ifNull: ['$riderEarning', 0] } } } }
+        ]),
+        // Cash Collected (COD)
+        FoodOrder.aggregate([
+            { $match: { 
+                'dispatch.deliveryPartnerId': { $in: partnerIds }, 
+                orderStatus: 'delivered', 
+                $or: [ { paymentMethod: 'cash' }, { 'payment.method': 'cash' } ] 
+            } },
+            { $group: { _id: '$dispatch.deliveryPartnerId', total: { $sum: { $ifNull: ['$pricing.total', 0] } } } }
+        ]),
+        // Cash Deposits
+        FoodDeliveryCashDeposit.aggregate([
+            { $match: { deliveryPartnerId: { $in: partnerIds }, status: 'Completed' } },
+            { $group: { _id: '$deliveryPartnerId', total: { $sum: '$amount' } } }
+        ]),
+        // Bonuses
+        DeliveryBonusTransaction.aggregate([
+            { $match: { deliveryPartnerId: { $in: partnerIds } } },
+            { $group: { _id: '$deliveryPartnerId', total: { $sum: '$amount' } } }
+        ]),
+        // Withdrawals
+        FoodDeliveryWithdrawal.aggregate([
+            { $match: { deliveryPartnerId: { $in: partnerIds }, status: { $in: ['approved', 'pending'] } } },
+            { $group: { 
+                _id: '$deliveryPartnerId', 
+                approved: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, '$amount', 0] } },
+                pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, '$amount', 0] } }
+            } }
+        ]),
+        // Total Delivered Orders
+        FoodOrder.aggregate([
+            { $match: { 'dispatch.deliveryPartnerId': { $in: partnerIds }, orderStatus: 'delivered' } },
+            { $group: { _id: '$dispatch.deliveryPartnerId', count: { $sum: 1 } } }
+        ])
+    ]);
+
+    const statsMap = new Map();
+    partnerIds.forEach(id => {
+        const idStr = id.toString();
+        statsMap.set(idStr, {
+            totalEarning: 0,
+            cashCollected: 0,
+            totalDeposited: 0,
+            bonus: 0,
+            totalWithdrawn: 0,
+            pendingWithdrawal: 0,
+            totalOrders: 0
+        });
+    });
+
+    earnings.forEach(row => { if (row._id) statsMap.get(row._id.toString()).totalEarning = row.total; });
+    cash.forEach(row => { if (row._id) statsMap.get(row._id.toString()).cashCollected = row.total; });
+    deposits.forEach(row => { if (row._id) statsMap.get(row._id.toString()).totalDeposited = row.total; });
+    bonuses.forEach(row => { if (row._id) statsMap.get(row._id.toString()).bonus = row.total; });
+    withdrawals.forEach(row => { 
+        if (row._id) {
+            statsMap.get(row._id.toString()).totalWithdrawn = row.approved;
+            statsMap.get(row._id.toString()).pendingWithdrawal = row.pending;
+        }
+    });
+    ordersCount.forEach(row => { if (row._id) statsMap.get(row._id.toString()).totalOrders = row.count; });
+
+    // Calculate final pocket balance and other fields
+    for (const [id, stats] of statsMap) {
+        stats.pocketBalance = stats.totalEarning + stats.bonus - stats.totalWithdrawn - stats.pendingWithdrawal;
+        stats.cashInHand = stats.cashCollected - stats.totalDeposited;
+    }
+
+    return statsMap;
+}
+
+// ----- Delivery partners (approved list) -----
 export async function getDeliveryPartners(query) {
     const { page = 1, limit = 1000, search } = query;
     const filter = { status: 'approved' };
@@ -3609,19 +3692,33 @@ export async function getDeliveryPartners(query) {
         FoodDeliveryPartner.countDocuments(filter)
     ]);
 
-    const deliveryPartners = list.map((doc, index) => ({
-        _id: doc._id,
-        sl: skip + index + 1,
-        name: doc.name || '',
-        email: doc.email || '',
-        phone: doc.phone || '',
-        deliveryId: doc._id ? `DP-${doc._id.toString().slice(-8).toUpperCase()}` : null,
-        zone: doc.city || doc.state || doc.address || '',
-        vehicleType: doc.vehicleType || '',
-        status: doc.status,
-        profilePhoto: doc.profilePhoto || null,
-        profileImage: doc.profilePhoto ? { url: doc.profilePhoto } : null
-    }));
+    const partnerIds = list.map(p => p._id);
+    const statsMap = await getBulkDeliveryPartnerStats(partnerIds);
+
+    const deliveryPartners = list.map((doc, index) => {
+        const stats = statsMap.get(doc._id.toString()) || {};
+        return {
+            _id: doc._id,
+            sl: skip + index + 1,
+            name: doc.name || '',
+            email: doc.email || '',
+            phone: doc.phone || '',
+            deliveryId: doc._id ? `DP-${doc._id.toString().slice(-8).toUpperCase()}` : null,
+            zone: doc.city || doc.state || doc.address || '',
+            vehicleType: doc.vehicleType || '',
+            status: doc.status,
+            profilePhoto: doc.profilePhoto || null,
+            profileImage: doc.profilePhoto ? { url: doc.profilePhoto } : null,
+            // Stats fields
+            totalOrders: stats.totalOrders || 0,
+            pocketBalance: stats.pocketBalance || 0,
+            cashInHand: stats.cashInHand || 0,
+            totalEarning: stats.totalEarning || 0,
+            bonus: stats.bonus || 0,
+            totalWithdrawn: stats.totalWithdrawn || 0,
+            pendingWithdrawal: stats.pendingWithdrawal || 0
+        };
+    });
 
     return {
         deliveryPartners,
@@ -4676,22 +4773,26 @@ export async function getDeliveryWallets(query = {}) {
     const cashLimitSettings = await FoodDeliveryCashLimit.findOne({ isActive: true }).lean();
     const globalLimit = Number(cashLimitSettings?.deliveryCashLimit || 0);
 
-    const wallets = await Promise.all(partners.map(async (p) => {
-        const wallet = await FoodDeliveryWallet.findOne({ deliveryPartnerId: p._id }).lean();
-        
+    const partnerIds = partners.map(p => p._id);
+    const statsMap = await getBulkDeliveryPartnerStats(partnerIds);
+
+    const wallets = partners.map((p) => {
+        const stats = statsMap.get(p._id.toString()) || {};
         return {
-            walletId: wallet?._id,
+            walletId: p._id, // Using partner ID as wallet ID fallback
             deliveryId: p._id,
             name: p.name,
-            deliveryIdString: p.phone, // Placeholder or sequential ID if available
-            pocketBalance: Number(wallet?.balance || 0),
-            remainingCashLimit: Math.max(0, globalLimit - Number(wallet?.cashInHand || 0)),
-            cashCollected: Number(wallet?.cashInHand || 0),
-            totalEarning: Number(wallet?.totalEarnings || 0),
-            bonus: Number(wallet?.totalBonus || 0),
-            totalWithdrawn: Number(wallet?.totalSettled || 0)
+            deliveryIdString: p.phone,
+            pocketBalance: stats.pocketBalance || 0,
+            remainingCashLimit: Math.max(0, globalLimit - (stats.cashInHand || 0)),
+            cashCollected: stats.cashInHand || 0,
+            totalEarning: stats.totalEarning || 0,
+            bonus: stats.bonus || 0,
+            totalWithdrawn: stats.totalWithdrawn || 0,
+            availableCashLimit: globalLimit,
+            totalOrders: stats.totalOrders || 0
         };
-    }));
+    });
 
     return { 
         wallets, 
@@ -4702,6 +4803,29 @@ export async function getDeliveryWallets(query = {}) {
             pages: Math.ceil(total / limit) || 1 
         } 
     };
+}
+
+/**
+ * Update delivery partner wallet manually (admin)
+ */
+export async function updateDeliveryBoyWallet(data) {
+    const { deliveryId, pocketBalance, cashInHand } = data;
+    if (!deliveryId) throw new ValidationError('Delivery partner ID required');
+
+    let wallet = await FoodDeliveryWallet.findOne({ deliveryPartnerId: deliveryId });
+    if (!wallet) {
+        wallet = new FoodDeliveryWallet({
+            deliveryPartnerId: deliveryId,
+            balance: pocketBalance || 0,
+            cashInHand: cashInHand || 0
+        });
+    } else {
+        if (pocketBalance !== undefined) wallet.balance = pocketBalance;
+        if (cashInHand !== undefined) wallet.cashInHand = cashInHand;
+    }
+
+    await wallet.save();
+    return wallet.toObject();
 }
 
 /**

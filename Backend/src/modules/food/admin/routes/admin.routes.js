@@ -151,6 +151,7 @@ router.get('/delivery/cash-limit-settlements', adminController.getCashLimitSettl
 // ----- Delivery partners & general -----
 router.get('/delivery/join-requests', adminController.getDeliveryJoinRequests);
 router.get('/delivery/wallets', adminController.getDeliveryWallets);
+router.patch('/delivery/wallets', adminController.updateDeliveryBoyWallet);
 router.get('/delivery/bonus-transactions', adminController.getDeliveryPartnerBonusTransactions);
 router.get('/delivery/earnings', adminController.getDeliveryEarnings);
 router.post('/delivery/bonus', adminController.addDeliveryPartnerBonus);

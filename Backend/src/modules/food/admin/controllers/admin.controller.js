@@ -1396,6 +1396,15 @@ export async function getDeliveryWallets(req, res, next) {
     }
 }
 
+export async function updateDeliveryBoyWallet(req, res, next) {
+    try {
+        const data = await adminService.updateDeliveryBoyWallet(req.body);
+        res.status(200).json({ success: true, message: 'Wallet updated successfully', data });
+    } catch (error) {
+        next(error);
+    }
+}
+
 export async function getCashLimitSettlements(req, res, next) {
     try {
         const data = await adminService.getCashLimitSettlements(req.query || {});
