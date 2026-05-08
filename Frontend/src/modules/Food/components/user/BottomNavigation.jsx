@@ -1,23 +1,23 @@
 import { Link, useLocation } from "react-router-dom"
-import { Tag, User, Truck, UtensilsCrossed } from "lucide-react"
+import { Tag, User, Truck, ShoppingCart } from "lucide-react"
 
 export default function BottomNavigation() {
   const location = useLocation()
   const pathname = location.pathname
 
   // Check active routes - support both /user/* and /* paths
-  const isDining = pathname === "/food/dining" || pathname.startsWith("/food/user/dining")
+  const isCart = pathname === "/food/cart" || pathname.startsWith("/food/user/cart")
   const isUnder250 = pathname === "/food/under-250" || pathname.startsWith("/food/user/under-250")
   const isProfile = pathname.startsWith("/food/profile") || pathname.startsWith("/food/user/profile")
   const isDelivery =
-    !isDining &&
+    !isCart &&
     !isUnder250 &&
     !isProfile &&
     (pathname === "/food" ||
       pathname === "/food/" ||
       pathname === "/food/user" ||
       (pathname.startsWith("/food/user") &&
-        !pathname.includes("/dining") &&
+        !pathname.includes("/cart") &&
         !pathname.includes("/under-250") &&
         !pathname.includes("/profile")))
 
@@ -43,19 +43,19 @@ export default function BottomNavigation() {
           </span>
         </Link>
 
-        {/* Dining Tab */}
+        {/* Cart Tab */}
         <Link
-          to="/food/user/dining"
-          className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-all duration-300 relative rounded-full ${isDining
+          to="/food/user/cart"
+          className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-all duration-300 relative rounded-full ${isCart
               ? "text-[#FA0272] bg-[#FA0272]/10"
               : "text-gray-500 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
             }`}
         >
           <div className="relative">
-            <UtensilsCrossed className={`h-5 w-5 transition-transform duration-300 ${isDining ? "text-[#FA0272] scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isDining ? 2.5 : 2} />
+            <ShoppingCart className={`h-5 w-5 transition-transform duration-300 ${isCart ? "text-[#FA0272] scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isCart ? 2.5 : 2} />
           </div>
-          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isDining ? "text-[#FA0272]" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
-            Dining
+          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isCart ? "text-[#FA0272]" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
+            Cart
           </span>
         </Link>
 

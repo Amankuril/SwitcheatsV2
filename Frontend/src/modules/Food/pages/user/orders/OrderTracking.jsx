@@ -12,15 +12,12 @@ import {
   MapPin,
   Home as HomeIcon,
   MessageSquare,
-  X,
   Check,
   Shield,
   Receipt,
   CircleSlash,
   Loader2,
   Star,
-  ShieldCheck,
-  AlertCircle,
   Store,
   FileText
 } from "lucide-react"
@@ -318,7 +315,8 @@ const transformOrderForTracking = (apiOrder, previousOrder = null, explicitResta
       name: item.name,
       variantName: item.variantName || '',
       quantity: item.quantity,
-      price: item.price
+      price: item.price,
+      isVeg: item.isVeg !== undefined ? item.isVeg : (item.category === 'veg' || item.type === 'veg' || item.foodType === 'Veg'),
     })) || previousOrder?.items || [],
     total: apiOrder?.pricing?.total || previousOrder?.total || 0,
     // Backend canonical field is orderStatus; keep legacy `status` for UI compatibility.
@@ -1282,6 +1280,24 @@ export default function OrderTracking() {
     orderStatus === "cancelled" ||
     isFoodOrderCancelledStatus(order?.status)
 
+  const restaurantNameCandidates = [
+    order?.restaurantName,
+    order?.restaurantId?.name,
+    order?.restaurantId?.restaurantName,
+    order?.restaurant,
+  ]
+    .map((value) => (value == null ? "" : String(value).trim()))
+    .filter(Boolean)
+
+  const restaurantDisplayName =
+    restaurantNameCandidates.find((name) => name.toLowerCase() !== "restaurant") ||
+    restaurantNameCandidates[0] ||
+    "Restaurant"
+
+  const complaintOrderId = encodeURIComponent(
+    String(order?.orderId || order?.id || orderId || "")
+  )
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-[#0a0a0a]">
       {/* Order Confirmed Modal */}
@@ -1428,16 +1444,6 @@ export default function OrderTracking() {
           </motion.div>
         )}
 
-        {/* Cancel Button - Only show if NOT delivered/cancelled */}
-        {!isDeliveredOrder && !isCancelledOrder && (
-          <div className="px-2">
-            <button onClick={handleCancelOrder} className="w-full py-4 text-sm font-bold text-red-500 bg-red-50 dark:bg-red-950/20 rounded-2xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center justify-center gap-2">
-              <X className="w-4 h-4" />
-              Cancel Order
-            </button>
-          </div>
-        )}
-
         {customerDeliveryOtp && !isDeliveredOrder && !isCancelledOrder && (
           <motion.div
             className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-5 shadow-sm border border-blue-100 dark:border-blue-800"
@@ -1467,6 +1473,9 @@ export default function OrderTracking() {
         {/* Delivery Partner Profile Card */}
         {order?.deliveryPartnerId && (
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-zinc-800">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+              Delivery Partner
+            </h3>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative">
@@ -1483,9 +1492,11 @@ export default function OrderTracking() {
                   </div>
                 </div>
               </div>
-              <motion.button className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center" onClick={handleCallRider}>
-                <Phone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </motion.button>
+              {!isDeliveredOrder && !isCancelledOrder && (
+                <motion.button className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center" onClick={handleCallRider}>
+                  <Phone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </motion.button>
+              )}
             </div>
             {order?.note && (
               <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 mt-4 rounded-xl flex items-start gap-3 border border-blue-100 dark:border-blue-900">
@@ -1495,24 +1506,6 @@ export default function OrderTracking() {
             )}
           </div>
         )}
-
-        {/* Action Buttons */}
-        <div className={`grid ${isDeliveredOrder ? 'grid-cols-1' : 'grid-cols-2'} gap-3 px-1`}>
-          {!isDeliveredOrder ? (
-            <>
-              <button onClick={handleCallRider} className="flex items-center justify-center gap-2 py-4 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 font-bold text-gray-800 dark:text-white text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors">
-                <Phone className="w-4 h-4 text-[#EB590E]" /> Call
-              </button>
-              <button className="flex items-center justify-center gap-2 py-4 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 font-bold text-gray-800 dark:text-white text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors">
-                <ShieldCheck className="w-4 h-4 text-green-500" /> Safety
-              </button>
-            </>
-          ) : (
-            <Link to="/user/support" className="flex items-center justify-center gap-2 py-4 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 font-bold text-gray-800 dark:text-white text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors w-full">
-              <AlertCircle className="w-4 h-4 text-red-500" /> Raise a Complaint
-            </Link>
-          )}
-        </div>
 
         {/* Delivery Instructions - Only show if NOT delivered */}
         {!isDeliveredOrder && !isCancelledOrder && (
@@ -1529,22 +1522,56 @@ export default function OrderTracking() {
           </div>
         )}
 
+        {isDeliveredOrder && (
+          <Link to={`/user/complaints/submit/${complaintOrderId}`} className="flex items-center justify-center gap-2 py-4 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-gray-100 dark:border-zinc-800 font-bold text-gray-800 dark:text-white text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors w-full">
+            <CircleSlash className="w-4 h-4 text-red-500" /> Raise a Complaint
+          </Link>
+        )}
+
         {/* Order Summary & Restaurant Info */}
         <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-zinc-800">
-          <div className="flex items-center gap-4 mb-5">
+          <div className="flex items-center justify-between gap-4 mb-5">
+            <div className="flex items-center gap-4 min-w-0">
             <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-zinc-800 overflow-hidden flex items-center justify-center">
               <Store className="w-6 h-6 text-gray-400" />
             </div>
-            <div>
-              <h3 className="font-bold text-gray-900 dark:text-white">{order.restaurant}</h3>
+            <div className="min-w-0">
+              <h3 className="font-bold text-gray-900 dark:text-white truncate">{restaurantDisplayName}</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">{order.restaurantAddress || 'Location'}</p>
             </div>
           </div>
+            {!isDeliveredOrder && !isCancelledOrder && (
+              <button
+                type="button"
+                onClick={handleCallRestaurant}
+                className="w-10 h-10 rounded-full bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 flex items-center justify-center shrink-0"
+                aria-label="Call restaurant"
+              >
+                <Phone className="w-4 h-4 text-[#EB590E]" />
+              </button>
+            )}
+          </div>
           <div className="space-y-3">
             {order?.items?.map((item, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">{item.quantity} x {item.name}</span>
-                <span className="text-sm font-bold text-gray-900 dark:text-white">{"\u20B9"}{((item?.price || 0) * (item?.quantity || 0)).toFixed(0)}</span>
+              <div key={i} className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2 min-w-0">
+                  <div
+                    className={`w-3.5 h-3.5 mt-0.5 border ${item?.isVeg ? "border-green-600" : "border-red-600"} flex items-center justify-center p-[1px] shrink-0`}
+                  >
+                    <div className={`w-full h-full rounded-full ${item?.isVeg ? "bg-green-600" : "bg-red-600"}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate">
+                      {(item?.quantity || 1)} x {item?.name || "Item"}
+                    </p>
+                    {item?.variantName ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{item.variantName}</p>
+                    ) : null}
+                  </div>
+                </div>
+                <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0">
+                  {"\u20B9"}{((item?.price || 0) * (item?.quantity || 1)).toFixed(0)}
+                </span>
               </div>
             ))}
           </div>
