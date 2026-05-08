@@ -486,6 +486,21 @@ export default function RestaurantOnboarding() {
   })
   const [registrationProcessing, setRegistrationProcessing] = useState(false)
   const [uploadingAttachments, setUploadingAttachments] = useState({})
+  const [subscriptionSettings, setSubscriptionSettings] = useState(null)
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await restaurantAPI.getSubscriptionSettings()
+        if (res.data?.success) {
+          setSubscriptionSettings(res.data.data)
+        }
+      } catch (err) {
+        console.error("Failed to fetch subscription settings:", err)
+      }
+    }
+    fetchSettings()
+  }, [])
 
   const triggerBackgroundUpload = async (file, folder, fieldName, isArray = false, arrayIndex = -1) => {
     if (!file || !isUploadableFile(file)) return;
@@ -2707,18 +2722,21 @@ export default function RestaurantOnboarding() {
   )
 
   const renderStep4 = () => {
+    const silverPrice = subscriptionSettings?.silverPrice || 999
+    const goldPrice = subscriptionSettings?.goldPrice || 1999
+    const onboardingFeeBase = subscriptionSettings?.onboardingFee || 799
+
     const subscriptionPlans = [
-      { value: '4999', label: '₹4,999', features: ['Feature 1', 'Feature 2', 'Basic support'] },
-      { value: '9999', label: '₹9,999', features: ['All basic features', 'Priority support', 'Advanced analytics'] }
+      { value: String(silverPrice), label: `₹${silverPrice.toLocaleString()}`, features: ['Silver Plan', 'Basic features', 'Standard support'] },
+      { value: String(goldPrice), label: `₹${goldPrice.toLocaleString()}`, features: ['Gold Plan', 'Premium features', 'Priority support'] }
     ]
 
-    const onboardingFeeBase = 799
     const GST_RATE = 0.18
     const onboardingGST = Math.round(onboardingFeeBase * GST_RATE)
     const onboardingFeeTotal = onboardingFeeBase + onboardingGST
 
     const selectedPlanBase = step4State.subscriptionPlan ? Number(step4State.subscriptionPlan) : 0
-    const planLabel = step4State.subscriptionPlan === '4999' ? 'Elite' : 'Pro'
+    const planLabel = step4State.subscriptionPlan === String(silverPrice) ? 'Silver' : 'Gold'
     
     const subscriptionPlanGST = Math.round(selectedPlanBase * GST_RATE)
     const subscriptionPlanTotal = selectedPlanBase + subscriptionPlanGST
@@ -2959,7 +2977,8 @@ export default function RestaurantOnboarding() {
       }
 
       const paymentType = step4State.paymentType || 'full'
-      const onboardingFeeBase = 799
+      const silverPrice = subscriptionSettings?.silverPrice || 999
+      const onboardingFeeBase = subscriptionSettings?.onboardingFee || 799
       const onboardingGST = Math.round(onboardingFeeBase * GST_RATE)
       const onboardingFeeTotal = onboardingFeeBase + onboardingGST
       

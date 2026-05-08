@@ -101,10 +101,7 @@ const restaurantRegisterSchema = z.object({
     ifscCode: z.string().optional(),
     accountHolderName: z.string().optional(),
     accountType: z.string().optional(),
-    subscriptionPlan: z
-        .string()
-        .optional()
-        .refine((val) => !val || ['elite', 'pro', '4999', '9999'].includes(val), 'Invalid subscription plan'),
+    subscriptionPlan: z.string().optional(),
     subscriptionAmount: z
         .string()
         .optional()

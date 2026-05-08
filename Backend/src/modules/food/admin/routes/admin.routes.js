@@ -16,6 +16,8 @@ const router = express.Router();
 // ----- Public Business Settings (No Admin Required) -----
 router.get('/business-settings/public', businessSettingsController.getBusinessSettings);
 router.get('/fee-settings/public', adminController.getFeeSettings);
+router.get('/restaurant-subscription-settings/public', adminController.getRestaurantSubscriptionSettings);
+
 
 const requireAdmin = (req, _res, next) => {
     const user = req.user;
@@ -58,6 +60,8 @@ router.get('/reports/transactions', adminController.getTransactionReport);
 router.get('/reports/tax', adminController.getTaxReport);
 router.get('/reports/tax/:id', adminController.getTaxReportDetail);
 router.get('/restaurants/pending', adminController.getPendingRestaurants);
+router.get('/restaurant-subscription-settings', adminController.getRestaurantSubscriptionSettings);
+router.patch('/restaurant-subscription-settings', adminController.updateRestaurantSubscriptionSettings);
 router.get('/restaurants/reviews', adminController.getRestaurantReviews);
 router.get('/restaurants/:id', adminController.getRestaurantById);
 router.get('/restaurants/:id/analytics', adminController.getRestaurantAnalytics);

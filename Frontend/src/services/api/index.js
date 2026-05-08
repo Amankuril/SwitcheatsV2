@@ -252,6 +252,14 @@ export const adminAPI = {
       params,
       contextModule: "admin",
     }),
+  getRestaurantSubscriptionSettings: () =>
+    apiClient.get("/food/admin/restaurant-subscription-settings", {
+      contextModule: "admin",
+    }),
+  updateRestaurantSubscriptionSettings: (body) =>
+    apiClient.patch("/food/admin/restaurant-subscription-settings", body, {
+      contextModule: "admin",
+    }),
   /** List approved delivery partners (Deliveryman List page) */
   getDeliveryPartners: (params) =>
     apiClient.get("/food/admin/delivery/partners", {
@@ -1115,6 +1123,10 @@ export const restaurantAPI = {
       params: { limit: 50, page: 1, ...params },
       contextModule: "restaurant",
     }),
+  getPendingPhone: (phone) =>
+    apiClient.get(`/food/restaurant/auth/pending-phone?phone=${phone}`),
+  getSubscriptionSettings: () =>
+    apiClient.get("/food/admin/restaurant-subscription-settings/public"),
   getOrderById: (orderId) =>
     apiClient.get(`/food/restaurant/orders/${String(orderId)}`, {
       contextModule: "restaurant",

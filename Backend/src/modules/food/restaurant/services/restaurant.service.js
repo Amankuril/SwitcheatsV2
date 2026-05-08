@@ -7,6 +7,7 @@ import { FoodZone } from '../../admin/models/zone.model.js';
 import { FoodOffer } from '../../admin/models/offer.model.js';
 import { FoodRestaurantMenu } from '../models/restaurantMenu.model.js';
 import { FoodItem } from '../../admin/models/food.model.js';
+import { getRestaurantSubscriptionSettings } from '../../admin/services/admin.service.js';
 
 const normalizeName = (value) =>
     String(value || '')
@@ -418,7 +419,11 @@ export const registerRestaurant = async (payload, files) => {
     }
 
     const GST_RATE = 0.18;
-    const onboardingFeeBase = 799;
+    const settings = await getRestaurantSubscriptionSettings();
+    const onboardingFeeBase = settings.onboardingFee || 799;
+    const silverPrice = settings.silverPrice || 999;
+    const goldPrice = settings.goldPrice || 1999;
+
     const onboardingGST = Math.round(onboardingFeeBase * GST_RATE);
     const onboardingFeeExpected = onboardingFeeBase + onboardingGST;
 
@@ -434,11 +439,14 @@ export const registerRestaurant = async (payload, files) => {
     if (onboardingFeeActual < onboardingFeeExpected) {
         throw new ValidationError(`Onboarding fee must be at least ₹${onboardingFeeExpected} (including GST)`);
     }
+
     let planBase = 0;
-    if (subscriptionPlan === 'elite' || subscriptionPlan === '4999') {
-        planBase = 4999;
-    } else if (subscriptionPlan === 'pro' || subscriptionPlan === '9999') {
-        planBase = 9999;
+    const planStr = String(subscriptionPlan || '').toLowerCase();
+
+    if (planStr === 'silver' || planStr === 'elite' || planStr === '4999' || planStr === String(silverPrice)) {
+        planBase = silverPrice;
+    } else if (planStr === 'gold' || planStr === 'pro' || planStr === '9999' || planStr === String(goldPrice)) {
+        planBase = goldPrice;
     } else {
         throw new ValidationError('Subscription plan selection is required');
     }

@@ -1459,3 +1459,22 @@ export async function bulkApproveFoodItems(req, res, next) {
         next(error);
     }
 }
+
+// ----- Subscription Settings -----
+export async function getRestaurantSubscriptionSettings(req, res, next) {
+    try {
+        const data = await adminService.getRestaurantSubscriptionSettings();
+        res.status(200).json({ success: true, message: 'Subscription settings fetched successfully', data });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function updateRestaurantSubscriptionSettings(req, res, next) {
+    try {
+        const data = await adminService.updateRestaurantSubscriptionSettings(req.body);
+        res.status(200).json({ success: true, message: 'Subscription settings updated successfully', data });
+    } catch (error) {
+        next(error);
+    }
+}

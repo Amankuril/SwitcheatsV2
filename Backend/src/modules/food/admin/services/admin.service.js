@@ -5,6 +5,7 @@ import { FoodDeliveryPartner } from '../../delivery/models/deliveryPartner.model
 import { DeliverySupportTicket } from '../../delivery/models/supportTicket.model.js';
 import { FoodNotification } from '../../../../core/notifications/models/notification.model.js';
 import { sendNotificationToOwner } from '../../../../core/notifications/firebase.service.js';
+import { FoodRestaurantSubscriptionSettings } from '../models/restaurantSubscriptionSettings.model.js';
 import { FoodZone } from '../models/zone.model.js';
 import { FoodCategory } from '../models/category.model.js';
 import { FoodItem } from '../models/food.model.js';
@@ -3645,6 +3646,35 @@ export async function updateDeliverySupportTicket(id, body = {}) {
 
     return ticket.toObject();
 }
+
+/**
+ * Subscription Settings
+ */
+export const getRestaurantSubscriptionSettings = async () => {
+    let settings = await FoodRestaurantSubscriptionSettings.findOne();
+    if (!settings) {
+        settings = await FoodRestaurantSubscriptionSettings.create({
+            silverPrice: 999,
+            goldPrice: 1999,
+            onboardingFee: 799
+        });
+    }
+    return settings.toObject();
+};
+
+export const updateRestaurantSubscriptionSettings = async (data) => {
+    let settings = await FoodRestaurantSubscriptionSettings.findOne();
+    if (!settings) {
+        settings = new FoodRestaurantSubscriptionSettings();
+    }
+
+    if (data.silverPrice !== undefined) settings.silverPrice = data.silverPrice;
+    if (data.goldPrice !== undefined) settings.goldPrice = data.goldPrice;
+    if (data.onboardingFee !== undefined) settings.onboardingFee = data.onboardingFee;
+
+    await settings.save();
+    return settings.toObject();
+};
 
 // ----- Delivery partners (approved list) -----
 /**

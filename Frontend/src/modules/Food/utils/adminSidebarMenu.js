@@ -57,6 +57,7 @@ export const adminSidebarMenu = [
           { label: "New Joining Request", path: "/admin/food/restaurants/joining-request" },
           { label: "Restaurant Reviews", path: "/admin/food/restaurants/reviews" },
           { label: "Restaurant Complaints", path: "/admin/food/restaurants/complaints" },
+          { label: "Subscription Settings", path: "/admin/food/restaurants/subscription-settings" },
         ],
       },
     ],
