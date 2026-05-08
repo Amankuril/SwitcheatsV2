@@ -28,7 +28,6 @@ const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
-const INVENTORY_RECOMMENDED_KEY = "restaurant_inventory_recommended_map"
 
 
 const getUploadErrorMessage = (error, fileName = "image") => {
@@ -658,6 +657,7 @@ export default function ItemDetailsPage() {
           preparationTime: preparationTime || "",
           categoryId: categoryId || undefined,
           categoryName,
+          isRecommended,
         })
         const created = createRes?.data?.data?.food || createRes?.data?.food
         itemId = String(created?._id || created?.id || "")
@@ -680,30 +680,10 @@ export default function ItemDetailsPage() {
           preparationTime: preparationTime || "",
           categoryId: categoryId || undefined,
           categoryName,
+          isRecommended,
         })
       }
 
-      try {
-        const nextRecommendedMap = (() => {
-          if (typeof window === "undefined") return null
-          const raw = window.localStorage.getItem(INVENTORY_RECOMMENDED_KEY)
-          const parsed = raw ? JSON.parse(raw) : {}
-          const safeMap = parsed && typeof parsed === "object" ? parsed : {}
-          return {
-            ...safeMap,
-            [String(itemId)]: Boolean(isRecommended),
-          }
-        })()
-
-        if (nextRecommendedMap && typeof window !== "undefined") {
-          window.localStorage.setItem(
-            INVENTORY_RECOMMENDED_KEY,
-            JSON.stringify(nextRecommendedMap),
-          )
-        }
-      } catch (recommendedError) {
-        debugWarn("Failed to persist recommended state after save:", recommendedError)
-      }
 
       const imageCount = allImageUrls.length
       toast.success(

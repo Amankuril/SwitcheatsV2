@@ -220,7 +220,6 @@ export default function AllOrdersPage() {
     
     // Determine tags based on order properties
     const tags = []
-    if (order.scheduledAt) tags.push('SCHEDULED')
     if (order.sendCutlery) tags.push('CUTLERY')
     tags.push('HOME DELIVERY')
     // Check if all items are veg

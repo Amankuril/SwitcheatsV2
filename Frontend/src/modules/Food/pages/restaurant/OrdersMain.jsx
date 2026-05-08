@@ -43,8 +43,6 @@ const filterTabs = [
   { id: "preparing", label: "Preparing" },
   { id: "ready", label: "Ready" },
   { id: "out-for-delivery", label: "Out for delivery" },
-  { id: "scheduled", label: "Scheduled" },
-  { id: "table-booking", label: "Table Booking" },
   { id: "completed", label: "Completed" },
   { id: "cancelled", label: "Cancelled" },
 ];
@@ -55,7 +53,6 @@ const allOrdersStatusPriority = {
   preparing: 2,
   ready: 3,
   out_for_delivery: 4,
-  scheduled: 5,
   delivered: 6,
   completed: 6,
   cancelled: 7,
@@ -1852,8 +1849,6 @@ export default function OrdersMain() {
             refreshToken={ordersRefreshToken}
           />
         );
-      case "scheduled":
-        return <EmptyState message="Scheduled orders will appear here" />;
       case "completed":
         return (
           <CompletedOrders
@@ -1861,8 +1856,6 @@ export default function OrdersMain() {
             refreshToken={ordersRefreshToken}
           />
         );
-      case "table-booking":
-        return <TableBookings />;
       case "cancelled":
         return (
           <CancelledOrders
@@ -2158,32 +2151,6 @@ export default function OrdersMain() {
 
                 {/* Content */}
                 <div className="px-4 pt-4 pb-4 flex-1 overflow-y-auto min-h-0">
-                  {/* Scheduled Indicator */}
-                  {(popupOrder || newOrder)?.scheduledAt && (
-                    <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                        <Calendar className="w-4 h-4 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-green-800 uppercase tracking-wider">
-                          Scheduled Order
-                        </p>
-                        <p className="text-sm font-semibold text-green-900 mt-0.5">
-                          For{" "}
-                          {new Date(
-                            (popupOrder || newOrder).scheduledAt,
-                          ).toLocaleString("en-US", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Customer info */}
                   <div className="mb-4">
                     <h4 className="text-sm font-semibold text-gray-900">

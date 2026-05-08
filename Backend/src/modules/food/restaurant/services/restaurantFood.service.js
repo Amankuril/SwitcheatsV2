@@ -203,6 +203,7 @@ export async function createRestaurantFood(restaurantId, body = {}) {
         image,
         foodType,
         isAvailable,
+        isRecommended: body.isRecommended === true,
         preparationTime,
         approvalStatus: 'pending',
         requestedAt: new Date()
@@ -249,6 +250,7 @@ export async function updateRestaurantFood(restaurantId, foodId, body = {}) {
     Object.assign(update, getUpdatedFoodPricing(existing, body));
     if (body.isAvailable !== undefined) update.isAvailable = body.isAvailable !== false;
     if (body.preparationTime !== undefined) update.preparationTime = toStr(body.preparationTime);
+    if (body.isRecommended !== undefined) update.isRecommended = body.isRecommended === true;
 
     const targetFoodType = body.foodType !== undefined ? normalizeFoodType(body.foodType) : normalizeFoodType(existing.foodType);
     if (body.foodType !== undefined) update.foodType = targetFoodType;
@@ -267,7 +269,11 @@ export async function updateRestaurantFood(restaurantId, foodId, body = {}) {
         update.categoryName = categoryName || '';
     }
 
-    const shouldResubmitForApproval = Object.keys(update).length > 0;
+    const CRITICAL_APPROVAL_FIELDS = [
+        'name', 'description', 'image', 'price', 'variants',
+        'foodType', 'categoryId', 'categoryName', 'preparationTime'
+    ];
+    const shouldResubmitForApproval = Object.keys(update).some(key => CRITICAL_APPROVAL_FIELDS.includes(key));
 
     if (shouldResubmitForApproval) {
         update.approvalStatus = 'pending';

@@ -32,7 +32,6 @@ const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
 const INVENTORY_STORAGE_KEY = "restaurant_inventory_state"
-const INVENTORY_RECOMMENDED_KEY = "restaurant_inventory_recommended_map"
 const ADDON_FORM_STORAGE_KEY = "restaurant_addon_form_data"
 const INVENTORY_ACTIVE_TAB_KEY = "restaurant_inventory_active_tab"
 const INVENTORY_ADDON_FORM_KEY = "restaurant_inventory_addon_form"
@@ -877,17 +876,6 @@ export default function Inventory() {
   const [addonImageFile, setAddonImageFile] = useState(null)
   const [addonImagePreview, setAddonImagePreview] = useState("")
   const [savingAddon, setSavingAddon] = useState(false)
-  const [recommendedMap, setRecommendedMap] = useState(() => {
-    try {
-      if (typeof window === "undefined") return {}
-      const raw = localStorage.getItem(INVENTORY_RECOMMENDED_KEY)
-      const parsed = raw ? JSON.parse(raw) : {}
-      return parsed && typeof parsed === "object" ? parsed : {}
-    } catch (error) {
-      debugWarn("Failed to load recommended map:", error)
-      return {}
-    }
-  })
 
   // Inventory tabs
   const inventoryTabs = ["all-items", "add-ons"]
@@ -952,7 +940,7 @@ export default function Inventory() {
                   foodType: item.foodType || "Non-Veg",
                   approvalStatus: String(item.approvalStatus || "approved").toLowerCase(),
                   rejectionReason: item.rejectionReason || "",
-                  isRecommended: Boolean(recommendedMap?.[String(item.id)]),
+                  isRecommended: item.isRecommended === true,
                   stockQuantity: item.stock || "Unlimited",
                   unit: item.itemSizeUnit || "piece",
                 })
@@ -979,7 +967,7 @@ export default function Inventory() {
                       foodType: item.foodType || "Non-Veg",
                       approvalStatus: String(item.approvalStatus || "approved").toLowerCase(),
                       rejectionReason: item.rejectionReason || "",
-                      isRecommended: Boolean(recommendedMap?.[String(item.id)]),
+                      isRecommended: item.isRecommended === true,
                       stockQuantity: item.stock || "Unlimited",
                       unit: item.itemSizeUnit || "piece",
                     })
@@ -1034,7 +1022,7 @@ export default function Inventory() {
         setLoadingAddons(false)
       }
     }
-  }, [recommendedMap, stockRules])
+  }, [stockRules])
 
   useEffect(() => {
     fetchMenuAndAddons()
@@ -1718,7 +1706,7 @@ export default function Inventory() {
     const item = category?.items.find(i => i.id === itemId)
     const newRecommendationStatus = !item?.isRecommended
 
-    // Update local state
+    // Update local state immediately for UI responsiveness
     setCategories(prev =>
       prev.map(category => {
         if (category.id !== categoryId) return category
@@ -1732,16 +1720,26 @@ export default function Inventory() {
       })
     )
 
-    // Persist local recommended preference (backend doesn't support it yet).
+    // Persist to backend
     try {
-      setRecommendedMap((prev) => {
-        const next = { ...(prev || {}) }
-        next[String(itemId)] = Boolean(newRecommendationStatus)
-        localStorage.setItem(INVENTORY_RECOMMENDED_KEY, JSON.stringify(next))
-        return next
-      })
+      await restaurantAPI.updateFood(itemId, { isRecommended: newRecommendationStatus })
+      toast.success(newRecommendationStatus ? "Marked as recommended" : "Removed from recommended")
     } catch (error) {
-      debugWarn("Failed to persist recommended state:", error)
+      debugError("Failed to update recommendation status:", error)
+      toast.error("Failed to update recommendation")
+      // Revert local state on error
+      setCategories(prev =>
+        prev.map(category => {
+          if (category.id !== categoryId) return category
+          const updatedItems = category.items.map(item =>
+            item.id === itemId ? { ...item, isRecommended: !newRecommendationStatus } : item
+          )
+          return {
+            ...category,
+            items: updatedItems,
+          }
+        })
+      )
     }
   }
 
