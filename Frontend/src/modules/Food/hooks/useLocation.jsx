@@ -658,7 +658,7 @@ export function useLocation() {
       }
     }
   }
-  const fetchLocationFromDB = async () => {
+  const fetchLocationFromDB = async () => {
     try {
       // Check if user is authenticated before trying to fetch from DB
       const userToken = localStorage.getItem('user_accessToken') || localStorage.getItem('accessToken')

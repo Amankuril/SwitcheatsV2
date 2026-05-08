@@ -4829,6 +4829,23 @@ export async function updateDeliveryBoyWallet(data) {
 }
 
 /**
+ * Deactivate a delivery partner (admin)
+ */
+export async function deleteDeliveryPartner(id) {
+    const partner = await FoodDeliveryPartner.findById(id);
+    if (!partner) throw new NotFoundError('Delivery partner not found');
+
+    partner.status = 'deactivated';
+    await partner.save();
+
+    // Optional: You could also clear FCM tokens to log them out
+    // partner.fcmTokens = [];
+    // await partner.save();
+
+    return partner.toObject();
+}
+
+/**
  * Fetch cash limit settlement (deposit) transactions
  */
 export async function getCashLimitSettlements(query = {}) {

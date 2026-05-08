@@ -1405,6 +1405,16 @@ export async function updateDeliveryBoyWallet(req, res, next) {
     }
 }
 
+export async function deleteDeliveryPartner(req, res, next) {
+    try {
+        const { id } = req.params;
+        await adminService.deleteDeliveryPartner(id);
+        res.status(200).json({ success: true, message: 'Delivery partner deactivated successfully' });
+    } catch (error) {
+        next(error);
+    }
+}
+
 export async function getCashLimitSettlements(req, res, next) {
     try {
         const data = await adminService.getCashLimitSettlements(req.query || {});
