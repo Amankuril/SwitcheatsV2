@@ -3,6 +3,8 @@ import { ValidationError } from '../../../../core/auth/errors.js';
 import { FoodRestaurant } from '../../restaurant/models/restaurant.model.js';
 import { FoodDeliveryPartner } from '../../delivery/models/deliveryPartner.model.js';
 import { DeliverySupportTicket } from '../../delivery/models/supportTicket.model.js';
+import { FoodNotification } from '../../../../core/notifications/models/notification.model.js';
+import { sendNotificationToOwner } from '../../../../core/notifications/firebase.service.js';
 import { FoodZone } from '../models/zone.model.js';
 import { FoodCategory } from '../models/category.model.js';
 import { FoodItem } from '../models/food.model.js';
@@ -1479,6 +1481,40 @@ export async function updateSupportTicket(id, body = {}) {
     if (!Object.keys(set).length) return null;
     const model = source === 'restaurant' ? FoodRestaurantSupportTicket : FoodSupportTicket;
     const updated = await model.findByIdAndUpdate(id, { $set: set }, { new: true }).lean();
+
+    // Send notification if admin response was added
+    if (updated && set.adminResponse) {
+        const ownerType = source === 'restaurant' ? 'RESTAURANT' : 'USER';
+        const ownerId = updated.restaurantId || updated.userId;
+
+        if (ownerId) {
+            await FoodNotification.create({
+                ownerType,
+                ownerId,
+                title: 'Support Ticket Response',
+                message: `Admin has responded to your ticket: "${updated.subject}"`,
+                source: 'SUPPORT_RESPONSE',
+                category: 'support',
+                metadata: { ticketId: updated._id, source }
+            }).catch(err => console.error('Error creating support notification:', err));
+
+            // Also send push notification (FCM)
+            await sendNotificationToOwner({
+                ownerType,
+                ownerId,
+                payload: {
+                    title: 'Support Ticket Response',
+                    body: `Admin has responded to your ticket: "${updated.subject}"`,
+                    data: {
+                        type: 'SUPPORT_RESPONSE',
+                        ticketId: String(updated._id),
+                        source
+                    }
+                }
+            }).catch(err => console.error('Error sending support push notification:', err));
+        }
+    }
+
     return updated || null;
 }
 
@@ -3579,6 +3615,34 @@ export async function updateDeliverySupportTicket(id, body = {}) {
         if (ticket.adminResponse) ticket.respondedAt = new Date();
     }
     await ticket.save();
+
+    // Send notification if admin response was added
+    if (adminResponse !== undefined && ticket.adminResponse && ticket.deliveryPartnerId) {
+        await FoodNotification.create({
+            ownerType: 'DELIVERY_PARTNER',
+            ownerId: ticket.deliveryPartnerId,
+            title: 'Support Ticket Response',
+            message: `Admin has responded to your ticket: "${ticket.subject}"`,
+            source: 'SUPPORT_RESPONSE',
+            category: 'support',
+            metadata: { ticketId: ticket._id }
+        }).catch(err => console.error('Error creating delivery support notification:', err));
+
+        // Also send push notification (FCM)
+        await sendNotificationToOwner({
+            ownerType: 'DELIVERY_PARTNER',
+            ownerId: ticket.deliveryPartnerId,
+            payload: {
+                title: 'Support Ticket Response',
+                body: `Admin has responded to your ticket: "${ticket.subject}"`,
+                data: {
+                    type: 'SUPPORT_RESPONSE',
+                    ticketId: String(ticket._id)
+                }
+            }
+        }).catch(err => console.error('Error sending delivery support push notification:', err));
+    }
+
     return ticket.toObject();
 }
 
