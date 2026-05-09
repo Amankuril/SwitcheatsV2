@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { Input } from "@food/components/ui/input"
 import { Button } from "@food/components/ui/button"
 import { Label } from "@food/components/ui/label"
-import { Image as ImageIcon, Upload, Clock, Calendar as CalendarIcon, Sparkles, X, LogOut } from "lucide-react"
+import { Image as ImageIcon, Upload, Clock, Calendar as CalendarIcon, Sparkles, X, LogOut, ArrowLeft } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@food/components/ui/popover"
 import { Calendar } from "@food/components/ui/calendar"
 import {
@@ -39,6 +39,7 @@ const IFSC_CODE_REGEX = /^[A-Z0-9]{11}$/
 const OWNER_NAME_REGEX = /^[A-Za-z ]+$/
 const ACCOUNT_HOLDER_NAME_REGEX = /^[A-Za-z ]+$/
 const GST_LEGAL_NAME_REGEX = /^[A-Za-z ]+$/
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LOCAL_IMAGE_FILE_ACCEPT = ".jpg,.jpeg,.png,.webp,.heic,.heif"
 const GALLERY_IMAGE_ACCEPT =
   ".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif"
@@ -488,6 +489,13 @@ export default function RestaurantOnboarding() {
   const [uploadingAttachments, setUploadingAttachments] = useState({})
   const [subscriptionSettings, setSubscriptionSettings] = useState(null)
 
+  const goToStep = (targetStep) => {
+    const n = Math.min(4, Math.max(1, targetStep))
+    setStep(n)
+    navigate(`?step=${n}`, { replace: false })
+    window.scrollTo({ top: 0, behavior: "instant" })
+  }
+
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -771,6 +779,10 @@ export default function RestaurantOnboarding() {
       return
     }
 
+    if (!hasExistingRestaurantProfile) {
+      return
+    }
+
     try {
       await restaurantAPI.updateProfile({
         menuImages: toPersistedMenuImagesPayload(nextMenuImages),
@@ -794,6 +806,10 @@ export default function RestaurantOnboarding() {
     }))
 
     if (!isPersistedImageValue(currentProfileImage)) {
+      return
+    }
+
+    if (!hasExistingRestaurantProfile) {
       return
     }
 
@@ -844,7 +860,7 @@ export default function RestaurantOnboarding() {
     const stepParam = searchParams.get("step")
     if (stepParam) {
       const stepNum = parseInt(stepParam, 10)
-      if (stepNum >= 1 && stepNum <= 3) {
+      if (stepNum >= 1 && stepNum <= 4) {
         setStep(stepNum)
       }
     }
@@ -862,9 +878,12 @@ export default function RestaurantOnboarding() {
           
           if (savedPhone && normalizedCurrent && savedPhone !== normalizedCurrent) {
              debugLog("? Phone mismatch, data belongs to different user. Clearing.")
-             clearOnboardingFromLocalStorage()
-             await clearAllFilesFromDB()
-             return
+             // Be a bit more lenient: only clear if they are substantially different
+             if (savedPhone.slice(-10) !== normalizedCurrent.slice(-10)) {
+               clearOnboardingFromLocalStorage()
+               await clearAllFilesFromDB()
+               return
+             }
           }
 
           if (localData.step1) {
@@ -1468,14 +1487,11 @@ export default function RestaurantOnboarding() {
     setSaving(true)
     try {
       if (step === 1) {
-        setStep(2)
-        window.scrollTo({ top: 0, behavior: "instant" })
+        goToStep(2)
       } else if (step === 2) {
-        setStep(3)
-        window.scrollTo({ top: 0, behavior: "instant" })
+        goToStep(3)
       } else if (step === 3) {
-        setStep(4)
-        window.scrollTo({ top: 0, behavior: "instant" })
+        goToStep(4)
       } else if (step === 4) {
         await handleStep4Payment()
       }
@@ -3016,6 +3032,15 @@ export default function RestaurantOnboarding() {
       const subscriptionPaidNowGST = Math.round(subscriptionPaidAmountBase * GST_RATE)
       const subscriptionPaidNowTotal = subscriptionPaidAmountBase + subscriptionPaidNowGST
 
+      if (planErrors.length === 0) {
+        if (!step4State.subscriptionPlan) {
+          planErrors.push('Please select a valid subscription plan')
+        }
+        if (!step1.ownerEmail || !EMAIL_REGEX.test(String(step1.ownerEmail).trim())) {
+          planErrors.push('Please enter a valid owner email address')
+        }
+      }
+
       if (planErrors.length > 0) {
         setStep4State(prev => ({ ...prev, errors: planErrors }))
         setPaymentProcessing(false)
@@ -3278,11 +3303,14 @@ export default function RestaurantOnboarding() {
         <header className="px-4 py-4 sm:px-6 sm:py-5 bg-white flex items-center justify-between border-b">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("/food/restaurant/explore")}
+              onClick={() => {
+                if (step > 1) goToStep(step - 1)
+                else navigate("/food/restaurant/explore")
+              }}
               className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-              aria-label="Close onboarding"
+              aria-label={step > 1 ? "Back to previous step" : "Close onboarding"}
             >
-              <X className="w-5 h-5 text-gray-600" />
+              {step > 1 ? <ArrowLeft className="w-5 h-5 text-gray-600" /> : <X className="w-5 h-5 text-gray-600" />}
             </button>
             <div className="text-sm font-semibold text-black">Restaurant onboarding</div>
           </div>
@@ -3359,7 +3387,7 @@ export default function RestaurantOnboarding() {
             <Button
               variant="ghost"
               disabled={step === 1 || saving}
-              onClick={() => { setStep((s) => Math.max(1, s - 1)); window.scrollTo({ top: 0, behavior: "instant" }) }}
+              onClick={() => goToStep(step - 1)}
               className="text-sm text-gray-700 bg-transparent"
             >
               Back

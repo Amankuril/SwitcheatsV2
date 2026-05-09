@@ -5098,3 +5098,34 @@ export async function bulkApproveFoodItems(restaurantId) {
         modifiedCount: (foodResult.modifiedCount || 0) + (addonResult.modifiedCount || 0)
     };
 }
+
+export async function deleteRestaurant(id) {
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        throw new ValidationError('Invalid restaurant ID');
+    }
+
+    const restaurant = await FoodRestaurant.findById(id).lean();
+    if (!restaurant) {
+        return null;
+    }
+
+    // Delete the restaurant
+    await FoodRestaurant.findByIdAndDelete(id);
+
+    // Delete associated food items
+    await FoodItem.deleteMany({ restaurantId: id });
+
+    // Delete associated addons
+    await FoodAddon.deleteMany({ restaurantId: id });
+
+    // Delete associated categories if they are restaurant-specific
+    // Assuming categories are global unless they have a restaurantId field (need to check FoodCategory model)
+    await FoodCategory.deleteMany({ restaurantId: id });
+
+    // Delete associated user/owner account if it's a restaurant role
+    if (restaurant.ownerPhone) {
+        await FoodUser.deleteOne({ phone: restaurant.ownerPhone, role: 'RESTAURANT' });
+    }
+
+    return restaurant;
+}

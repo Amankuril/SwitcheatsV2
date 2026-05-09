@@ -563,6 +563,12 @@ export const adminAPI = {
     apiClient.post("/food/admin/restaurants", body ?? {}, {
       contextModule: "admin",
     }),
+  /** Delete restaurant (admin). DELETE /food/admin/restaurants/:id */
+  deleteRestaurant: (id) =>
+    apiClient.delete(`/food/admin/restaurants/${String(id)}`, {
+      contextModule: "admin",
+    }),
+
   /** List delivery zones. Query: limit, page, isActive, search */
   getZones: (params = {}) =>
     apiClient.get("/food/admin/zones", {
