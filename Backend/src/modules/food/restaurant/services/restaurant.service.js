@@ -1001,9 +1001,18 @@ export const updateRestaurantProfile = async (restaurantId, body = {}) => {
     if (body.ownerEmail !== undefined) {
         const ownerEmail = String(body.ownerEmail || '').trim().toLowerCase();
         if (ownerEmail) {
-            const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
             if (!EMAIL_REGEX.test(ownerEmail)) {
                 throw new ValidationError('Owner email is invalid');
+            }
+            const domainParts = ownerEmail.split('@')[1].split('.');
+            for (let i = 0; i < domainParts.length - 1; i++) {
+                if (domainParts[i] === domainParts[i + 1] && domainParts[i].length > 0) {
+                    throw new ValidationError('Owner email has repeated domain parts (like .com.com)');
+                }
+            }
+            if (ownerEmail.includes('..')) {
+                throw new ValidationError('Owner email cannot contain consecutive dots');
             }
             if (ownerEmail.length > 254) {
                 throw new ValidationError('Owner email is too long');

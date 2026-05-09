@@ -57,7 +57,8 @@ export default function SignupStep1() {
 
   const isValidEmailValue = (value) => {
     const normalizedValue = value.trim()
-    if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(normalizedValue)) {
+    const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,10}$/;
+    if (!emailRegex.test(normalizedValue) || normalizedValue.includes('..')) {
       return false
     }
 
@@ -65,6 +66,12 @@ export default function SignupStep1() {
     const normalizedDomain = domain.toLowerCase()
 
     if (normalizedDomain.startsWith("gmail.") && normalizedDomain !== "gmail.com") {
+      return false
+    }
+
+    // Check for repeated domain parts (e.g., .com.com)
+    const segments = normalizedDomain.split('.')
+    if (segments.length >= 2 && segments[segments.length - 1] === segments[segments.length - 2]) {
       return false
     }
 

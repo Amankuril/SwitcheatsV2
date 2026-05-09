@@ -30,7 +30,25 @@ export const updateCurrentUserProfile = async (userId, body) => {
     }
 
     if (body.name !== undefined) user.name = String(body.name || '').trim();
-    if (body.email !== undefined) user.email = String(body.email || '').trim().toLowerCase();
+    if (body.email !== undefined) {
+        const nextEmail = String(body.email || '').trim().toLowerCase();
+        if (nextEmail) {
+            const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!EMAIL_REGEX.test(nextEmail)) {
+                throw new ValidationError('Invalid email format');
+            }
+            const domainParts = nextEmail.split('@')[1].split('.');
+            for (let i = 0; i < domainParts.length - 1; i++) {
+                if (domainParts[i] === domainParts[i + 1] && domainParts[i].length > 0) {
+                    throw new ValidationError('Invalid email domain structure (e.g., .com.com)');
+                }
+            }
+            if (nextEmail.includes('..')) {
+                throw new ValidationError('Email cannot contain consecutive dots');
+            }
+        }
+        user.email = nextEmail;
+    }
     if (body.profileImage !== undefined) user.profileImage = String(body.profileImage || '').trim();
     if (body.gender !== undefined) user.gender = String(body.gender || '').trim();
 

@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 import {
   ArrowLeft,
-  Share2,
   RefreshCw,
   Phone,
   User,
@@ -1100,26 +1099,6 @@ export default function OrderTracking() {
     }
   };
 
-  const handleShare = async () => {
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `Track my order from ${order?.restaurant || companyName}`,
-          text: `Hey! Track my order from ${order?.restaurant || companyName} with ID #${order?.orderId || order?.id}.`,
-          url: window.location.href,
-        });
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        toast.success("Tracking link copied to clipboard!");
-      }
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        debugError('Error sharing:', error);
-        toast.error("Failed to share link");
-      }
-    }
-  };
-
   const handleRefresh = async () => {
     setIsRefreshing(true)
     try {
@@ -1365,13 +1344,7 @@ export default function OrderTracking() {
             <p className="text-xs text-gray-500 dark:text-gray-400">Order #{orderId?.slice(-6).toUpperCase()}</p>
           </div>
         </div>
-        <motion.button
-          className="w-10 h-10 flex items-center justify-center cursor-pointer text-gray-700 dark:text-gray-200"
-          whileTap={{ scale: 0.9 }}
-          onClick={handleShare}
-        >
-          <Share2 className="w-5 h-5" />
-        </motion.button>
+        <div className="w-10" /> {/* Spacer to keep title centered if needed, or just empty */}
       </div>
       </motion.div>
 

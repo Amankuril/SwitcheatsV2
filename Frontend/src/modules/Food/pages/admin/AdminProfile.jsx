@@ -157,6 +157,23 @@ export default function AdminProfile() {
     e.preventDefault();
     
     try {
+      const email = String(formData.email || "").trim();
+      if (!email) {
+        toast.error("Email is required");
+        return;
+      }
+
+      const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,10}$/;
+      if (!emailRegex.test(email) || email.includes('..')) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
+      const emailParts = email.toLowerCase().split('@')[1]?.split('.') || [];
+      if (emailParts.length >= 2 && emailParts[emailParts.length - 1] === emailParts[emailParts.length - 2]) {
+        toast.error("Invalid email domain format (repeated segments)");
+        return;
+      }
+
       const currentPassword = String(passwordData.currentPassword || "").trim();
       const newPassword = String(passwordData.newPassword || "").trim();
       const confirmPassword = String(passwordData.confirmPassword || "").trim();

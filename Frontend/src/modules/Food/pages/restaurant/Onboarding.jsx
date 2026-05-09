@@ -40,7 +40,7 @@ const OWNER_NAME_REGEX = /^[A-Za-z ]+$/
 const ACCOUNT_HOLDER_NAME_REGEX = /^[A-Za-z ]+$/
 const GST_LEGAL_NAME_REGEX = /^[A-Za-z ]+$/
 const INDIAN_PHONE_REGEX = /^[6-9]\d{9}$/
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,10}$/
 const LOCAL_IMAGE_FILE_ACCEPT = ".jpg,.jpeg,.png,.webp,.heic,.heif"
 const GALLERY_IMAGE_ACCEPT =
   ".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif"
@@ -1281,8 +1281,13 @@ export default function RestaurantOnboarding() {
     }
     if (!step1.ownerEmail?.trim()) {
       errors.push("Owner email is required")
-    } else if (!/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(step1.ownerEmail.trim())) {
+    } else if (!EMAIL_REGEX.test(step1.ownerEmail.trim()) || step1.ownerEmail.includes('..')) {
       errors.push("Please enter a valid email address")
+    } else {
+      const emailParts = step1.ownerEmail.trim().toLowerCase().split('@')[1]?.split('.') || []
+      if (emailParts.length >= 2 && emailParts[emailParts.length - 1] === emailParts[emailParts.length - 2]) {
+        errors.push("Please enter a valid email address (avoid repeated domain parts like .com.com)")
+      }
     }
     if (!step1.ownerPhone?.trim()) {
       errors.push("Owner phone number is required")
@@ -3077,8 +3082,13 @@ export default function RestaurantOnboarding() {
         }
         if (!step1.ownerEmail?.trim()) {
           planErrors.push('Owner email is missing. Please go back to Step 1 and provide an email.')
-        } else if (!EMAIL_REGEX.test(String(step1.ownerEmail).trim())) {
+        } else if (!EMAIL_REGEX.test(String(step1.ownerEmail).trim()) || String(step1.ownerEmail).includes('..')) {
           planErrors.push(`Email "${step1.ownerEmail}" is invalid. Please fix it in Step 1.`)
+        } else {
+          const emailParts = String(step1.ownerEmail).trim().toLowerCase().split('@')[1]?.split('.') || []
+          if (emailParts.length >= 2 && emailParts[emailParts.length - 1] === emailParts[emailParts.length - 2]) {
+            planErrors.push(`Email "${step1.ownerEmail}" has repeated domain parts. Please fix it in Step 1.`)
+          }
         }
       }
 

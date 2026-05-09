@@ -43,10 +43,24 @@ export const registerDeliveryPartner = async (payload, files) => {
         );
     }
 
+    let normalizedEmail = undefined;
+    if (email && String(email).trim()) {
+        normalizedEmail = String(email).trim().toLowerCase();
+        const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,10}$/;
+        if (!emailRegex.test(normalizedEmail) || normalizedEmail.includes('..')) {
+            throw new ValidationError('Invalid email format');
+        }
+        const domain = normalizedEmail.split('@')[1];
+        const segments = domain ? domain.split('.') : [];
+        if (segments.length >= 2 && segments[segments.length - 1] === segments[segments.length - 2]) {
+            throw new ValidationError('Invalid email domain (repeated segments)');
+        }
+    }
+
     const partner = await FoodDeliveryPartner.create({
         name,
         phone,
-        email: email && String(email).trim() ? String(email).trim() : undefined,
+        email: normalizedEmail,
         countryCode,
         address,
         city,

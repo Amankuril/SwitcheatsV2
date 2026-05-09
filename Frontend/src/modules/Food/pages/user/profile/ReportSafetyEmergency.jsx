@@ -88,14 +88,23 @@ export default function ReportSafetyEmergency() {
   }
 
   const handleSubmit = async () => {
-    if (!report.trim()) {
+    const trimmedReport = report.trim()
+    
+    if (!trimmedReport) {
       toast.error('Please describe the safety concern or emergency')
+      return
+    }
+
+    // Check for at least 5 words
+    const words = trimmedReport.split(/\s+/).filter(word => word.length > 0)
+    if (words.length < 5) {
+      toast.error('Please provide a more detailed report (minimum 5 words)')
       return
     }
 
     try {
       setIsSubmitting(true)
-      const response = await userAPI.createSafetyEmergencyReport(report.trim())
+      const response = await userAPI.createSafetyEmergencyReport(trimmedReport)
       
       if (response.data.success) {
         setIsSubmitted(true)
@@ -190,13 +199,6 @@ export default function ReportSafetyEmergency() {
                   onChange={(e) => setReport(e.target.value)}
                   className="min-h-[150px] md:min-h-[200px] lg:min-h-[250px] w-full resize-y text-sm md:text-base leading-relaxed"
                   dir="ltr"
-                  style={{
-                    direction: 'ltr',
-                    textAlign: 'left',
-                    unicodeBidi: 'bidi-override',
-                    width: '100%',
-                    maxWidth: '100%'
-                  }}
                 />
                 <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-2">
                   {report.length} characters
@@ -282,54 +284,77 @@ export default function ReportSafetyEmergency() {
               </CardContent>
             </Card>
 
-            {/* History Details Dialog */}
+            {/* History Details Dialog - Redesigned for professional look */}
             <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
-              <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-red-600" />
-                    Report Details
-                  </DialogTitle>
-                  <DialogDescription>
-                    Full details of your safety emergency report.
-                  </DialogDescription>
-                </DialogHeader>
+              <DialogContent className="max-w-[90vw] md:max-w-xl p-0 overflow-hidden border-0 rounded-3xl shadow-2xl bg-white dark:bg-[#121212]">
+                <div className="bg-red-600 p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 p-2 rounded-xl">
+                      <AlertTriangle className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-white">Report Details</h2>
+                      <p className="text-red-100 text-xs">Safety Emergency Feedback</p>
+                    </div>
+                  </div>
+                </div>
 
-                {selectedHistoryItem && (
-                  <div className="space-y-4">
-                    <div className="flex flex-wrap items-center gap-2">
+                <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Status:</span>
                       {getStatusPill(selectedHistoryItem?.status)}
-                      {selectedHistoryItem?.priority ? getPriorityPill(selectedHistoryItem?.priority) : null}
-                      {selectedHistoryItem?.createdAt ? (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatDateTime(selectedHistoryItem.createdAt)}
-                        </span>
-                      ) : null}
                     </div>
-
-                    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0f0f0f] p-4">
-                      <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
-                        {selectedHistoryItem?.message || "—"}
-                      </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Priority:</span>
+                      {selectedHistoryItem?.priority ? getPriorityPill(selectedHistoryItem?.priority) : getPriorityPill('medium')}
                     </div>
-
-                    {selectedHistoryItem?.adminResponse && (
-                      <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-900/10 p-4">
-                        <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider mb-2">
-                          Admin response
-                        </p>
-                        <p className="text-sm text-emerald-900 dark:text-emerald-100 whitespace-pre-wrap leading-relaxed">
-                          {selectedHistoryItem.adminResponse}
-                        </p>
-                        {selectedHistoryItem?.respondedAt && (
-                          <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80 mt-2">
-                            Responded at: {formatDateTime(selectedHistoryItem.respondedAt)}
-                          </p>
-                        )}
+                    {selectedHistoryItem?.createdAt && (
+                      <div className="ml-auto text-[11px] font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-lg">
+                        {formatDateTime(selectedHistoryItem.createdAt)}
                       </div>
                     )}
                   </div>
-                )}
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Your Detailed Report</p>
+                    <div className="relative group">
+                      <div className="absolute -inset-1 bg-gradient-to-r from-red-600/10 to-orange-600/10 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                      <div className="relative rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#0a0a0a] p-5 shadow-sm">
+                        <p className="text-base text-gray-800 dark:text-gray-100 whitespace-pre-wrap leading-relaxed font-medium italic">
+                          "{selectedHistoryItem?.message || "—"}"
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedHistoryItem?.adminResponse && (
+                    <div className="space-y-3 pt-2">
+                      <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                        <Shield className="w-3 h-3" /> Official Support Response
+                      </p>
+                      <div className="rounded-2xl border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/40 dark:bg-emerald-900/10 p-5 shadow-sm">
+                        <p className="text-base text-emerald-900 dark:text-emerald-100 whitespace-pre-wrap leading-relaxed font-semibold">
+                          {selectedHistoryItem.adminResponse}
+                        </p>
+                        {selectedHistoryItem?.respondedAt && (
+                          <p className="text-[10px] text-emerald-700/60 dark:text-emerald-400/60 mt-4 font-bold uppercase tracking-tighter">
+                            Verified Response • {formatDateTime(selectedHistoryItem.respondedAt)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex justify-end bg-gray-50/50 dark:bg-[#0a0a0a]">
+                  <Button 
+                    onClick={() => setIsHistoryDialogOpen(false)}
+                    className="rounded-xl px-8 bg-black text-white hover:bg-gray-900 transition-all active:scale-95"
+                  >
+                    Got it
+                  </Button>
+                </div>
               </DialogContent>
             </Dialog>
           </>

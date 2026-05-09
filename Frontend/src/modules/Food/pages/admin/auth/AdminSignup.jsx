@@ -81,6 +81,17 @@ export default function AdminSignup() {
       return
     }
 
+    const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,10}$/;
+    if (!emailRegex.test(formData.email.trim()) || formData.email.includes('..')) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    const emailParts = formData.email.trim().toLowerCase().split('@')[1]?.split('.') || [];
+    if (emailParts.length >= 2 && emailParts[emailParts.length - 1] === emailParts[emailParts.length - 2]) {
+      setError("Invalid email domain format (repeated segments)");
+      return;
+    }
+
     if (!formData.password) {
       setError("Password is required")
       return

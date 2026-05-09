@@ -642,6 +642,18 @@ export const updateAdminProfile = async (userId, body) => {
     if (!normalizedEmail) {
       throw new ValidationError("Email is required");
     }
+
+    const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,10}$/;
+    if (!emailRegex.test(normalizedEmail) || normalizedEmail.includes("..")) {
+      throw new ValidationError("Invalid email format");
+    }
+
+    const domain = normalizedEmail.split("@")[1];
+    const segments = domain ? domain.split(".") : [];
+    if (segments.length >= 2 && segments[segments.length - 1] === segments[segments.length - 2]) {
+      throw new ValidationError("Invalid email domain (repeated segments)");
+    }
+
     if (normalizedEmail !== admin.email) {
       const duplicateAdmin = await FoodAdmin.findOne({
         _id: { $ne: admin._id },

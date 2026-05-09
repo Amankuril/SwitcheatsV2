@@ -179,7 +179,26 @@ export default function EditProfile() {
 
   const validateEmail = (value) => {
     if (!value) return ""
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "" : "Please enter a valid email"
+    const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!EMAIL_REGEX.test(value)) {
+      return "Please enter a valid email address";
+    }
+    
+    const parts = value.split('@');
+    if (parts.length === 2) {
+      const domainParts = parts[1].split('.');
+      for (let i = 0; i < domainParts.length - 1; i++) {
+        if (domainParts[i] === domainParts[i + 1] && domainParts[i].length > 0) {
+          return "Invalid email domain (e.g., .com.com)";
+        }
+      }
+    }
+    
+    if (value.includes('..')) {
+      return "Email cannot contain consecutive dots";
+    }
+    
+    return ""
   }
 
   const validateMobile = (value) => {

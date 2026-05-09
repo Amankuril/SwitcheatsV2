@@ -170,6 +170,32 @@ export default function EditOwner() {
   const handleSave = async () => {
     try {
       setSaving(true)
+      
+      // Email validation
+      if (formData.email) {
+        const email = formData.email.trim();
+        const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!EMAIL_REGEX.test(email)) {
+          toast.error("Please enter a valid email address");
+          setSaving(false);
+          return;
+        }
+        
+        const domainParts = email.split('@')[1].split('.');
+        for (let i = 0; i < domainParts.length - 1; i++) {
+          if (domainParts[i] === domainParts[i + 1] && domainParts[i].length > 0) {
+            toast.error("Invalid email domain (e.g., .com.com)");
+            setSaving(false);
+            return;
+          }
+        }
+        
+        if (email.includes('..')) {
+          toast.error("Email cannot contain consecutive dots");
+          setSaving(false);
+          return;
+        }
+      }
 
       // First, upload profile image if changed
       if (profileImageFile) {
