@@ -3,8 +3,7 @@ import { ValidationError } from '../../../../core/auth/errors.js';
 
 const phoneSchema = z
     .string()
-    .min(8, 'Phone must be at least 8 digits')
-    .max(15, 'Phone must be at most 15 digits');
+    .regex(/^[6-9]\d{9}$/, 'Please enter a valid 10-digit Indian phone number');
 
 const emailSchema = z.string().email('Invalid email').optional().or(z.literal(''));
 const requiredBooleanSchema = z.preprocess((value) => {

@@ -39,7 +39,8 @@ const IFSC_CODE_REGEX = /^[A-Z0-9]{11}$/
 const OWNER_NAME_REGEX = /^[A-Za-z ]+$/
 const ACCOUNT_HOLDER_NAME_REGEX = /^[A-Za-z ]+$/
 const GST_LEGAL_NAME_REGEX = /^[A-Za-z ]+$/
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const INDIAN_PHONE_REGEX = /^[6-9]\d{9}$/
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
 const LOCAL_IMAGE_FILE_ACCEPT = ".jpg,.jpeg,.png,.webp,.heic,.heif"
 const GALLERY_IMAGE_ACCEPT =
   ".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif"
@@ -167,7 +168,10 @@ const isUploadableFile = (value) => {
   )
 }
 
-const normalizePhoneDigits = (value) => String(value || "").replace(/\D/g, "").slice(-15)
+const normalizePhoneDigits = (value) => {
+  const digits = String(value || "").replace(/\D/g, "")
+  return digits.length > 10 ? digits.slice(-10) : digits
+}
 
 const getVerifiedPhoneFromStoredRestaurant = () => {
   try {
@@ -1002,7 +1006,7 @@ export default function RestaurantOnboarding() {
     if (!verifiedPhoneNumber) return
     setStep1((prev) => ({
       ...prev,
-      ownerPhone: verifiedPhoneNumber,
+      ownerPhone: normalizePhoneDigits(verifiedPhoneNumber),
     }))
   }, [verifiedPhoneNumber])
 
@@ -1282,9 +1286,13 @@ export default function RestaurantOnboarding() {
     }
     if (!step1.ownerPhone?.trim()) {
       errors.push("Owner phone number is required")
+    } else if (!INDIAN_PHONE_REGEX.test(step1.ownerPhone.trim())) {
+      errors.push("Please enter a valid 10-digit Indian phone number for owner")
     }
     if (!step1.primaryContactNumber?.trim()) {
       errors.push("Primary contact number is required")
+    } else if (!INDIAN_PHONE_REGEX.test(step1.primaryContactNumber.trim())) {
+      errors.push("Please enter a valid 10-digit Indian phone number for restaurant")
     }
     if (!step1.zoneId?.trim()) {
       errors.push("Service zone is required")
@@ -1612,10 +1620,26 @@ export default function RestaurantOnboarding() {
             <Label className="text-xs text-gray-700">Phone number*</Label>
             <Input
               value={step1.ownerPhone || ""}
-              onChange={(e) => setStep1({ ...step1, ownerPhone: e.target.value })}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/\D/g, "")
+                const val = raw.startsWith("91") && raw.length > 10 ? raw.slice(2) : raw
+                setStep1({ ...step1, ownerPhone: val.slice(0, 10) })
+              }}
+              onKeyDown={(e) => {
+                const allowed = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Enter"]
+                if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault()
+                if (/^\d$/.test(e.key) && (step1.ownerPhone || "").length >= 10) e.preventDefault()
+              }}
+              onPaste={(e) => {
+                e.preventDefault()
+                const raw = e.clipboardData.getData("text").replace(/\D/g, "")
+                const val = raw.startsWith("91") && raw.length > 10 ? raw.slice(2) : raw
+                setStep1({ ...step1, ownerPhone: val.slice(0, 10) })
+              }}
               readOnly={Boolean(verifiedPhoneNumber)}
+              inputMode="numeric"
               className="mt-1 bg-white text-sm text-black placeholder-black"
-              placeholder="+91 98XXXXXX"
+              placeholder="98XXXXXX"
               disabled={!isEditing}
             />
           </div>
@@ -1629,8 +1653,9 @@ export default function RestaurantOnboarding() {
           <Input
             value={step1.primaryContactNumber || ""}
             onChange={(e) => {
-              const val = e.target.value.replace(/\D/g, "").slice(0, 10)
-              setStep1({ ...step1, primaryContactNumber: val })
+              const raw = e.target.value.replace(/\D/g, "")
+              const val = raw.startsWith("91") && raw.length > 10 ? raw.slice(2) : raw
+              setStep1({ ...step1, primaryContactNumber: val.slice(0, 10) })
             }}
             onKeyDown={(e) => {
               const allowed = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Enter"]
@@ -1639,8 +1664,9 @@ export default function RestaurantOnboarding() {
             }}
             onPaste={(e) => {
               e.preventDefault()
-              const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 10)
-              setStep1({ ...step1, primaryContactNumber: pasted })
+              const raw = e.clipboardData.getData("text").replace(/\D/g, "")
+              const val = raw.startsWith("91") && raw.length > 10 ? raw.slice(2) : raw
+              setStep1({ ...step1, primaryContactNumber: val.slice(0, 10) })
             }}
             inputMode="numeric"
             className="mt-1 bg-white text-sm text-black placeholder-black"
