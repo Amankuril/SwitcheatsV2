@@ -83,14 +83,10 @@ export const initRazorpayPayment = async (options) => {
       name: options.name || 'Switcheats',
       description: options.description || 'Order Payment',
       image: options.image || '/switcheats-logo.png',
-      prefill: {
-        name: options.prefill?.name || '',
-        email: options.prefill?.email || '',
-        contact: options.prefill?.contact || ''
-      },
+      prefill: options.prefill || {},
       notes: options.notes || {},
       theme: {
-        color: '#E23744'
+        color: options.theme?.color || '#E23744'
       },
       handler: function(response) {
         if (options.handler) {
@@ -103,14 +99,14 @@ export const initRazorpayPayment = async (options) => {
             options.onClose();
           }
         },
-        // Ensure modal is clickable
         escape: true,
-        animation: true
+        animation: true,
+        ...options.modal
       },
-      // Ensure proper z-index
       retry: {
         enabled: true,
-        max_count: 3
+        max_count: 3,
+        ...options.retry
       }
     };
 

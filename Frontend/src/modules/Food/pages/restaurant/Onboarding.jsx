@@ -1090,26 +1090,28 @@ export default function RestaurantOnboarding() {
             const deliveryTimings = step2Data.deliveryTimings || data.deliveryTimings || {}
 
             setIsEditing(true)
-            // Map Step 1 (Merging with local state)
+            // Map Step 1 (Merging with local state - prioritize local edits)
             setStep1((prev) => ({
               ...prev,
-              restaurantName: step1Data.restaurantName || data.name || data.restaurantName || prev.restaurantName || "",
+              restaurantName: prev.restaurantName || step1Data.restaurantName || data.name || data.restaurantName || "",
               pureVegRestaurant:
-                typeof step1Data.pureVegRestaurant === "boolean"
+                typeof prev.pureVegRestaurant === "boolean"
+                  ? prev.pureVegRestaurant
+                  : typeof step1Data.pureVegRestaurant === "boolean"
                   ? step1Data.pureVegRestaurant
                   : typeof data.pureVegRestaurant === "boolean"
                   ? data.pureVegRestaurant
-                  : prev.pureVegRestaurant,
-              ownerName: step1Data.ownerName || data.ownerName || prev.ownerName || "",
-              ownerEmail: step1Data.ownerEmail || data.ownerEmail || data.email || prev.ownerEmail || "",
-              ownerPhone: step1Data.ownerPhone || data.ownerPhone || data.phone || prev.ownerPhone || "",
-              zoneId: step1Data.zoneId || data.zoneId || prev.zoneId || "",
+                  : null,
+              ownerName: prev.ownerName || step1Data.ownerName || data.ownerName || "",
+              ownerEmail: prev.ownerEmail || step1Data.ownerEmail || data.ownerEmail || data.email || "",
+              ownerPhone: prev.ownerPhone || step1Data.ownerPhone || data.ownerPhone || data.phone || "",
+              zoneId: prev.zoneId || step1Data.zoneId || data.zoneId || "",
               primaryContactNumber:
+                prev.primaryContactNumber ||
                 step1Data.primaryContactNumber ||
                 data.primaryContactNumber ||
                 data.ownerPhone ||
                 data.phone ||
-                prev.primaryContactNumber ||
                 "",
               location: {
                 ...prev.location,
@@ -3083,8 +3085,13 @@ export default function RestaurantOnboarding() {
         description: `Onboarding payment (${paymentType === 'later' ? 'onboarding only' : paymentType === 'full' ? 'full plan' : 'partial'})`,
         prefill: {
           name: step1.ownerName || '',
-          email: step1.ownerEmail || '',
-          contact: normalizePhoneDigits(step1.ownerPhone)
+          // Removed pre-filled email/contact to allow any value in Razorpay and avoid WebView focus issues
+        },
+        modal: {
+          handleback: false, // Fix for blank screen in some WebViews/Mobile apps
+        },
+        retry: {
+          enabled: false // Disable retry to prevent loops in WebViews
         },
         handler: async (response) => {
           try {
