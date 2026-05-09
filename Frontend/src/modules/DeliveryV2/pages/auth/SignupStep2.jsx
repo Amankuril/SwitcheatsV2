@@ -124,12 +124,10 @@ export default function SignupStep2() {
 
   useEffect(() => {
     return () => {
-      // Cleanup object URLs only on unmount to prevent broken previews during flow
-      Object.values(documentsRef.current).forEach((file) => {
-        if (file instanceof File && file._previewUrl) {
-          URL.revokeObjectURL(file._previewUrl)
-        }
-      })
+      // Do NOT revokeObjectURL here anymore because we want to preserve 
+      // the previews when navigating back and forth between steps.
+      // The browser will clean them up when the tab is closed or 
+      // when we explicitly revoke them during file replacement/removal.
     }
   }, [])
 
