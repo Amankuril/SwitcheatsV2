@@ -473,6 +473,13 @@ export default function RestaurantOnboarding() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [step, setStep] = useState(1)
+
+  useEffect(() => {
+    const s = parseInt(searchParams.get('step'))
+    if (s >= 1 && s <= 4 && s !== step) {
+      setStep(s)
+    }
+  }, [searchParams, step])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [paymentProcessing, setPaymentProcessing] = useState(false)
@@ -2743,16 +2750,17 @@ export default function RestaurantOnboarding() {
     const onboardingFeeBase = subscriptionSettings?.onboardingFee || 799
 
     const subscriptionPlans = [
-      { value: String(silverPrice), label: `₹${silverPrice.toLocaleString()}`, features: ['Silver Plan', 'Basic features', 'Standard support'] },
-      { value: String(goldPrice), label: `₹${goldPrice.toLocaleString()}`, features: ['Gold Plan', 'Premium features', 'Priority support'] }
+      { id: 'silver', price: silverPrice, label: 'Silver Plan', features: ['Silver Plan', 'Basic features', 'Standard support'] },
+      { id: 'gold', price: goldPrice, label: 'Gold Plan', features: ['Gold Plan', 'Premium features', 'Priority support'] }
     ]
 
     const GST_RATE = 0.18
     const onboardingGST = Math.round(onboardingFeeBase * GST_RATE)
     const onboardingFeeTotal = onboardingFeeBase + onboardingGST
 
-    const selectedPlanBase = step4State.subscriptionPlan ? Number(step4State.subscriptionPlan) : 0
-    const planLabel = step4State.subscriptionPlan === String(silverPrice) ? 'Silver' : 'Gold'
+    const selectedPlan = subscriptionPlans.find(p => p.id === step4State.subscriptionPlan)
+    const selectedPlanBase = selectedPlan ? selectedPlan.price : 0
+    const planLabel = selectedPlan ? selectedPlan.label : 'None'
     
     const subscriptionPlanGST = Math.round(selectedPlanBase * GST_RATE)
     const subscriptionPlanTotal = selectedPlanBase + subscriptionPlanGST
@@ -2795,24 +2803,25 @@ export default function RestaurantOnboarding() {
           <div className="space-y-3">
             {subscriptionPlans.map((plan) => (
               <button
-                key={plan.value}
-                onClick={() => setStep4State({ ...step4State, subscriptionPlan: plan.value, paymentType: 'full', customAmount: 0, errors: [] })}
+                key={plan.id}
+                onClick={() => setStep4State({ ...step4State, subscriptionPlan: plan.id, paymentType: 'full', customAmount: 0, errors: [] })}
                 className={`w-full p-4 border-2 rounded-md text-left transition-colors ${
-                  step4State.subscriptionPlan === plan.value
+                  step4State.subscriptionPlan === plan.id
                     ? 'border-black bg-black/5'
                     : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-medium text-black">{plan.label}/month + 18% GST (Total: ₹{Math.round(Number(plan.value) * 1.18)})</p>
+                    <p className="font-medium text-black">{plan.label} (₹{plan.price}/mo + 18% GST)</p>
+                    <p className="text-sm font-semibold text-gray-700">Total: ₹{Math.round(plan.price * 1.18)}</p>
                     <ul className="mt-2 space-y-1">
                       {plan.features.map((f, i) => (
                         <li key={i} className="text-xs text-gray-600">• {f}</li>
                       ))}
                     </ul>
                   </div>
-                  <div className={`w-5 h-5 rounded-full border-2 ${step4State.subscriptionPlan === plan.value ? 'border-black bg-black' : 'border-gray-300'}`} />
+                  <div className={`w-5 h-5 rounded-full border-2 ${step4State.subscriptionPlan === plan.id ? 'border-black bg-black' : 'border-gray-300'}`} />
                 </div>
               </button>
             ))}
@@ -2986,15 +2995,17 @@ export default function RestaurantOnboarding() {
 
     try {
       const GST_RATE = 0.18
-      const selectedPlanBase = step4State.subscriptionPlan ? Number(step4State.subscriptionPlan) : 0
+      const silverPrice = subscriptionSettings?.silverPrice || 999
+      const goldPrice = subscriptionSettings?.goldPrice || 1999
+      const onboardingFeeBase = subscriptionSettings?.onboardingFee || 799
+
+      const selectedPlanBase = step4State.subscriptionPlan === 'silver' ? silverPrice : (step4State.subscriptionPlan === 'gold' ? goldPrice : 0)
       const planErrors = []
       if (!selectedPlanBase) {
         planErrors.push('Please select a subscription plan')
       }
 
       const paymentType = step4State.paymentType || 'full'
-      const silverPrice = subscriptionSettings?.silverPrice || 999
-      const onboardingFeeBase = subscriptionSettings?.onboardingFee || 799
       const onboardingGST = Math.round(onboardingFeeBase * GST_RATE)
       const onboardingFeeTotal = onboardingFeeBase + onboardingGST
       
@@ -3034,10 +3045,12 @@ export default function RestaurantOnboarding() {
 
       if (planErrors.length === 0) {
         if (!step4State.subscriptionPlan) {
-          planErrors.push('Please select a valid subscription plan')
+          planErrors.push('Please select a subscription plan')
         }
-        if (!step1.ownerEmail || !EMAIL_REGEX.test(String(step1.ownerEmail).trim())) {
-          planErrors.push('Please enter a valid owner email address')
+        if (!step1.ownerEmail?.trim()) {
+          planErrors.push('Owner email is missing. Please go back to Step 1 and provide an email.')
+        } else if (!EMAIL_REGEX.test(String(step1.ownerEmail).trim())) {
+          planErrors.push(`Email "${step1.ownerEmail}" is invalid. Please fix it in Step 1.`)
         }
       }
 
@@ -3169,7 +3182,7 @@ export default function RestaurantOnboarding() {
             // Payment & Subscription fields
             formData.append('onboardingFeePaid', 'true')
             formData.append('onboardingFeeAmount', String(onboardingFeeTotal))
-            formData.append('subscriptionPlan', step4State.subscriptionPlan || '')
+            formData.append('subscriptionPlan', step4State.subscriptionPlan || 'silver')
             formData.append('subscriptionAmount', String(subscriptionPlanTotal))
             formData.append('subscriptionPaidAmount', String(subscriptionPaidNowTotal))
             formData.append('subscriptionDueAmount', String(Math.max(0, subscriptionPlanTotal - subscriptionPaidNowTotal)))
