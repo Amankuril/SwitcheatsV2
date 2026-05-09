@@ -42,7 +42,9 @@ const deliveryPartnerSchema = new mongoose.Schema(
         vehicleNumber: {
             type: String,
             unique: true,
-            sparse: true
+            sparse: true,
+            trim: true,
+            uppercase: true
         },
         panNumber: {
             type: String

@@ -16,6 +16,26 @@ const uploadFields = upload.fields([
 ]);
 
 router.post('/register', uploadFields, registerDeliveryPartnerController);
+router.get('/check-vehicle/:number', async (req, res) => {
+    try {
+        const { FoodDeliveryPartner } = await import('../models/deliveryPartner.model.js');
+        const vNum = String(req.params.number || '').trim().toUpperCase();
+        if (!vNum) {
+            return res.status(400).json({ success: false, message: 'Vehicle number is required' });
+        }
+        const existing = await FoodDeliveryPartner.findOne({ 
+            vehicleNumber: vNum, 
+            status: { $ne: 'rejected' } 
+        });
+        return res.json({ 
+            success: true, 
+            isAvailable: !existing,
+            message: existing ? 'Vehicle number already registered' : 'Available' 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
 
 router.patch('/profile', authMiddleware, requireRoles('DELIVERY_PARTNER'), uploadFields, updateDeliveryPartnerProfileController);
 

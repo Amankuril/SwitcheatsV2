@@ -5,6 +5,7 @@ import { deliveryAPI } from "@food/api"
 import { toast } from "sonner"
 import { isFlutterBridgeAvailable, openCamera } from "@food/utils/imageUploadUtils"
 import useDeliveryBackNavigation from "../../hooks/useDeliveryBackNavigation"
+import { useDeliveryOnboardingStore } from "../../store/useDeliveryOnboardingStore"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -84,12 +85,7 @@ export default function SignupStep2() {
     panPhoto: null,
     drivingLicensePhoto: null
   })
-  const [documents, setDocuments] = useState({
-    profilePhoto: null,
-    aadharPhoto: null,
-    panPhoto: null,
-    drivingLicensePhoto: null
-  })
+  const { documents, setDocument, removeDocument, clearOnboardingState } = useDeliveryOnboardingStore()
   const [uploadedDocs, setUploadedDocs] = useState(() => {
     const saved = sessionStorage.getItem("deliverySignupDocs")
     if (saved) {
@@ -99,7 +95,12 @@ export default function SignupStep2() {
         debugError("Error parsing saved docs:", e)
       }
     }
-    return createEmptyUploadedDocs()
+    // Sync with store if session is empty but store has files
+    const initial = createEmptyUploadedDocs()
+    Object.keys(documents).forEach(key => {
+      if (documents[key]) initial[key] = { file: true }
+    })
+    return initial
   })
   const [activePicker, setActivePicker] = useState(null) // { docType: string, title: string, ref: any }
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -133,14 +134,18 @@ export default function SignupStep2() {
   }, [])
 
   const getPreviewSrc = (docType) => {
+    const localFile = documents[docType]
+    if (localFile instanceof File) {
+      if (!localFile._previewUrl) {
+        localFile._previewUrl = URL.createObjectURL(localFile)
+      }
+      return localFile._previewUrl
+    }
+
     const uploaded = uploadedDocs[docType]
     if (typeof uploaded === "string") return uploaded
     if (uploaded?.url) return uploaded.url
 
-    const localFile = documents[docType]
-    if (localFile instanceof File) {
-      return localFile._previewUrl || null
-    }
     return null
   }
 
@@ -169,7 +174,7 @@ export default function SignupStep2() {
     // Create new preview URL
     file._previewUrl = URL.createObjectURL(file)
 
-    setDocuments((prev) => ({ ...prev, [docType]: file }))
+    setDocument(docType, file)
     setUploadedDocs((prev) => ({ ...prev, [docType]: { file: true } }))
     toast.success(`${docType.replace(/([A-Z])/g, " $1").trim()} selected`)
   }
@@ -190,10 +195,7 @@ export default function SignupStep2() {
     if (file instanceof File && file._previewUrl) {
       URL.revokeObjectURL(file._previewUrl)
     }
-    setDocuments(prev => ({
-      ...prev,
-      [docType]: null
-    }))
+    removeDocument(docType)
     setUploadedDocs(prev => ({
       ...prev,
       [docType]: null
@@ -291,6 +293,7 @@ export default function SignupStep2() {
       if (response?.data?.success) {
         sessionStorage.removeItem("deliverySignupDetails")
         sessionStorage.removeItem("deliverySignupDocs")
+        clearOnboardingState()
         if (isCompleteProfile) {
           sessionStorage.removeItem("deliveryNeedsRegistration")
           toast.success("Registration successful. Please login with OTP.")

@@ -25,6 +25,25 @@ export const registerDeliveryPartner = async (payload, files) => {
         await FoodDeliveryPartner.deleteMany({ phone });
     }
 
+    if (vehicleNumber && String(vehicleNumber).trim()) {
+        const vNum = String(vehicleNumber).trim().toUpperCase();
+        
+        // 1. Check for active/pending partners with this vehicle
+        const activeVehicle = await FoodDeliveryPartner.findOne({ 
+            vehicleNumber: vNum, 
+            status: { $ne: 'rejected' } 
+        });
+        if (activeVehicle) {
+            throw new ValidationError('Vehicle number already registered with another partner');
+        }
+        
+        // 2. Clean up any rejected records with this vehicle (to satisfy unique index)
+        await FoodDeliveryPartner.deleteMany({ 
+            vehicleNumber: vNum, 
+            status: 'rejected' 
+        });
+    }
+
     const images = {};
 
     if (files?.profilePhoto?.[0]) {
@@ -137,7 +156,26 @@ export const updateDeliveryPartnerProfile = async (userId, payload, files) => {
     if (state !== undefined) partner.state = state;
     if (vehicleType !== undefined) partner.vehicleType = vehicleType;
     if (vehicleName !== undefined) partner.vehicleName = vehicleName;
-    if (vehicleNumber !== undefined) partner.vehicleNumber = vehicleNumber;
+    if (vehicleNumber !== undefined && String(vehicleNumber).trim().toUpperCase() !== String(partner.vehicleNumber || '').trim().toUpperCase()) {
+        const vNum = String(vehicleNumber).trim().toUpperCase();
+        if (vNum) {
+            const activeVehicle = await FoodDeliveryPartner.findOne({ 
+                vehicleNumber: vNum,
+                _id: { $ne: userId },
+                status: { $ne: 'rejected' }
+            });
+            if (activeVehicle) {
+                throw new ValidationError('Vehicle number already registered with another partner');
+            }
+            
+            // Clean up rejected records with this vehicle if we are taking it
+            await FoodDeliveryPartner.deleteMany({ 
+                vehicleNumber: vNum, 
+                status: 'rejected' 
+            });
+        }
+        partner.vehicleNumber = vNum;
+    }
     if (drivingLicenseNumber !== undefined) partner.drivingLicenseNumber = drivingLicenseNumber;
 
     if (fcmToken) {
@@ -175,7 +213,26 @@ export const updateDeliveryPartnerDetails = async (userId, payload) => {
 
     const vehicle = payload?.vehicle;
     if (vehicle && typeof vehicle === 'object') {
-        if (vehicle.number !== undefined) partner.vehicleNumber = String(vehicle.number || '').trim();
+        if (vehicle.number !== undefined && String(vehicle.number || '').trim().toUpperCase() !== String(partner.vehicleNumber || '').trim().toUpperCase()) {
+            const vNum = String(vehicle.number || '').trim().toUpperCase();
+            if (vNum) {
+                const activeVehicle = await FoodDeliveryPartner.findOne({ 
+                    vehicleNumber: vNum,
+                    _id: { $ne: userId },
+                    status: { $ne: 'rejected' }
+                });
+                if (activeVehicle) {
+                    throw new ValidationError('Vehicle number already registered with another partner');
+                }
+                
+                // Clean up rejected records with this vehicle
+                await FoodDeliveryPartner.deleteMany({ 
+                    vehicleNumber: vNum, 
+                    status: 'rejected' 
+                });
+            }
+            partner.vehicleNumber = vNum;
+        }
         if (vehicle.type !== undefined) partner.vehicleType = String(vehicle.type || '').trim();
         if (vehicle.brand !== undefined) partner.vehicleName = String(vehicle.brand || '').trim();
         if (vehicle.model !== undefined) partner.vehicleName = String(vehicle.model || '').trim();

@@ -1677,6 +1677,8 @@ export const deliveryAPI = {
     }
     return apiClient.post("/food/delivery/register", formData);
   },
+  /** GET /food/delivery/check-vehicle/:number - check if vehicle number is unique. */
+  checkVehicleAvailability: (number) => apiClient.get(`/food/delivery/check-vehicle/${number}`),
   /** PATCH /food/delivery/profile - complete profile after OTP (Bearer token required). */
   completeProfile: (formData) => {
     if (!formData || !(formData instanceof FormData)) {

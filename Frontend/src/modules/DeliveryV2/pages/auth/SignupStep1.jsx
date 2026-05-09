@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
+import { deliveryAPI } from "@food/api"
 import useDeliveryBackNavigation from "../../hooks/useDeliveryBackNavigation"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
@@ -201,6 +202,15 @@ export default function SignupStep1() {
     setIsSubmitting(true)
 
     try {
+      // Check vehicle availability before proceeding
+      const vCheck = await deliveryAPI.checkVehicleAvailability(formData.vehicleNumber.trim())
+      if (vCheck?.data?.success && !vCheck.data.isAvailable) {
+        setErrors(prev => ({ ...prev, vehicleNumber: "This vehicle is already registered with another partner" }))
+        toast.error("Vehicle already registered")
+        setIsSubmitting(false)
+        return
+      }
+
       const details = {
         name: formData.name.trim(),
         phone: String(formData.phone || "").replace(/\D/g, "").slice(0, 15),
