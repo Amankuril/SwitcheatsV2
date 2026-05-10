@@ -1018,18 +1018,8 @@ export default function OrderTracking() {
     // Check if order can be cancelled (only Razorpay orders that aren't delivered/cancelled)
     if (!order) return;
 
-    if (isAdminAccepted && !isEditWindowOpen) {
-      toast.error('Cancellation window ended. You can no longer cancel this order.');
-      return;
-    }
-
-    if (order.status === 'cancelled') {
-      toast.error('Order is already cancelled');
-      return;
-    }
-
-    if (order.status === 'delivered') {
-      toast.error('Cannot cancel a delivered order');
+    if (isAdminAccepted) {
+      toast.error('Order has already been accepted by the restaurant and cannot be cancelled.');
       return;
     }
 
@@ -1396,24 +1386,27 @@ export default function OrderTracking() {
           </div>
         </div>
 
-        {/* 1-minute cancellation window after admin acceptance */}
-        {isAdminAccepted && isEditWindowOpen && (
+        {/* Cancel button visible ONLY until restaurant accepts (confirmed) */}
+        {!isAdminAccepted && !isCancelledOrder && !isDeliveredOrder && (
           <motion.div
-            className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-orange-100 dark:border-zinc-800"
+            className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-red-50 dark:border-zinc-800"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">Cancel order</p>
-              <span className="text-sm font-bold px-2 py-1 rounded-md bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-400">
-                {editWindowText}
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">Need to cancel?</p>
+              <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400">
+                Available until accepted
               </span>
             </div>
-            <div className="mt-3">
-              <Button type="button" onClick={handleCancelOrder} className="w-full bg-red-600 hover:bg-red-700 text-white">
-                Cancel Order
-              </Button>
-            </div>
+            <Button 
+              type="button" 
+              onClick={handleCancelOrder} 
+              variant="destructive"
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold h-11"
+            >
+              Cancel Order
+            </Button>
           </motion.div>
         )}
 
