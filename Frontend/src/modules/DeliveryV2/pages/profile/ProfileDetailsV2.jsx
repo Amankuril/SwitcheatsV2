@@ -346,35 +346,42 @@ export const ProfileDetailsV2 = () => {
     setIsUpdatingBankDetails(true)
     try {
       // Validation
-      const { accountNumber, ifscCode, panNumber, upiId } = bankDetails
+      const { accountHolderName, accountNumber, ifscCode, bankName, panNumber, upiId } = bankDetails
 
-      if (accountNumber && !/^\d{9,18}$/.test(accountNumber.trim())) {
-        return toast.error("Invalid Account Number (9-18 digits)")
+      if (!accountHolderName || !accountHolderName.trim()) return toast.error("Account holder name is required")
+      if (!/^[a-zA-Z\s]+$/.test(accountHolderName.trim())) return toast.error("Account holder name should only contain alphabets")
+
+      if (!accountNumber) return toast.error("Account number is required")
+      if (!/^\d+$/.test(accountNumber)) return toast.error("Account number should only contain digits")
+      if (accountNumber.length < 9 || accountNumber.length > 18) {
+        return toast.error("Invalid Account Number length (9-18 digits)")
       }
 
+      if (!ifscCode) return toast.error("IFSC code is required")
       const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/
-      if (ifscCode && !ifscRegex.test(ifscCode.trim().toUpperCase())) {
-        return toast.error("Invalid IFSC Code (e.g. SBIN0001234)")
+      if (!ifscRegex.test(ifscCode.trim().toUpperCase())) {
+        return toast.error("Invalid IFSC Code format (e.g. SBIN0001234)")
       }
 
-      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
-      if (panNumber && !panRegex.test(panNumber.trim().toUpperCase())) {
+      if (!bankName || !bankName.trim()) return toast.error("Bank name is required")
+      if (!/^[a-zA-Z\s]+$/.test(bankName.trim())) return toast.error("Bank name should only contain alphabets")
+
+      if (panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber.trim().toUpperCase())) {
         return toast.error("Invalid PAN Card format (e.g. ABCDE1234F)")
       }
 
-      const upiRegex = /^[\w\.-]+@[\w\.-]+$/
-      if (upiId && !upiRegex.test(upiId.trim())) {
-        return toast.error("Invalid UPI ID (e.g. user@bank)")
+      if (upiId && !/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(upiId.trim())) {
+        return toast.error("Invalid UPI ID format (e.g. name@bank)")
       }
 
       // Send as FormData to support optional QR upload
       const formData = new FormData()
-      formData.append("documents[bankDetails][accountHolderName]", (bankDetails.accountHolderName || "").trim())
-      formData.append("documents[bankDetails][accountNumber]", (bankDetails.accountNumber || "").trim())
-      formData.append("documents[bankDetails][ifscCode]", (bankDetails.ifscCode || "").trim().toUpperCase())
-      formData.append("documents[bankDetails][bankName]", (bankDetails.bankName || "").trim())
-      formData.append("documents[bankDetails][upiId]", (bankDetails.upiId || "").trim())
-      formData.append("documents[pan][number]", (bankDetails.panNumber || "").trim().toUpperCase())
+      formData.append("documents[bankDetails][accountHolderName]", (accountHolderName || "").trim())
+      formData.append("documents[bankDetails][accountNumber]", (accountNumber || "").trim())
+      formData.append("documents[bankDetails][ifscCode]", (ifscCode || "").trim().toUpperCase())
+      formData.append("documents[bankDetails][bankName]", (bankName || "").trim())
+      formData.append("documents[bankDetails][upiId]", (upiId || "").trim())
+      formData.append("documents[pan][number]", (panNumber || "").trim().toUpperCase())
 
       if (upiQrFile) {
         formData.append("upiQrCode", upiQrFile)
@@ -834,12 +841,12 @@ export const ProfileDetailsV2 = () => {
         <div className="space-y-5 pb-10">
           <div className="grid gap-4">
              {[
-               { label: "Account Holder", key: "accountHolderName", icon: User, maxLength: 60 },
-               { label: "Account Number", key: "accountNumber", icon: Banknote, maxLength: 20, isNumeric: true },
-               { label: "IFSC Code", key: "ifscCode", icon: Shield, format: (v) => v.toUpperCase(), maxLength: 11 },
-               { label: "Bank Name", key: "bankName", icon: MapPin, maxLength: 60 },
-               { label: "PAN Number", key: "panNumber", icon: FileText, format: (v) => v.toUpperCase(), maxLength: 10 },
-               { label: "UPI ID", key: "upiId", icon: Smartphone, maxLength: 60 }
+               { label: "Account Holder", key: "accountHolderName", icon: User, maxLength: 60, type: 'alphabet' },
+               { label: "Account Number", key: "accountNumber", icon: Banknote, maxLength: 20, type: 'numeric' },
+               { label: "IFSC Code", key: "ifscCode", icon: Shield, maxLength: 11, type: 'alphanumeric' },
+               { label: "Bank Name", key: "bankName", icon: MapPin, maxLength: 60, type: 'alphabet' },
+               { label: "PAN Number", key: "panNumber", icon: FileText, maxLength: 10, type: 'alphanumeric' },
+               { label: "UPI ID", key: "upiId", icon: Smartphone, maxLength: 60, type: 'upi' }
              ].map((field) => (
                <div key={field.key} className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 group focus-within:border-orange-500/50 transition-all">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-2">
@@ -850,9 +857,12 @@ export const ProfileDetailsV2 = () => {
                     value={bankDetails[field.key]} 
                     onChange={(e) => {
                         let val = e.target.value;
-                        if (field.isNumeric) val = val.replace(/\D/g, "");
+                        if (field.type === 'alphabet') val = val.replace(/[^a-zA-Z\s]/g, "");
+                        if (field.type === 'numeric') val = val.replace(/\D/g, "");
+                        if (field.type === 'alphanumeric') val = val.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+                        if (field.type === 'upi') val = val.replace(/\s+/g, "").toLowerCase();
+                        
                         if (field.maxLength && val.length > field.maxLength) return;
-                        if (field.format) val = field.format(val);
                         setBankDetails({...bankDetails, [field.key]: val})
                     }} 
                     className="w-full bg-transparent text-sm font-bold text-gray-950 outline-none"

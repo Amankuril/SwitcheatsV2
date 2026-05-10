@@ -26,7 +26,7 @@ import {
   Bell, HelpCircle, AlertTriangle, 
   Wallet, History, User as UserIcon, LayoutGrid,
   Plus, Minus, Navigation2, Target, Play, CheckCircle2, Clock, ChevronDown,
-  Contact, Package
+  Contact, Package, Ambulance, Shield, ShieldCheck
 } from 'lucide-react';
 
 import { getHaversineDistance, calculateETA, calculateHeading } from '@/modules/DeliveryV2/utils/geo';
@@ -240,10 +240,10 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
   }, []);
 
   const emergencyOptions = [
-    { title: "Medical Emergency", subtitle: "Call an ambulance", icon: <AlertTriangle className="text-red-600" />, phone: emergencyNumbers.medicalEmergency },
+    { title: "Medical Emergency", subtitle: "Call an ambulance", icon: <Ambulance className="text-red-600" />, phone: emergencyNumbers.medicalEmergency },
     { title: "Accident Helpline", subtitle: "Report an accident", icon: <AlertTriangle className="text-orange-600" />, phone: emergencyNumbers.accidentHelpline },
-    { title: "Contact Police", subtitle: "Nearest police support", icon: <AlertTriangle className="text-blue-600" />, phone: emergencyNumbers.contactPolice },
-    { title: "Insurance", subtitle: "Policy & claim help", icon: <AlertTriangle className="text-green-600" />, phone: emergencyNumbers.insurance },
+    { title: "Contact Police", subtitle: "Nearest police support", icon: <Shield className="text-blue-600" />, phone: emergencyNumbers.contactPolice },
+    { title: "Insurance", subtitle: "Policy & claim help", icon: <ShieldCheck className="text-green-600" />, phone: emergencyNumbers.insurance },
   ];
 
   // Reset simulation when path, order or mode changes
@@ -905,9 +905,13 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
              <button 
                key={i} 
                onClick={() => {
-                 const num = opt.phone?.replace(/\D/g, '');
-                 if (num) window.location.href = `tel:${num}`;
-                 else toast.error('Number not configured');
+                  const rawNum = opt.phone || "";
+                  const num = String(rawNum).replace(/[^\d+]/g, '');
+                  if (num.length >= 3) {
+                    window.location.href = `tel:${num}`;
+                  } else {
+                    toast.error(`${opt.title} number not configured`);
+                  }
                }}
                className="flex items-center gap-5 p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 active:scale-95 transition-all text-left"
              >

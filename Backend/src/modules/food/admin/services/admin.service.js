@@ -1999,18 +1999,23 @@ export async function upsertDeliveryCashLimitSettings(body = {}) {
 // ----- Delivery Emergency Help (admin) -----
 export async function getDeliveryEmergencyHelp() {
     const doc = await FoodDeliveryEmergencyHelp.findOne({ isActive: true }).sort({ createdAt: -1 }).lean();
-    const data = doc || {
-        medicalEmergency: '',
-        accidentHelpline: '',
-        contactPolice: '',
+    
+    // Provide sensible defaults for India if numbers are not configured
+    const defaults = {
+        medicalEmergency: '102',
+        accidentHelpline: '108',
+        contactPolice: '100',
         insurance: '',
         isActive: true
     };
+
+    const data = doc || defaults;
+
     return {
-        medicalEmergency: data.medicalEmergency || '',
-        accidentHelpline: data.accidentHelpline || '',
-        contactPolice: data.contactPolice || '',
-        insurance: data.insurance || ''
+        medicalEmergency: (data.medicalEmergency || defaults.medicalEmergency).trim(),
+        accidentHelpline: (data.accidentHelpline || defaults.accidentHelpline).trim(),
+        contactPolice: (data.contactPolice || defaults.contactPolice).trim(),
+        insurance: (data.insurance || '').trim()
     };
 }
 
