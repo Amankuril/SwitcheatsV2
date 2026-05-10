@@ -811,6 +811,12 @@ export async function completeDelivery(orderId, deliveryPartnerId, body = {}) {
     note: 'Delivery completed successfully',
   });
 
+  // Mark payment as paid for COD orders upon delivery
+  if (payMethod === 'cash' && order.payment && order.payment.status === 'cod_pending') {
+    order.payment.status = 'paid';
+    logger.info(`[DeliveryComplete] COD order ${order._id} marked as paid upon delivery.`);
+  }
+
   await order.save();
 
   const ledgerKind =

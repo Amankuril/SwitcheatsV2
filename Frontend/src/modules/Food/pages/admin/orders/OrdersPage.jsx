@@ -428,17 +428,26 @@ export default function OrdersPage({ statusKey = "all" }) {
         else paymentType = "N/A"
       }
 
+      const backendStatus = String(order.orderStatus || "").toLowerCase()
+
       const paymentStatusRaw = order.payment?.status || ""
       let paymentStatus = order.paymentStatus
       if (!paymentStatus) {
         const s = String(paymentStatusRaw || "").toLowerCase()
-        if (s === "refunded") paymentStatus = "Refunded"
-        else if (s === "paid" || s === "authorized" || s === "captured" || s === "settled") paymentStatus = "Paid"
-        else if (s === "failed") paymentStatus = "Failed"
-        else paymentStatus = "Pending"
+        
+        if (s === "refunded") {
+          paymentStatus = "Refunded"
+        } else if (s === "paid" || s === "authorized" || s === "captured" || s === "settled") {
+          paymentStatus = (paymentType === "Cash on Delivery") ? "Collected" : "Paid"
+        } else if (paymentType === "Cash on Delivery" && backendStatus === "delivered") {
+          paymentStatus = "Collected"
+        } else if (s === "failed") {
+          paymentStatus = "Failed"
+        } else {
+          paymentStatus = "Pending"
+        }
       }
 
-      const backendStatus = String(order.orderStatus || "").toLowerCase()
       let displayStatus = order.orderStatus
       if (!backendStatus || backendStatus === "created" || backendStatus === "confirmed") {
         displayStatus = "Pending"
