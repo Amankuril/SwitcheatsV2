@@ -619,7 +619,28 @@ export const useRestaurantNotifications = () => {
     // Listen for order status updates
     socketRef.current.on('order_status_update', (data) => {
       debugLog('?? Order status update:', data);
-      // You can handle status updates here if needed
+      
+      const status = String(data?.orderStatus || data?.status || "").toLowerCase();
+      if (status.includes('cancelled')) {
+        const cancelledId = data?.orderMongoId || data?.orderId || data?.id;
+        
+        // If the cancelled order is the one currently being alerted, stop the alert
+        if (activeOrderRef.current) {
+          const activeId = getOrderAlertKey(activeOrderRef.current);
+          if (activeId === cancelledId) {
+            debugLog('?? Active order was cancelled by user, clearing...');
+            clearNewOrder();
+            
+            // Dispatch a custom event so components can react to the cancellation
+            window.dispatchEvent(new CustomEvent('restaurantOrderCancelled', { 
+              detail: { 
+                orderId: data.orderId, 
+                orderMongoId: data.orderMongoId || data.orderId 
+              } 
+            }));
+          }
+        }
+      }
     });
 
     socketRef.current.on('admin_notification', (payload) => {

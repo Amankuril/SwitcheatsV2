@@ -1129,6 +1129,33 @@ export default function OrdersMain() {
       }
     }
   }, [newOrder]);
+  // Handle order cancellation (user cancelled while popup is open)
+  useEffect(() => {
+    const handleOrderCancelled = (event) => {
+      const { orderId, orderMongoId } = event.detail;
+      const currentPopupOrder = popupOrder || newOrder;
+      
+      if (currentPopupOrder) {
+        const currentOrderId = currentPopupOrder.orderId;
+        const currentMongoId = currentPopupOrder.orderMongoId || currentPopupOrder._id;
+        
+        if (currentOrderId === orderId || currentMongoId === orderMongoId) {
+          debugLog("?? Current popup order was cancelled by user:", orderId);
+          setShowNewOrderPopup(false);
+          setPopupOrder(null);
+          clearNewOrder();
+          toast.info(`Order #${orderId || ""} was cancelled by the customer`, {
+            description: "Request has been removed.",
+            duration: 5000
+          });
+          requestOrdersRefresh();
+        }
+      }
+    };
+
+    window.addEventListener('restaurantOrderCancelled', handleOrderCancelled);
+    return () => window.removeEventListener('restaurantOrderCancelled', handleOrderCancelled);
+  }, [popupOrder, newOrder, clearNewOrder]);
 
   // Keep refs in sync to avoid stale state inside one-time event handlers.
   useEffect(() => {
