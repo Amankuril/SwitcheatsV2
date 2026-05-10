@@ -78,13 +78,14 @@ const SubscriptionSettings = () => {
                         <div className="space-y-2">
                             <Label htmlFor="silverPrice">Monthly Price (₹)</Label>
                             <div className="relative">
-                                <span className="absolute left-3 top-2.5 text-gray-500">₹</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
                                 <Input
                                     id="silverPrice"
                                     type="number"
+                                    min="0"
                                     className="pl-7"
                                     value={settings.silverPrice}
-                                    onChange={(e) => setSettings({ ...settings, silverPrice: Number(e.target.value) })}
+                                    onChange={(e) => setSettings({ ...settings, silverPrice: Math.max(0, Number(e.target.value)) })}
                                 />
                             </div>
                             <p className="text-xs text-gray-400 italic">GST (18%) will be added automatically on the onboarding page.</p>
@@ -104,13 +105,14 @@ const SubscriptionSettings = () => {
                         <div className="space-y-2">
                             <Label htmlFor="goldPrice">Monthly Price (₹)</Label>
                             <div className="relative">
-                                <span className="absolute left-3 top-2.5 text-gray-500">₹</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
                                 <Input
                                     id="goldPrice"
                                     type="number"
+                                    min="0"
                                     className="pl-7"
                                     value={settings.goldPrice}
-                                    onChange={(e) => setSettings({ ...settings, goldPrice: Number(e.target.value) })}
+                                    onChange={(e) => setSettings({ ...settings, goldPrice: Math.max(0, Number(e.target.value)) })}
                                 />
                             </div>
                             <p className="text-xs text-gray-400 italic">GST (18%) will be added automatically on the onboarding page.</p>
@@ -131,13 +133,14 @@ const SubscriptionSettings = () => {
                             <div className="space-y-2">
                                 <Label htmlFor="onboardingFee">Setup Fee (₹)</Label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-gray-500">₹</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
                                     <Input
                                         id="onboardingFee"
                                         type="number"
+                                        min="0"
                                         className="pl-7"
                                         value={settings.onboardingFee}
-                                        onChange={(e) => setSettings({ ...settings, onboardingFee: Number(e.target.value) })}
+                                        onChange={(e) => setSettings({ ...settings, onboardingFee: Math.max(0, Number(e.target.value)) })}
                                     />
                                 </div>
                             </div>

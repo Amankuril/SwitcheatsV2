@@ -17,6 +17,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@food/components/ui/dialog"
+import { Button } from "@food/components/ui/button"
+import { Textarea } from "@food/components/ui/textarea"
+import { Label } from "@food/components/ui/label"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -297,40 +300,58 @@ export default function RestaurantComplaints() {
 
       {/* Update Modal */}
       <Dialog open={!!editingComplaint} onOpenChange={(open) => !open && setEditingComplaint(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Complaint</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="bg-slate-50 px-6 py-4 border-b">
+            <DialogTitle className="text-xl font-bold text-slate-900">Update Complaint</DialogTitle>
+            <DialogDescription className="text-slate-500">
               Update the status and provide a response for this complaint.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
+          
+          <div className="p-6 space-y-6">
+            <div className="space-y-3">
+              <Label htmlFor="status" className="text-sm font-semibold text-slate-700">Status</Label>
               <Select value={updateData.status} onValueChange={(val) => setUpdateData({ ...updateData, status: val })}>
-                <SelectTrigger>
+                <SelectTrigger id="status" className="w-full bg-white border-slate-200 h-11 focus:ring-blue-500 focus:border-blue-500 transition-all">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white border-slate-200 z-[100]">
                   {STATUS_OPTIONS.filter(o => o.value !== 'all').map(o => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    <SelectItem key={o.value} value={o.value} className="focus:bg-blue-50 focus:text-blue-700 cursor-pointer">
+                      {o.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Admin Response</label>
-              <textarea
-                className="w-full min-h-[100px] p-3 border rounded-md"
-                placeholder="Type your response here..."
+
+            <div className="space-y-3">
+              <Label htmlFor="adminResponse" className="text-sm font-semibold text-slate-700">Admin Response</Label>
+              <Textarea
+                id="adminResponse"
+                className="w-full min-h-[120px] p-4 border-slate-200 rounded-xl bg-white focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-slate-700"
+                placeholder="Type your detailed response here..."
                 value={updateData.adminResponse}
                 onChange={(e) => setUpdateData({ ...updateData, adminResponse: e.target.value })}
               />
+              <p className="text-[11px] text-slate-400">This response will be visible to the customer and the restaurant.</p>
             </div>
           </div>
-          <DialogFooter>
-            <button onClick={() => setEditingComplaint(null)} className="px-4 py-2 border rounded-md">Cancel</button>
-            <button onClick={handleUpdateComplaint} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save Changes</button>
+
+          <DialogFooter className="bg-slate-50 px-6 py-4 border-t flex sm:justify-end gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setEditingComplaint(null)} 
+              className="px-6 border-slate-300 text-slate-600 hover:bg-slate-100 h-10 font-medium"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateComplaint} 
+              className="px-8 bg-blue-600 hover:bg-blue-700 text-white h-10 font-semibold shadow-sm transition-all active:scale-95"
+            >
+              Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

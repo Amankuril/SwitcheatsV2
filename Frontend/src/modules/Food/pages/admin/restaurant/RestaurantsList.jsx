@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Search, Download, ChevronDown, Eye, Settings, ArrowUpDown, Loader2, X, MapPin, Phone, Mail, Clock, Star, Building2, User, FileText, CreditCard, Calendar, Image as ImageIcon, ExternalLink, ShieldX, AlertTriangle, Trash2, Plus } from "lucide-react"
+import { Search, Download, ChevronDown, Eye, Settings, ArrowUpDown, Loader2, X, MapPin, Phone, Mail, Clock, Star, Building2, User, FileText, FileSpreadsheet, CreditCard, Calendar, Image as ImageIcon, ExternalLink, ShieldX, AlertTriangle, Trash2, Plus } from "lucide-react"
 import { adminAPI, restaurantAPI, uploadAPI } from "@food/api"
 import { clearModuleAuth } from "@food/utils/auth"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@food/components/ui/dropdown-menu"
@@ -252,8 +252,8 @@ export default function RestaurantsList() {
             ownerPhone: restaurant.ownerPhone || restaurant.phone || "N/A",
             zone: zoneLabelFromRestaurant(restaurant),
             approvalStatus: normalizeApprovalStatus(restaurant),
-            isActive: restaurant.isActive !== false,
-            rating: restaurant.ratings?.average || restaurant.rating || 0,
+            isActive: restaurant.isActive !== false && restaurant.status === "approved",
+            rating: restaurant.rating || restaurant.ratings?.average || 0,
             logo: getPrimaryRestaurantImage(restaurant, PLACEHOLDER_40),
             originalData: restaurant,
           }))
@@ -1092,6 +1092,19 @@ export default function RestaurantsList() {
                   <DropdownMenuItem onClick={handleExport} className="cursor-pointer flex items-center gap-2">
                     <FileText className="w-4 h-4" />
                     PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      const dataToExport = filteredRestaurants.length > 0 ? filteredRestaurants : restaurants
+                      const filename = "restaurants_list"
+                      import("@food/components/admin/restaurants/restaurantsExportUtils").then(utils => {
+                        utils.exportRestaurantsToExcel(dataToExport, filename)
+                      })
+                    }} 
+                    className="cursor-pointer flex items-center gap-2"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Excel
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
