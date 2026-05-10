@@ -62,6 +62,18 @@ export default function MenuCategoriesPage() {
     fetchCategories()
   }, [])
 
+  // Prevent background scroll when modal is open
+  useEffect(() => {
+    if (showModal || isPhotoPickerOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = "unset"
+    }
+    return () => {
+      document.body.style.overflow = "unset"
+    }
+  }, [showModal, isPhotoPickerOpen])
+
   useEffect(() => {
     const draftCategoryName = String(location.state?.draftCategoryName || "").trim()
     if (!draftCategoryName) return

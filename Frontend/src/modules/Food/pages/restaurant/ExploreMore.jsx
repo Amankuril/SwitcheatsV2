@@ -364,6 +364,7 @@ export default function ExploreMore() {
   const [loadingRestaurant, setLoadingRestaurant] = useState(true)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [walletBalance, setWalletBalance] = useState(0)
+  const lenisRef = useRef(null)
 
   // Fetch restaurant data on mount
   useEffect(() => {
@@ -736,15 +737,27 @@ export default function ExploreMore() {
 
   // Prevent body scroll when popup is open
   useEffect(() => {
-    if (profileOpen || scheduleOffOpen || dateTimePickerOpen || successPopupOpen || existingScheduleOpen || searchOpen) {
+    const isModalOpen = profileOpen || 
+      scheduleOffOpen || 
+      dateTimePickerOpen || 
+      successPopupOpen || 
+      existingScheduleOpen || 
+      searchOpen || 
+      logoutConfirmOpen || 
+      deleteModalOpen;
+
+    if (isModalOpen) {
       document.body.style.overflow = 'hidden'
+      lenisRef.current?.stop()
     } else {
       document.body.style.overflow = 'unset'
+      lenisRef.current?.start()
     }
     return () => {
       document.body.style.overflow = 'unset'
+      lenisRef.current?.start()
     }
-  }, [profileOpen, scheduleOffOpen, dateTimePickerOpen, successPopupOpen, existingScheduleOpen, searchOpen])
+  }, [profileOpen, scheduleOffOpen, dateTimePickerOpen, successPopupOpen, existingScheduleOpen, searchOpen, logoutConfirmOpen, deleteModalOpen])
 
   // Lenis smooth scrolling
   useEffect(() => {
@@ -753,6 +766,7 @@ export default function ExploreMore() {
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       smoothWheel: true,
     })
+    lenisRef.current = lenis
 
     function raf(time) {
       lenis.raf(time)
@@ -763,6 +777,7 @@ export default function ExploreMore() {
 
     return () => {
       lenis.destroy()
+      lenisRef.current = null
     }
   }, [])
 

@@ -79,36 +79,44 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
 
     const nowWindow = getFixedCurrentCycleWindow(new Date());
 
-    // Current cycle: sum ledger payouts in the fixed window.
-    const currentTransactions = await FoodTransaction.find({
+    // Fetch all relevant orders in the current cycle window as the primary source for the list.
+    const currentOrders = await FoodOrder.find({
         restaurantId: rid,
-        status: { $in: ['captured', 'authorized'] },
+        orderStatus: { $nin: ['pending_payment'] },
         createdAt: { $gte: nowWindow.start, $lte: nowWindow.end }
     })
-        .populate('orderId', 'orderId createdAt items pricing deliveryState orderStatus')
+        .populate('transactionId')
         .sort({ createdAt: -1 })
         .lean();
 
-    const currentCycleOrders = currentTransactions.map((tx) => {
-        const order = tx.orderId || {};
+    const currentCycleOrders = currentOrders.map((order) => {
+        const tx = order.transactionId || {};
         const items = Array.isArray(order.items) ? order.items : [];
         const foodNames = items.map((it) => it?.name).filter(Boolean).join(', ');
-        const orderTotalExclTax = Math.max(
-            0,
-            Number(order?.pricing?.total ?? 0) - Number(order?.pricing?.tax ?? 0) || 0
-        );
+        
+        // Use pricing from transaction if available, fallback to order pricing.
+        const pricing = tx.pricing || order.pricing || {};
+        const amounts = tx.amounts || {};
+        
+        const subtotal = Number(pricing.subtotal) || 0;
+        const packagingFee = Number(pricing.packagingFee) || 0;
+        const commission = Number(amounts.restaurantCommission) || Number(pricing.restaurantCommission) || 0;
+        
+        // Calculate payout if not explicitly in transaction share.
+        const payout = Number(amounts.restaurantShare) || (subtotal + packagingFee - commission);
+
         return {
-            orderId: order?.orderId || tx.orderReadableId,
-            createdAt: tx.createdAt,
+            orderId: order.orderId || order.order_id || `FOD-${order._id.toString().slice(-6).toUpperCase()}`,
+            createdAt: order.createdAt,
             items,
             foodNames,
-            orderTotal: orderTotalExclTax,
-            totalAmount: tx.amounts?.totalCustomerPaid || 0,
-            payout: tx.amounts?.restaurantShare || 0,
-            commission: tx.amounts?.restaurantCommission || 0,
-            paymentMethod: tx.paymentMethod || order?.payment?.method,
-            orderStatus: order?.orderStatus || order?.deliveryState?.currentPhase || order?.deliveryState?.status,
-            status: tx.status
+            orderTotal: Math.max(0, (Number(pricing.total) || 0) - (Number(pricing.tax) || 0)),
+            totalAmount: Number(pricing.total) || 0,
+            payout: Math.max(0, payout),
+            commission: commission,
+            paymentMethod: tx.paymentMethod || order.payment?.method || 'cash',
+            orderStatus: order.orderStatus,
+            status: tx.status || (order.payment?.status === 'paid' ? 'captured' : 'pending')
         };
     });
 
@@ -118,6 +126,7 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
     );
 
     // Calculate global estimated payout (all unsettled transactions)
+    // IMPORTANT: For withdrawal balance, we only count 'captured' or 'authorized' funds.
     const allUnsettledTransactions = await FoodTransaction.find({
         restaurantId: rid,
         status: { $in: ['captured', 'authorized'] },
@@ -175,36 +184,43 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
 
     let pastCyclesResult = { orders: [], totalOrders: 0 };
     if (startDate && endDate) {
-        const pastTransactions = await FoodTransaction.find({
+        const pastOrders = await FoodOrder.find({
             restaurantId: rid,
-            status: { $in: ['captured', 'authorized'] },
+            orderStatus: { $nin: ['pending_payment'] },
             createdAt: { $gte: startDate, $lte: endDate }
         })
-            .populate('orderId', 'orderId createdAt items pricing deliveryState orderStatus')
+            .populate('transactionId')
             .sort({ createdAt: -1 })
             .lean();
 
-        const pastCycleOrders = pastTransactions.map((tx) => {
-            const order = tx.orderId || {};
+        const pastCycleOrders = pastOrders.map((order) => {
+            const tx = order.transactionId || {};
             const items = Array.isArray(order.items) ? order.items : [];
             const foodNames = items.map((it) => it?.name).filter(Boolean).join(', ');
-            const orderTotalExclTax = Math.max(
-                0,
-                Number(order?.pricing?.total ?? 0) - Number(order?.pricing?.tax ?? 0) || 0
-            );
+            
+            // Use pricing from transaction if available, fallback to order pricing.
+            const pricing = tx.pricing || order.pricing || {};
+            const amounts = tx.amounts || {};
+            
+            const subtotal = Number(pricing.subtotal) || 0;
+            const packagingFee = Number(pricing.packagingFee) || 0;
+            const commission = Number(amounts.restaurantCommission) || Number(pricing.restaurantCommission) || 0;
+            
+            // Calculate payout if not explicitly in transaction share.
+            const payout = Number(amounts.restaurantShare) || (subtotal + packagingFee - commission);
 
             return {
-                orderId: order?.orderId || tx.orderReadableId,
-                createdAt: tx.createdAt,
+                orderId: order.orderId || order.order_id || `FOD-${order._id.toString().slice(-6).toUpperCase()}`,
+                createdAt: order.createdAt,
                 items,
                 foodNames,
-                orderTotal: orderTotalExclTax,
-                totalAmount: tx.amounts?.totalCustomerPaid || 0,
-                payout: tx.amounts?.restaurantShare || 0,
-                commission: tx.amounts?.restaurantCommission || 0,
-                paymentMethod: tx.paymentMethod || order?.payment?.method,
-                orderStatus: order?.orderStatus || order?.deliveryState?.currentPhase || order?.deliveryState?.status,
-                status: tx.status
+                orderTotal: Math.max(0, (Number(pricing.total) || 0) - (Number(pricing.tax) || 0)),
+                totalAmount: Number(pricing.total) || 0,
+                payout: Math.max(0, payout),
+                commission: commission,
+                paymentMethod: tx.paymentMethod || order.payment?.method || 'cash',
+                orderStatus: order.orderStatus,
+                status: tx.status || (order.payment?.status === 'paid' ? 'captured' : 'pending')
             };
         });
 
