@@ -321,7 +321,12 @@ export default function RestaurantNavbar({
       {/* Left Side - Restaurant Info */}
       <div className="flex-1 min-w-0 pr-2 flex items-center gap-2.5">
         {logoUrl && (
-          <img src={logoUrl} alt="Logo" className="h-9 w-9 object-contain rounded-lg shadow-sm" />
+          <img 
+            src={logoUrl} 
+            alt="Logo" 
+            onClick={() => window.location.reload()}
+            className="h-9 w-9 object-contain rounded-lg shadow-sm cursor-pointer active:scale-95 transition-transform" 
+          />
         )}
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">

@@ -818,13 +818,26 @@ export default function Inventory() {
   const handleDownloadTemplate = async () => {
     try {
       const response = await restaurantAPI.bulkUploadTemplate()
-      const url = window.URL.createObjectURL(new Blob([response.data]))
+      
+      // Explicitly set the MIME type for Excel files to ensure mobile webviews (like Flutter) 
+      // interpret the file extension correctly instead of defaulting to .txt
+      const blob = new Blob([response.data], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      })
+      
+      const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       link.setAttribute('download', 'Bulk_Menu_Template.xlsx')
       document.body.appendChild(link)
       link.click()
-      link.remove()
+      
+      // Cleanup
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        link.remove()
+      }, 100)
+      
       toast.success('Template downloaded successfully')
     } catch (error) {
       debugError('Error downloading template:', error)
