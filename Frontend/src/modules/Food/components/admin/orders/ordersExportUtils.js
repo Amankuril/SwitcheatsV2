@@ -34,19 +34,29 @@ export const exportToCSV = (orders, filename = "orders") => {
       order.customerName,
       order.customerPhone,
       order.restaurant,
-      order.total || `?${(order.totalAmount || 0).toFixed(2)}`,
-      order.paymentStatus || "",
+      order.total || `Rs. ${(order.totalAmount || 0).toFixed(2)}`,
+      order.paymentStatus === 'cod_pending' ? 'Cash on Delivery' : (order.paymentStatus || ""),
       order.orderStatus || "",
       order.deliveryType || ""
     ])
   }
   
+  // Standard CSV formatting
   const csvContent = [
     headers.join(","),
-    ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+    ...rows.map(row => row.map(cell => {
+      const stringValue = String(cell ?? "");
+      // If the cell contains comma, newline or double quote, wrap it in double quotes and escape internal double quotes
+      if (stringValue.includes(",") || stringValue.includes("\n") || stringValue.includes("\"")) {
+        return `"${stringValue.replace(/"/g, "\"\"")}"`;
+      }
+      return stringValue;
+    }).join(","))
   ].join("\n")
   
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+  // Use UTF-8 BOM to ensure Excel opens CSV with correct encoding
+  const BOM = "\uFEFF"
+  const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" })
   const link = document.createElement("a")
   const url = URL.createObjectURL(blob)
   link.setAttribute("href", url)
@@ -55,6 +65,7 @@ export const exportToCSV = (orders, filename = "orders") => {
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 export const exportToExcel = (orders, filename = "orders") => {
@@ -90,7 +101,8 @@ export const exportToExcel = (orders, filename = "orders") => {
     rows = orders.map((order, index) => {
       const originalOrder = order.originalOrder || {}
       const totalAmount = originalOrder.pricing?.total || originalOrder.totalAmount || originalOrder.total || 0
-      const paymentStatus = originalOrder.payment?.status || originalOrder.paymentStatus || 'N/A'
+      let paymentStatus = originalOrder.payment?.status || originalOrder.paymentStatus || 'N/A'
+      if (paymentStatus === 'cod_pending') paymentStatus = 'Cash on Delivery'
       
       return [
         order.sl || index + 1,
@@ -103,7 +115,7 @@ export const exportToExcel = (orders, filename = "orders") => {
         order.deliveryBoyName || 'N/A',
         order.deliveryBoyNumber || 'N/A',
         order.status || 'N/A',
-        totalAmount > 0 ? `?${totalAmount.toFixed(2)}` : 'N/A',
+        totalAmount > 0 ? `Rs. ${totalAmount.toFixed(2)}` : 'N/A',
         paymentStatus
       ]
     })
@@ -116,8 +128,8 @@ export const exportToExcel = (orders, filename = "orders") => {
       order.customerName || 'N/A',
       order.customerPhone || 'N/A',
       order.restaurant || 'N/A',
-      order.total || `?${(order.totalAmount || 0).toFixed(2)}`,
-      order.paymentStatus || 'N/A',
+      order.total || `Rs. ${(order.totalAmount || 0).toFixed(2)}`,
+      order.paymentStatus === 'cod_pending' ? 'Cash on Delivery' : (order.paymentStatus || 'N/A'),
       order.orderStatus || 'N/A',
       order.deliveryType || 'N/A'
     ])
@@ -257,7 +269,8 @@ export const exportToPDF = async (orders, filename = "orders") => {
       tableData = orders.map((order, index) => {
         const originalOrder = order.originalOrder || {}
         const totalAmount = originalOrder.pricing?.total || originalOrder.totalAmount || originalOrder.total || 0
-        const paymentStatus = originalOrder.payment?.status || originalOrder.paymentStatus || 'N/A'
+        let paymentStatus = originalOrder.payment?.status || originalOrder.paymentStatus || 'N/A'
+        if (paymentStatus === 'cod_pending') paymentStatus = 'Cash on Delivery'
         
         return [
           order.sl || index + 1,
@@ -270,12 +283,12 @@ export const exportToPDF = async (orders, filename = "orders") => {
           order.deliveryBoyName || 'N/A',
           order.deliveryBoyNumber || 'N/A',
           order.status || 'N/A',
-          totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : 'N/A',
+          totalAmount > 0 ? `Rs. ${totalAmount.toFixed(2)}` : 'N/A',
           paymentStatus
         ]
       })
     } else {
-      headers = ["SI", "Order ID", "Order Date", "Customer Name", "Customer Phone", "Restaurant", "Total Amount", "Payment Status", "Order Status", "Delivery Type"]
+      headers = [["SI", "Order ID", "Order Date", "Customer Name", "Customer Phone", "Restaurant", "Total Amount", "Payment Status", "Order Status", "Delivery Type"]]
       tableData = orders.map((order, index) => {
         const amount =
           order.totalAmount ??
@@ -289,8 +302,8 @@ export const exportToPDF = async (orders, filename = "orders") => {
           order.customerName || 'N/A',
           order.customerPhone || 'N/A',
           order.restaurant || 'N/A',
-          amount ? `₹${Number(amount).toFixed(2)}` : 'N/A',
-          order.paymentStatus || 'N/A',
+          amount ? `Rs. ${Number(amount).toFixed(2)}` : 'N/A',
+          order.paymentStatus === 'cod_pending' ? 'Cash on Delivery' : (order.paymentStatus || 'N/A'),
           order.orderStatus || 'N/A',
           order.deliveryType || 'N/A'
         ]

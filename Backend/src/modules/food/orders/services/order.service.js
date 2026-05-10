@@ -1499,3 +1499,135 @@ export async function deleteOrderAdmin(orderId, adminId) {
   };
 }
 
+export async function updateOrderStatusAdmin(orderId, orderStatus, note = "", adminId) {
+    const identity = buildOrderIdentityFilter(orderId);
+    let order = await FoodOrder.findOne(identity);
+    if (!order) throw new NotFoundError("Order not found");
+
+    const from = order.orderStatus;
+    order.orderStatus = orderStatus;
+    if (note && String(note).trim()) {
+        order.note = String(note).trim();
+    }
+
+    pushStatusHistory(order, {
+        byRole: "ADMIN",
+        byId: adminId,
+        from,
+        to: orderStatus,
+        note: note || "Status updated by admin",
+    });
+
+    await order.save();
+
+    // Notify all relevant parties
+    const notifyList = [
+        { ownerType: "USER", ownerId: order.userId },
+        { ownerType: "RESTAURANT", ownerId: order.restaurantId },
+    ];
+    if (order.dispatch?.deliveryPartnerId) {
+        notifyList.push({ ownerType: "DELIVERY_PARTNER", ownerId: order.dispatch.deliveryPartnerId });
+    }
+
+    const title = `Order Status Updated 📋`;
+    const body = `Order #${order.order_id || order._id} status changed to ${String(orderStatus).replace(/_/g, " ")} by support.`;
+
+    await notifyOwnersSafely(notifyList, {
+        title,
+        body,
+        data: {
+            type: "order_status_update",
+            orderId: order._id.toString(),
+            orderStatus: String(orderStatus || ""),
+        }
+    });
+
+    // Real-time update
+    try {
+        const io = getIO();
+        if (io) {
+            const payload = {
+                orderMongoId: order._id.toString(),
+                orderId: order._id.toString(),
+                orderStatus: order.orderStatus,
+                message: body,
+            };
+            io.to(rooms.user(order.userId)).emit("order_status_update", payload);
+            io.to(rooms.restaurant(order.restaurantId)).emit("order_status_update", payload);
+            if (order.dispatch?.deliveryPartnerId) {
+                io.to(rooms.delivery(order.dispatch.deliveryPartnerId)).emit("order_status_update", payload);
+            }
+        }
+    } catch (err) {
+        logger.warn(`Admin status update socket emit failed: ${err?.message || err}`);
+    }
+
+    return normalizeOrderForClient(order);
+}
+
+export async function processRefundAdmin(orderId, amount, adminId) {
+    const identity = buildOrderIdentityFilter(orderId);
+    let order = await FoodOrder.findOne(identity);
+    if (!order) throw new NotFoundError("Order not found");
+
+    const paymentMethod = String(order.payment?.method || "cash").toLowerCase();
+    const currentPaymentStatus = String(order.payment?.status || "").toLowerCase();
+
+    if (currentPaymentStatus === "refunded") {
+        throw new ValidationError("Order is already refunded");
+    }
+
+    const refundAmount = Number(amount) || order.pricing?.total || 0;
+    if (refundAmount <= 0) throw new ValidationError("Invalid refund amount");
+
+    let refundSuccess = false;
+    let refundId = null;
+
+    if (paymentMethod === "razorpay" && order.payment?.razorpay?.paymentId) {
+        const result = await initiateRazorpayRefund(order.payment.razorpay.paymentId, refundAmount);
+        if (result.success) {
+            refundSuccess = true;
+            refundId = result.refundId;
+        }
+    } else if (paymentMethod === "wallet") {
+        await userWalletService.refundWalletBalance(
+            order.userId, 
+            refundAmount, 
+            `Refund for order #${order.order_id || order._id} processed by admin`,
+            { orderId: order._id, adminId }
+        );
+        refundSuccess = true;
+    } else if (paymentMethod === "cash") {
+        // Just mark as refunded in DB for COD if needed, or handle offline
+        refundSuccess = true;
+    }
+
+    if (refundSuccess) {
+        order.payment.status = "refunded";
+        order.payment.refund = {
+            status: "processed",
+            amount: refundAmount,
+            refundId: refundId,
+            processedAt: new Date(),
+            processedBy: adminId
+        };
+        await order.save();
+
+        // Sync transaction
+        try {
+            await foodTransactionService.updateTransactionStatus(order._id, order.orderStatus, {
+                status: 'refunded',
+                note: `Refund of ₹${refundAmount} processed by admin`,
+                recordedByRole: 'ADMIN',
+                recordedById: adminId
+            });
+        } catch (err) {
+            logger.warn(`Admin refund transaction sync failed: ${err?.message || err}`);
+        }
+
+        return { success: true, order: normalizeOrderForClient(order) };
+    }
+
+    throw new Error("Refund processing failed");
+}
+

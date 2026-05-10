@@ -91,6 +91,19 @@ export function useGenericTableManagement(data, title, searchFields = []) {
         format: 'a4'
       })
 
+      // Handle transformed order structure if present
+      const sourceOrder = order.originalOrder || order
+      const pricing = sourceOrder.pricing || {}
+      
+      const customerName = order.customerName || order.userName || sourceOrder.customerName || sourceOrder.userName || sourceOrder.userId?.name || 'N/A'
+      const customerPhone = order.customerPhone || order.userNumber || sourceOrder.customerPhone || sourceOrder.userNumber || sourceOrder.userId?.phone || 'N/A'
+      const restaurantName = order.restaurant || order.restaurantName || sourceOrder.restaurantName || sourceOrder.restaurantId?.restaurantName || 'N/A'
+      const orderId = order.orderId || sourceOrder.orderId || sourceOrder._id || 'N/A'
+      const items = sourceOrder.cart?.items || sourceOrder.items || []
+      const totalAmount = order.totalAmount || pricing.total || sourceOrder.totalAmount || 0
+      const paymentStatus = order.paymentStatus || sourceOrder.payment?.status || sourceOrder.paymentStatus || 'N/A'
+      const orderStatus = order.status || order.orderStatus || sourceOrder.orderStatus || 'N/A'
+
       // Add title
       doc.setFontSize(18)
       doc.setTextColor(30, 30, 30)
@@ -99,56 +112,59 @@ export function useGenericTableManagement(data, title, searchFields = []) {
       // Order ID
       doc.setFontSize(12)
       doc.setTextColor(100, 100, 100)
-      const orderId = order.orderId || order.id || order.subscriptionId || 'N/A'
       doc.text(`Order ID: ${orderId}`, 105, 28, { align: 'center' })
       
       // Date
       doc.setFontSize(10)
-      const orderDate = order.date && order.time ? `${order.date}, ${order.time}` : (order.date || new Date().toLocaleDateString())
-      doc.text(`Date: ${orderDate}`, 105, 34, { align: 'center' })
+      let displayDate = 'N/A'
+      try {
+        const rawDate = order.date || order.orderDate || sourceOrder.createdAt
+        if (rawDate) {
+          const d = new Date(rawDate)
+          if (!isNaN(d.getTime())) {
+            displayDate = d.toLocaleString()
+          } else {
+            displayDate = rawDate
+          }
+        }
+      } catch (e) {
+        displayDate = order.orderDate || 'N/A'
+      }
+      doc.text(`Date: ${displayDate}`, 105, 34, { align: 'center' })
       
       let startY = 45
       
       // Customer Information
-      if (order.customerName || order.customerPhone) {
-        doc.setFontSize(12)
-        doc.setTextColor(30, 30, 30)
-        doc.text('Customer Information', 14, startY)
-        startY += 8
-        
-        doc.setFontSize(10)
-        doc.setTextColor(60, 60, 60)
-        if (order.customerName) {
-          doc.text(`Name: ${order.customerName}`, 14, startY)
-          startY += 6
-        }
-        if (order.customerPhone) {
-          doc.text(`Phone: ${order.customerPhone}`, 14, startY)
-          startY += 6
-        }
-        startY += 5
-      }
+      doc.setFontSize(12)
+      doc.setTextColor(30, 30, 30)
+      doc.text('Customer Information', 14, startY)
+      startY += 8
+      
+      doc.setFontSize(10)
+      doc.setTextColor(60, 60, 60)
+      doc.text(`Name: ${customerName}`, 14, startY)
+      startY += 6
+      doc.text(`Phone: ${customerPhone}`, 14, startY)
+      startY += 12
       
       // Restaurant Information
-      if (order.restaurant) {
-        doc.setFontSize(12)
-        doc.setTextColor(30, 30, 30)
-        doc.text('Restaurant', 14, startY)
-        startY += 8
-        
-        doc.setFontSize(10)
-        doc.setTextColor(60, 60, 60)
-        doc.text(order.restaurant, 14, startY)
-        startY += 10
-      }
+      doc.setFontSize(12)
+      doc.setTextColor(30, 30, 30)
+      doc.text('Restaurant', 14, startY)
+      startY += 8
+      
+      doc.setFontSize(10)
+      doc.setTextColor(60, 60, 60)
+      doc.text(restaurantName, 14, startY)
+      startY += 10
       
       // Order Items Table
-      if (order.items && Array.isArray(order.items) && order.items.length > 0) {
-        const tableData = order.items.map((item) => [
+      if (items.length > 0) {
+        const tableData = items.map((item) => [
           item.quantity || 1,
           item.name || item.itemName || item.title || 'Unknown Item',
-          `?${(item.price || 0).toFixed(2)}`,
-          `?${((item.quantity || 1) * (item.price || 0)).toFixed(2)}`
+          `Rs. ${(item.price || item.unitPrice || 0).toFixed(2)}`,
+          `Rs. ${((item.quantity || 1) * (item.price || item.unitPrice || 0)).toFixed(2)}`
         ])
         
         autoTable(doc, {
@@ -184,32 +200,30 @@ export function useGenericTableManagement(data, title, searchFields = []) {
         })
         
         startY = doc.lastAutoTable.finalY + 10
+      } else {
+        doc.setFontSize(10)
+        doc.setTextColor(150, 150, 150)
+        doc.text('No item details available for this order type.', 14, startY)
+        startY += 10
       }
       
       // Total Amount
-      if (order.totalAmount) {
-        doc.setFontSize(14)
-        doc.setTextColor(30, 30, 30)
-        doc.setFont(undefined, 'bold')
-        const totalAmount = typeof order.totalAmount === 'number' ? order.totalAmount.toFixed(2) : order.totalAmount
-        doc.text(`Total Amount: ?${totalAmount}`, 14, startY)
-        startY += 8
-      }
+      doc.setFontSize(14)
+      doc.setTextColor(30, 30, 30)
+      doc.setFont(undefined, 'bold')
+      const totalAmountStr = typeof totalAmount === 'number' ? totalAmount.toFixed(2) : totalAmount
+      doc.text(`Total Amount: Rs. ${totalAmountStr}`, 14, startY)
+      startY += 8
       
       // Payment Status
-      if (order.paymentStatus) {
-        doc.setFontSize(10)
-        doc.setTextColor(100, 100, 100)
-        doc.setFont(undefined, 'normal')
-        doc.text(`Payment Status: ${order.paymentStatus}`, 14, startY)
-        startY += 6
-      }
+      doc.setFontSize(10)
+      doc.setTextColor(100, 100, 100)
+      doc.setFont(undefined, 'normal')
+      doc.text(`Payment Status: ${paymentStatus === 'cod_pending' ? 'Cash on Delivery' : paymentStatus}`, 14, startY)
+      startY += 6
       
       // Order Status
-      if (order.orderStatus) {
-        doc.setFontSize(10)
-        doc.text(`Order Status: ${order.orderStatus}`, 14, startY)
-      }
+      doc.text(`Order Status: ${orderStatus}`, 14, startY)
       
       // Save the PDF instantly
       const filename = `Invoice_${orderId}_${new Date().toISOString().split("T")[0]}.pdf`

@@ -388,3 +388,38 @@ export async function resendDeliveryNotificationRestaurantController(req, res, n
         next(err);
     }
 }
+
+export async function acceptOrderAdminController(req, res, next) {
+    try {
+        const adminId = req.user?.userId;
+        const orderId = req.params.orderId;
+        const order = await orderService.updateOrderStatusAdmin(orderId, 'confirmed', 'Order accepted by admin', adminId);
+        return sendResponse(res, 200, 'Order accepted by admin', { order });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function rejectOrderAdminController(req, res, next) {
+    try {
+        const adminId = req.user?.userId;
+        const orderId = req.params.orderId;
+        const { reason } = req.body;
+        const order = await orderService.updateOrderStatusAdmin(orderId, 'cancelled_by_admin', reason || 'Order rejected by admin', adminId);
+        return sendResponse(res, 200, 'Order rejected by admin', { order });
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function processRefundAdminController(req, res, next) {
+    try {
+        const adminId = req.user?.userId;
+        const orderId = req.params.orderId;
+        const { amount } = req.body;
+        const result = await orderService.processRefundAdmin(orderId, amount, adminId);
+        return sendResponse(res, 200, 'Refund processed successfully', result);
+    } catch (err) {
+        next(err);
+    }
+}

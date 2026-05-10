@@ -553,6 +553,18 @@ export const adminAPI = {
     apiClient.get(`/food/admin/orders/${String(orderId)}`, {
       contextModule: "admin",
     }),
+  acceptOrder: (orderId) =>
+    apiClient.patch(`/food/admin/orders/${String(orderId)}/accept`, {}, {
+      contextModule: "admin",
+    }),
+  rejectOrder: (orderId, reason) =>
+    apiClient.patch(`/food/admin/orders/${String(orderId)}/reject`, { reason }, {
+      contextModule: "admin",
+    }),
+  processRefund: (orderId, data) =>
+    apiClient.post(`/food/admin/orders/${String(orderId)}/refund`, data ?? {}, {
+      contextModule: "admin",
+    }),
   deleteOrder: (orderId) =>
     apiClient.delete(`/food/admin/orders/${String(orderId)}`, {
       contextModule: "admin",
@@ -1182,9 +1194,9 @@ export const restaurantAPI = {
       contextModule: "restaurant",
     }),
   bulkUploadTemplate: () =>
-    apiClient.get("/food/restaurant/bulk-upload/template", { 
-      responseType: 'blob', 
-      contextModule: "restaurant" 
+    apiClient.get("/food/restaurant/bulk-upload/template", {
+      responseType: 'blob',
+      contextModule: "restaurant"
     }),
   bulkUpload: (file) => {
     const formData = new FormData();
@@ -1659,7 +1671,7 @@ export const deliveryAPI = {
     deliveryMeCacheTime = 0;
     try {
       localStorage.removeItem("app:isOnline");
-    } catch (_) {}
+    } catch (_) { }
     const token =
       refreshToken ||
       (typeof localStorage !== "undefined"
@@ -2530,7 +2542,7 @@ export const diningAPI = {
           return (
             String(booking?.userId || "") === String(userId) ||
             String(booking?.user?._id || booking?.user?.id || "") ===
-              String(userId)
+            String(userId)
           );
         }
 
@@ -2634,14 +2646,14 @@ export const diningAPI = {
   createBooking: async (payload = {}) => {
     const restaurantId = String(
       payload?.restaurant ||
-        payload?.restaurantId ||
-        payload?.restaurantRef?._id ||
-        payload?.restaurantRef?.id ||
-        payload?.restaurantRef?.restaurant?._id ||
-        payload?.restaurantRef?.restaurant?.id ||
-        payload?.restaurant?._id ||
-        payload?.restaurant?.id ||
-        "",
+      payload?.restaurantId ||
+      payload?.restaurantRef?._id ||
+      payload?.restaurantRef?.id ||
+      payload?.restaurantRef?.restaurant?._id ||
+      payload?.restaurantRef?.restaurant?.id ||
+      payload?.restaurant?._id ||
+      payload?.restaurant?.id ||
+      "",
     ).trim();
 
     if (!restaurantId) {

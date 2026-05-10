@@ -543,7 +543,7 @@ export function useOrdersManagement(orders, statusKey, title) {
           ["Subtotal", formatMoney(subtotal)],
           ["Delivery Fee", formatMoney(deliveryFee)],
           ["Tax", formatMoney(taxAmount)],
-          ["Discount", `- ${formatMoney(discountAmount)}`],
+          ["Discount", formatMoney(discountAmount)],
           ["Grand Total", formatMoney(totalAmount)],
         ],
         theme: "plain",

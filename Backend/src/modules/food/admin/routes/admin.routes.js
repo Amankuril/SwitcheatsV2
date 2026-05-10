@@ -204,6 +204,9 @@ router.patch('/dining/restaurants/:restaurantId', diningAdminController.updateDi
 // ----- Orders -----
 router.get('/orders', orderController.listOrdersAdminController);
 router.get('/orders/:orderId', orderController.getOrderByIdAdminController);
+router.patch('/orders/:orderId/accept', orderController.acceptOrderAdminController);
+router.patch('/orders/:orderId/reject', orderController.rejectOrderAdminController);
+router.post('/orders/:orderId/refund', orderController.processRefundAdminController);
 router.delete('/orders/:orderId', orderController.deleteOrderAdminController);
 
 // ----- CMS Pages (About + legal) -----
