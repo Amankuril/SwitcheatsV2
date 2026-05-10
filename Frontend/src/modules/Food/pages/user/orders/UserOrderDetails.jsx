@@ -122,7 +122,7 @@ export default function UserOrderDetails() {
   // Use fetched restaurant data if available, otherwise use order.restaurantId or order.restaurant
   const restaurantObj = restaurant || order.restaurantId || order.restaurant || {}
   const restaurantName =
-    order.restaurantName || restaurantObj.name || "Restaurant"
+    order.restaurantName || restaurantObj.restaurantName || restaurantObj.name || "Restaurant"
 
   // Build restaurant address (try restaurant fields first, then fall back)
   const restaurantLocation = (() => {
@@ -170,8 +170,8 @@ export default function UserOrderDetails() {
   const pricing = order.pricing || {}
   const sendsCutlery = order.sendCutlery !== false
 
-  const userName = order.userName || ""
-  const userPhone = order.userPhone || ""
+  const userName = order.customerName || order.userName || order.userId?.name || order.userId?.fullName || ""
+  const userPhone = order.customerPhone || order.userPhone || order.userId?.phone || ""
   const paymentMethod = order.payment?.method || "Online"
   const paymentDate = order.createdAt
     ? new Date(order.createdAt).toLocaleString("en-IN", {
@@ -184,8 +184,14 @@ export default function UserOrderDetails() {
     : ""
 
   const addressText =
+    order.deliveryAddress?.formattedAddress ||
     order.address?.formattedAddress ||
-    [order.address?.street, order.address?.city, order.address?.state, order.address?.zipCode]
+    [
+      order.deliveryAddress?.street || order.address?.street,
+      order.deliveryAddress?.city || order.address?.city,
+      order.deliveryAddress?.state || order.address?.state,
+      order.deliveryAddress?.zipCode || order.address?.zipCode
+    ]
       .filter(Boolean)
       .join(", ")
 
@@ -275,8 +281,8 @@ export default function UserOrderDetails() {
       const tableData = items.map(item => [
         item.variantName ? `${item.name || 'Item'} (${item.variantName})` : (item.name || 'Item'),
         String(item.quantity || item.qty || 1),
-        `?${Number(item.price || 0).toFixed(2)}`,
-        `?${Number((item.price || 0) * (item.quantity || item.qty || 1)).toFixed(2)}`
+        `Rs. ${Number(item.price || 0).toFixed(2)}`,
+        `Rs. ${Number((item.price || 0) * (item.quantity || item.qty || 1)).toFixed(2)}`
       ])
 
       autoTable(doc, {
@@ -301,7 +307,7 @@ export default function UserOrderDetails() {
       doc.setFontSize(12)
       doc.setFont('helvetica', 'bold')
       doc.text('Total:', 145, finalY + 10, { align: 'right' })
-      doc.text(`?${Number(pricing.total || 0).toFixed(2)}`, 195, finalY + 10, { align: 'right' })
+      doc.text(`Rs. ${Number(pricing.total || 0).toFixed(2)}`, 195, finalY + 10, { align: 'right' })
 
       // Save PDF instantly
       const fileName = `Order_Summary_${orderIdDisplay}_${Date.now()}.pdf`
