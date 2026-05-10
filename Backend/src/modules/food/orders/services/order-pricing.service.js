@@ -9,7 +9,7 @@ import { haversineKm } from './order.helpers.js';
 
 export async function calculateOrderPricing(userId, dto) {
   const restaurant = await FoodRestaurant.findById(dto.restaurantId)
-    .select("status")
+    .select("status location")
     .lean();
   if (!restaurant) throw new ValidationError("Restaurant not found");
   if (restaurant.status !== "approved")
@@ -35,6 +35,7 @@ export async function calculateOrderPricing(userId, dto) {
 
   const freeThreshold = Number(feeSettings.freeDeliveryThreshold || 0);
   let deliveryFee = 0;
+  let distanceKm = null;
   if (
     Number.isFinite(freeThreshold) &&
     freeThreshold > 0 &&
@@ -43,7 +44,6 @@ export async function calculateOrderPricing(userId, dto) {
     deliveryFee = 0;
   } else {
     // Calculate distance if coordinates are available
-    let distanceKm = null;
     if (
       restaurant?.location?.coordinates?.length === 2 &&
       dto.deliveryAddress?.location?.coordinates?.length === 2
@@ -104,9 +104,13 @@ export async function calculateOrderPricing(userId, dto) {
     const now = new Date();
     const offer = await FoodOffer.findOne({ couponCode: codeRaw }).lean();
     if (offer) {
-      const statusOk = offer.status === "active";
+      const offerEnd = offer.endDate ? new Date(offer.endDate) : null;
+      if (offerEnd && offerEnd.getHours() === 0 && offerEnd.getMinutes() === 0) {
+        offerEnd.setHours(23, 59, 59, 999);
+      }
+      const endOk = !offerEnd || now <= offerEnd;
       const startOk = !offer.startDate || now >= new Date(offer.startDate);
-      const endOk = !offer.endDate || now < new Date(offer.endDate);
+      const statusOk = offer.status === "active" && offer.showInCart !== false;
       const scopeOk =
         offer.restaurantScope !== "selected" ||
         String(offer.restaurantId || "") === String(dto.restaurantId || "");
@@ -120,10 +124,10 @@ export async function calculateOrderPricing(userId, dto) {
       }
 
       let perUserOk = true;
-      if (userId && Number(offer.perUserLimit) > 0) {
+      if (userId && mongoose.Types.ObjectId.isValid(userId) && Number(offer.perUserLimit) > 0) {
         const usage = await FoodOfferUsage.findOne({
           offerId: offer._id,
-          userId,
+          userId: new mongoose.Types.ObjectId(userId),
         }).lean();
         if (usage && Number(usage.count) >= Number(offer.perUserLimit)) {
           perUserOk = false;
@@ -131,17 +135,19 @@ export async function calculateOrderPricing(userId, dto) {
       }
 
       let firstOrderOk = true;
-      if (userId && offer.customerScope === "first-time") {
-        const c = await FoodOrder.countDocuments({
-          userId: new mongoose.Types.ObjectId(userId),
-        });
-        firstOrderOk = c === 0;
-      }
-      if (userId && offer.isFirstOrderOnly === true) {
-        const c2 = await FoodOrder.countDocuments({
-          userId: new mongoose.Types.ObjectId(userId),
-        });
-        if (c2 > 0) firstOrderOk = false;
+      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        if (offer.customerScope === "first-time") {
+          const c = await FoodOrder.countDocuments({
+            userId: new mongoose.Types.ObjectId(userId),
+          });
+          firstOrderOk = c === 0;
+        }
+        if (offer.isFirstOrderOnly === true) {
+          const c2 = await FoodOrder.countDocuments({
+            userId: new mongoose.Types.ObjectId(userId),
+          });
+          if (c2 > 0) firstOrderOk = false;
+        }
       }
 
       const allowed =
@@ -193,8 +199,8 @@ export async function calculateOrderPricing(userId, dto) {
       deliveryFeeBreakdown: Number.isFinite(distanceKm) ? {
         source: "distance",
         distanceKm: Number(distanceKm.toFixed(2)),
-        message: matched ? `Distance-based fee for ${distanceKm.toFixed(2)} km` : "Default delivery fee"
-      } : null
+        deliveryFee,
+      } : { source: "default", deliveryFee },
     },
   };
 }

@@ -5,8 +5,10 @@ import mongoose from 'mongoose';
 import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyPaymentSignature } from '../../orders/helpers/razorpay.helper.js';
 import { FoodZone } from '../../admin/models/zone.model.js';
 import { FoodOffer } from '../../admin/models/offer.model.js';
+import { FoodOfferUsage } from '../../admin/models/offerUsage.model.js';
 import { FoodRestaurantMenu } from '../models/restaurantMenu.model.js';
 import { FoodItem } from '../../admin/models/food.model.js';
+import { FoodOrder } from '../../orders/models/order.model.js';
 import { getRestaurantSubscriptionSettings } from '../../admin/services/admin.service.js';
 
 const normalizeName = (value) =>
@@ -1881,22 +1883,75 @@ export const getApprovedRestaurantByIdOrSlug = async (idOrSlug) => {
     };
 };
 
-export const listPublicOffers = async () => {
+export const listPublicOffers = async (query = {}) => {
+    const { subtotal, restaurantId, userId } = query;
     const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
     const filter = {
         status: 'active',
+        showInCart: { $ne: false },
         $and: [
             { $or: [{ startDate: { $exists: false } }, { startDate: null }, { startDate: { $lte: now } }] },
-            { $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gt: now } }] }
+            { $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gte: startOfToday } }] },
+            {
+                $or: [
+                    { usageLimit: { $exists: false } },
+                    { usageLimit: null },
+                    { usageLimit: 0 },
+                    { $expr: { $lt: ['$usedCount', '$usageLimit'] } }
+                ]
+            }
         ]
     };
+
+    // If restaurantId is provided, filter for global (all) or specific restaurant coupons
+    if (restaurantId && mongoose.Types.ObjectId.isValid(restaurantId)) {
+        filter.$and.push({
+            $or: [
+                { restaurantScope: 'all' },
+                { 
+                    $and: [
+                        { restaurantScope: 'selected' },
+                        { restaurantId: new mongoose.Types.ObjectId(restaurantId) }
+                    ]
+                }
+            ]
+        });
+    }
+
+    // If userId is provided, filter out first-time only coupons if user already has orders
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        const orderCount = await FoodOrder.countDocuments({ userId: new mongoose.Types.ObjectId(userId) });
+        if (orderCount > 0) {
+            filter.$and.push({
+                customerScope: { $ne: 'first-time' },
+                isFirstOrderOnly: { $ne: true }
+            });
+        }
+    }
+
+    // If subtotal is provided, filter by minOrderValue
+    if (subtotal !== undefined && subtotal !== null && subtotal !== '' && !isNaN(Number(subtotal))) {
+        const numericSubtotal = Number(subtotal);
+        if (numericSubtotal > 0) {
+            filter.$and.push({
+                $or: [
+                    { minOrderValue: { $exists: false } },
+                    { minOrderValue: null },
+                    { minOrderValue: { $lte: numericSubtotal } }
+                ]
+            });
+        }
+    }
 
     const list = await FoodOffer.find(filter)
         .sort({ createdAt: -1 })
         .populate({ path: 'restaurantId', select: 'restaurantName restaurantNameNormalized profileImage estimatedDeliveryTime rating' })
         .lean();
 
-    const allOffers = list.map((o) => {
+    let allOffers = list.map((o) => {
         const restaurant = o.restaurantId && typeof o.restaurantId === 'object' ? o.restaurantId : null;
         const restaurantSlug = restaurant?.restaurantNameNormalized || undefined;
         const restaurantName =
@@ -1917,7 +1972,9 @@ export const listPublicOffers = async () => {
             discountType: o.discountType,
             discountValue: o.discountValue,
             maxDiscount: o.maxDiscount ?? null,
+            perUserLimit: o.perUserLimit ?? null,
             customerScope: o.customerScope,
+            isFirstOrderOnly: !!o.isFirstOrderOnly,
             restaurantScope: o.restaurantScope,
             restaurantId: restaurant?._id ? String(restaurant._id) : (o.restaurantScope === 'selected' ? String(o.restaurantId) : null),
             restaurantName,
@@ -1930,6 +1987,24 @@ export const listPublicOffers = async () => {
             minOrderValue: o.minOrderValue ?? 0
         };
     });
+
+    // If userId is provided, filter out coupons that have reached their per-user limit
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        const usages = await FoodOfferUsage.find({ userId: new mongoose.Types.ObjectId(userId) }).lean();
+        const usageMap = usages.reduce((map, u) => {
+            map[String(u.offerId)] = Number(u.count || 0);
+            return map;
+        }, {});
+
+        allOffers = allOffers.filter((o) => {
+            const perUserLimit = Number(o.perUserLimit || 0);
+            if (perUserLimit > 0) {
+                const used = usageMap[String(o.id)] || 0;
+                return used < perUserLimit;
+            }
+            return true;
+        });
+    }
 
     return { allOffers, groupedByOffer: {} };
 };

@@ -818,7 +818,7 @@ export default function Cart() {
 
         try {
           debugLog(`[CART-COUPONS] Fetching coupons for itemId: ${couponItemId}, name: ${cartItem.name}`)
-          const response = await restaurantAPI.getCouponsByItemIdPublic(restaurantId, couponItemId)
+          const response = await restaurantAPI.getCouponsByItemIdPublic(restaurantId, couponItemId, subtotal)
 
           if (response?.data?.success && response?.data?.data?.coupons) {
             const coupons = response.data.data.coupons
@@ -2277,7 +2277,7 @@ export default function Cart() {
                               </div>
                             </div>
                             <button
-                              className="border border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400 rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed ml-2"
+                              className="border border-[#EB590E] text-[#EB590E] dark:hover:bg-[#EB590E]/10 rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed ml-2 shadow-sm"
                               onClick={() => handleApplyCoupon(coupon)}
                               disabled={subtotal < coupon.minOrder || (coupon.customerGroup === "new" && userOrderCount > 0)}
                             >

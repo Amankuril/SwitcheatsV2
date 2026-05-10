@@ -38,3 +38,23 @@ export const authMiddleware = (req, res, next) => {
         return sendError(res, 401, 'Invalid or expired token');
     }
 };
+export const optionalAuth = (req, res, next) => {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+
+    if (!token) {
+        return next();
+    }
+
+    try {
+        const decoded = verifyAccessToken(token);
+        req.user = {
+            userId: decoded.userId,
+            role: decoded.role
+        };
+        next();
+    } catch (error) {
+        // Silently ignore invalid tokens in optional auth
+        next();
+    }
+};
