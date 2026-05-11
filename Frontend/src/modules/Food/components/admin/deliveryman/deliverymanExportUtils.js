@@ -4,13 +4,16 @@ const debugError = (...args) => {}
 
 // Export utility functions for deliveryman data
 export const exportDeliverymenToCSV = (deliverymen, filename = "deliverymen") => {
-  const headers = ["SI", "Name", "Contact", "Zone", "Total Orders", "Availability Status"]
+  const headers = ["SI", "Name", "Contact", "Zone", "Total Orders", "Cash Limit", "Cash In Hand", "Amount", "Availability Status"]
   const rows = deliverymen.map((dm) => [
     dm.sl,
     dm.name,
     dm.phone,
     dm.zone,
     dm.totalOrders,
+    dm.remainingCashLimit || 0,
+    dm.cashInHand || 0,
+    dm.pocketBalance || 0,
     dm.status
   ])
   
@@ -31,7 +34,7 @@ export const exportDeliverymenToCSV = (deliverymen, filename = "deliverymen") =>
 }
 
 export const exportDeliverymenToExcel = (deliverymen, filename = "deliverymen") => {
-  const headers = ["SI", "Name", "Phone", "Email", "Zone", "Total Orders", "Status"]
+  const headers = ["SI", "Name", "Phone", "Email", "Zone", "Total Orders", "Cash Limit", "Cash In Hand", "Amount", "Status"]
   const rows = deliverymen.map((dm) => [
     dm.sl,
     dm.name,
@@ -39,6 +42,9 @@ export const exportDeliverymenToExcel = (deliverymen, filename = "deliverymen") 
     dm.email,
     dm.zone,
     dm.totalOrders,
+    dm.remainingCashLimit || 0,
+    dm.cashInHand || 0,
+    dm.pocketBalance || 0,
     dm.status
   ])
   
@@ -97,17 +103,20 @@ export const exportDeliverymenToPDF = (deliverymen, filename = "deliverymen") =>
           dm.email || 'N/A',
           dm.zone || 'N/A',
           dm.totalOrders || 0,
+          dm.remainingCashLimit || 0,
+          dm.cashInHand || 0,
+          dm.pocketBalance || 0,
           dm.status || 'N/A'
         ])
 
         // Add table using autoTable
         autoTable(doc, {
-          head: [["SI", "Name", "Phone", "Email", "Zone", "Total Orders", "Status"]],
+          head: [["SI", "Name", "Phone", "Email", "Zone", "Total Orders", "Cash Limit", "Cash In Hand", "Amount", "Status"]],
           body: tableData,
           startY: 28,
           styles: {
-            fontSize: 8,
-            cellPadding: 2,
+            fontSize: 7,
+            cellPadding: 1,
           },
           headStyles: {
             fillColor: [241, 245, 249],
@@ -118,13 +127,16 @@ export const exportDeliverymenToPDF = (deliverymen, filename = "deliverymen") =>
             fillColor: [248, 250, 252],
           },
           columnStyles: {
-            0: { cellWidth: 15 }, // SI
-            1: { cellWidth: 35 }, // Name
-            2: { cellWidth: 30 }, // Phone
-            3: { cellWidth: 45 }, // Email
-            4: { cellWidth: 40 }, // Zone
-            5: { cellWidth: 25 }, // Total Orders
-            6: { cellWidth: 25 }, // Status
+            0: { cellWidth: 10 }, // SI
+            1: { cellWidth: 30 }, // Name
+            2: { cellWidth: 25 }, // Phone
+            3: { cellWidth: 40 }, // Email
+            4: { cellWidth: 30 }, // Zone
+            5: { cellWidth: 20 }, // Total Orders
+            6: { cellWidth: 20 }, // Cash Limit
+            7: { cellWidth: 20 }, // Cash In Hand
+            8: { cellWidth: 20 }, // Amount
+            9: { cellWidth: 20 }, // Status
           },
           margin: { top: 28, left: 14, right: 14 },
         })
@@ -316,11 +328,8 @@ const formatBonusForExport = (transaction) => {
   
   // Second priority: clean and extract from bonus string
   if (transaction.bonus) {
-    // Remove all superscript/special characters and unwanted text
     let cleaned = transaction.bonus.toString()
-      .replace(/¹/g, '') // Remove superscript 1
-      .replace(/[¹²³45678?°]/g, '') // Remove all superscript numbers
-      .replace(/[\u2070-\u207F\u2080-\u208F]/g, '') // Remove all superscript Unicode ranges
+      .replace(/[\u00B9\u00B2\u00B3\u2070-\u207F\u2080-\u208F]/g, '') // Remove all superscript Unicode ranges
       .replace(/[^\d.-]/g, '') // Keep only digits, dots, and minus signs
       .trim()
     
@@ -516,5 +525,3 @@ export const exportBonusToJSON = (transactions, filename = "deliveryman_bonus") 
   link.click()
   document.body.removeChild(link)
 }
-
-

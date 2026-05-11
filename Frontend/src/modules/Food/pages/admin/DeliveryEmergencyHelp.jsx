@@ -120,28 +120,28 @@ export default function DeliveryEmergencyHelp() {
       id: "medicalEmergency",
       label: "Medical Emergency",
       placeholder: "Enter medical emergency phone number",
-      icon: "??",
+      icon: "",
       description: "Phone number for medical emergencies (e.g., 108, +91-XXX-XXX-XXXX)"
     },
     {
       id: "accidentHelpline",
       label: "Accident Helpline",
       placeholder: "Enter accident helpline phone number",
-      icon: "??",
+      icon: "",
       description: "Phone number for accident helpline"
     },
     {
       id: "contactPolice",
       label: "Contact Police",
       placeholder: "Enter police emergency phone number",
-      icon: "??",
+      icon: "",
       description: "Phone number for police emergency (e.g., 100)"
     },
     {
       id: "insurance",
       label: "Insurance",
       placeholder: "Enter insurance helpline phone number",
-      icon: "???",
+      icon: "",
       description: "Phone number for insurance claims and policy help"
     }
   ]
