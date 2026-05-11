@@ -14,6 +14,7 @@ export default function PostApprovalPayment() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [settings, setSettings] = useState(null)
+  const [loadError, setLoadError] = useState("")
   const [paymentType, setPaymentType] = useState("full")
   const [partialAmount, setPartialAmount] = useState("")
   const [plan, setPlan] = useState(null)
@@ -22,14 +23,17 @@ export default function PostApprovalPayment() {
     let mounted = true
     const load = async () => {
       try {
+        setLoadError("")
         const [restaurantRes, settingsRes] = await Promise.all([
           restaurantAPI.getCurrentRestaurant(),
           restaurantAPI.getSubscriptionSettings(),
         ])
-
         if (!mounted) return
 
-        const restaurant = restaurantRes?.data?.data?.restaurant || restaurantRes?.data?.restaurant
+        const restaurant =
+          restaurantRes?.data?.data?.restaurant ||
+          restaurantRes?.data?.restaurant
+
         if (restaurant?.onboardingFeePaid) {
           navigate("/food/restaurant", { replace: true })
           return
@@ -37,9 +41,14 @@ export default function PostApprovalPayment() {
 
         const s = settingsRes?.data?.data || null
         if (!s) throw new Error("Subscription settings missing")
+
         setSettings(s)
-      } catch {
-        toast.error("Failed to load payment details")
+      } catch (err) {
+        toast.error(err?.response?.data?.message || "Failed to load payment details")
+        if (mounted) {
+          setLoadError("Unable to load payment details. Please retry.")
+          setSettings(null)
+        }
       } finally {
         if (mounted) setLoading(false)
       }
@@ -185,10 +194,18 @@ export default function PostApprovalPayment() {
     }
   }
 
-  if (loading || !calc) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#E6E6E9] flex items-center justify-center px-4">
         <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 text-sm text-gray-600">Loading payment details...</div>
+      </div>
+    )
+  }
+
+  if (!calc) {
+    return (
+      <div className="min-h-screen bg-[#E6E6E9] flex items-center justify-center px-4">
+        <div className="bg-white rounded-xl border border-red-200 px-5 py-4 text-sm text-red-600">Failed to load payment details. Please refresh and try again.</div>
       </div>
     )
   }
@@ -203,6 +220,12 @@ export default function PostApprovalPayment() {
       </header>
 
       <main className="flex-1 p-4 space-y-4 max-w-2xl w-full mx-auto">
+        {loadError ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+            {loadError}
+          </div>
+        ) : null}
+
         <section className="rounded-2xl bg-white border border-gray-200 p-4 space-y-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
           <h2 className="text-xl leading-tight tracking-tight font-semibold text-gray-900">Onboarding setup</h2>
           <p className="text-[13px] leading-6 text-gray-600">
