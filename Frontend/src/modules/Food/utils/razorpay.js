@@ -5,6 +5,17 @@
 
 let razorpayLoaded = false;
 
+const isLikelyWebView = () => {
+  if (typeof window === "undefined") return false;
+  const ua = window.navigator?.userAgent || "";
+  return (
+    /\bwv\b/i.test(ua) ||
+    /WebView/i.test(ua) ||
+    /; wv\)/i.test(ua) ||
+    /Version\/[\d.]+.*Chrome\/[\d.]+ Mobile/i.test(ua)
+  );
+};
+
 /**
  * Load Razorpay checkout script
  */
@@ -75,6 +86,15 @@ export const initRazorpayPayment = async (options) => {
       throw new Error('Razorpay SDK not available');
     }
 
+    const webViewMode = isLikelyWebView();
+    let restoreWindowOpen = null;
+    const restoreIfNeeded = () => {
+      if (typeof restoreWindowOpen === "function") {
+        restoreWindowOpen();
+        restoreWindowOpen = null;
+      }
+    };
+
     const razorpayOptions = {
       key: options.key,
       amount: options.amount,
@@ -89,12 +109,14 @@ export const initRazorpayPayment = async (options) => {
         color: options.theme?.color || '#E23744'
       },
       handler: function(response) {
+        restoreIfNeeded();
         if (options.handler) {
           options.handler(response);
         }
       },
       modal: {
         ondismiss: function() {
+          restoreIfNeeded();
           if (options.onClose) {
             options.onClose();
           }
@@ -114,6 +136,7 @@ export const initRazorpayPayment = async (options) => {
     
     // Handle payment failures
     razorpay.on('payment.failed', function(response) {
+      restoreIfNeeded();
       console.error('Razorpay payment failed:', response);
       if (options.onError) {
         options.onError(response.error || { description: 'Payment failed. Please try again.' });
@@ -122,11 +145,32 @@ export const initRazorpayPayment = async (options) => {
 
     // Handle payment method selection failures
     razorpay.on('payment.method_selection_failed', function(response) {
+      restoreIfNeeded();
       console.error('Razorpay payment method selection failed:', response);
       if (options.onError) {
         options.onError(response.error || { description: 'Please select another payment method.' });
       }
     });
+
+    // Flutter/embedded WebViews often block popup windows used during netbanking.
+    // Route popup attempts to same tab so bank auth can continue instead of blank white screen.
+    if (webViewMode && typeof window.open === "function") {
+      const nativeWindowOpen = window.open.bind(window);
+      window.open = (url, target, features) => {
+        try {
+          if (url) {
+            window.location.assign(url);
+            return window;
+          }
+        } catch (err) {
+          console.warn("WebView window.open fallback failed, using native open", err);
+        }
+        return nativeWindowOpen(url, target, features);
+      };
+      restoreWindowOpen = () => {
+        window.open = nativeWindowOpen;
+      };
+    }
 
     // Open Razorpay modal
     razorpay.open();
@@ -156,4 +200,3 @@ export const initRazorpayPayment = async (options) => {
 export const formatAmount = (amount) => {
   return `₹${(amount / 100).toFixed(2)}`;
 };
-
