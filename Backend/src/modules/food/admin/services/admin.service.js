@@ -3656,16 +3656,10 @@ export async function updateDeliverySupportTicket(id, body = {}) {
  * Subscription Settings
  */
 export const getRestaurantSubscriptionSettings = async () => {
-    let settings = await FoodRestaurantSubscriptionSettings.findOne();
-    if (!settings) {
-        settings = await FoodRestaurantSubscriptionSettings.create({
-            silverPrice: 999,
-            goldPrice: 1999,
-            onboardingFee: 799
-        });
-    }
-    return settings.toObject();
+    const settings = await FoodRestaurantSubscriptionSettings.findOne();
+    return settings ? settings.toObject() : null;
 };
+
 
 export const updateRestaurantSubscriptionSettings = async (data) => {
     let settings = await FoodRestaurantSubscriptionSettings.findOne();

@@ -499,6 +499,9 @@ export default function RestaurantOnboarding() {
   const [registrationProcessing, setRegistrationProcessing] = useState(false)
   const [uploadingAttachments, setUploadingAttachments] = useState({})
   const [subscriptionSettings, setSubscriptionSettings] = useState(null)
+  const [settingsLoading, setSettingsLoading] = useState(true)
+  const [settingsError, setSettingsError] = useState(null)
+
 
   const goToStep = (targetStep) => {
     const n = Math.min(4, Math.max(1, targetStep))
@@ -508,18 +511,31 @@ export default function RestaurantOnboarding() {
   }
 
   useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchSettings = async (retries = 5, delay = 1000) => {
       try {
+        setSettingsLoading(true)
+        setSettingsError(null)
         const res = await restaurantAPI.getSubscriptionSettings()
-        if (res.data?.success) {
+        if (res.data?.success && res.data?.data) {
           setSubscriptionSettings(res.data.data)
+          setSettingsLoading(false)
+          return
         }
+        throw new Error("Invalid or missing subscription settings from server")
       } catch (err) {
-        console.error("Failed to fetch subscription settings:", err)
+        console.error(`Attempt to fetch subscription settings failed (${retries} retries left):`, err)
+        if (retries > 0) {
+          setTimeout(() => fetchSettings(retries - 1, delay * 1.5), delay)
+        } else {
+          setSettingsLoading(false)
+          setSettingsError("Could not load subscription details. Please refresh the page.")
+          toast.error("Subscription settings fetch failed after multiple attempts")
+        }
       }
     }
     fetchSettings()
   }, [])
+
 
   const triggerBackgroundUpload = async (file, folder, fieldName, isArray = false, arrayIndex = -1) => {
     if (!file || !isUploadableFile(file)) return;
@@ -2778,9 +2794,34 @@ export default function RestaurantOnboarding() {
   )
 
   const renderStep4 = () => {
-    const silverPrice = subscriptionSettings?.silverPrice || 999
-    const goldPrice = subscriptionSettings?.goldPrice || 1999
-    const onboardingFeeBase = subscriptionSettings?.onboardingFee || 799
+    if (settingsLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center p-12 space-y-4 bg-white rounded-md border border-gray-100">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+          <p className="text-gray-500 font-medium">Loading subscription details...</p>
+        </div>
+      )
+    }
+
+    if (settingsError || !subscriptionSettings) {
+      return (
+        <div className="p-8 bg-red-50 border border-red-200 rounded-md text-center space-y-4">
+          <p className="text-red-700 font-medium">{settingsError || "Subscription settings not found."}</p>
+          <Button 
+            variant="outline" 
+            onClick={() => window.location.reload()}
+            className="bg-white border-red-200 text-red-700 hover:bg-red-100"
+          >
+            Retry Loading
+          </Button>
+        </div>
+      )
+    }
+
+    const silverPrice = subscriptionSettings.silverPrice
+    const goldPrice = subscriptionSettings.goldPrice
+    const onboardingFeeBase = subscriptionSettings.onboardingFee
+
 
     const subscriptionPlans = [
       { id: 'silver', price: silverPrice, label: 'Silver Plan', features: ['Silver Plan', 'Basic features', 'Standard support'] },
@@ -3028,9 +3069,10 @@ export default function RestaurantOnboarding() {
 
     try {
       const GST_RATE = 0.18
-      const silverPrice = subscriptionSettings?.silverPrice || 999
-      const goldPrice = subscriptionSettings?.goldPrice || 1999
-      const onboardingFeeBase = subscriptionSettings?.onboardingFee || 799
+      const silverPrice = subscriptionSettings.silverPrice
+      const goldPrice = subscriptionSettings.goldPrice
+      const onboardingFeeBase = subscriptionSettings.onboardingFee
+
 
       const selectedPlanBase = step4State.subscriptionPlan === 'silver' ? silverPrice : (step4State.subscriptionPlan === 'gold' ? goldPrice : 0)
       const planErrors = []
