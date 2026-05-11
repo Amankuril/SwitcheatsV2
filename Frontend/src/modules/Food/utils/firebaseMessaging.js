@@ -18,6 +18,7 @@ const pushSoundEnabledStorageKey = "push_sound_enabled";
 let publicEnvPromise = null;
 let foregroundListenerAttached = false;
 let registrationInFlight = null;
+let lastWebRegistrationAtByModule = new Map();
 let serviceWorkerMessageListenerAttached = false;
 const MESSAGING_APP_NAME = "web-push-app";
 const recentForegroundNotifications = new Map();
@@ -26,12 +27,24 @@ let pushSoundUnlocked = false;
 let pushSoundContext = null;
 const PUSH_DEBUG_PREFIX = "[push-debug]";
 const notificationDedupWindowMs = 8000;
+const webRegistrationThrottleMs = 60000;
 const pushDebugLog = (prefix, message, data = {}) => {
   console.log(`${prefix} ${message}`, data);
 };
 const pushDebugWarn = (prefix, message, data = {}) => {
   console.warn(`${prefix} ${message}`, data);
 };
+
+function shouldIgnoreFcmRegistrationError(error) {
+  const name = String(error?.name || "");
+  const message = String(error?.message || "");
+  return (
+    name === "InvalidStateError" ||
+    message.includes("IDBDatabase") ||
+    message.includes("database connection is closing") ||
+    message.includes("Failed to execute 'transaction'")
+  );
+}
 
 function normalizeModuleFromPath(pathname = window.location.pathname) {
   if (pathname.includes("/restaurant") && !pathname.includes("/restaurants")) return "restaurant";
@@ -689,6 +702,16 @@ export async function registerWebPushForCurrentModule(pathname = window.location
   const supportsBrowserPush = isSupportedBrowser() && isSecureContextForPush();
 
   if (supportsBrowserPush) {
+    const now = Date.now();
+    const lastTs = Number(lastWebRegistrationAtByModule.get(moduleName) || 0);
+    if (now - lastTs < webRegistrationThrottleMs) {
+      pushDebugLog(PUSH_DEBUG_PREFIX, "Skipping web push registration (throttled)", {
+        moduleName,
+        sinceMs: now - lastTs,
+      });
+      return;
+    }
+
     if (registrationInFlight) return registrationInFlight;
 
     registrationInFlight = (async () => {
@@ -736,11 +759,21 @@ export async function registerWebPushForCurrentModule(pathname = window.location
         tokenPreview: `${token.slice(0, 12)}...`,
       });
 
-      // Removed localStorage caching (getSavedToken/setSavedToken) as per user requirements.
-      // The backend 'upsert' already handles duplicates efficiently.
+      const lastSavedToken = getSavedToken(moduleName);
+      if (lastSavedToken === token) {
+        pushDebugLog(PUSH_DEBUG_PREFIX, "Skipping backend sync for unchanged token", {
+          moduleName,
+        });
+        lastWebRegistrationAtByModule.set(moduleName, Date.now());
+        await attachForegroundListener(app);
+        return;
+      }
+
       try {
         pushDebugLog(PUSH_DEBUG_PREFIX, "Synchronizing FCM token with backend database", { moduleName, tokenPreview: `${token?.slice(0, 10)}...` });
         await saveTokenByModule(moduleName, token);
+        setSavedToken(moduleName, token);
+        lastWebRegistrationAtByModule.set(moduleName, Date.now());
         pushDebugLog(PUSH_DEBUG_PREFIX, "FCM token synchronized with backend successfully");
       } catch (e) {
         pushDebugWarn(PUSH_DEBUG_PREFIX, "Failed to synchronize FCM token to backend", { error: e?.message || e, stack: e?.stack });
@@ -749,6 +782,13 @@ export async function registerWebPushForCurrentModule(pathname = window.location
       await attachForegroundListener(app);
     })()
     .catch((e) => {
+      if (shouldIgnoreFcmRegistrationError(e)) {
+        pushDebugWarn(PUSH_DEBUG_PREFIX, "Ignoring transient FCM web registration error", {
+          name: e?.name,
+          message: e?.message,
+        });
+        return;
+      }
       console.error("FCM web registration failed:", e);
     })
     .finally(() => {

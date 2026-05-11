@@ -19,7 +19,9 @@ import {
     deleteCurrentRestaurantAccountController,
     payRestaurantDuesController,
     createDuesOrderController,
-    verifyDuesPaymentController
+    verifyDuesPaymentController,
+    createPostApprovalOnboardingOrderController,
+    verifyPostApprovalOnboardingPaymentController
 } from '../controllers/restaurant.controller.js';
 import {
     createRestaurantOfferController,
@@ -128,6 +130,8 @@ router.get('/withdrawals', authMiddleware, requireRestaurant, listMyWithdrawalsC
 router.post('/pay-dues', authMiddleware, requireRestaurant, payRestaurantDuesController);
 router.post('/pay-dues/order', authMiddleware, requireRestaurant, createDuesOrderController);
 router.post('/pay-dues/verify', authMiddleware, requireRestaurant, verifyDuesPaymentController);
+router.post('/payment/post-approval-order', authMiddleware, requireRestaurant, createPostApprovalOnboardingOrderController);
+router.post('/payment/post-approval-verify', authMiddleware, requireRestaurant, verifyPostApprovalOnboardingPaymentController);
 router.post(
     '/profile/profile-image',
     authMiddleware,
@@ -231,5 +235,4 @@ router.patch('/my-offers/:id/status', authMiddleware, requireRestaurant, updateR
 router.delete('/my-offers/:id', authMiddleware, requireRestaurant, deleteRestaurantOfferController);
 
 export default router;
-
 

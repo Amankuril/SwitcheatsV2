@@ -60,6 +60,45 @@ export const createRestaurantOnboardingOrder = async (payload = {}) => {
     };
 };
 
+const GST_RATE = 0.18;
+
+const resolvePlanPricing = (plan, settings) => {
+    const silverPrice = Number(settings?.silverPrice || 999);
+    const goldPrice = Number(settings?.goldPrice || 1999);
+    const planStr = String(plan || '').toLowerCase();
+
+    if (planStr === 'gold' || planStr === 'pro' || planStr === '9999' || planStr === String(goldPrice)) {
+        return { planName: 'gold', baseAmount: goldPrice };
+    }
+    return { planName: 'silver', baseAmount: silverPrice };
+};
+
+const buildSubscriptionTotals = (planBase, paymentType = 'later', partialBase = 0) => {
+    const normalizedType = ['full', 'partial', 'later'].includes(String(paymentType)) ? String(paymentType) : 'later';
+    const planGST = Math.round(planBase * GST_RATE);
+    const planTotal = planBase + planGST;
+
+    let paidBase = 0;
+    if (normalizedType === 'full') {
+        paidBase = planBase;
+    } else if (normalizedType === 'partial') {
+        paidBase = Math.max(0, Math.min(planBase, Number(partialBase || 0)));
+    }
+    const paidGST = Math.round(paidBase * GST_RATE);
+    const paidTotal = paidBase + paidGST;
+    const dueTotal = Math.max(0, planTotal - paidTotal);
+
+    return {
+        paymentType: normalizedType,
+        planGST,
+        planTotal,
+        paidBase,
+        paidGST,
+        paidTotal,
+        dueTotal
+    };
+};
+
 const normalizeRatingValue = (value) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return 0;
@@ -402,12 +441,6 @@ export const registerRestaurant = async (payload, files) => {
         subscriptionAmount,
         subscriptionPaidAmount,
         subscriptionDueAmount,
-        onboardingFeeAmount,
-        onboardingFeePaid,
-        paymentType,
-        razorpayOrderId,
-        razorpayPaymentId,
-        razorpaySignature,
         // Pre-uploaded image URLs from background uploads
         profileImage: preUploadedProfileImage,
         panImage: preUploadedPanImage,
@@ -420,68 +453,9 @@ export const registerRestaurant = async (payload, files) => {
         throw new ValidationError('Owner phone is required to register a restaurant');
     }
 
-    const GST_RATE = 0.18;
     const settings = await getRestaurantSubscriptionSettings();
-    const onboardingFeeBase = settings.onboardingFee || 799;
-    const silverPrice = settings.silverPrice || 999;
-    const goldPrice = settings.goldPrice || 1999;
-
-    const onboardingGST = Math.round(onboardingFeeBase * GST_RATE);
-    const onboardingFeeExpected = onboardingFeeBase + onboardingGST;
-
-    const onboardingFeeActual = Number(onboardingFeeAmount || 0);
-    const subscriptionTotal = Number(subscriptionAmount || 0); // Should be plan + GST
-    const subscriptionPaid = Number(subscriptionPaidAmount || 0); // Should be paid + GST
-    const dueAmount = Math.max(0, subscriptionTotal - subscriptionPaid);
-
-    if (!onboardingFeePaid) {
-        throw new ValidationError('Onboarding fee payment is required');
-    }
-    // Allow for a bit of rounding margin or just check against expected total
-    if (onboardingFeeActual < onboardingFeeExpected) {
-        throw new ValidationError(`Onboarding fee must be at least ₹${onboardingFeeExpected} (including GST)`);
-    }
-
-    let planBase = 0;
-    const planStr = String(subscriptionPlan || '').toLowerCase();
-
-    if (planStr === 'silver' || planStr === 'elite' || planStr === '4999' || planStr === String(silverPrice)) {
-        planBase = silverPrice;
-    } else if (planStr === 'gold' || planStr === 'pro' || planStr === '9999' || planStr === String(goldPrice)) {
-        planBase = goldPrice;
-    } else {
-        throw new ValidationError('Subscription plan selection is required');
-    }
-
-    const planGST = Math.round(planBase * GST_RATE);
-    const planTotalExpected = planBase + planGST;
-
-    if (subscriptionTotal < planTotalExpected) {
-        throw new ValidationError(`Subscription amount for plan ${subscriptionPlan} must be ₹${planTotalExpected} (including GST)`);
-    }
-    if (subscriptionPaid < 0 || subscriptionPaid > subscriptionTotal) {
-        throw new ValidationError('Invalid subscription payment amount');
-    }
-    if (!String(razorpayOrderId || '').trim()) {
-        throw new ValidationError('Payment order id is required');
-    }
-    if (!String(razorpayPaymentId || '').trim()) {
-        throw new ValidationError('Payment id is required');
-    }
-    if (!String(razorpaySignature || '').trim()) {
-        throw new ValidationError('Payment signature is required');
-    }
-
-    if (isRazorpayConfigured()) {
-        const validSignature = verifyPaymentSignature(
-            String(razorpayOrderId),
-            String(razorpayPaymentId),
-            String(razorpaySignature),
-        );
-        if (!validSignature) {
-            throw new ValidationError('Payment verification failed');
-        }
-    }
+    const { planName, baseAmount: planBase } = resolvePlanPricing(subscriptionPlan, settings);
+    const planTotals = buildSubscriptionTotals(planBase, 'later', 0);
 
     const { digits: ownerPhoneDigits, last10: ownerPhoneLast10 } = normalizePhone(ownerPhone);
     if (!ownerPhoneLast10) {
@@ -616,17 +590,17 @@ export const registerRestaurant = async (payload, files) => {
             accountHolderName,
             accountType,
             menuImages,
-            onboardingFeePaid: true,
-            onboardingFeePaidAt: new Date(),
-            onboardingFeePaymentMethod: 'razorpay',
-            onboardingFeePaymentOrderId: String(razorpayOrderId || ''),
-            onboardingFeePaymentId: String(razorpayPaymentId || ''),
-            onboardingFeePaymentSignature: String(razorpaySignature || ''),
-            subscriptionPlan: String(subscriptionPlan || ''),
-            subscriptionAmount: subscriptionTotal,
-            subscriptionPaidAmount: subscriptionPaid,
-            subscriptionDueAmount: dueAmount,
-            subscriptionStatus: dueAmount > 0 ? 'due' : 'paid',
+            onboardingFeePaid: false,
+            onboardingFeePaidAt: null,
+            onboardingFeePaymentMethod: '',
+            onboardingFeePaymentOrderId: '',
+            onboardingFeePaymentId: '',
+            onboardingFeePaymentSignature: '',
+            subscriptionPlan: planName,
+            subscriptionAmount: planTotals.planTotal,
+            subscriptionPaidAmount: 0,
+            subscriptionDueAmount: planTotals.planTotal,
+            subscriptionStatus: 'due',
             subscriptionValidTill: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Valid for 30 days
             ...images
         });
@@ -654,6 +628,96 @@ export const registerRestaurant = async (payload, files) => {
         }
         throw err;
     }
+};
+
+export const createPostApprovalOnboardingPaymentOrder = async (restaurantId, payload = {}) => {
+    if (!restaurantId) throw new ValidationError('Restaurant ID is required');
+    const restaurant = await FoodRestaurant.findById(restaurantId);
+    if (!restaurant) throw new NotFoundError('Restaurant not found');
+    if (String(restaurant.status || '') !== 'approved') {
+        throw new ValidationError('Payment is allowed only after admin approval');
+    }
+    if (restaurant.onboardingFeePaid) {
+        throw new ValidationError('Onboarding fee is already paid');
+    }
+
+    const settings = await getRestaurantSubscriptionSettings();
+    const onboardingFeeBase = Number(settings?.onboardingFee || 799);
+    const onboardingFeeGST = Math.round(onboardingFeeBase * GST_RATE);
+    const onboardingFeeTotal = onboardingFeeBase + onboardingFeeGST;
+    const { planName, baseAmount: planBase } = resolvePlanPricing(payload?.subscriptionPlan || restaurant.subscriptionPlan, settings);
+    const subscription = buildSubscriptionTotals(planBase, payload?.subscriptionPaymentType || payload?.paymentType || 'later', payload?.subscriptionPartialAmount);
+
+    if (subscription.paymentType === 'partial' && subscription.paidBase <= 0) {
+        throw new ValidationError('Please enter a valid partial subscription amount');
+    }
+
+    const paymentAmountTotal = onboardingFeeTotal + subscription.paidTotal;
+    const orderPayload = await createRestaurantOnboardingOrder({ amount: paymentAmountTotal });
+
+    return {
+        ...orderPayload,
+        paymentSummary: {
+            onboardingFeeBase,
+            onboardingFeeGST,
+            onboardingFeeTotal,
+            subscriptionPlan: planName,
+            subscriptionBase: planBase,
+            subscriptionGST: subscription.planGST,
+            subscriptionTotal: subscription.planTotal,
+            subscriptionPaymentType: subscription.paymentType,
+            subscriptionPaidNowTotal: subscription.paidTotal,
+            subscriptionDueAfterPayment: subscription.dueTotal,
+            payableNow: paymentAmountTotal
+        }
+    };
+};
+
+export const verifyPostApprovalOnboardingPayment = async (restaurantId, payload = {}) => {
+    if (!restaurantId) throw new ValidationError('Restaurant ID is required');
+    const restaurant = await FoodRestaurant.findById(restaurantId);
+    if (!restaurant) throw new NotFoundError('Restaurant not found');
+    if (String(restaurant.status || '') !== 'approved') {
+        throw new ValidationError('Payment is allowed only after admin approval');
+    }
+    if (restaurant.onboardingFeePaid) {
+        return restaurant.toObject();
+    }
+
+    const razorpayOrderId = String(payload?.razorpayOrderId || '').trim();
+    const razorpayPaymentId = String(payload?.razorpayPaymentId || '').trim();
+    const razorpaySignature = String(payload?.razorpaySignature || '').trim();
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+        throw new ValidationError('Payment verification details are required');
+    }
+
+    if (isRazorpayConfigured()) {
+        const valid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+        if (!valid) throw new ValidationError('Payment verification failed');
+    }
+
+    const settings = await getRestaurantSubscriptionSettings();
+    const { planName, baseAmount: planBase } = resolvePlanPricing(payload?.subscriptionPlan || restaurant.subscriptionPlan, settings);
+    const subscription = buildSubscriptionTotals(planBase, payload?.subscriptionPaymentType || payload?.paymentType || 'later', payload?.subscriptionPartialAmount);
+
+    if (subscription.paymentType === 'partial' && subscription.paidBase <= 0) {
+        throw new ValidationError('Please enter a valid partial subscription amount');
+    }
+
+    restaurant.onboardingFeePaid = true;
+    restaurant.onboardingFeePaidAt = new Date();
+    restaurant.onboardingFeePaymentMethod = 'razorpay';
+    restaurant.onboardingFeePaymentOrderId = razorpayOrderId;
+    restaurant.onboardingFeePaymentId = razorpayPaymentId;
+    restaurant.onboardingFeePaymentSignature = razorpaySignature;
+    restaurant.subscriptionPlan = planName;
+    restaurant.subscriptionAmount = subscription.planTotal;
+    restaurant.subscriptionPaidAmount = subscription.paidTotal;
+    restaurant.subscriptionDueAmount = subscription.dueTotal;
+    restaurant.subscriptionStatus = subscription.dueTotal > 0 ? 'due' : 'paid';
+    await restaurant.save();
+
+    return restaurant.toObject();
 };
 
 export const payRestaurantDues = async (restaurantId, paymentDetails = {}) => {

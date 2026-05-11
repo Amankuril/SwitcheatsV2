@@ -156,6 +156,7 @@ export default function RestaurantOTP() {
       const accessToken = data?.accessToken
       const refreshToken = data?.refreshToken ?? null
       const restaurant = data?.user ?? data?.restaurant
+      const paymentRequired = data?.paymentRequired === true
 
       if (accessToken && restaurant) {
         setRestaurantAuthData("restaurant", accessToken, restaurant, refreshToken)
@@ -164,6 +165,10 @@ export default function RestaurantOTP() {
         sessionStorage.removeItem("restaurantLoginPhone")
 
         setTimeout(async () => {
+          if (paymentRequired) {
+            navigate("/food/restaurant/onboarding-payment", { replace: true })
+            return
+          }
           if (authData?.isSignUp) {
             navigate("/food/restaurant/onboarding", { replace: true })
           } else {

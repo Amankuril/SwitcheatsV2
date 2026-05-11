@@ -480,7 +480,7 @@ export default function RestaurantOnboarding() {
 
   useEffect(() => {
     const s = parseInt(searchParams.get('step'))
-    if (s >= 1 && s <= 4 && s !== step) {
+    if (s >= 1 && s <= 3 && s !== step) {
       setStep(s)
     }
   }, [searchParams, step])
@@ -490,7 +490,7 @@ export default function RestaurantOnboarding() {
   const [error, setError] = useState("")
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [step4State, setStep4State] = useState({
-    subscriptionPlan: null,
+    subscriptionPlan: 'silver',
     subscriptionAmount: 0,
     paymentType: 'full',
     customAmount: 0,
@@ -502,39 +502,14 @@ export default function RestaurantOnboarding() {
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [settingsError, setSettingsError] = useState(null)
 
-
   const goToStep = (targetStep) => {
-    const n = Math.min(4, Math.max(1, targetStep))
+    const n = Math.min(3, Math.max(1, targetStep))
     setStep(n)
     navigate(`?step=${n}`, { replace: false })
     window.scrollTo({ top: 0, behavior: "instant" })
   }
 
-  useEffect(() => {
-    const fetchSettings = async (retries = 5, delay = 1000) => {
-      try {
-        setSettingsLoading(true)
-        setSettingsError(null)
-        const res = await restaurantAPI.getSubscriptionSettings()
-        if (res.data?.success && res.data?.data) {
-          setSubscriptionSettings(res.data.data)
-          setSettingsLoading(false)
-          return
-        }
-        throw new Error("Invalid or missing subscription settings from server")
-      } catch (err) {
-        console.error(`Attempt to fetch subscription settings failed (${retries} retries left):`, err)
-        if (retries > 0) {
-          setTimeout(() => fetchSettings(retries - 1, delay * 1.5), delay)
-        } else {
-          setSettingsLoading(false)
-          setSettingsError("Could not load subscription details. Please refresh the page.")
-          toast.error("Subscription settings fetch failed after multiple attempts")
-        }
-      }
-    }
-    fetchSettings()
-  }, [])
+  // Subscription settings are now fetched only on the post-approval payment page.
 
 
   const triggerBackgroundUpload = async (file, folder, fieldName, isArray = false, arrayIndex = -1) => {
@@ -887,7 +862,7 @@ export default function RestaurantOnboarding() {
     const stepParam = searchParams.get("step")
     if (stepParam) {
       const stepNum = parseInt(stepParam, 10)
-      if (stepNum >= 1 && stepNum <= 4) {
+      if (stepNum >= 1 && stepNum <= 3) {
         setStep(stepNum)
       }
     }
@@ -1007,7 +982,7 @@ export default function RestaurantOnboarding() {
           // Only set step from localStorage if URL doesn't have a step parameter
           if (localData.currentStep && !stepParam) {
             const restoredStep = Number(localData.currentStep) || 1
-            setStep(Math.min(4, Math.max(1, restoredStep)))
+            setStep(Math.min(3, Math.max(1, restoredStep)))
           }
         }
       } finally {
@@ -1225,8 +1200,8 @@ export default function RestaurantOnboarding() {
                setStep(1)
             } else {
                const stepToShow = determineStepToShow({ step1: data, step2: data, step3: data })
-               // Map null (all steps complete) to Step 4
-               const targetStep = stepToShow === null ? 4 : stepToShow
+               // Map null (all steps complete) to final step for this flow
+               const targetStep = stepToShow === null ? 3 : stepToShow
                
                // Only update if backend says we are further along than current local step
                // This prevents "downgrading" the step on reload if backend is out of sync
@@ -1500,6 +1475,94 @@ export default function RestaurantOnboarding() {
 
 
 
+  const handleStep3Submit = async () => {
+    const formData = new FormData()
+    formData.append('restaurantName', step1.restaurantName || '')
+    formData.append('pureVegRestaurant', step1.pureVegRestaurant === true ? 'true' : 'false')
+    formData.append('ownerName', step1.ownerName || '')
+    formData.append('ownerEmail', (step1.ownerEmail || '').trim())
+    formData.append('ownerPhone', normalizePhoneDigits(step1.ownerPhone))
+    formData.append('primaryContactNumber', normalizePhoneDigits(step1.primaryContactNumber))
+    formData.append('zoneId', step1.zoneId || '')
+    formData.append('addressLine1', step1.location?.addressLine1 || '')
+    formData.append('addressLine2', step1.location?.addressLine2 || '')
+    formData.append('area', step1.location?.area || '')
+    formData.append('city', step1.location?.city || '')
+    formData.append('state', step1.location?.state || '')
+    formData.append('pincode', step1.location?.pincode || '')
+    formData.append('landmark', step1.location?.landmark || '')
+    formData.append('formattedAddress', step1.location?.formattedAddress || '')
+    formData.append('latitude', String(step1.location?.latitude || ''))
+    formData.append('longitude', String(step1.location?.longitude || ''))
+    formData.append('cuisines', (step2.cuisines || []).join(','))
+    formData.append('estimatedDeliveryTime', (step2.estimatedDeliveryTime || '').trim())
+    formData.append('openingTime', normalizeTimeValue(step2.openingTime) || '')
+    formData.append('closingTime', normalizeTimeValue(step2.closingTime) || '')
+    formData.append('openDays', (step2.openDays || []).join(','))
+
+    const menuImages = step2.menuImages || []
+    const menuFiles = menuImages.filter((f) => isUploadableFile(f))
+    const menuUrls = menuImages.map((f) => (typeof f === 'string' ? f : (f?.url || null))).filter(Boolean)
+    if (menuFiles.length === 0 && menuUrls.length === 0) {
+      throw new Error('At least one menu image must be uploaded')
+    }
+    menuFiles.forEach((file) => formData.append('menuImages', file))
+    if (menuUrls.length > 0) {
+      formData.append('menuImages', JSON.stringify(menuUrls))
+    }
+
+    if (!step2.profileImage) throw new Error('Restaurant profile image is required')
+    if (isUploadableFile(step2.profileImage)) formData.append('profileImage', step2.profileImage)
+    else formData.append('profileImage', typeof step2.profileImage === 'string' ? step2.profileImage : step2.profileImage.url)
+
+    formData.append('panNumber', step3.panNumber || '')
+    formData.append('nameOnPan', step3.nameOnPan || '')
+    if (!step3.panImage) throw new Error('PAN image is required')
+    if (isUploadableFile(step3.panImage)) formData.append('panImage', step3.panImage)
+    else formData.append('panImage', typeof step3.panImage === 'string' ? step3.panImage : step3.panImage.url)
+
+    formData.append('gstRegistered', step3.gstRegistered ? 'true' : 'false')
+    if (step3.gstRegistered) {
+      formData.append('gstNumber', step3.gstNumber || '')
+      formData.append('gstLegalName', step3.gstLegalName || '')
+      formData.append('gstAddress', step3.gstAddress || '')
+      if (!step3.gstImage) throw new Error('GST image is required when GST registered')
+      if (isUploadableFile(step3.gstImage)) formData.append('gstImage', step3.gstImage)
+      else formData.append('gstImage', typeof step3.gstImage === 'string' ? step3.gstImage : step3.gstImage.url)
+    }
+
+    formData.append('fssaiNumber', step3.fssaiNumber || '')
+    formData.append('fssaiExpiry', step3.fssaiExpiry || '')
+    if (!step3.fssaiImage) throw new Error('FSSAI image is required')
+    if (isUploadableFile(step3.fssaiImage)) formData.append('fssaiImage', step3.fssaiImage)
+    else formData.append('fssaiImage', typeof step3.fssaiImage === 'string' ? step3.fssaiImage : step3.fssaiImage.url)
+
+    formData.append('accountNumber', step3.accountNumber || '')
+    formData.append('ifscCode', (step3.ifscCode || '').toUpperCase())
+    formData.append('accountHolderName', step3.accountHolderName || '')
+    formData.append('accountType', step3.accountType || '')
+    formData.append('subscriptionPlan', 'silver')
+
+    setRegistrationProcessing(true)
+    const loadingToast = toast.loading('Submitting onboarding request...')
+    try {
+      await restaurantAPI.register(formData)
+      toast.dismiss(loadingToast)
+      clearOnboardingFromLocalStorage()
+      clearOnboardingFileCache()
+      try {
+        localStorage.setItem('restaurant_pendingPhone', normalizePhoneDigits(step1.ownerPhone))
+      } catch {}
+      toast.success('Registration submitted for admin approval.', { duration: 4000 })
+      navigate('/food/restaurant/pending-verification', {
+        replace: true,
+        state: { phone: normalizePhoneDigits(step1.ownerPhone) },
+      })
+    } finally {
+      setRegistrationProcessing(false)
+    }
+  }
+
   const handleNext = async () => {
     setError("")
 
@@ -1529,9 +1592,7 @@ export default function RestaurantOnboarding() {
       } else if (step === 2) {
         goToStep(3)
       } else if (step === 3) {
-        goToStep(4)
-      } else if (step === 4) {
-        await handleStep4Payment()
+        await handleStep3Submit()
       }
     } catch (err) {
       const msg =
@@ -2790,6 +2851,7 @@ export default function RestaurantOnboarding() {
           placeholder="Account holder name"
         />
       </section>
+
     </div>
   )
 
@@ -3375,7 +3437,7 @@ export default function RestaurantOnboarding() {
     if (step === 1) return renderStep1()
     if (step === 2) return renderStep2()
     if (step === 3) return renderStep3()
-    if (step === 4) return renderStep4()
+    return renderStep1()
   }
 
   return (
@@ -3427,7 +3489,7 @@ export default function RestaurantOnboarding() {
             )}
             <div className="flex items-center gap-3">
               <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider text-right">
-                Step {step} of 4
+                Step {step} of 3
               </div>
               <Button
                 onClick={handleLogout}
@@ -3497,7 +3559,7 @@ export default function RestaurantOnboarding() {
             >
               {Object.values(uploadingAttachments).some(Boolean) 
                 ? "Uploading..." 
-                : (step === 4 ? (paymentProcessing ? "Processing..." : "Finish & Pay") : (saving ? "Saving..." : "Continue"))}
+                : (step === 3 ? (saving ? "Submitting..." : "Submit For Approval") : (saving ? "Saving..." : "Continue"))}
             </Button>
           </div>
         </footer>
@@ -3505,6 +3567,3 @@ export default function RestaurantOnboarding() {
     </LocalizationProvider>
   )
 }
-
-
-

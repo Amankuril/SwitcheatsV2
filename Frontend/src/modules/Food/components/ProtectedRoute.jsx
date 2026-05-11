@@ -20,5 +20,19 @@ export default function ProtectedRoute({ children, requiredRole, loginPath = "/f
     return <Navigate to={loginPath} state={{ from: location.pathname }} replace />;
   }
 
+  if (requiredRole === "restaurant") {
+    try {
+      const raw = localStorage.getItem("restaurant_user")
+      const user = raw ? JSON.parse(raw) : null
+      const onboardingFeePaid = Boolean(user?.onboardingFeePaid)
+      const allowedPaths = ["/food/restaurant/onboarding-payment", "/food/restaurant/onboarding", "/food/restaurant/pending-verification"]
+      if (!onboardingFeePaid && !allowedPaths.includes(location.pathname)) {
+        return <Navigate to="/food/restaurant/onboarding-payment" replace />
+      }
+    } catch {
+      // ignore parse issues
+    }
+  }
+
   return children;
 }

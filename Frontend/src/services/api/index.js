@@ -1397,6 +1397,14 @@ export const restaurantAPI = {
       subscriptionPlan: String(subscriptionPlan || ''),
       paymentType: String(paymentType || 'full')
     }),
+  createPostApprovalOnboardingOrder: (body = {}) =>
+    apiClient.post("/food/restaurant/payment/post-approval-order", body ?? {}, {
+      contextModule: "restaurant",
+    }),
+  verifyPostApprovalOnboardingPayment: (body = {}) =>
+    apiClient.post("/food/restaurant/payment/post-approval-verify", body ?? {}, {
+      contextModule: "restaurant",
+    }),
   /** Public: list approved restaurants for user app */
   getRestaurants: (params = {}, config = {}) =>
     getPublicRestaurantsOnce(params, config),

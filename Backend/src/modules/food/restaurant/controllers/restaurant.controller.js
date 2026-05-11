@@ -17,7 +17,9 @@ import {
     deleteCurrentRestaurantAccount,
     payRestaurantDues,
     createDuesPaymentOrder,
-    verifyDuesPayment
+    verifyDuesPayment,
+    createPostApprovalOnboardingPaymentOrder,
+    verifyPostApprovalOnboardingPayment
 } from '../services/restaurant.service.js';
 import { validateRestaurantRegisterDto } from '../validators/restaurant.validator.js';
 import { sendResponse, sendError } from '../../../../utils/response.js';
@@ -76,6 +78,26 @@ export const createRestaurantOnboardingOrderController = async (req, res, next) 
     try {
         const restaurantOrder = await createRestaurantOnboardingOrder(req.body || {});
         return sendResponse(res, 200, 'Onboarding order created successfully', restaurantOrder);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const createPostApprovalOnboardingOrderController = async (req, res, next) => {
+    try {
+        const restaurantId = req.user?.userId;
+        const data = await createPostApprovalOnboardingPaymentOrder(restaurantId, req.body || {});
+        return sendResponse(res, 200, 'Onboarding payment order created successfully', data);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const verifyPostApprovalOnboardingPaymentController = async (req, res, next) => {
+    try {
+        const restaurantId = req.user?.userId;
+        const restaurant = await verifyPostApprovalOnboardingPayment(restaurantId, req.body || {});
+        return sendResponse(res, 200, 'Onboarding payment verified successfully', { restaurant });
     } catch (error) {
         next(error);
     }
@@ -209,4 +231,3 @@ export const deleteCurrentRestaurantAccountController = async (req, res, next) =
         next(error);
     }
 };
-

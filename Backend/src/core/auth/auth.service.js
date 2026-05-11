@@ -16,6 +16,7 @@ import { logger } from "../../utils/logger.js";
 import { sendAdminResetOtpEmail } from "../../utils/email.js";
 import mongoose from "mongoose";
 import { creditReferralReward } from "../../modules/food/user/services/userWallet.service.js";
+import { getRestaurantSubscriptionSettings } from "../../modules/food/admin/services/admin.service.js";
 
 const ROLES = {
   USER: "USER",
@@ -314,6 +315,45 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
         ? "Your restaurant registration is pending approval."
         : "Your restaurant registration has been rejected. Please contact support.",
     );
+  }
+
+  if (!restaurant.onboardingFeePaid) {
+    const settings = await getRestaurantSubscriptionSettings();
+    const onboardingFeeBase = Number(settings?.onboardingFee || 799);
+    const onboardingFeeGST = Math.round(onboardingFeeBase * 0.18);
+    const onboardingFeeTotal = onboardingFeeBase + onboardingFeeGST;
+    const subscriptionTotal = Number(restaurant.subscriptionAmount || 0);
+    const subscriptionPaid = Number(restaurant.subscriptionPaidAmount || 0);
+    const subscriptionDue = Math.max(0, subscriptionTotal - subscriptionPaid);
+
+    const payload = { userId: restaurant._id.toString(), role: ROLES.RESTAURANT };
+    const accessToken = signAccessToken(payload);
+    const refreshToken = signRefreshToken(payload);
+    const ttlMs = ms(config.jwtRefreshExpiresIn || "7d");
+    const expiresAt = new Date(Date.now() + ttlMs);
+    await FoodRefreshToken.create({
+      userId: restaurant._id,
+      token: refreshToken,
+      expiresAt,
+    });
+
+    return {
+      paymentRequired: true,
+      paymentReason: "onboarding_fee_pending",
+      needsRegistration: false,
+      user: restaurant,
+      accessToken,
+      refreshToken,
+      paymentSummary: {
+        onboardingFeeBase,
+        onboardingFeeGST,
+        onboardingFeeTotal,
+        subscriptionPlan: restaurant.subscriptionPlan || "silver",
+        subscriptionTotal,
+        subscriptionPaid,
+        subscriptionDue,
+      },
+    };
   }
 
   const payload = { userId: restaurant._id.toString(), role: ROLES.RESTAURANT };

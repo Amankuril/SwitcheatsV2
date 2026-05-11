@@ -53,6 +53,7 @@ const OTP = lazy(() => import("@food/pages/restaurant/auth/OTP"))
 const Signup = lazy(() => import("@food/pages/restaurant/auth/Signup"))
 const ForgotPassword = lazy(() => import("@food/pages/restaurant/auth/ForgotPassword"))
 const VerificationPending = lazy(() => import("@food/pages/restaurant/auth/VerificationPending"))
+const PostApprovalPayment = lazy(() => import("@food/pages/restaurant/auth/PostApprovalPayment"))
 
 export default function RestaurantRouter() {
   // Safely enforce light mode for the Restaurant app to prevent User dark mode bleeding
@@ -76,6 +77,7 @@ export default function RestaurantRouter() {
         <Route path="signup" element={<AuthRedirect module="restaurant"><Signup /></AuthRedirect>} />
         <Route path="forgot-password" element={<AuthRedirect module="restaurant"><ForgotPassword /></AuthRedirect>} />
         <Route path="pending-verification" element={<AuthRedirect module="restaurant"><VerificationPending /></AuthRedirect>} />
+        <Route element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><PostApprovalPayment /></ProtectedRoute>} path="onboarding-payment" />
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><OrdersMain /></ProtectedRoute>} path="" />
