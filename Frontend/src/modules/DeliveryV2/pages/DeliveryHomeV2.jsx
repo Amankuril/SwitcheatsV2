@@ -710,7 +710,7 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
              
              {/* SIMULATION INDICATOR (Removed from top) */}
 
-             <div className="absolute right-4 bottom-28 md:bottom-32 flex flex-col items-end gap-3 z-[120] pointer-events-none">
+             <div className={`absolute right-4 transition-all duration-500 flex flex-col items-end gap-3 z-[120] pointer-events-none ${isModalMinimized && (activeOrder || incomingOrder || showVerification) ? 'bottom-[190px]' : 'bottom-[110px]'}`}>
                 
                 {/* Compact Simulation Pill */}
                 <AnimatePresence>
