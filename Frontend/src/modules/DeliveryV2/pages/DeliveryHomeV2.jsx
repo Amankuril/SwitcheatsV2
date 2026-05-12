@@ -708,27 +708,40 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
                zoom={zoom}
              />
              
-             {/* SIMULATION INDICATOR */}
-             {isSimMode && (
-               <div className="absolute top-[180px] left-4 right-4 z-[100] bg-black/80 backdrop-blur-md rounded-xl p-4 border border-white/20 flex items-center justify-between shadow-2xl">
-                  <div className="flex items-center gap-4">
-                     <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center animate-pulse">
-                        <Play className="w-4 h-4 text-white fill-current" />
-                     </div>
-                     <div className="flex flex-col">
-                        <span className="text-orange-500 text-[10px] font-bold uppercase tracking-widest">Auto Navigation Active</span>
-                        <span className="text-white text-[11px] font-medium">Following actual road path...</span>
-                     </div>
-                  </div>
-                  <button onClick={() => setIsSimMode(false)} className="bg-white/10 text-white/50 hover:text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-white/10">Stop</button>
-               </div>
-             )}
+             {/* SIMULATION INDICATOR (Removed from top) */}
 
-             <div className="absolute right-4 bottom-28 md:bottom-32 flex flex-col gap-4 z-[120]">
-                <div className="flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
-                   <button onClick={() => setZoom(z => Math.min(22, z + 1))} className="p-3 hover:bg-gray-50 border-b border-gray-100 text-gray-900 active:scale-90 transition-all" aria-label="Zoom in"><Plus className="w-5 h-5 stroke-[2.75]" /></button>
-                   <button onClick={() => setZoom(z => Math.max(8, z - 1))} className="p-3 hover:bg-gray-50 text-gray-900 active:scale-90 transition-all" aria-label="Zoom out"><Minus className="w-5 h-5 stroke-[2.75]" /></button>
+             <div className="absolute right-4 bottom-28 md:bottom-32 flex flex-col items-end gap-3 z-[120] pointer-events-none">
+                
+                {/* Compact Simulation Pill */}
+                <AnimatePresence>
+                  {isSimMode && (
+                    <motion.div 
+                      initial={{ opacity: 0, x: 20, scale: 0.9 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="bg-[#111111]/90 backdrop-blur-md rounded-full p-1.5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] pointer-events-auto flex items-center gap-2 pr-2"
+                    >
+                       <div className="w-9 h-9 bg-orange-500/20 rounded-full flex items-center justify-center animate-pulse border border-orange-500/30 shrink-0">
+                          <Play className="w-3.5 h-3.5 text-orange-400 fill-current ml-0.5" />
+                       </div>
+                       <div className="flex flex-col pr-1">
+                          <span className="text-orange-400 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Auto-Nav</span>
+                          <span className="text-white text-[9px] font-bold tracking-wider opacity-80 leading-none">Simulating...</span>
+                       </div>
+                       <button onClick={() => setIsSimMode(false)} className="w-8 h-8 ml-1 bg-white/5 active:bg-white/10 hover:bg-red-500/20 group rounded-full flex items-center justify-center border border-white/10 transition-all active:scale-90 shrink-0">
+                          <div className="w-2.5 h-2.5 bg-gray-400 group-hover:bg-red-500 rounded-[2px] transition-colors" />
+                       </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Zoom Controls */}
+                <div className="flex flex-col bg-[#111111]/90 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden pointer-events-auto">
+                   <button onClick={() => setZoom(z => Math.min(22, z + 1))} className="w-12 h-12 flex items-center justify-center hover:bg-white/10 border-b border-white/10 text-gray-300 active:bg-white/20 transition-colors" aria-label="Zoom in"><Plus className="w-5 h-5 stroke-[2.75]" /></button>
+                   <button onClick={() => setZoom(z => Math.max(8, z - 1))} className="w-12 h-12 flex items-center justify-center hover:bg-white/10 text-gray-300 active:bg-white/20 transition-colors" aria-label="Zoom out"><Minus className="w-5 h-5 stroke-[2.75]" /></button>
                 </div>
+                
+                {/* Simulation Mode Toggle */}
                 <button 
                   onClick={() => {
                     const nextSimState = !isSimMode;
@@ -749,23 +762,27 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
                       }
                     }
                   }}
-                  className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center border border-gray-100 transition-all ${isSimMode ? 'bg-orange-500 text-white' : 'bg-white text-green-500'}`}
+                  className={`w-12 h-12 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-center border transition-all pointer-events-auto active:scale-90 ${isSimMode ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' : 'bg-[#111111]/90 backdrop-blur-md border-white/10 text-emerald-400 hover:bg-white/10'}`}
                 >
-                  <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${isSimMode ? 'border-white' : 'border-green-500'}`}>
-                    <Play className={`w-4 h-4 fill-current ml-0.5 ${isSimMode ? 'animate-pulse' : ''}`} />
+                  <div className={`w-7 h-7 rounded-full border-[1.5px] flex items-center justify-center ${isSimMode ? 'border-orange-400' : 'border-emerald-400'}`}>
+                    <Play className={`w-3.5 h-3.5 fill-current ml-0.5 ${isSimMode ? 'animate-pulse' : ''}`} />
                   </div>
                 </button>
+
+                {/* Free Navigate */}
                 <button 
                    onClick={() => mapRef.current?.setOptions({ gestureHandling: 'greedy' })} 
-                   className="w-14 h-14 bg-white rounded-full shadow-2xl flex items-center justify-center text-blue-600 border border-gray-100 active:scale-90 transition-all"
+                   className="w-12 h-12 bg-[#111111]/90 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-center text-blue-400 border border-white/10 active:scale-90 active:bg-white/20 hover:bg-white/10 transition-all pointer-events-auto"
                 >
-                  <div className="w-8 h-8 rounded-full border-2 border-blue-600 flex items-center justify-center"><Navigation2 className="w-4 h-4" /></div>
+                  <div className="w-7 h-7 rounded-full border-[1.5px] border-blue-400 flex items-center justify-center"><Navigation2 className="w-3.5 h-3.5" /></div>
                 </button>
+
+                {/* Center Map */}
                 <button 
                   onClick={handleCenterMap}
-                  className="w-14 h-14 bg-white rounded-full shadow-2xl flex items-center justify-center text-gray-900 border border-gray-100 group active:scale-90 transition-all"
+                  className="w-12 h-12 bg-[#111111]/90 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-center text-gray-300 border border-white/10 active:scale-90 active:bg-white/20 hover:bg-white/10 transition-all pointer-events-auto"
                 >
-                  <Target className="w-7 h-7" />
+                  <Target className="w-6 h-6" />
                 </button>
              </div>
            </div>
@@ -962,7 +979,7 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
       )}
 
       {/* ─── 3. BOTTOM NAV (Ultra Premium Minimalist Island) ─── */}
-      <div className="w-full pb-8 pt-2 flex justify-center z-[200] bg-transparent pointer-events-none mt-auto">
+      <div className="absolute bottom-0 left-0 right-0 w-full pb-8 pt-2 flex justify-center z-[200] bg-transparent pointer-events-none">
         <div className="bg-[#111111]/95 backdrop-blur-md border border-white/10 rounded-full p-1.5 flex items-center shadow-[0_20px_40px_rgba(0,0,0,0.6)] pointer-events-auto">
            {[
              { id: 'feed', icon: LayoutGrid, label: 'Feed' },
