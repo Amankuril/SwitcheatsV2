@@ -318,32 +318,38 @@ export const exportBonusToCSV = (transactions, filename = "deliveryman_bonus") =
   document.body.removeChild(link)
 }
 
+// Helper function to clean bonus string completely
+const cleanBonusString = (str) => {
+  if (!str) return ''
+  return String(str)
+    .replace(/[\u00B9\u00B2\u00B3\u2070-\u2079\u207A\u207B\u207C\u207D\u207E\u207F\u2071]/g, '') // Remove all superscript characters
+    .replace(/[\u00B9\u00B2\u00B3\u2070-\u207F\u2080-\u208F]/g, '') // Remove all superscript Unicode ranges
+    .replace(/[\u20B9$\u20AC\u00A3\u00A5]/g, '') // Remove currency symbols
+    .replace(/[^\d.-]/g, '') // Keep only digits, dots, and minus signs
+    .trim()
+}
+
 // Helper function to format bonus amount properly (remove superscript and special characters)
 const formatBonusForExport = (transaction) => {
   // First priority: use raw amount value if available
   if (transaction.amount !== undefined && transaction.amount !== null && !isNaN(transaction.amount)) {
     const amount = parseFloat(transaction.amount)
-    return `?${amount.toFixed(2)}`
+    return `Rs.${amount.toFixed(2)}`
   }
-  
+
   // Second priority: clean and extract from bonus string
   if (transaction.bonus) {
-    let cleaned = transaction.bonus.toString()
-      .replace(/[\u00B9\u00B2\u00B3\u2070-\u207F\u2080-\u208F]/g, '') // Remove all superscript Unicode ranges
-      .replace(/[^\d.-]/g, '') // Keep only digits, dots, and minus signs
-      .trim()
-    
-    // Extract numeric value
+    const cleaned = cleanBonusString(transaction.bonus)
     const numericMatch = cleaned.match(/[\d.]+/)
     if (numericMatch) {
       const amount = parseFloat(numericMatch[0])
       if (!isNaN(amount)) {
-        return `?${amount.toFixed(2)}`
+        return `Rs.${amount.toFixed(2)}`
       }
     }
   }
-  
-  return '?0.00'
+
+  return 'Rs.0.00'
 }
 
 export const exportBonusToExcel = (transactions, filename = "deliveryman_bonus") => {
@@ -435,27 +441,27 @@ export const exportBonusToPDF = (transactions, filename = "deliveryman_bonus") =
         // Prepare table data - ensure bonus is properly formatted
         const tableData = transactions.map((transaction) => {
           // ALWAYS use raw amount value - don't rely on formatted bonus string
-          let bonusAmount = '?0.00'
-          
+          let bonusAmount = 'Rs.0.00'
+
           // First priority: Use raw numeric amount from transaction.amount
           if (transaction.amount !== undefined && transaction.amount !== null) {
-            const numAmount = typeof transaction.amount === 'string' 
+            const numAmount = typeof transaction.amount === 'string'
               ? parseFloat(transaction.amount.replace(/[^\d.-]/g, ''))
               : parseFloat(transaction.amount)
             if (!isNaN(numAmount)) {
-              bonusAmount = `?${numAmount.toFixed(2)}`
+              bonusAmount = `Rs.${numAmount.toFixed(2)}`
             }
-          } 
+          }
           // Second priority: Extract number from bonus string and rebuild
           else if (transaction.bonus) {
             // Extract only numeric part (digits and decimal point)
-            const numericPart = String(transaction.bonus).replace(/[^\d.-]/g, '')
+            const numericPart = cleanBonusString(transaction.bonus)
             const numAmount = parseFloat(numericPart)
             if (!isNaN(numAmount) && numAmount > 0) {
-              bonusAmount = `?${numAmount.toFixed(2)}`
+              bonusAmount = `Rs.${numAmount.toFixed(2)}`
             }
           }
-          
+
           return [
             transaction.sl || 'N/A',
             transaction.transactionId || 'N/A',

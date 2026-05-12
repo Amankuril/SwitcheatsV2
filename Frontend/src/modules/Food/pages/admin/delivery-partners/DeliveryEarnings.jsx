@@ -43,6 +43,9 @@ export default function DeliveryEarnings() {
   })
   const [deliveryPartners, setDeliveryPartners] = useState([])
 
+  // Get today's date for max date validation
+  const today = new Date().toISOString().split('T')[0]
+
   // Fetch delivery partners for filter dropdown
   const fetchDeliveryPartners = useCallback(async () => {
     try {
@@ -155,7 +158,51 @@ export default function DeliveryEarnings() {
         toast.success("CSV exported successfully")
         break
       case "excel":
-        toast.info("Excel export coming soon")
+        // Create HTML table for better Excel compatibility with UTF-8 encoding
+        const excelHeaders = headers.map(h => h.label)
+        const excelRows = data.map(row => [
+          row.sl,
+          row.deliveryPartnerName,
+          row.deliveryPartnerPhone,
+          row.orderId,
+          row.restaurantName,
+          row.amount,
+          row.orderTotal,
+          row.orderStatus,
+          row.createdAt
+        ])
+
+        const excelHtml = `
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <style>
+                table { border-collapse: collapse; width: 100%; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; font-weight: bold; }
+              </style>
+            </head>
+            <body>
+              <table>
+                <thead>
+                  <tr>
+                    ${excelHeaders.map(h => `<th>${h}</th>`).join("")}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${excelRows.map(row => `<tr>${row.map(cell => `<td>${String(cell).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`).join("")}</tr>`).join("")}
+                </tbody>
+              </table>
+            </body>
+          </html>
+        `
+
+        const excelBlob = new Blob([excelHtml], { type: "application/vnd.ms-excel;charset=utf-8" })
+        const excelLink = document.createElement("a")
+        excelLink.href = URL.createObjectURL(excelBlob)
+        excelLink.download = `delivery_earnings_${new Date().toISOString().split('T')[0]}.xls`
+        excelLink.click()
+        toast.success("Excel exported successfully")
         break
       case "pdf":
         toast.info("PDF export coming soon")
@@ -212,7 +259,7 @@ export default function DeliveryEarnings() {
                 <p className="text-2xl font-bold text-slate-900">{summary.totalDeliveryPartners || 0}</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-blue-600" />
+                <span className="text-lg font-bold text-blue-600">₹</span>
               </div>
             </div>
           </div>
@@ -223,7 +270,7 @@ export default function DeliveryEarnings() {
                 <p className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalEarnings || 0)}</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-green-600" />
+                <span className="text-lg font-bold text-green-600">₹</span>
               </div>
             </div>
           </div>
@@ -275,6 +322,7 @@ export default function DeliveryEarnings() {
                 type="date"
                 value={filters.fromDate}
                 onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+                max={today}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -284,6 +332,7 @@ export default function DeliveryEarnings() {
                 type="date"
                 value={filters.toDate}
                 onChange={(e) => handleFilterChange('toDate', e.target.value)}
+                max={today}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

@@ -219,13 +219,119 @@ export default function EarningAddonHistory() {
     )
   }
 
-  const handleExport = (format) => {
+  const handleExport = async (format) => {
     if (filteredHistory.length === 0) {
       toast.error("No data to export")
       return
     }
-    // Export functionality can be added here
-    toast.info(`Export as ${format.toUpperCase()} - Feature coming soon`)
+
+    const headers = ["SI", "Deliveryman", "Delivery ID", "Phone", "Offer Title", "Orders Completed", "Orders Required", "Earning Amount", "Date", "Status"]
+    const data = filteredHistory.map((item, index) => ({
+      sl: index + 1,
+      deliveryman: item.deliveryman || 'Unknown',
+      deliveryId: item.deliveryId || 'N/A',
+      phone: item.deliveryPhone || 'N/A',
+      offerTitle: item.offerTitle || 'N/A',
+      ordersCompleted: item.ordersCompleted || 0,
+      ordersRequired: item.ordersRequired || 0,
+      earningAmount: `Rs.${(item.totalEarning || item.earningAmount || 0).toFixed(2)}`,
+      date: formatDate(item.date || item.completedAt),
+      status: item.status || 'unknown'
+    }))
+
+    switch (format) {
+      case "csv":
+        const csvContent = [
+          headers.join(","),
+          ...data.map(row => headers.map(h => `"${row[h.toLowerCase().replace(' ', '_')] || ''}"`).join(","))
+        ].join("\n")
+        const csvBlob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+        const csvLink = document.createElement("a")
+        csvLink.href = URL.createObjectURL(csvBlob)
+        csvLink.download = `earning_addon_history_${new Date().toISOString().split('T')[0]}.csv`
+        csvLink.click()
+        toast.success("CSV exported successfully")
+        break
+      case "excel":
+        // Create HTML table for better Excel compatibility
+        const excelHtml = `
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <style>
+                table { border-collapse: collapse; width: 100%; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; font-weight: bold; }
+              </style>
+            </head>
+            <body>
+              <table>
+                <thead>
+                  <tr>
+                    ${headers.map(h => `<th>${h}</th>`).join("")}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.map(row => `<tr>${[
+                    row.sl,
+                    row.deliveryman,
+                    row.deliveryId,
+                    row.phone,
+                    row.offerTitle,
+                    row.ordersCompleted,
+                    row.ordersRequired,
+                    row.earningAmount,
+                    row.date,
+                    row.status
+                  ].map(cell => `<td>${String(cell).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`).join("")}</tr>`).join("")}
+                </tbody>
+              </table>
+            </body>
+          </html>
+        `
+        const excelBlob = new Blob([excelHtml], { type: "application/vnd.ms-excel;charset=utf-8" })
+        const excelLink = document.createElement("a")
+        excelLink.href = URL.createObjectURL(excelBlob)
+        excelLink.download = `earning_addon_history_${new Date().toISOString().split('T')[0]}.xls`
+        excelLink.click()
+        toast.success("Excel exported successfully")
+        break
+      case "pdf":
+        try {
+          const { default: jsPDF } = await import('jspdf')
+          const { default: autoTable } = await import('jspdf-autotable')
+          const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+          doc.setFontSize(16)
+          doc.text('Earning Addon History Report', 14, 15)
+          doc.setFontSize(10)
+          doc.text(`Exported on: ${new Date().toLocaleString('en-GB')} | Total Records: ${data.length}`, 14, 22)
+
+          autoTable(doc, {
+            head: [headers],
+            body: data.map(row => [row.sl, row.deliveryman, row.deliveryId, row.phone, row.offerTitle, row.ordersCompleted, row.ordersRequired, row.earningAmount, row.date, row.status]),
+            startY: 28,
+            styles: { fontSize: 7, cellPadding: 2 },
+            headStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' }
+          })
+          doc.save(`earning_addon_history_${new Date().toISOString().split('T')[0]}.pdf`)
+          toast.success("PDF exported successfully")
+        } catch (error) {
+          debugError("PDF export error:", error)
+          toast.error("Failed to export PDF")
+        }
+        break
+      case "json":
+        const jsonContent = JSON.stringify(data, null, 2)
+        const jsonBlob = new Blob([jsonContent], { type: "application/json" })
+        const jsonLink = document.createElement("a")
+        jsonLink.href = URL.createObjectURL(jsonBlob)
+        jsonLink.download = `earning_addon_history_${new Date().toISOString().split('T')[0]}.json`
+        jsonLink.click()
+        toast.success("JSON exported successfully")
+        break
+      default:
+        break
+    }
   }
 
   const handleCheckAllCompletions = async () => {
@@ -450,8 +556,8 @@ export default function EarningAddonHistory() {
                         {visibleColumns.earningAmount && (
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-1">
-                              <DollarSign className="w-4 h-4 text-emerald-500" />
-                              <span className="text-sm font-medium text-slate-900">{"\u20B9"}{item.totalEarning?.toFixed(2) || item.earningAmount?.toFixed(2) || '0.00'}</span>
+                              <span className="text-sm font-semibold text-emerald-500">Rs.</span>
+                              <span className="text-sm font-medium text-slate-900">{item.totalEarning?.toFixed(2) || item.earningAmount?.toFixed(2) || '0.00'}</span>
                             </div>
                           </td>
                         )}
