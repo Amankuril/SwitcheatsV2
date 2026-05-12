@@ -1,27 +1,15 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import {
-  User,
-  ArrowRight,
-  Bike,
-  Ticket,
-  ChevronRight,
-  Share2,
-  LogOut,
-  X,
-  Loader2,
-  Briefcase
+  User, ArrowRight, Bike, Ticket, ChevronRight, 
+  Share2, LogOut, X, Loader2, Briefcase, Trash2, HelpCircle, History
 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { deliveryAPI } from "@food/api"
 import DeleteAccountModal from "@food/components/DeleteAccountModal";
-import { Trash2 } from "lucide-react";
 import { toast } from "sonner"
 import { clearModuleAuth } from "@food/utils/auth"
 
-/**
- * ProfileV2 - 1:1 EXACT Restoration of the Legacy Profile Hub.
- * Matches ProfilePage.jsx exactly.
- */
 export const ProfileV2 = () => {
   const navigate = useNavigate()
   const location = useLocation()
@@ -107,152 +95,173 @@ export const ProfileV2 = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center font-poppins">
-        <div className="flex items-center gap-2 text-gray-700">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="text-sm font-medium">Loading profile...</span>
-        </div>
+      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center font-poppins pb-32">
+         <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Loading Profile...</span>
+         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 font-poppins pb-24">
-      {/* Profile Header Block */}
-      <div className="bg-white p-4 w-full shadow-sm">
+    <div className="min-h-screen bg-[#f8f9fa] text-gray-900 font-poppins pb-32">
+      {/* 1. Profile Header Block (Clean White Edge-to-Edge) */}
+      <div className="bg-white px-6 py-6 pb-8 border-b border-gray-100 rounded-b-[40px] shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
         <div 
           onClick={() => navigate("/food/delivery/profile/details")}
-          className="flex items-start justify-between cursor-pointer"
+          className="flex items-center justify-between cursor-pointer group"
         >
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-2xl md:text-3xl font-bold">{profile?.name || ""}</h2>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
+          <div className="flex-1 pr-4">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-3xl font-black tracking-tight text-gray-900">{profile?.name || "Partner"}</h2>
+              <ChevronRight className="w-5 h-5 text-gray-300 group-active:translate-x-1 transition-transform" />
             </div>
-            <p className="text-gray-600 text-sm md:text-base mb-3 font-medium">{profile?.deliveryId || ""}</p>
+            <p className="text-[11px] font-black uppercase tracking-widest text-emerald-500">{profile?.deliveryId || "ID NOT FOUND"}</p>
           </div>
-          <div className="relative shrink-0 ml-4">
+          <div className="relative shrink-0">
             {profile?.profileImage?.url ? (
-              <img src={profile.profileImage.url} alt="Profile" className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-2 border-gray-200" />
+              <img src={profile.profileImage.url} alt="Profile" className="w-[88px] h-[88px] rounded-[32px] object-cover shadow-sm border border-gray-100" />
             ) : (
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gray-100 flex items-center justify-center border-2 border-gray-200">
-                <User className="w-10 h-10 md:w-12 md:h-12 text-gray-400" />
+              <div className="w-[88px] h-[88px] rounded-[32px] bg-gray-50 flex items-center justify-center border border-gray-100 shadow-inner">
+                <User className="w-10 h-10 text-gray-300" />
               </div>
             )}
-            <div className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-md border-2 border-white">
-              <Briefcase className="w-4 h-4 text-gray-600" />
+            <div className="absolute -bottom-2 -right-2 bg-white rounded-xl p-2.5 shadow-md border border-gray-100 text-gray-900">
+              <Briefcase className="w-4 h-4" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="px-4 py-6">
+      <div className="px-4 py-6 space-y-6">
+        
         {/* Navigation Buttons */}
-        <div className="grid grid-cols-1 gap-3 mb-6">
+        <div className="grid grid-cols-1 gap-3">
           <button
             onClick={() => navigate("/food/delivery/history")}
-            className="bg-white rounded-xl p-4 flex flex-col items-center gap-2 border border-transparent active:bg-gray-50 transition-colors"
+            className="bg-white rounded-[28px] p-5 flex items-center gap-4 border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:scale-[0.98] transition-all group"
           >
-            <div className="rounded-full bg-gray-50 p-3">
-              <Bike className="w-6 h-6 text-gray-700" />
+            <div className="w-14 h-14 rounded-[20px] bg-gray-50 flex items-center justify-center border border-gray-100 text-gray-600 group-hover:bg-gray-100 transition-colors">
+              <History className="w-6 h-6" />
             </div>
-            <span className="text-sm font-bold text-gray-900">Trips history</span>
+            <div className="flex-1 text-left">
+               <span className="block text-base font-bold text-gray-900 mb-0.5">Trips History</span>
+               <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">View your deliveries</span>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-300" />
           </button>
         </div>
 
-        {/* Sections */}
-        <div className="space-y-4">
-          {/* Share & Earn */}
-          <div className="bg-white rounded-xl p-4 flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <h3 className="text-base font-bold text-gray-900 mb-1">
-                Share & Earn{referralReward > 0 ? ` ₹${referralReward}` : ""}
-              </h3>
-              <p className="text-gray-500 text-xs font-medium">Invite friends to join the delivery partner fleet.</p>
+        {/* Share & Earn Card */}
+        <div className="bg-white rounded-[28px] p-6 border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col gap-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+          <div className="relative z-10 flex items-start justify-between gap-4">
+             <div>
+               <h3 className="text-lg font-black text-gray-900 mb-1">
+                 Share & Earn
+               </h3>
+               <p className="text-gray-500 text-xs font-medium leading-relaxed max-w-[200px]">
+                 Invite friends to join the delivery partner fleet{referralReward > 0 ? ` and get ₹${referralReward}` : ""}.
+               </p>
+             </div>
+             <div className="w-12 h-12 rounded-[20px] bg-emerald-50 flex items-center justify-center text-emerald-500 border border-emerald-100 shrink-0">
+                <Share2 className="w-5 h-5" />
+             </div>
+          </div>
+          <button
+            onClick={handleShareReferral}
+            className="relative z-10 w-full bg-gray-900 text-white py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest active:scale-[0.98] transition-transform shadow-md"
+          >
+            Share Link
+          </button>
+        </div>
+
+        {/* Support & Legal Section */}
+        <div className="space-y-3">
+          <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-3 px-2">Support & Legal</h3>
+          
+          <div 
+            onClick={() => navigate("/food/delivery/help/tickets")}
+            className="bg-white rounded-[24px] p-5 flex items-center justify-between cursor-pointer border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:scale-[0.98] transition-all"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+                 <HelpCircle className="w-5 h-5" />
+              </div>
+              <span className="text-sm font-bold text-gray-900">Support Tickets</span>
             </div>
-            <button
-              onClick={handleShareReferral}
-              className="shrink-0 bg-black text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest shadow-md"
-            >
-              Share
-            </button>
+            <ArrowRight className="w-4 h-4 text-gray-300" />
+          </div>
+        </div>
+
+        {/* Danger Zone Section */}
+        <div className="space-y-3 pt-2">
+          <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-3 px-2">Danger Zone</h3>
+          
+          <div 
+            onClick={() => setDeleteModalOpen(true)}
+            className="bg-white rounded-[24px] p-5 flex items-center justify-between cursor-pointer border border-red-50 hover:bg-red-50/50 active:bg-red-50 transition-colors"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+                 <Trash2 className="w-5 h-5" />
+              </div>
+              <span className="text-sm font-bold text-red-600">Delete Account</span>
+            </div>
+            <ArrowRight className="w-4 h-4 text-red-200" />
           </div>
 
-          {/* Support Section */}
-          <div>
-            <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-3 px-1">Support</h3>
-            <div 
-              onClick={() => navigate("/food/delivery/help/tickets")}
-              className="bg-white rounded-xl p-4 flex items-center justify-between cursor-pointer active:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Ticket className="w-5 h-5 text-gray-700" />
-                <span className="text-sm font-bold text-gray-900">Support tickets</span>
+          <div 
+            onClick={() => setShowLogoutConfirm(true)}
+            className="bg-white rounded-[24px] p-5 flex items-center justify-between cursor-pointer border border-red-50 hover:bg-red-50/50 active:bg-red-50 transition-colors"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+                 <LogOut className="w-5 h-5 ml-1" />
               </div>
-              <ArrowRight className="w-5 h-5 text-gray-300" />
+              <span className="text-sm font-bold text-red-600">Log Out</span>
             </div>
-          </div>
-
-          {/* Partner options Section */}
-          {/* Logout & Account Section */}
-          <div className="space-y-3">
-            {/* Delete Account */}
-            <div 
-              onClick={() => setDeleteModalOpen(true)}
-              className="bg-white rounded-xl p-4 flex items-center justify-between cursor-pointer border border-red-50 hover:bg-red-50/30 active:bg-red-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Trash2 className="w-5 h-5 text-red-600" />
-                <span className="text-sm font-bold text-red-600">Delete Account</span>
-              </div>
-              <ArrowRight className="w-5 h-5 text-red-100" />
-            </div>
-
-            {/* Logout */}
-            <div 
-              onClick={() => setShowLogoutConfirm(true)}
-              className="bg-white rounded-xl p-4 flex items-center justify-between cursor-pointer border border-red-50 hover:bg-red-50/30 active:bg-red-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <LogOut className="w-5 h-5 text-red-600" />
-                <span className="text-sm font-bold text-red-600">Log out</span>
-              </div>
-              <ArrowRight className="w-5 h-5 text-red-100" />
-            </div>
+            <ArrowRight className="w-4 h-4 text-red-200" />
           </div>
         </div>
       </div>
 
-      {/* Logout Confirm Popup */}
-      {showLogoutConfirm && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center px-4"
-          onClick={() => setShowLogoutConfirm(false)}
-        >
-          <div 
-            className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-base font-black text-gray-900 mb-2">Do you want to log out?</h3>
-            <p className="text-sm text-gray-500 mb-5">You will be signed out from your delivery account.</p>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-700 font-bold"
-              >
-                No
-              </button>
-              <button
-                onClick={handleLogout}
-                disabled={logoutSubmitting}
-                className="flex-1 h-11 rounded-xl bg-red-600 text-white font-bold disabled:opacity-60"
-              >
-                {logoutSubmitting ? "Logging out..." : "Yes"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Logout Confirm Popup - Modernized */}
+      <AnimatePresence>
+         {showLogoutConfirm && (
+           <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center px-4 pb-4">
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowLogoutConfirm(false)} className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" />
+             <motion.div 
+               initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+               className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl p-6 relative z-10"
+               onClick={(e) => e.stopPropagation()}
+             >
+               <div className="w-16 h-16 bg-red-50 rounded-[24px] flex items-center justify-center mx-auto mb-5 border border-red-100">
+                  <LogOut className="w-8 h-8 text-red-500 ml-1" />
+               </div>
+               <h3 className="text-xl font-black text-gray-900 text-center mb-2 tracking-tight">Log out?</h3>
+               <p className="text-sm font-medium text-gray-500 text-center mb-8">You will be signed out from your delivery account and won't receive new orders.</p>
+               <div className="flex flex-col gap-3">
+                 <button
+                   onClick={handleLogout}
+                   disabled={logoutSubmitting}
+                   className="w-full h-14 rounded-[20px] bg-red-500 text-white font-black text-[11px] uppercase tracking-widest shadow-md shadow-red-500/20 active:scale-[0.98] transition-all disabled:opacity-60"
+                 >
+                   {logoutSubmitting ? "Logging out..." : "Yes, Log out"}
+                 </button>
+                 <button
+                   onClick={() => setShowLogoutConfirm(false)}
+                   className="w-full h-14 rounded-[20px] bg-gray-50 text-gray-900 font-black text-[11px] uppercase tracking-widest active:scale-[0.98] transition-all"
+                 >
+                   Cancel
+                 </button>
+               </div>
+             </motion.div>
+           </div>
+         )}
+      </AnimatePresence>
+
       <DeleteAccountModal 
         isOpen={deleteModalOpen} 
         onClose={() => setDeleteModalOpen(false)} 

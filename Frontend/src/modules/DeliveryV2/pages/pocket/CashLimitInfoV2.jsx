@@ -55,40 +55,43 @@ export const CashLimitInfoV2 = () => {
   }, []);
 
   const DetailRow = ({ label, value, subLabel }) => (
-     <div className="py-4 flex justify-between items-start border-b border-gray-100">
+     <div className="py-4 flex justify-between items-start border-b border-gray-100/60 last:border-0 px-4">
         <div className="flex-1 pr-4">
-           <p className="text-sm font-semibold text-gray-800">{label}</p>
-           {subLabel && <p className="text-[10px] text-gray-400 font-medium leading-tight mt-0.5">{subLabel}</p>}
+           <p className="text-sm font-black text-gray-800 tracking-tight">{label}</p>
+           {subLabel && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-relaxed mt-1">{subLabel}</p>}
         </div>
-        <p className="text-sm font-bold text-black">{value}</p>
+        <p className="text-sm font-black text-gray-900">{value}</p>
      </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#f6e9dc] font-poppins pb-32">
+    <div className="min-h-screen bg-[#f8f9fa] font-poppins pb-32">
        {/* Header */}
-       <div className="bg-white border-b border-gray-200 px-4 py-4 safe-top flex items-center gap-4">
-          <button onClick={goBack} className="p-2 hover:bg-gray-100 rounded-lg">
-             <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <h1 className="text-lg font-bold text-gray-900 leading-none">Available cash limit</h1>
+       <div className="fixed top-0 inset-x-0 h-20 bg-[#f8f9fa]/90 backdrop-blur-xl z-50 px-5 flex items-center justify-between pb-2 pt-6">
+          <div className="flex items-center gap-3">
+             <button onClick={goBack} className="p-3 bg-white hover:bg-gray-50 border border-gray-100 shadow-sm rounded-[20px] transition-all active:scale-95">
+                <ArrowLeft className="w-5 h-5 text-gray-700" />
+             </button>
+             <h1 className="text-xl font-black text-gray-900 tracking-tight">Available Cash Limit</h1>
+          </div>
        </div>
 
+       <div className="pt-24 px-5 max-w-lg mx-auto">
        {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
-             <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Checking Limits...</p>
+             <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+             <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Checking Limits...</p>
           </div>
        ) : (
-          <div className="px-4 py-6">
-             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-                <div className="flex items-center gap-3 mb-6">
-                   <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600">
+          <div className="space-y-4">
+             <div className="bg-white rounded-[32px] shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-gray-100 overflow-hidden">
+                <div className="flex items-center gap-4 p-5 pb-2">
+                   <div className="w-12 h-12 bg-emerald-50 rounded-[18px] flex items-center justify-center text-emerald-600 border border-emerald-100">
                       <ShieldCheck className="w-6 h-6" />
                    </div>
                    <div>
-                      <h3 className="text-[17px] font-black tracking-tight leading-none mb-1">Total cash limit</h3>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{formatCurrency(walletState.totalCashLimit)}</p>
+                      <h3 className="text-lg font-black tracking-tight leading-none mb-1 text-gray-900">Total cash limit</h3>
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{formatCurrency(walletState.totalCashLimit)}</p>
                    </div>
                 </div>
 
@@ -102,31 +105,32 @@ export const CashLimitInfoV2 = () => {
                    <DetailRow label="Deductions" value={formatCurrency(walletState.deductions)} />
                    <DetailRow label="Pocket withdrawals" value={formatCurrency(walletState.pocketWithdrawals)} />
 
-                   <div className="py-5 flex justify-between items-center bg-emerald-50/50 -mx-5 px-5 mt-2 transition-all">
-                      <div className="text-sm font-black text-emerald-900 uppercase tracking-tight">Available cash limit</div>
-                      <div className="text-lg font-black text-emerald-600">{formatCurrency(walletState.availableCashLimit)}</div>
+                   <div className="py-5 px-5 mt-2 flex justify-between items-center bg-emerald-50 border-t border-emerald-100/50">
+                      <div className="text-[11px] font-black text-emerald-900 uppercase tracking-widest">Available cash limit</div>
+                      <div className="text-xl font-black text-emerald-600">{formatCurrency(walletState.availableCashLimit)}</div>
                    </div>
                 </div>
              </div>
 
-             <div className="bg-white rounded-xl p-8 text-center shadow-sm border border-gray-100 mb-6">
+             <div className="bg-white rounded-[32px] p-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-gray-100 mb-6">
                 <HelpCircle className="w-8 h-8 text-gray-200 mx-auto mb-4" />
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">How it works?</h4>
-                <p className="text-[11px] text-gray-500 font-medium leading-relaxed px-4">
+                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">How it works?</h4>
+                <p className="text-[11px] text-gray-500 font-bold leading-relaxed">
                    Your available limit is the maximum cash you can carry in hand. As you receive cash orders, this limit decreases. Settling your dues or earning more will increase this limit.
                 </p>
              </div>
 
-             <div className="px-2">
+             <div className="pt-2">
                 <button 
                   onClick={goBack}
-                  className="w-full py-4 bg-black text-white rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all"
+                  className="w-full py-4 bg-gray-900 text-white rounded-[20px] font-black text-sm uppercase tracking-widest shadow-[0_8px_20px_rgba(0,0,0,0.12)] hover:bg-black active:scale-[0.98] transition-all"
                 >
                    Okay
                 </button>
              </div>
           </div>
        )}
+       </div>
     </div>
   );
 };
