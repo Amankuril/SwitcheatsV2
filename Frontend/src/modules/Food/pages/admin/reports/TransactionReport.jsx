@@ -69,12 +69,12 @@ export default function TransactionReport() {
     const fetchTransactionReport = async () => {
       try {
         setIsRefreshing(true)
-        
+
         // Build date range based on time filter
         let fromDate = null
         let toDate = null
         const now = new Date()
-        
+
         if (filters.time === "Today") {
           fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
           toDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
@@ -90,8 +90,8 @@ export default function TransactionReport() {
 
         const params = {
           search: searchQuery || undefined,
-          zone: filters.zone !== "All Zones" ? filters.zone : undefined,
-          restaurant: filters.restaurant !== "All restaurants" ? filters.restaurant : undefined,
+          zoneName: filters.zone !== "All Zones" ? filters.zone : undefined,
+          restaurantName: filters.restaurant !== "All restaurants" ? filters.restaurant : undefined,
           fromDate: fromDate ? fromDate.toISOString() : undefined,
           toDate: toDate ? toDate.toISOString() : undefined,
           limit: 1000

@@ -31,14 +31,36 @@ export const exportReportsToExcel = (data, headers, filename = "report") => {
       return typeof value === 'object' ? JSON.stringify(value) : value
     })
   })
-  
-  const headerRow = headers.map(h => typeof h === 'string' ? h : h.label).join("\t")
-  const csvContent = [
-    headerRow,
-    ...rows.map(row => row.join("\t"))
-  ].join("\n")
-  
-  const blob = new Blob([csvContent], { type: "application/vnd.ms-excel" })
+
+  const headerLabels = headers.map(h => typeof h === 'string' ? h : h.label)
+
+  // Create HTML table for better Excel compatibility
+  const htmlContent = `
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <thead>
+            <tr>
+              ${headerLabels.map(h => `<th>${h}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td>${String(cell).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `
+
+  const blob = new Blob([htmlContent], { type: "application/vnd.ms-excel;charset=utf-8" })
   const link = document.createElement("a")
   const url = URL.createObjectURL(blob)
   link.setAttribute("href", url)
@@ -47,6 +69,7 @@ export const exportReportsToExcel = (data, headers, filename = "report") => {
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 export const exportReportsToPDF = (data, headers, filename = "report", title = "Report") => {
@@ -158,13 +181,34 @@ export const exportTransactionReportToExcel = (transactions, filename = "transac
     Number(transaction.platformFee || 0).toFixed(2),
     transaction.orderAmount.toFixed(2)
   ])
-  
-  const csvContent = [
-    headers.join("\t"),
-    ...rows.map(row => row.join("\t"))
-  ].join("\n")
-  
-  const blob = new Blob([csvContent], { type: "application/vnd.ms-excel" })
+
+  // Create HTML table for better Excel compatibility
+  const htmlContent = `
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <thead>
+            <tr>
+              ${headers.map(h => `<th>${h}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `
+
+  const blob = new Blob([htmlContent], { type: "application/vnd.ms-excel;charset=utf-8" })
   const link = document.createElement("a")
   const url = URL.createObjectURL(blob)
   link.setAttribute("href", url)
@@ -173,6 +217,7 @@ export const exportTransactionReportToExcel = (transactions, filename = "transac
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 export const exportTransactionReportToPDF = (transactions, filename = "transaction_report") => {

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import { BarChart3, ChevronDown, Settings, FileText, FileSpreadsheet, Code, Loader2 } from "lucide-react"
 import { adminAPI } from "@food/api"
 import { toast } from "sonner"
@@ -115,110 +115,116 @@ export default function RegularOrderReport() {
   }
 
   // Fetch orders from backend
-  useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const { fromDate, toDate } = getDateRange()
-        const params = {
-          page: 1,
-          limit: 10000, // Fetch all orders for report (can be optimized later)
-          search: searchQuery || undefined,
-          zone: filters.zone !== "All Zones" ? filters.zone : undefined,
-          restaurant: filters.restaurant !== "All restaurants" ? filters.restaurant : undefined,
-          customer: filters.customer !== "All customers" ? filters.customer : undefined,
-          startDate: fromDate ? fromDate.toISOString().split('T')[0] : undefined,
-          endDate: toDate ? toDate.toISOString().split('T')[0] : undefined,
-        }
-
-        const response = await adminAPI.getOrders(params)
-        
-        if (response.data?.success) {
-          // Transform backend orders (FoodOrder docs) to report format
-          const rawOrders = response.data.data.orders || []
-          const transformedOrders = rawOrders.map((order) => {
-            const pricing = order.pricing || {}
-            const items = Array.isArray(order.items) ? order.items : []
-
-            const itemsSubtotal = items.reduce((sum, item) => {
-              const qty = Number(item.quantity || 1)
-              const price = Number(item.price || 0)
-              return sum + qty * price
-            }, 0)
-
-            const subtotal =
-              itemsSubtotal > 0
-                ? itemsSubtotal
-                : Number(pricing.subtotal || 0)
-
-            const deliveryCharge = Number(pricing.deliveryFee || 0)
-            const platformFee = Number(pricing.platformFee || 0)
-            const vatTax = Number(pricing.tax || 0)
-            const couponDiscount = Number(pricing.discount || 0)
-            const computedTotal =
-              subtotal + deliveryCharge + platformFee + vatTax - couponDiscount
-
-            const totalAmount =
-              pricing.total != null
-                ? Number(pricing.total)
-                : computedTotal
-
-            const restaurantName =
-              order.restaurantId?.restaurantName ||
-              order.restaurantName ||
-              ""
-
-            const customerName =
-              order.userId?.name ||
-              order.customerName ||
-              "N/A"
-
-            const backendStatus = String(order.orderStatus || "").toLowerCase()
-            let displayStatus = order.orderStatus
-            if (!backendStatus || backendStatus === "created" || backendStatus === "confirmed") {
-              displayStatus = "Pending"
-            } else if (backendStatus === "preparing" || backendStatus === "ready_for_pickup") {
-              displayStatus = "Processing"
-            } else if (backendStatus === "picked_up") {
-              displayStatus = "Food On The Way"
-            } else if (backendStatus === "delivered") {
-              displayStatus = "Delivered"
-            } else if (backendStatus === "cancelled_by_restaurant") {
-              displayStatus = "Canceled"
-            } else if (backendStatus === "cancelled_by_user" || backendStatus === "cancelled_by_admin") {
-              displayStatus = "Canceled"
-            }
-
-            return {
-              orderId: order.orderId,
-              restaurant: restaurantName,
-              customerName,
-              totalItemAmount: subtotal,
-              couponDiscount,
-              vatTax,
-              deliveryCharge,
-              platformFee,
-              totalAmount,
-              orderStatus: displayStatus,
-            }
-          })
-          setOrders(transformedOrders)
-        } else {
-          setError(response.data?.message || "Failed to fetch orders")
-          toast.error(response.data?.message || "Failed to fetch orders")
-        }
-      } catch (err) {
-        debugError("Error fetching orders:", err)
-        setError(err.response?.data?.message || "Failed to fetch orders")
-        toast.error(err.response?.data?.message || "Failed to fetch orders")
-      } finally {
-        setLoading(false)
+  const fetchOrders = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { fromDate, toDate } = getDateRange()
+      const params = {
+        page: 1,
+        limit: 10000,
+        ...(filters.zone !== "All Zones" && { zoneName: filters.zone }),
+        ...(filters.restaurant !== "All restaurants" && { restaurantName: filters.restaurant }),
+        ...(fromDate && { startDate: fromDate.toISOString().split('T')[0] }),
+        ...(toDate && { endDate: toDate.toISOString().split('T')[0] }),
       }
-    }
 
+      const response = await adminAPI.getOrders(params)
+
+      if (response.data?.success) {
+        // Transform backend orders (FoodOrder docs) to report format
+        const rawOrders = response.data.data.orders || []
+        const transformedOrders = rawOrders.map((order) => {
+          const pricing = order.pricing || {}
+          const items = Array.isArray(order.items) ? order.items : []
+
+          const itemsSubtotal = items.reduce((sum, item) => {
+            const qty = Number(item.quantity || 1)
+            const price = Number(item.price || 0)
+            return sum + qty * price
+          }, 0)
+
+          const subtotal =
+            itemsSubtotal > 0
+              ? itemsSubtotal
+              : Number(pricing.subtotal || 0)
+
+          const deliveryCharge = Number(pricing.deliveryFee || 0)
+          const platformFee = Number(pricing.platformFee || 0)
+          const vatTax = Number(pricing.tax || 0)
+          const couponDiscount = Number(pricing.discount || 0)
+          const computedTotal =
+            subtotal + deliveryCharge + platformFee + vatTax - couponDiscount
+
+          const totalAmount =
+            pricing.total != null
+              ? Number(pricing.total)
+              : computedTotal
+
+          const restaurantName =
+            order.restaurantId?.restaurantName ||
+            order.restaurantName ||
+            ""
+
+          const customerName =
+            order.userId?.name ||
+            order.customerName ||
+            "N/A"
+
+          const backendStatus = String(order.orderStatus || "").toLowerCase()
+          let displayStatus = order.orderStatus
+          if (!backendStatus || backendStatus === "created" || backendStatus === "confirmed") {
+            displayStatus = "Pending"
+          } else if (backendStatus === "preparing" || backendStatus === "ready_for_pickup") {
+            displayStatus = "Processing"
+          } else if (backendStatus === "picked_up") {
+            displayStatus = "Food On The Way"
+          } else if (backendStatus === "delivered") {
+            displayStatus = "Delivered"
+          } else if (backendStatus === "cancelled_by_restaurant") {
+            displayStatus = "Canceled"
+          } else if (backendStatus === "cancelled_by_user" || backendStatus === "cancelled_by_admin") {
+            displayStatus = "Canceled"
+          }
+
+          return {
+            orderId: order.orderId,
+            restaurant: restaurantName,
+            customerName,
+            totalItemAmount: subtotal,
+            couponDiscount,
+            vatTax,
+            deliveryCharge,
+            platformFee,
+            totalAmount,
+            orderStatus: displayStatus,
+          }
+        })
+        setOrders(transformedOrders)
+      } else {
+        setError(response.data?.message || "Failed to fetch orders")
+        toast.error(response.data?.message || "Failed to fetch orders")
+      }
+    } catch (err) {
+      debugError("Error fetching orders:", err)
+      setError(err.response?.data?.message || "Failed to fetch orders")
+      toast.error(err.response?.data?.message || "Failed to fetch orders")
+    } finally {
+      setLoading(false)
+    }
+  }, [filters])
+
+  useEffect(() => {
     fetchOrders()
-  }, [filters, searchQuery])
+  }, [fetchOrders])
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Search is handled locally in filteredOrders, no need to refetch
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   const filteredOrders = useMemo(() => {
     if (!searchQuery.trim()) return orders
@@ -388,8 +394,8 @@ export default function RegularOrderReport() {
               >
                 <option value="All Zones">All Zones</option>
                 {zones.map((zone) => (
-                  <option key={zone._id} value={zone.name}>
-                    {zone.name}
+                  <option key={zone._id} value={zone.zoneName}>
+                    {zone.zoneName}
                   </option>
                 ))}
               </select>
@@ -404,8 +410,8 @@ export default function RegularOrderReport() {
               >
                 <option value="All restaurants">All restaurants</option>
                 {restaurants.map((restaurant) => (
-                  <option key={restaurant._id} value={restaurant.name}>
-                    {restaurant.name}
+                  <option key={restaurant._id} value={restaurant.restaurantName}>
+                    {restaurant.restaurantName}
                   </option>
                 ))}
               </select>

@@ -121,12 +121,20 @@ export default function RestaurantReport() {
   const activeFiltersCount = (filters.zone !== "All Zones" ? 1 : 0) + (filters.all !== "All" ? 1 : 0) + (filters.type !== "All types" ? 1 : 0) + (filters.time !== "All Time" ? 1 : 0)
 
   const renderStars = (rating, reviews) => {
-    if (rating === 0) {
-      return "★0"
+    if (!rating || rating === 0) {
+      return <span className="text-sm text-slate-400">No ratings</span>
     }
-    const fullStars = Math.floor(rating)
-    const hasHalfStar = rating % 1 !== 0
-    return "★".repeat(fullStars) + (hasHalfStar ? "½" : "") + "☆".repeat(5 - Math.ceil(rating)) + ` (${reviews})`
+    // Convert 1-10 rating to 1-5 scale if needed
+    const normalizedRating = rating > 5 ? rating / 2 : rating
+    const fullStars = Math.floor(normalizedRating)
+    const hasHalfStar = (normalizedRating % 1) >= 0.5
+    const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0)
+    return (
+      <span className="flex items-center gap-1">
+        <span className="text-yellow-500 font-bold">{fullStars > 0 ? "★".repeat(fullStars) : ''}{hasHalfStar ? "★" : ''}{emptyStars > 0 ? "☆".repeat(emptyStars) : ''}</span>
+        <span className="text-sm text-slate-500">({reviews || 0})</span>
+      </span>
+    )
   }
 
   if (loading) {
@@ -169,7 +177,7 @@ export default function RestaurantReport() {
                 >
                   <option value="All Zones">All Zones</option>
                   {zones.map(zone => (
-                    <option key={zone._id} value={zone.name}>{zone.name}</option>
+                    <option key={zone._id} value={zone.zoneName}>{zone.zoneName}</option>
                   ))}
                 </select>
                 <ChevronDown className="absolute right-2 bottom-2.5 w-4 h-4 text-slate-500 pointer-events-none" />
@@ -419,7 +427,7 @@ export default function RestaurantReport() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`text-sm font-medium ${
-                          restaurant.totalAdminCommission.startsWith('?-') || restaurant.totalAdminCommission.startsWith('-?')
+                          restaurant.totalAdminCommission.startsWith('Rs.-') || restaurant.totalAdminCommission.startsWith('-Rs.')
                             ? 'text-red-600'
                             : 'text-slate-900'
                         }`}>
