@@ -573,99 +573,113 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
 
   return (
     <div className="relative h-screen w-full bg-white text-gray-900 overflow-hidden flex flex-col">
-      {/* ─── 1. TOP HEADER (Premium Dark Gray) ─── */}
+      {/* ─── 1. TOP HEADER (Ultra Premium Minimalist) ─── */}
       {currentTab !== 'history' && (
-      <div className="absolute top-0 inset-x-0 bg-[#121212]/95 backdrop-blur-2xl shadow-2xl z-[200] safe-top pb-2 border-b border-white/10">
-        <div className="flex items-center justify-between px-4 py-2">
-          <div className="flex items-center gap-4">
-             <div 
-                onClick={() => navigate('/food/delivery/profile')}
-                className="w-10 h-10 rounded-full border border-white/20 p-0.5 shadow-xl overflow-hidden bg-white/5 cursor-pointer active:scale-95 transition-all"
-             >
-                <img src={profileImage || "https://i.ibb.co/3m2Yh7r/SwitchEats-Brand-Image.png"} alt="Profile" className="w-full h-full object-cover rounded-full" />
-             </div>
-             <button 
-               onClick={async () => {
-                 const nextState = !isOnline;
-                 toggleOnline(); // Store action
-                 if (nextState) {
-                    // Try to get location and sync immediately so we are visible for dispatch right away
-                    navigator.geolocation.getCurrentPosition((pos) => {
-                        deliveryAPI.updateLocation(pos.coords.latitude, pos.coords.longitude, true).catch(() => {});
-                    }, (err) => console.warn('Online sync position failed:', err), { enableHighAccuracy: true });
-                 } else {
-                    deliveryAPI.updateOnlineStatus(false).catch(() => {});
-                 }
-               }}
-               className={`relative w-[92px] h-8 rounded-full p-1 transition-all duration-500 flex items-center ${isOnline ? 'bg-green-500 shadow-lg shadow-green-500/20' : 'bg-gray-400'}`}
-             >
-               <div className={`flex items-center justify-between w-full px-2 text-[8.5px] font-black uppercase tracking-widest text-white`}>
-                 <span>{isOnline ? 'Online' : ''}</span>
-                 <span>{!isOnline ? 'Offline' : ''}</span>
+      <div className="absolute top-0 inset-x-0 z-[200] safe-top pointer-events-none">
+        
+        {/* Main Floating Dock */}
+        <div className="px-4 pt-4 pointer-events-auto">
+          <div className="bg-[#111111]/95 backdrop-blur-md rounded-full p-1.5 flex items-center justify-between border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+             <div className="flex items-center gap-3 pl-1">
+               <div 
+                  onClick={() => navigate('/food/delivery/profile')}
+                  className="w-10 h-10 rounded-full overflow-hidden cursor-pointer active:scale-95 transition-all bg-[#222]"
+               >
+                  <img src={profileImage || "https://i.ibb.co/3m2Yh7r/SwitchEats-Brand-Image.png"} alt="Profile" className="w-full h-full object-cover" />
                </div>
-               <motion.div animate={{ x: isOnline ? 59 : 0 }} className="absolute left-1 w-6 h-6 bg-white rounded-full shadow-sm" />
-             </button>
-          </div>
-          <div className="flex items-center gap-3">
-             <button onClick={() => setShowEmergencyPopup(true)} className="w-9 h-9 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 active:scale-95 transition-all shadow-lg"><AlertTriangle className="w-4 h-4" /></button>
-             <button onClick={() => navigate('/food/delivery/help/id-card')} className="w-9 h-9 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20 active:scale-95 transition-all shadow-lg"><Contact className="w-4 h-4" /></button>
-             <button onClick={() => navigate('/food/delivery/notifications')} className="relative w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white border border-white/10 active:scale-95 transition-all shadow-lg"><Bell className="w-4 h-4" />{notificationUnreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-orange-400 border border-[#1f1f1f]" />}</button>
+               
+               <button 
+                 onClick={async () => {
+                   const nextState = !isOnline;
+                   toggleOnline(); 
+                   if (nextState) {
+                      navigator.geolocation.getCurrentPosition((pos) => {
+                          deliveryAPI.updateLocation(pos.coords.latitude, pos.coords.longitude, true).catch(() => {});
+                      }, (err) => console.warn('Online sync position failed:', err), { enableHighAccuracy: true });
+                   } else {
+                      deliveryAPI.updateOnlineStatus(false).catch(() => {});
+                   }
+                 }}
+                 className={`relative w-[110px] h-[34px] rounded-full p-1 transition-all duration-300 flex items-center ${isOnline ? 'bg-[#10b981]' : 'bg-[#2a2a2a]'}`}
+               >
+                 <div className={`relative z-10 flex items-center justify-between w-full px-2.5 text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'text-black' : 'text-gray-400'}`}>
+                   <span className={isOnline ? 'opacity-100' : 'opacity-0'}>Online</span>
+                   <span className={!isOnline ? 'opacity-100' : 'opacity-0'}>Offline</span>
+                 </div>
+                 <motion.div 
+                   initial={false}
+                   animate={{ x: isOnline ? 76 : 0 }} 
+                   className={`absolute left-1 w-[26px] h-[26px] rounded-full shadow-sm flex items-center justify-center ${isOnline ? 'bg-white' : 'bg-[#111]'}`} 
+                 />
+               </button>
+             </div>
+             
+             <div className="flex items-center gap-1 pr-1.5">
+               <button onClick={() => setShowEmergencyPopup(true)} className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 active:scale-90 transition-transform hover:text-white"><AlertTriangle className="w-[20px] h-[20px]" /></button>
+               <button onClick={() => navigate('/food/delivery/help/id-card')} className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 active:scale-90 transition-transform hover:text-white"><Contact className="w-[20px] h-[20px]" /></button>
+               <button onClick={() => navigate('/food/delivery/notifications')} className="relative w-10 h-10 rounded-full flex items-center justify-center text-gray-400 active:scale-90 transition-transform hover:text-white">
+                 <Bell className="w-[20px] h-[20px]" />
+                 {notificationUnreadCount > 0 && <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 rounded-full bg-[#ef4444] border-2 border-[#111]" />}
+               </button>
+             </div>
           </div>
         </div>
 
-        {/* ─── LIVE STATUS / PROGRESS BADGE (MATCHED PRO) ─── */}
+        {/* ─── LIVE STATUS / PROGRESS BADGE ─── */}
         <AnimatePresence>
           {currentTab === 'feed' && (
             <motion.div 
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="px-4 mt-1"
+              exit={{ opacity: 0, y: -20 }}
+              className="px-4 mt-3 pointer-events-auto"
             >
               {activeOrder ? (
                 <div className="grid grid-cols-2 gap-3 w-full">
-                  {/* LEFT: DISTANCE (Vibrant Orange Card) */}
-                  <div className="bg-[#ff8100] rounded-2xl p-3.5 shadow-xl shadow-orange-500/20 border border-orange-400/50 flex items-center justify-between overflow-hidden relative">
-                    <div className="flex flex-col z-10">
-                      <span className="text-[9px] text-white/70 font-black uppercase tracking-[0.15em] mb-1">Distance</span>
-                      <div className="flex items-end gap-1">
-                        <span className="text-2xl font-black text-white leading-none tracking-tighter">
-                          {distanceToTarget && distanceToTarget !== Infinity ? (distanceToTarget / 1000).toFixed(1) : '--'}
-                        </span>
-                        <span className="text-[11px] text-white/80 font-bold mb-0.5">KM</span>
+                  <div className="bg-[#111111]/95 backdrop-blur-md rounded-[24px] p-4 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex flex-col justify-between h-[100px]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-[#f97316]/20 flex items-center justify-center">
+                        <Navigation2 className="w-3.5 h-3.5 text-[#f97316] rotate-45" />
                       </div>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Distance</span>
                     </div>
-                    <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center z-10 shadow-lg">
-                      <Navigation2 className="w-4 h-4 text-[#ff8100] rotate-45" />
+                    <div className="flex items-baseline gap-1 mt-auto">
+                      <span className="text-3xl font-bold text-white tracking-tight leading-none">
+                        {distanceToTarget && distanceToTarget !== Infinity ? (distanceToTarget / 1000).toFixed(1) : '--'}
+                      </span>
+                      <span className="text-[13px] text-gray-500 font-medium">km</span>
                     </div>
                   </div>
 
-                  {/* RIGHT: TIME (Emerald PRO Content) */}
-                  <div className="bg-[#10B981] rounded-2xl p-3.5 shadow-xl shadow-green-500/20 border border-green-400/50 flex items-center justify-between relative overflow-hidden group">
-                    <div className="flex flex-col z-10">
-                      <span className="text-[9px] text-white/70 font-black uppercase tracking-[0.15em] mb-1">Arrival</span>
-                      <div className="flex items-end gap-1">
-                        <span className="text-2xl font-black text-white leading-none tracking-tighter">
-                          {eta ? String(eta) : '--'}
-                        </span>
-                        <span className="text-[11px] text-white/80 font-bold mb-0.5">MIN</span>
+                  <div className="bg-[#111111]/95 backdrop-blur-md rounded-[24px] p-4 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex flex-col justify-between h-[100px]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-[#10b981]/20 flex items-center justify-center">
+                         <Clock className="w-3.5 h-3.5 text-[#10b981]" />
                       </div>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Arrival</span>
                     </div>
-                    <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center z-10 shadow-lg">
-                       <Clock className="w-4 h-4 text-[#10B981]" />
+                    <div className="flex items-baseline gap-1 mt-auto">
+                      <span className="text-3xl font-bold text-white tracking-tight leading-none">
+                        {eta ? String(eta) : '--'}
+                      </span>
+                      <span className="text-[13px] text-gray-500 font-medium">min</span>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="bg-white/5 rounded-2xl p-4 flex items-center border border-white/5 shadow-sm backdrop-blur-md">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center">
-                      <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
-                    </div>
-                    <div>
-                      <h3 className="text-white font-black text-[11px] uppercase tracking-widest leading-none mb-1">{isOnline ? 'System Online' : 'System Offline'}</h3>
-                      <p className="text-gray-400 text-[10px] font-bold uppercase tracking-tight">{isOnline ? 'Waiting for order requests' : 'Go online to receive jobs'}</p>
-                    </div>
+                <div className={`overflow-hidden rounded-[24px] p-4 flex items-center gap-4 transition-all duration-300 ${isOnline ? 'bg-[#111111]/95 border border-white/10' : 'bg-[#111111]/90 border border-white/5'} backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.4)]`}>
+                  <div className="relative flex items-center justify-center shrink-0">
+                    <div className={`w-3.5 h-3.5 rounded-full ${isOnline ? 'bg-[#10b981]' : 'bg-gray-600'}`} />
+                    {isOnline && <div className="absolute w-full h-full bg-[#10b981] rounded-full animate-ping opacity-60" />}
+                  </div>
+                  
+                  <div className="flex flex-col">
+                    <h3 className={`font-semibold text-[15px] tracking-tight leading-none mb-1.5 ${isOnline ? 'text-white' : 'text-gray-400'}`}>
+                      {isOnline ? 'Finding orders near you' : 'You are offline'}
+                    </h3>
+                    <p className="text-gray-500 text-[13px] font-medium leading-none">
+                      {isOnline ? 'Keep the app open to receive requests' : 'Go online to start earning'}
+                    </p>
                   </div>
                 </div>
               )}
@@ -947,20 +961,44 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
         </motion.div>
       )}
 
-      {/* ─── 3. BOTTOM NAV (Fixed - Compact Pro) ─── */}
-      <div className="bg-white border-t border-gray-100 px-8 py-3 pb-6 flex justify-between items-center z-[200] shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-         <button onClick={() => navigate('/food/delivery/feed')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'feed' ? 'text-gray-950 scale-110' : 'text-gray-400 opacity-70'}`}>
-            <LayoutGrid className="w-6 h-6" /><span className="text-[11px] font-medium font-sans">Feed</span>
-         </button>
-         <button onClick={() => navigate('/food/delivery/pocket')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'pocket' ? 'text-gray-950 scale-110' : 'text-gray-400 opacity-70'}`}>
-            <Wallet className="w-6 h-6" /><span className="text-[11px] font-medium font-sans">Pocket</span>
-         </button>
-         <button onClick={() => navigate('/food/delivery/history')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'history' ? 'text-gray-950 scale-110' : 'text-gray-400 opacity-70'}`}>
-            <History className="w-6 h-6" /><span className="text-[11px] font-medium font-sans">Trip History</span>
-         </button>
-         <button onClick={() => navigate('/food/delivery/profile')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'profile' ? 'text-gray-950 scale-110' : 'text-gray-400 opacity-70'}`}>
-            <UserIcon className="w-6 h-6" /><span className="text-[11px] font-medium font-sans">Profile</span>
-         </button>
+      {/* ─── 3. BOTTOM NAV (Ultra Premium Minimalist Island) ─── */}
+      <div className="w-full pb-8 pt-2 flex justify-center z-[200] bg-transparent pointer-events-none mt-auto">
+        <div className="bg-[#111111]/95 backdrop-blur-md border border-white/10 rounded-full p-1.5 flex items-center shadow-[0_20px_40px_rgba(0,0,0,0.6)] pointer-events-auto">
+           {[
+             { id: 'feed', icon: LayoutGrid, label: 'Feed' },
+             { id: 'pocket', icon: Wallet, label: 'Pocket' },
+             { id: 'history', icon: History, label: 'History' },
+             { id: 'profile', icon: UserIcon, label: 'Profile' }
+           ].map((item) => {
+              const Icon = item.icon;
+              const isActive = currentTab === item.id;
+              return (
+                 <button 
+                   key={item.id}
+                   onClick={() => navigate(`/food/delivery/${item.id}`)} 
+                   className={`relative flex items-center justify-center h-12 transition-all duration-500 ease-out rounded-full ${isActive ? 'bg-[#222222] px-5 shadow-inner border border-white/5' : 'w-12 px-0 text-gray-500 hover:text-gray-300'}`}
+                 >
+                    <Icon className={`w-5 h-5 shrink-0 transition-all duration-500 ${isActive ? 'text-[#10b981]' : ''}`} />
+                    <AnimatePresence>
+                      {isActive && (
+                         <motion.div 
+                           key="text"
+                           initial={{ width: 0, opacity: 0 }}
+                           animate={{ width: 'auto', opacity: 1 }}
+                           exit={{ width: 0, opacity: 0 }}
+                           transition={{ duration: 0.3, ease: "easeInOut" }}
+                           className="overflow-hidden whitespace-nowrap flex items-center"
+                         >
+                           <span className="ml-2 text-[11px] font-black uppercase tracking-wider text-white">
+                             {item.label}
+                           </span>
+                         </motion.div>
+                      )}
+                    </AnimatePresence>
+                 </button>
+              )
+           })}
+        </div>
       </div>
     </div>
   );
