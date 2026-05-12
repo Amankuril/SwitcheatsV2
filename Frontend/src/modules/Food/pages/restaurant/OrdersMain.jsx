@@ -21,6 +21,7 @@ import {
   Clock,
   Users,
   MessageSquare,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import BottomNavOrders from "@food/components/restaurant/BottomNavOrders";
@@ -1518,11 +1519,7 @@ export default function OrdersMain() {
 
   const handleRejectCancel = () => {
     setShowRejectPopup(false);
-    setShowNewOrderPopup(false);
-    setPopupOrder(null);
-    clearNewOrder();
     setRejectReason("");
-    setCountdown(240);
   };
 
   // Handle cancel order (for preparing orders)
@@ -2135,302 +2132,164 @@ export default function OrdersMain() {
         {showNewOrderPopup && (
           <>
             <motion.div
-              className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4"
+              className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-[2px] flex items-start justify-center pt-12 p-4 sm:items-center sm:pt-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}>
               <motion.div
-                className="w-[95%] max-w-md max-h-[calc(100vh-2rem)] bg-white rounded-[2rem] shadow-2xl overflow-hidden p-1 flex flex-col"
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
+                className="w-full max-w-sm bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden border border-white flex flex-col"
+                initial={{ scale: 0.95, y: -20, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.95, y: -20, opacity: 0 }}
                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
                 onClick={(e) => e.stopPropagation()}>
-                {/* Header */}
-                <div className="px-4 py-3 bg-white border-b border-gray-200 flex items-center justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-base font-bold text-gray-900">
-                      {(popupOrder || newOrder)?.orderId || "#Order"}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {(popupOrder || newOrder)?.restaurantName || "Restaurant"}
-                    </p>
+                
+                {/* Header Section */}
+                <div className="px-6 py-5 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                      </span>
+                      <h3 className="text-emerald-600 font-bold tracking-wider text-[11px] uppercase">New Order</h3>
+                    </div>
+                    <p className="text-2xl font-black text-gray-900 tracking-tight">{(popupOrder || newOrder)?.orderId || "#Order"}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={handlePrint}
-                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                      aria-label="Print">
-                      <Printer className="w-5 h-5 text-gray-700" />
+                    <button onClick={handlePrint} className="p-2.5 bg-white shadow-sm border border-gray-100 hover:bg-gray-50 rounded-full transition-colors text-gray-600">
+                      <Printer className="w-4.5 h-4.5" />
                     </button>
-                    <button
-                      onClick={toggleMute}
-                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                      aria-label={isMuted ? "Unmute" : "Mute"}>
-                      {isMuted ? (
-                        <VolumeX className="w-5 h-5 text-gray-700" />
-                      ) : (
-                        <Volume2 className="w-5 h-5 text-gray-700" />
-                      )}
+                    <button onClick={toggleMute} className="p-2.5 bg-white shadow-sm border border-gray-100 hover:bg-gray-50 rounded-full transition-colors text-gray-600">
+                      {isMuted ? <VolumeX className="w-4.5 h-4.5" /> : <Volume2 className="w-4.5 h-4.5" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Content */}
-                <div className="px-4 pt-4 pb-4 flex-1 overflow-y-auto min-h-0">
-                  {/* Customer info */}
-                  <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-gray-900">
-                      {(popupOrder || newOrder)?.items?.[0]?.name ||
-                        "New Order"}
-                    </h4>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {(popupOrder || newOrder)?.createdAt
-                        ? new Date(
-                          (popupOrder || newOrder).createdAt,
-                        ).toLocaleString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                        : "Just now"}
-                    </p>
-                  </div>
-
-                  {/* Details Accordion */}
-                  <div className="mb-4">
-                    <button
-                      onClick={() => setIsDetailsExpanded(!isDetailsExpanded)}
-                      className="w-full flex items-center justify-between py-2 border-b border-gray-200">
-                      <div className="flex items-center gap-2">
-                        <svg
-                          className="w-5 h-5 text-gray-700"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                        <span className="text-sm font-semibold text-gray-900">
-                          Details
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {(popupOrder || newOrder)?.items?.length || 0} item
-                          {(popupOrder || newOrder)?.items?.length !== 1
-                            ? "s"
-                            : ""}
-                        </span>
-                      </div>
-                      {isDetailsExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-gray-600" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-gray-600" />
-                      )}
-                    </button>
-
-                    <AnimatePresence>
-                      {isDetailsExpanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden">
-                          <div className="py-3 space-y-3">
-                            {(popupOrder || newOrder)?.items?.map(
-                              (item, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-start gap-3">
-                                  <div
-                                    className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${item.isVeg ? "bg-green-500" : "bg-red-500"}`}></div>
-                                  <div className="flex-1">
-                                    <div className="flex items-start justify-between">
-                                      <p className="text-sm font-medium text-gray-900">
-                                        {item.quantity} x {item.name}
-                                      </p>
-                                      <p className="text-xs text-gray-600 ml-2">
-                                        ₹{item.price * item.quantity}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              ),
-                            ) || (
-                                <p className="text-sm text-gray-500">No items</p>
-                              )}
+                {/* Content Area */}
+                <div className="px-6 py-5 flex flex-col gap-5">
+                  {/* Items Section - Clean List */}
+                  <div>
+                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest mb-3">Order Details</p>
+                    <div className="space-y-2 max-h-[140px] overflow-y-auto no-scrollbar">
+                      {(popupOrder || newOrder)?.items?.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-start gap-4">
+                          <div className="flex gap-2.5">
+                            <span className="text-sm font-black text-emerald-600 bg-emerald-50 w-6 h-6 rounded-md flex items-center justify-center shrink-0">{item.quantity}</span>
+                            <span className="text-sm font-bold text-gray-800 leading-tight">{item.name}</span>
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {/* Cutlery preference */}
-                  <div
-                    className={`mb-4 flex items-center gap-2 rounded-lg p-3 ${(popupOrder || newOrder)?.sendCutlery === false
-                      ? "bg-orange-50"
-                      : "bg-gray-50"
-                      }`}>
-                    <svg
-                      className={`h-5 w-5 ${(popupOrder || newOrder)?.sendCutlery === false
-                        ? "text-orange-600"
-                        : "text-gray-600"
-                        }`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                      />
-                    </svg>
-                    <span
-                      className={`text-sm font-medium ${(popupOrder || newOrder)?.sendCutlery === false
-                        ? "text-orange-700"
-                        : "text-gray-700"
-                        }`}>
-                      {(popupOrder || newOrder)?.sendCutlery === false
-                        ? "Don't send cutlery"
-                        : "Send cutlery"}
-                    </span>
-                  </div>
-
-                  {/* Total bill */}
-                  <div className="mb-4 flex items-center justify-between py-3 border-y border-gray-200">
-                    <div className="flex items-center gap-2">
-                      <svg
-                        className="w-5 h-5 text-gray-700"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"
-                        />
-                      </svg>
-                      <span className="text-sm font-semibold text-gray-900">
-                        Total bill
-                      </span>
+                          <span className="text-sm font-medium text-gray-400 shrink-0">₹{item.price * item.quantity}</span>
+                        </div>
+                      )) || <p className="text-sm text-gray-400 italic">No items found</p>}
                     </div>
-                    <span className="text-base font-bold text-gray-900">
-                      ₹{getPopupOrderTotal(popupOrder || newOrder)}
-                    </span>
+                    
+                    {(popupOrder || newOrder)?.sendCutlery === false && (
+                      <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 rounded-full border border-amber-100">
+                        <span className="text-[10px] text-amber-700 font-black uppercase tracking-tight">🚫 No Cutlery Requested</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Payment method: treat cash/cod (any case) as COD */}
-                  {(() => {
-                    const raw =
-                      (popupOrder || newOrder)?.paymentMethod ||
-                      (popupOrder || newOrder)?.payment?.method;
-                    const m =
-                      raw != null ? String(raw).toLowerCase().trim() : "";
-                    const isCod = m === "cash" || m === "cod";
-                    return (
-                      <div className="mb-4 flex items-center justify-between py-2">
-                        <span className="text-sm font-medium text-gray-700">
-                          Payment
-                        </span>
-                        <span
-                          className={`text-sm font-semibold ${isCod ? "text-amber-600" : "text-green-600"}`}>
-                          {isCod ? "Cash on Delivery" : "Online"}
-                        </span>
-                      </div>
-                    );
-                  })()}
+                  {/* Payment & Bill Summary */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gray-50 p-4 rounded-[20px] border border-gray-100">
+                      <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1">Total Bill</p>
+                      <p className="text-xl font-black text-gray-900">₹{getPopupOrderTotal(popupOrder || newOrder)}</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-[20px] border border-gray-100">
+                      <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1">Payment</p>
+                      {(() => {
+                        const raw = (popupOrder || newOrder)?.paymentMethod || (popupOrder || newOrder)?.payment?.method;
+                        const m = raw != null ? String(raw).toLowerCase().trim() : "";
+                        const isCod = m === "cash" || m === "cod";
+                        return (
+                          <p className={`text-sm font-black leading-tight ${isCod ? "text-amber-600" : "text-emerald-600"}`}>
+                            {isCod ? "Cash on Delivery" : "Online Paid"}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  </div>
 
-                  {/* Preparation time */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-gray-700">
-                        Preparation time
+                  {/* Preparation Time Selector */}
+                  <div className="flex items-center justify-between bg-emerald-50/50 p-4 rounded-[20px] border border-emerald-100/50">
+                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Prep Time</span>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() => setPrepTime(Math.max(1, prepTime - 1))}
+                        className="w-8 h-8 flex items-center justify-center bg-white shadow-sm border border-emerald-100 rounded-full transition-all active:scale-90 text-emerald-600"
+                      >
+                        <Minus className="w-4 h-4 stroke-[3]" />
+                      </button>
+                      <span className="text-lg font-black text-emerald-900 w-10 text-center">
+                        {prepTime}<span className="text-xs font-bold text-emerald-600 ml-0.5">m</span>
                       </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setPrepTime(Math.max(1, prepTime - 1))}
-                          className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
-                          <Minus className="w-4 h-4 text-gray-700" />
-                        </button>
-                        <span className="text-base font-semibold text-gray-900 min-w-[60px] text-center">
-                          {prepTime} mins
-                        </span>
-                        <button
-                          onClick={() => setPrepTime(prepTime + 1)}
-                          className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
-                          <Plus className="w-4 h-4 text-gray-700" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setPrepTime(prepTime + 1)}
+                        className="w-8 h-8 flex items-center justify-center bg-white shadow-sm border border-emerald-100 rounded-full transition-all active:scale-90 text-emerald-600"
+                      >
+                        <Plus className="w-4 h-4 stroke-[3]" />
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                <div className="px-4 pb-4 pt-3 border-t border-gray-200 bg-white">
-                  <div className="space-y-3">
-                    <div
-                      ref={acceptSliderRef}
-                      className="relative h-14 rounded-2xl bg-gray-900 overflow-hidden select-none touch-pan-y">
-                      <motion.div
-                        className="absolute inset-y-0 left-0 bg-blue-600"
-                        initial={{ width: "100%" }}
-                        animate={{ width: `${(countdown / 240) * 100}%` }}
-                        transition={{ duration: 1, ease: "linear" }}
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center px-16">
-                        <span className="relative z-10 text-sm font-semibold text-white text-center">
-                          {isAcceptingOrder
-                            ? "Accepting order..."
-                            : `Slide to accept (${formatTime(countdown)})`}
-                        </span>
-                      </div>
-                      <motion.button
-                        type="button"
-                        className="absolute left-2 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl bg-white text-gray-900 shadow-md disabled:cursor-not-allowed"
-                        style={{
-                          x: (() => {
-                            const sliderWidth =
-                              acceptSliderRef.current?.offsetWidth || 320;
-                            const handleWidth = 40;
-                            const maxTravel = Math.max(
-                              sliderWidth - handleWidth - 16,
-                              0,
-                            );
-                            return acceptSwipeProgress * maxTravel;
-                          })(),
-                        }}
-                        onMouseDown={(e) => handleAcceptSwipeStart(e.clientX)}
-                        onTouchStart={(e) =>
-                          handleAcceptSwipeStart(e.touches[0].clientX)
-                        }
-                        onMouseMove={(e) => {
-                          if (acceptSwipeActiveRef.current)
-                            handleAcceptSwipeMove(e.clientX);
-                        }}
-                        onTouchMove={(e) =>
-                          handleAcceptSwipeMove(e.touches[0].clientX)
-                        }
-                        onMouseUp={handleAcceptSwipeEnd}
-                        onTouchEnd={handleAcceptSwipeEnd}
-                        onTouchCancel={handleAcceptSwipeEnd}
-                        disabled={isAcceptingOrder}>
-                        <span className="text-lg font-bold">›</span>
-                      </motion.button>
+                {/* Action Section */}
+                <div className="px-6 pb-6 flex flex-col gap-4">
+                  {/* Swipe to Accept - Re-styled for light theme */}
+                  <div
+                    ref={acceptSliderRef}
+                    className="relative h-14 rounded-2xl bg-gray-100 overflow-hidden select-none touch-pan-y shadow-inner border border-gray-200"
+                  >
+                    {/* Progress Fill (Timer) */}
+                    <motion.div
+                      className="absolute inset-y-0 left-0 bg-emerald-500/10"
+                      initial={{ width: "100%" }}
+                      animate={{ width: `${(countdown / 240) * 100}%` }}
+                      transition={{ duration: 1, ease: "linear" }}
+                    />
+                    
+                    <div className="absolute inset-0 flex items-center justify-center px-12">
+                      <span className="relative z-10 text-sm font-black text-gray-500 text-center tracking-tight">
+                        {isAcceptingOrder
+                          ? "Accepting..."
+                          : `Slide to accept (${formatTime(countdown)})`}
+                      </span>
                     </div>
 
-                    <button
-                      onClick={handleRejectClick}
+                    <motion.button
+                      type="button"
+                      className="absolute left-1.5 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-[12px] bg-emerald-600 text-white shadow-lg active:scale-95 transition-transform"
+                      style={{
+                        x: (() => {
+                          const sliderWidth = acceptSliderRef.current?.offsetWidth || 320;
+                          const handleWidth = 44;
+                          const maxTravel = Math.max(sliderWidth - handleWidth - 12, 0);
+                          return acceptSwipeProgress * maxTravel;
+                        })(),
+                      }}
+                      onMouseDown={(e) => handleAcceptSwipeStart(e.clientX)}
+                      onTouchStart={(e) => handleAcceptSwipeStart(e.touches[0].clientX)}
+                      onMouseMove={(e) => {
+                        if (acceptSwipeActiveRef.current) handleAcceptSwipeMove(e.clientX);
+                      }}
+                      onTouchMove={(e) => handleAcceptSwipeMove(e.touches[0].clientX)}
+                      onMouseUp={handleAcceptSwipeEnd}
+                      onTouchEnd={handleAcceptSwipeEnd}
+                      onTouchCancel={handleAcceptSwipeEnd}
                       disabled={isAcceptingOrder}
-                      className="w-full bg-white border-2 border-red-500 text-red-600 py-3 rounded-lg font-semibold text-sm hover:bg-red-50 transition-colors disabled:opacity-60">
-                      Reject Order
-                    </button>
+                    >
+                      <ChevronRight className="w-6 h-6 stroke-[3]" />
+                    </motion.button>
                   </div>
+
+                  <button
+                    onClick={handleRejectClick}
+                    disabled={isAcceptingOrder}
+                    className="w-full py-3 rounded-2xl font-bold text-[13px] text-gray-400 hover:text-red-500 transition-colors uppercase tracking-widest disabled:opacity-50"
+                  >
+                    Decline Order
+                  </button>
                 </div>
               </motion.div>
             </motion.div>
@@ -2443,7 +2302,7 @@ export default function OrdersMain() {
         {showRejectPopup && (
           <>
             <motion.div
-              className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4"
+              className="fixed inset-0 z-[10001] bg-black/60 flex items-center justify-center p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -2534,7 +2393,7 @@ export default function OrdersMain() {
         {showCancelPopup && orderToCancel && (
           <>
             <motion.div
-              className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4"
+              className="fixed inset-0 z-[10001] bg-black/60 flex items-center justify-center p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
