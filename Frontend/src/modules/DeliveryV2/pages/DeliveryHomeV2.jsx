@@ -22,8 +22,8 @@ import HistoryV2 from '@/modules/DeliveryV2/pages/HistoryV2';
 import ProfileV2 from '@/modules/DeliveryV2/pages/ProfileV2';
 
 // Icons
-import { 
-  Bell, HelpCircle, AlertTriangle, 
+import {
+  Bell, HelpCircle, AlertTriangle,
   Wallet, History, User as UserIcon, LayoutGrid,
   Plus, Minus, Navigation2, Target, Play, CheckCircle2, Clock, ChevronDown,
   Contact, Package, Ambulance, Shield, ShieldCheck
@@ -39,12 +39,12 @@ function BottomPopup({ isOpen, onClose, title, children, maxHeight = "85vh" }) {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[600] flex items-end justify-center">
-      <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
-        onClick={onClose} 
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
       />
       <motion.div
         initial={{ y: "100%" }}
@@ -62,7 +62,7 @@ function BottomPopup({ isOpen, onClose, title, children, maxHeight = "85vh" }) {
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">{title}</h2>
             <button onClick={onClose} className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all active:scale-95">
-               <AlertTriangle className="w-5 h-5" />
+              <AlertTriangle className="w-5 h-5" />
             </button>
           </div>
           {children}
@@ -87,7 +87,7 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
 
   const [incomingOrder, setIncomingOrder] = useState(null);
   const [currentTab, setCurrentTab] = useState(tab);
-  
+
   // Track URL changes (Prop changes) to update sub-page content
   useEffect(() => {
     setCurrentTab(tab);
@@ -102,7 +102,7 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
     contactPolice: "",
     insurance: "",
   });
-  
+
   const [isModalMinimized, setIsModalMinimized] = useState(false);
   const [eta, setEta] = useState(null);
   const lastLocationSentAt = useRef(0);
@@ -122,22 +122,22 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
   const handleLogout = useCallback(() => {
     if (isLoggingOut.current) return;
     isLoggingOut.current = true;
-    
+
     // 1. Clear tokens and state
     localStorage.removeItem('delivery_accessToken');
     localStorage.removeItem('delivery_refreshToken');
     localStorage.removeItem('delivery_authenticated');
     localStorage.removeItem('delivery_user');
-    
+
     // 2. Alert user and redirect
     toast.error("Session Expired", { description: "Please log in again." });
     navigate("/food/delivery/login", { replace: true });
 
     // Optional: Full refresh after delay ONLY if we're not already on login
     setTimeout(() => {
-       if (!window.location.pathname.includes('/login')) {
-          window.location.reload();
-       }
+      if (!window.location.pathname.includes('/login')) {
+        window.location.reload();
+      }
     }, 1500);
   }, [navigate]);
 
@@ -157,11 +157,11 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
     let interval;
     if (isSimMode && simPath.length > 1 && simIndex < simPath.length - 1) {
       console.log('[SimAuto] Glide Active √');
-      
+
       interval = setInterval(() => {
         setSimProgress(prev => {
           const nextProgress = prev + 0.08; // 8% movement per tick
-          
+
           if (nextProgress >= 1) {
             setSimIndex(idx => idx + 1);
             return 0; // Move to next segment
@@ -186,30 +186,30 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
             const now = Date.now();
             if (now - lastSimUpdateSentAt.current >= 2000) { // Reduced to 2s to match backend throttle
               lastSimUpdateSentAt.current = now;
-              const payload = { 
-                lat, 
-                lng, 
-                heading, 
+              const payload = {
+                lat,
+                lng,
+                heading,
                 orderId: activeOrder?.orderId || activeOrder?._id,
                 status: 'on_the_way',
                 polyline: activePolyline // Include polyline in every stream update for resilience
               };
               // A. HTTP Backup
-              deliveryAPI.updateLocation(lat, lng, true, { heading }).catch(() => {});
-              
+              deliveryAPI.updateLocation(lat, lng, true, { heading }).catch(() => { });
+
               // B. SOCKET LIVE (SILKY SMOOTH)
               if (payload.orderId) emitLocation(payload);
 
               // C. FIREBASE REALTIME DB (Persistent Route for Customer Map)
               if (payload.orderId) {
-                writeOrderTracking(payload.orderId, { 
-                  lat, 
-                  lng, 
-                  heading, 
+                writeOrderTracking(payload.orderId, {
+                  lat,
+                  lng,
+                  heading,
                   polyline: activePolyline,
                   status: tripStatus,
                   eta: eta // Publish live ETA to Firebase
-                }).catch(() => {});
+                }).catch(() => { });
               }
             }
           }
@@ -267,7 +267,7 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
         const response = await deliveryAPI.getCurrentDelivery();
         const rawData = response?.data?.data?.activeOrder || response?.data?.data;
         const serverData = (rawData && (rawData._id || rawData.orderId)) ? rawData : null;
-        
+
         if (serverData) {
           // Robust location mapping (Same as acceptOrder logic)
           const getLoc = (ref, keysLat, keysLng) => {
@@ -288,11 +288,11 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
             return null;
           };
 
-          const resLoc = getLoc(serverData.restaurantId, ['latitude', 'lat'], ['longitude', 'lng']) || 
-                         getLoc(serverData, ['restaurant_lat', 'restaurantLat', 'latitude'], ['restaurant_lng', 'restaurantLng', 'longitude']);
-                         
-          const cusLoc = getLoc(serverData.deliveryAddress, ['latitude', 'lat'], ['longitude', 'lng']) || 
-                         getLoc(serverData, ['customer_lat', 'customerLat', 'latitude'], ['customer_lng', 'customerLng', 'longitude']);
+          const resLoc = getLoc(serverData.restaurantId, ['latitude', 'lat'], ['longitude', 'lng']) ||
+            getLoc(serverData, ['restaurant_lat', 'restaurantLat', 'latitude'], ['restaurant_lng', 'restaurantLng', 'longitude']);
+
+          const cusLoc = getLoc(serverData.deliveryAddress, ['latitude', 'lat'], ['longitude', 'lng']) ||
+            getLoc(serverData, ['customer_lat', 'customerLat', 'latitude'], ['customer_lng', 'customerLng', 'longitude']);
 
           const syncedOrder = {
             ...serverData,
@@ -301,7 +301,7 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
           };
 
           setActiveOrder(syncedOrder);
-          
+
           const backendStatus = serverData.deliveryStatus || serverData.orderState?.status || serverData.orderStatus || serverData.status;
           const currentPhase = serverData.deliveryState?.currentPhase;
 
@@ -319,22 +319,22 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
         } else {
           clearActiveOrder();
         }
-      } catch (err) { 
-        console.error('Order Sync Failed:', err); 
+      } catch (err) {
+        console.error('Order Sync Failed:', err);
         clearActiveOrder();
       }
     };
     syncWithServer();
   }, []); // Only on mount to stabilize state
-  
+
   // 1.5 Professional Unified ETA Calculation Hook
   useEffect(() => {
     // If we have distance, calculate ETA. Fallback to 8m/s (28km/h) avg if GPS speed is unknown.
     if (distanceToTarget != null && distanceToTarget !== Infinity) {
-      const avgSpeed = rollingSpeedRef.current.length > 0 
-        ? rollingSpeedRef.current.reduce((a, b) => a + b, 0) / rollingSpeedRef.current.length 
+      const avgSpeed = rollingSpeedRef.current.length > 0
+        ? rollingSpeedRef.current.reduce((a, b) => a + b, 0) / rollingSpeedRef.current.length
         : 8;
-      
+
       setEta(calculateETA(distanceToTarget, avgSpeed));
     } else {
       setEta(null);
@@ -343,7 +343,7 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
 
   // 2. Online/Offline Status Sync (Low Frequency)
   useEffect(() => {
-    deliveryAPI.updateOnlineStatus(isOnline).catch(() => {});
+    deliveryAPI.updateOnlineStatus(isOnline).catch(() => { });
   }, [isOnline]);
 
   // 3. Location logic (Smart Frequency Tracking)
@@ -351,24 +351,24 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
     if (!isOnline) {
       return;
     }
-    
+
     const watchId = navigator.geolocation.watchPosition((pos) => {
       // CRITICAL: In Simulation Mode, we disable actual GPS to prevent overwriting our test position
       if (isSimMode) return;
-      
+
       const { latitude: lat, longitude: lng, heading, speed } = pos.coords;
       const now = Date.now();
-      
+
       const currentRiderPos = { lat, lng, heading: heading || 0 };
       setRiderLocation(currentRiderPos);
-      
+
       // Calculate Rolling Average Speed for Smart ETA
       if (speed && speed > 0) {
         rollingSpeedRef.current = [...rollingSpeedRef.current.slice(-4), speed]; // keep last 5 points
       }
-      
-      const avgSpeed = rollingSpeedRef.current.length > 0 
-        ? rollingSpeedRef.current.reduce((a, b) => a + b, 0) / rollingSpeedRef.current.length 
+
+      const avgSpeed = rollingSpeedRef.current.length > 0
+        ? rollingSpeedRef.current.reduce((a, b) => a + b, 0) / rollingSpeedRef.current.length
         : speed || 0;
 
       // ETA update is now handled by a separate globally-synchronized effect
@@ -392,17 +392,17 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
       }
 
       // Check threshold for Sync (distance-based or 7s time-based)
-      const distMoved = lastCoordRef.current 
-        ? getHaversineDistance(lat, lng, lastCoordRef.current.lat, lastCoordRef.current.lng) 
+      const distMoved = lastCoordRef.current
+        ? getHaversineDistance(lat, lng, lastCoordRef.current.lat, lastCoordRef.current.lng)
         : 1000; // assume huge distance if first update
 
       if (distMoved >= 25 || (now - lastLocationSentAt.current >= 7000)) {
         lastLocationSentAt.current = now;
         lastCoordRef.current = { lat, lng };
-        
-        const payload = { 
-          lat, 
-          lng, 
+
+        const payload = {
+          lat,
+          lng,
           heading: heading || 0,
           speed: speed || 0,
           accuracy: pos.coords.accuracy,
@@ -412,11 +412,11 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
         };
 
         // A. HTTP Backup
-        deliveryAPI.updateLocation(lat, lng, true, { 
+        deliveryAPI.updateLocation(lat, lng, true, {
           heading: heading || 0,
           speed: speed || 0,
-          accuracy: pos.coords.accuracy 
-        }).catch(() => {});
+          accuracy: pos.coords.accuracy
+        }).catch(() => { });
 
         // B. SOCKET LIVE (SILKY SMOOTH)
         if (payload.orderId) emitLocation(payload);
@@ -430,15 +430,15 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
             polyline: activePolyline,
             status: tripStatus,
             eta: eta // Publish live ETA to Firebase for customer
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
-    }, () => toast.error('GPS Needed!'), { 
+    }, () => toast.error('GPS Needed!'), {
       enableHighAccuracy: true,
       maximumAge: 0,
       timeout: 5000
     });
-    
+
     return () => navigator.geolocation.clearWatch(watchId);
   }, [isOnline, setRiderLocation, isSimMode]);
 
@@ -448,21 +448,21 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
   // and keeps the Delivery Partner "online" in the backend.
   useEffect(() => {
     if (!isOnline) return;
-    
+
     const pingInterval = setInterval(() => {
       const now = Date.now();
       // If no natural GPS update happened in the last 15 seconds, force a ping
       if (now - lastLocationSentAt.current >= 15000 && lastCoordRef.current) {
         lastLocationSentAt.current = now;
         deliveryAPI.updateLocation(
-          lastCoordRef.current.lat, 
-          lastCoordRef.current.lng, 
-          true, 
+          lastCoordRef.current.lat,
+          lastCoordRef.current.lng,
+          true,
           { heading: 0, speed: 0, accuracy: null }
-        ).catch(() => {});
+        ).catch(() => { });
       }
     }, 10000); // Check every 10 seconds
-    
+
     return () => clearInterval(pingInterval);
   }, [isOnline]);
 
@@ -558,9 +558,9 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
   const handleCenterMap = () => {
     if (mapRef.current && useDeliveryStore.getState().riderLocation) {
       const loc = useDeliveryStore.getState().riderLocation;
-      mapRef.current.panTo({ 
-        lat: parseFloat(loc.lat || loc.latitude), 
-        lng: parseFloat(loc.lng || loc.longitude) 
+      mapRef.current.panTo({
+        lat: parseFloat(loc.lat || loc.latitude),
+        lng: parseFloat(loc.lng || loc.longitude)
       });
     }
   };
@@ -575,226 +575,230 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
     <div className="relative h-screen w-full bg-white text-gray-900 overflow-hidden flex flex-col">
       {/* ─── 1. TOP HEADER (Ultra Premium Minimalist) ─── */}
       {currentTab !== 'history' && (
-      <div className="absolute top-0 inset-x-0 z-[200] safe-top pointer-events-none">
-        
-        {/* Main Floating Dock */}
-        <div className="px-4 pt-4 pointer-events-auto">
-          <div className="bg-[#111111]/95 backdrop-blur-md rounded-full p-1.5 flex items-center justify-between border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
-             <div className="flex items-center gap-3 pl-1">
-               <div 
+        <div className="absolute top-0 inset-x-0 z-[200] safe-top pointer-events-none">
+
+          {/* Main Floating Dock */}
+          <div className="px-4 pt-4 pointer-events-auto">
+            <div className="bg-[#111111]/95 backdrop-blur-md rounded-full p-1.5 flex items-center justify-between border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+              <div className="flex items-center gap-3 pl-1">
+                <div
                   onClick={() => navigate('/food/delivery/profile')}
                   className="w-10 h-10 rounded-full overflow-hidden cursor-pointer active:scale-95 transition-all bg-[#222]"
-               >
+                >
                   <img src={profileImage || "https://i.ibb.co/3m2Yh7r/SwitchEats-Brand-Image.png"} alt="Profile" className="w-full h-full object-cover" />
-               </div>
-               
-               <button 
-                 onClick={async () => {
-                   const nextState = !isOnline;
-                   toggleOnline(); 
-                   if (nextState) {
+                </div>
+
+                <button
+                  onClick={async () => {
+                    const nextState = !isOnline;
+                    toggleOnline();
+                    if (nextState) {
                       navigator.geolocation.getCurrentPosition((pos) => {
-                          deliveryAPI.updateLocation(pos.coords.latitude, pos.coords.longitude, true).catch(() => {});
+                        deliveryAPI.updateLocation(pos.coords.latitude, pos.coords.longitude, true).catch(() => { });
                       }, (err) => console.warn('Online sync position failed:', err), { enableHighAccuracy: true });
-                   } else {
-                      deliveryAPI.updateOnlineStatus(false).catch(() => {});
-                   }
-                 }}
-                 className={`relative w-[110px] h-[34px] rounded-full p-1 transition-all duration-300 flex items-center ${isOnline ? 'bg-[#10b981]' : 'bg-[#2a2a2a]'}`}
-               >
-                 <div className={`relative z-10 flex items-center justify-between w-full px-2.5 text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'text-black' : 'text-gray-400'}`}>
-                   <span className={isOnline ? 'opacity-100' : 'opacity-0'}>Online</span>
-                   <span className={!isOnline ? 'opacity-100' : 'opacity-0'}>Offline</span>
-                 </div>
-                 <motion.div 
-                   initial={false}
-                   animate={{ x: isOnline ? 76 : 0 }} 
-                   className={`absolute left-1 w-[26px] h-[26px] rounded-full shadow-sm flex items-center justify-center ${isOnline ? 'bg-white' : 'bg-[#111]'}`} 
-                 />
-               </button>
-             </div>
-             
-             <div className="flex items-center gap-1 pr-1.5">
-               <button onClick={() => setShowEmergencyPopup(true)} className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 active:scale-90 transition-transform hover:text-white"><AlertTriangle className="w-[20px] h-[20px]" /></button>
-               <button onClick={() => navigate('/food/delivery/help/id-card')} className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 active:scale-90 transition-transform hover:text-white"><Contact className="w-[20px] h-[20px]" /></button>
-               <button onClick={() => navigate('/food/delivery/notifications')} className="relative w-10 h-10 rounded-full flex items-center justify-center text-gray-400 active:scale-90 transition-transform hover:text-white">
-                 <Bell className="w-[20px] h-[20px]" />
-                 {notificationUnreadCount > 0 && <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 rounded-full bg-[#ef4444] border-2 border-[#111]" />}
-               </button>
-             </div>
+                    } else {
+                      deliveryAPI.updateOnlineStatus(false).catch(() => { });
+                    }
+                  }}
+                  className={`relative w-[110px] h-[34px] rounded-full p-1 transition-all duration-300 flex items-center ${isOnline ? 'bg-[#10b981]' : 'bg-[#2a2a2a]'}`}
+                >
+                  <div className={`relative z-10 flex items-center justify-between w-full px-2.5 text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'text-black' : 'text-gray-400'}`}>
+                    <span className={isOnline ? 'opacity-100' : 'opacity-0'}>Online</span>
+                    <span className={!isOnline ? 'opacity-100' : 'opacity-0'}>Offline</span>
+                  </div>
+                  <motion.div
+                    initial={false}
+                    animate={{ x: isOnline ? 76 : 0 }}
+                    className={`absolute left-1 w-[26px] h-[26px] rounded-full shadow-sm flex items-center justify-center ${isOnline ? 'bg-white' : 'bg-[#111]'}`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1 pr-1.5">
+                <button onClick={() => setShowEmergencyPopup(true)} className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 active:scale-90 transition-transform hover:text-white"><AlertTriangle className="w-[20px] h-[20px]" /></button>
+                <button onClick={() => navigate('/food/delivery/help/id-card')} className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 active:scale-90 transition-transform hover:text-white"><Contact className="w-[20px] h-[20px]" /></button>
+                <button onClick={() => navigate('/food/delivery/notifications')} className="relative w-10 h-10 rounded-full flex items-center justify-center text-gray-400 active:scale-90 transition-transform hover:text-white">
+                  <Bell className="w-[20px] h-[20px]" />
+                  {notificationUnreadCount > 0 && <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 rounded-full bg-[#ef4444] border-2 border-[#111]" />}
+                </button>
+              </div>
+            </div>
           </div>
+
+          {/* ─── LIVE STATUS / PROGRESS BADGE ─── */}
+          <AnimatePresence>
+            {currentTab === 'feed' && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="px-4 mt-3 pointer-events-auto"
+              >
+                {activeOrder ? (
+                  <div className="grid grid-cols-2 gap-3 w-full">
+                    <div className="bg-[#111111]/95 backdrop-blur-md rounded-[24px] p-4 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex flex-col justify-between h-[100px]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-[#f97316]/20 flex items-center justify-center">
+                          <Navigation2 className="w-3.5 h-3.5 text-[#f97316] rotate-45" />
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Distance</span>
+                      </div>
+                      <div className="flex items-baseline gap-1 mt-auto">
+                        <span className="text-3xl font-bold text-white tracking-tight leading-none">
+                          {distanceToTarget && distanceToTarget !== Infinity ? (distanceToTarget / 1000).toFixed(1) : '--'}
+                        </span>
+                        <span className="text-[13px] text-gray-500 font-medium">km</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#111111]/95 backdrop-blur-md rounded-[24px] p-4 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex flex-col justify-between h-[100px]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-[#10b981]/20 flex items-center justify-center">
+                          <Clock className="w-3.5 h-3.5 text-[#10b981]" />
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Arrival</span>
+                      </div>
+                      <div className="flex items-baseline gap-1 mt-auto">
+                        <span className="text-3xl font-bold text-white tracking-tight leading-none">
+                          {eta ? String(eta) : '--'}
+                        </span>
+                        <span className="text-[13px] text-gray-500 font-medium">min</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`overflow-hidden rounded-[24px] p-4 flex items-center gap-4 transition-all duration-300 ${isOnline ? 'bg-[#111111]/95 border border-white/10' : 'bg-[#111111]/90 border border-white/5'} backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.4)]`}>
+                    <div className="relative flex items-center justify-center shrink-0">
+                      <div className={`w-3.5 h-3.5 rounded-full ${isOnline ? 'bg-[#10b981]' : 'bg-gray-600'}`} />
+                      {isOnline && <div className="absolute w-full h-full bg-[#10b981] rounded-full animate-ping opacity-60" />}
+                    </div>
+
+                    <div className="flex flex-col">
+                      <h3 className={`font-semibold text-[15px] tracking-tight leading-none mb-1.5 ${isOnline ? 'text-white' : 'text-gray-400'}`}>
+                        {isOnline ? 'Finding orders near you' : 'You are offline'}
+                      </h3>
+                      <p className="text-gray-500 text-[13px] font-medium leading-none">
+                        {isOnline ? 'Keep the app open to receive requests' : 'Go online to start earning'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-
-        {/* ─── LIVE STATUS / PROGRESS BADGE ─── */}
-        <AnimatePresence>
-          {currentTab === 'feed' && (
-            <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="px-4 mt-3 pointer-events-auto"
-            >
-              {activeOrder ? (
-                <div className="grid grid-cols-2 gap-3 w-full">
-                  <div className="bg-[#111111]/95 backdrop-blur-md rounded-[24px] p-4 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex flex-col justify-between h-[100px]">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-[#f97316]/20 flex items-center justify-center">
-                        <Navigation2 className="w-3.5 h-3.5 text-[#f97316] rotate-45" />
-                      </div>
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Distance</span>
-                    </div>
-                    <div className="flex items-baseline gap-1 mt-auto">
-                      <span className="text-3xl font-bold text-white tracking-tight leading-none">
-                        {distanceToTarget && distanceToTarget !== Infinity ? (distanceToTarget / 1000).toFixed(1) : '--'}
-                      </span>
-                      <span className="text-[13px] text-gray-500 font-medium">km</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#111111]/95 backdrop-blur-md rounded-[24px] p-4 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex flex-col justify-between h-[100px]">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-[#10b981]/20 flex items-center justify-center">
-                         <Clock className="w-3.5 h-3.5 text-[#10b981]" />
-                      </div>
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Arrival</span>
-                    </div>
-                    <div className="flex items-baseline gap-1 mt-auto">
-                      <span className="text-3xl font-bold text-white tracking-tight leading-none">
-                        {eta ? String(eta) : '--'}
-                      </span>
-                      <span className="text-[13px] text-gray-500 font-medium">min</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className={`overflow-hidden rounded-[24px] p-4 flex items-center gap-4 transition-all duration-300 ${isOnline ? 'bg-[#111111]/95 border border-white/10' : 'bg-[#111111]/90 border border-white/5'} backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.4)]`}>
-                  <div className="relative flex items-center justify-center shrink-0">
-                    <div className={`w-3.5 h-3.5 rounded-full ${isOnline ? 'bg-[#10b981]' : 'bg-gray-600'}`} />
-                    {isOnline && <div className="absolute w-full h-full bg-[#10b981] rounded-full animate-ping opacity-60" />}
-                  </div>
-                  
-                  <div className="flex flex-col">
-                    <h3 className={`font-semibold text-[15px] tracking-tight leading-none mb-1.5 ${isOnline ? 'text-white' : 'text-gray-400'}`}>
-                      {isOnline ? 'Finding orders near you' : 'You are offline'}
-                    </h3>
-                    <p className="text-gray-500 text-[13px] font-medium leading-none">
-                      {isOnline ? 'Keep the app open to receive requests' : 'Go online to start earning'}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
       )}
 
       {/* ─── 2. MAIN CONTENT ─── */}
       <div className={`flex-1 relative overflow-y-auto ${currentTab === 'history' ? 'pt-0' : 'pt-[120px]'} no-scrollbar`}>
-         {currentTab === 'feed' ? (
-           <div className="absolute inset-0 top-[-120px]">
-             <LiveMap 
-               onMapLoad={(m) => mapRef.current = m}
-               onMapClick={handleMapClick}
-               onPathReceived={setSimPath}
-               onPolylineReceived={(poly) => {
-                 setActivePolyline(poly);
-                 // If we have an order, push the INITIAL polyline to Firebase immediately for the customer
-                 const orderId = activeOrder?.orderId || activeOrder?._id;
-                 if (orderId && poly) {
-                   writeOrderTracking(orderId, { polyline: poly, status: tripStatus, eta: eta }).catch(() => {});
-                 }
-               }}
-               zoom={zoom}
-             />
-             
-             {/* SIMULATION INDICATOR (Removed from top) */}
+        {currentTab === 'feed' ? (
+          <div className="absolute inset-0 top-[-120px]">
+            <LiveMap
+              onMapLoad={(m) => mapRef.current = m}
+              onMapClick={handleMapClick}
+              onPathReceived={setSimPath}
+              onPolylineReceived={(poly) => {
+                setActivePolyline(poly);
+                // If we have an order, push the INITIAL polyline to Firebase immediately for the customer
+                const orderId = activeOrder?.orderId || activeOrder?._id;
+                if (orderId && poly) {
+                  writeOrderTracking(orderId, { polyline: poly, status: tripStatus, eta: eta }).catch(() => { });
+                }
+              }}
+              zoom={zoom}
+            />
 
-             <div className={`absolute right-4 transition-all duration-500 flex flex-col items-end gap-3 z-[120] pointer-events-none ${isModalMinimized && (activeOrder || incomingOrder || showVerification) ? 'bottom-[190px]' : 'bottom-[110px]'}`}>
-                
-                {/* Compact Simulation Pill */}
-                <AnimatePresence>
-                  {isSimMode && (
-                    <motion.div 
-                      initial={{ opacity: 0, x: 20, scale: 0.9 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      className="bg-[#111111]/90 backdrop-blur-md rounded-full p-1.5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] pointer-events-auto flex items-center gap-2 pr-2"
-                    >
-                       <div className="w-9 h-9 bg-orange-500/20 rounded-full flex items-center justify-center animate-pulse border border-orange-500/30 shrink-0">
-                          <Play className="w-3.5 h-3.5 text-orange-400 fill-current ml-0.5" />
-                       </div>
-                       <div className="flex flex-col pr-1">
-                          <span className="text-orange-400 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Auto-Nav</span>
-                          <span className="text-white text-[9px] font-bold tracking-wider opacity-80 leading-none">Simulating...</span>
-                       </div>
-                       <button onClick={() => setIsSimMode(false)} className="w-8 h-8 ml-1 bg-white/5 active:bg-white/10 hover:bg-red-500/20 group rounded-full flex items-center justify-center border border-white/10 transition-all active:scale-90 shrink-0">
-                          <div className="w-2.5 h-2.5 bg-gray-400 group-hover:bg-red-500 rounded-[2px] transition-colors" />
-                       </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+            {/* SIMULATION INDICATOR (Removed from top) */}
 
-                {/* Zoom Controls */}
-                <div className="flex flex-col bg-[#111111]/90 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden pointer-events-auto">
-                   <button onClick={() => setZoom(z => Math.min(22, z + 1))} className="w-12 h-12 flex items-center justify-center hover:bg-white/10 border-b border-white/10 text-gray-300 active:bg-white/20 transition-colors" aria-label="Zoom in"><Plus className="w-5 h-5 stroke-[2.75]" /></button>
-                   <button onClick={() => setZoom(z => Math.max(8, z - 1))} className="w-12 h-12 flex items-center justify-center hover:bg-white/10 text-gray-300 active:bg-white/20 transition-colors" aria-label="Zoom out"><Minus className="w-5 h-5 stroke-[2.75]" /></button>
-                </div>
-                
-                {/* Simulation Mode Toggle */}
-                <button 
-                  onClick={() => {
-                    const nextSimState = !isSimMode;
-                    setIsSimMode(nextSimState);
-                    
-                    if (nextSimState) {
-                      toast.warning('Simulation Mode Active');
-                      // Initialize position if null
-                      if (!useDeliveryStore.getState().riderLocation && activeOrder) {
-                        const target = activeOrder.restaurantLocation || activeOrder.customerLocation;
-                        if (target) {
-                          setRiderLocation({ 
-                            lat: parseFloat(target.lat || target.latitude) + 0.001, 
-                            lng: parseFloat(target.lng || target.longitude) + 0.001, 
-                            heading: 0 
-                          });
-                        }
+            <div className={`absolute right-4 transition-all duration-500 flex flex-col items-end gap-3 z-[120] pointer-events-none ${
+               (isModalMinimized && (activeOrder || incomingOrder || showVerification)) || (!isModalMinimized && tripStatus === 'REACHED_DROP') 
+                 ? 'bottom-[200px]' 
+                 : 'bottom-[110px]'
+            }`}>
+
+              {/* Compact Simulation Pill */}
+              <AnimatePresence>
+                {isSimMode && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20, scale: 0.9 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="bg-[#111111]/90 backdrop-blur-md rounded-full p-1.5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] pointer-events-auto flex items-center gap-2 pr-2"
+                  >
+                    <div className="w-9 h-9 bg-orange-500/20 rounded-full flex items-center justify-center animate-pulse border border-orange-500/30 shrink-0">
+                      <Play className="w-3.5 h-3.5 text-orange-400 fill-current ml-0.5" />
+                    </div>
+                    <div className="flex flex-col pr-1">
+                      <span className="text-orange-400 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Auto-Nav</span>
+                      <span className="text-white text-[9px] font-bold tracking-wider opacity-80 leading-none">Simulating...</span>
+                    </div>
+                    <button onClick={() => setIsSimMode(false)} className="w-8 h-8 ml-1 bg-white/5 active:bg-white/10 hover:bg-red-500/20 group rounded-full flex items-center justify-center border border-white/10 transition-all active:scale-90 shrink-0">
+                      <div className="w-2.5 h-2.5 bg-gray-400 group-hover:bg-red-500 rounded-[2px] transition-colors" />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Zoom Controls */}
+              <div className="flex flex-col bg-[#111111]/90 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden pointer-events-auto">
+                <button onClick={() => setZoom(z => Math.min(22, z + 1))} className="w-12 h-12 flex items-center justify-center hover:bg-white/10 border-b border-white/10 text-gray-300 active:bg-white/20 transition-colors" aria-label="Zoom in"><Plus className="w-5 h-5 stroke-[2.75]" /></button>
+                <button onClick={() => setZoom(z => Math.max(8, z - 1))} className="w-12 h-12 flex items-center justify-center hover:bg-white/10 text-gray-300 active:bg-white/20 transition-colors" aria-label="Zoom out"><Minus className="w-5 h-5 stroke-[2.75]" /></button>
+              </div>
+
+              {/* Simulation Mode Toggle */}
+              <button
+                onClick={() => {
+                  const nextSimState = !isSimMode;
+                  setIsSimMode(nextSimState);
+
+                  if (nextSimState) {
+                    toast.warning('Simulation Mode Active');
+                    // Initialize position if null
+                    if (!useDeliveryStore.getState().riderLocation && activeOrder) {
+                      const target = activeOrder.restaurantLocation || activeOrder.customerLocation;
+                      if (target) {
+                        setRiderLocation({
+                          lat: parseFloat(target.lat || target.latitude) + 0.001,
+                          lng: parseFloat(target.lng || target.longitude) + 0.001,
+                          heading: 0
+                        });
                       }
                     }
-                  }}
-                  className={`w-12 h-12 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-center border transition-all pointer-events-auto active:scale-90 ${isSimMode ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' : 'bg-[#111111]/90 backdrop-blur-md border-white/10 text-emerald-400 hover:bg-white/10'}`}
-                >
-                  <div className={`w-7 h-7 rounded-full border-[1.5px] flex items-center justify-center ${isSimMode ? 'border-orange-400' : 'border-emerald-400'}`}>
-                    <Play className={`w-3.5 h-3.5 fill-current ml-0.5 ${isSimMode ? 'animate-pulse' : ''}`} />
-                  </div>
-                </button>
+                  }
+                }}
+                className={`w-12 h-12 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-center border transition-all pointer-events-auto active:scale-90 ${isSimMode ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' : 'bg-[#111111]/90 backdrop-blur-md border-white/10 text-emerald-400 hover:bg-white/10'}`}
+              >
+                <div className={`w-7 h-7 rounded-full border-[1.5px] flex items-center justify-center ${isSimMode ? 'border-orange-400' : 'border-emerald-400'}`}>
+                  <Play className={`w-3.5 h-3.5 fill-current ml-0.5 ${isSimMode ? 'animate-pulse' : ''}`} />
+                </div>
+              </button>
 
-                {/* Free Navigate */}
-                <button 
-                   onClick={() => mapRef.current?.setOptions({ gestureHandling: 'greedy' })} 
-                   className="w-12 h-12 bg-[#111111]/90 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-center text-blue-400 border border-white/10 active:scale-90 active:bg-white/20 hover:bg-white/10 transition-all pointer-events-auto"
-                >
-                  <div className="w-7 h-7 rounded-full border-[1.5px] border-blue-400 flex items-center justify-center"><Navigation2 className="w-3.5 h-3.5" /></div>
-                </button>
+              {/* Free Navigate */}
+              <button
+                onClick={() => mapRef.current?.setOptions({ gestureHandling: 'greedy' })}
+                className="w-12 h-12 bg-[#111111]/90 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-center text-blue-400 border border-white/10 active:scale-90 active:bg-white/20 hover:bg-white/10 transition-all pointer-events-auto"
+              >
+                <div className="w-7 h-7 rounded-full border-[1.5px] border-blue-400 flex items-center justify-center"><Navigation2 className="w-3.5 h-3.5" /></div>
+              </button>
 
-                {/* Center Map */}
-                <button 
-                  onClick={handleCenterMap}
-                  className="w-12 h-12 bg-[#111111]/90 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-center text-gray-300 border border-white/10 active:scale-90 active:bg-white/20 hover:bg-white/10 transition-all pointer-events-auto"
-                >
-                  <Target className="w-6 h-6" />
-                </button>
-             </div>
-           </div>
-         ) : currentTab === 'pocket' ? (
-           <PocketV2 />
-         ) : currentTab === 'history' ? (
-           <HistoryV2 />
-         ) : (
-           <ProfileV2 />
-         )}
+              {/* Center Map */}
+              <button
+                onClick={handleCenterMap}
+                className="w-12 h-12 bg-[#111111]/90 backdrop-blur-md rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-center text-gray-300 border border-white/10 active:scale-90 active:bg-white/20 hover:bg-white/10 transition-all pointer-events-auto"
+              >
+                <Target className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+        ) : currentTab === 'pocket' ? (
+          <PocketV2 />
+        ) : currentTab === 'history' ? (
+          <HistoryV2 />
+        ) : (
+          <ProfileV2 />
+        )}
 
-         {/* OVERLAYS (Persistent if active) */}
+        {/* OVERLAYS (Persistent if active) */}
       </div>
 
       {/* OVERLAYS (Persistent if active) - Outside flex container to avoid clipping and z-index issues */}
@@ -811,29 +815,29 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
             >
               <div className="w-full pointer-events-auto relative">
                 {incomingOrder && (
-                  <NewOrderModal 
-                    order={incomingOrder} 
+                  <NewOrderModal
+                    order={incomingOrder}
                     onAccept={(o) => { acceptOrder(o); setIncomingOrder(null); clearNewOrder(); }}
                     onReject={() => { setIncomingOrder(null); clearNewOrder(); }}
                     onMinimize={() => setIsModalMinimized(true)}
                   />
                 )}
                 {(tripStatus === 'PICKING_UP' || tripStatus === 'REACHED_PICKUP') && (
-                  <PickupActionModal 
-                    order={activeOrder} 
-                    status={tripStatus} 
-                    isWithinRange={isWithinRange} 
+                  <PickupActionModal
+                    order={activeOrder}
+                    status={tripStatus}
+                    isWithinRange={isWithinRange}
                     distanceToTarget={distanceToTarget}
                     eta={eta}
-                    onReachedPickup={reachPickup} 
-                    onPickedUp={(billImageUrl) => pickUpOrder(billImageUrl)} 
+                    onReachedPickup={reachPickup}
+                    onPickedUp={(billImageUrl) => pickUpOrder(billImageUrl)}
                     onMinimize={() => setIsModalMinimized(true)}
                   />
                 )}
                 {(tripStatus === 'PICKED_UP' || tripStatus === 'REACHED_DROP') && (
                   <div className="absolute inset-0 z-[120] flex items-end justify-center pointer-events-none">
                     {tripStatus === 'PICKED_UP' ? (
-                      <motion.div 
+                      <motion.div
                         initial={{ y: '100%' }}
                         animate={{ y: 0 }}
                         exit={{ y: '100%' }}
@@ -842,8 +846,8 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
                       >
                         {/* Handle / Minimize */}
                         <div className="w-full flex justify-center py-3 bg-white relative z-20">
-                          <button 
-                            onClick={() => setIsModalMinimized(true)} 
+                          <button
+                            onClick={() => setIsModalMinimized(true)}
                             className="w-12 h-1.5 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors active:scale-95"
                           />
                         </div>
@@ -852,68 +856,78 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
                           <div className="flex justify-between w-full items-center mb-8">
                             <div className="flex items-center gap-4">
                               <div className="w-16 h-16 rounded-[1.5rem] overflow-hidden border-4 border-gray-50 shadow-xl ring-1 ring-gray-100">
-                                 <img 
-                                   src={activeOrder?.user?.logo || activeOrder?.user?.profileImage || 'https://cdn-icons-png.flaticon.com/512/1275/1275302.png'} 
-                                   className="w-full h-full object-cover" 
-                                   alt="User"
-                                 />
+                                <img
+                                  src={activeOrder?.user?.logo || activeOrder?.user?.profileImage || 'https://cdn-icons-png.flaticon.com/512/1275/1275302.png'}
+                                  className="w-full h-full object-cover"
+                                  alt="User"
+                                />
                               </div>
                               <div>
-                                 <h3 className="text-gray-950 text-2xl font-black tracking-tight leading-none mb-2 underline decoration-emerald-500/30 decoration-4 underline-offset-4">Handover Drop</h3>
-                                 <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${isWithinRange ? 'bg-emerald-50 border-emerald-100' : 'bg-orange-50 border-orange-100'}`}>
-                                   <div className={`w-1.5 h-1.5 rounded-full ${isWithinRange ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`} />
-                                   <span className={`text-[10px] font-black uppercase tracking-widest ${isWithinRange ? 'text-emerald-600' : 'text-orange-500'}`}>
-                                     {isWithinRange ? 'Ready to Arrive' : `${(distanceToTarget / 1000).toFixed(1)} km • ${eta || '--'} min`}
-                                   </span>
-                                 </div>
+                                <h3 className="text-gray-950 text-2xl font-black tracking-tight leading-none mb-2 underline decoration-emerald-500/30 decoration-4 underline-offset-4">Handover Drop</h3>
+                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${isWithinRange ? 'bg-emerald-50 border-emerald-100' : 'bg-orange-50 border-orange-100'}`}>
+                                  <div className={`w-1.5 h-1.5 rounded-full ${isWithinRange ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`} />
+                                  <span className={`text-[10px] font-black uppercase tracking-widest ${isWithinRange ? 'text-emerald-600' : 'text-orange-500'}`}>
+                                    {isWithinRange ? 'Ready to Arrive' : `${(distanceToTarget / 1000).toFixed(1)} km • ${eta || '--'} min`}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
-  
+
                           {/* Customer Instructions Panel */}
                           {activeOrder?.note && (
                             <div className="w-full bg-linear-to-br from-orange-50/50 to-amber-50/50 border border-orange-100 rounded-[2rem] p-6 mb-8 flex gap-4 items-start relative overflow-hidden group">
-                               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                  <Package className="w-16 h-16" />
-                               </div>
-                               <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-orange-600 shadow-sm shrink-0 border border-orange-50 relative z-10">
-                                  <Package className="w-5 h-5" />
-                               </div>
-                               <div className="relative z-10">
-                                  <p className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] mb-1.5">Drop Message</p>
-                                  <p className="text-sm font-bold text-gray-950 leading-relaxed italic">"{activeOrder.note}"</p>
-                               </div>
+                              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                <Package className="w-16 h-16" />
+                              </div>
+                              <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-orange-600 shadow-sm shrink-0 border border-orange-50 relative z-10">
+                                <Package className="w-5 h-5" />
+                              </div>
+                              <div className="relative z-10">
+                                <p className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] mb-1.5">Drop Message</p>
+                                <p className="text-sm font-bold text-gray-950 leading-relaxed italic">"{activeOrder.note}"</p>
+                              </div>
                             </div>
                           )}
                         </div>
 
                         <div className="p-8 pt-0 pb-12 bg-white border-t border-gray-50">
                           <div className="pt-6">
-                            <ActionSlider 
-                              label="Slide to Arrive" 
-                              successLabel="Arrived ✓" 
-                              disabled={!isWithinRange} 
-                              onConfirm={reachDrop} 
-                              color="bg-emerald-600" 
+                            <ActionSlider
+                              label="Slide to Arrive"
+                              successLabel="Arrived ✓"
+                              disabled={!isWithinRange}
+                              onConfirm={reachDrop}
+                              color="bg-emerald-600"
                             />
                           </div>
                         </div>
                       </motion.div>
                     ) : (
-                      <div className="w-full bg-white p-8 pb-12 border-t border-gray-100 flex flex-col pointer-events-auto">
-                        <button 
-                          onClick={() => setShowVerification(true)} 
-                          className="w-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl shadow-emerald-500/30 rounded-3xl py-6 font-black text-[13px] tracking-[0.2em] transform transition-all active:scale-95 flex items-center justify-center gap-4"
-                        >
-                          <CheckCircle2 className="w-6 h-6" /> VERIFY & COMPLETE
-                        </button>
+                      <div className="absolute bottom-[96px] left-5 right-5 pointer-events-auto z-[250] flex justify-center">
+                         <motion.div 
+                           initial={{ y: 50, opacity: 0 }}
+                           animate={{ y: 0, opacity: 1 }}
+                           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                           className="w-full max-w-[400px] bg-[#111111]/95 backdrop-blur-xl border border-white/10 p-2 rounded-[32px] shadow-[0_24px_50px_rgba(0,0,0,0.8)]"
+                         >
+                            <button 
+                              onClick={() => setShowVerification(true)} 
+                              className="w-full bg-gradient-to-br from-emerald-400 to-emerald-600 border border-emerald-400/30 text-white rounded-[26px] py-4 font-black text-[13px] tracking-[0.2em] transform transition-all active:scale-[0.98] flex items-center justify-center gap-3 relative overflow-hidden group shadow-[0_8px_20px_rgba(16,185,129,0.3)]"
+                            >
+                              <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                              <CheckCircle2 className="w-[20px] h-[20px] relative z-10 drop-shadow-md" /> 
+                              <span className="relative z-10 drop-shadow-md">VERIFY & COMPLETE</span>
+                            </button>
+                         </motion.div>
                       </div>
                     )}
                   </div>
                 )}
                 {showVerification && tripStatus !== 'COMPLETED' && (
-                  <DeliveryVerificationModal 
-                    order={activeOrder} 
+                  <DeliveryVerificationModal
+                    order={activeOrder}
                     onComplete={async (otp) => {
                       const res = await completeDelivery(otp);
                       setShowVerification(false);
@@ -931,29 +945,29 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
 
       {/* ─── MODALS RESTORED FROM OLD UI ─── */}
       <BottomPopup isOpen={showEmergencyPopup} title="Emergency Help" onClose={() => setShowEmergencyPopup(false)}>
-         <div className="grid gap-4 py-2">
-           {emergencyOptions.map((opt, i) => (
-             <button 
-               key={i} 
-               onClick={() => {
-                  const rawNum = opt.phone || "";
-                  const num = String(rawNum).replace(/[^\d+]/g, '');
-                  if (num.length >= 3) {
-                    window.location.href = `tel:${num}`;
-                  } else {
-                    toast.error(`${opt.title} number not configured`);
-                  }
-               }}
-               className="flex items-center gap-5 p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 active:scale-95 transition-all text-left"
-             >
-               <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-xl">{opt.icon}</div>
-               <div>
-                 <h4 className="font-bold text-gray-900">{opt.title}</h4>
-                 <p className="text-xs text-gray-500 font-medium">{opt.subtitle}</p>
-               </div>
-             </button>
-           ))}
-         </div>
+        <div className="grid gap-4 py-2">
+          {emergencyOptions.map((opt, i) => (
+            <button
+              key={i}
+              onClick={() => {
+                const rawNum = opt.phone || "";
+                const num = String(rawNum).replace(/[^\d+]/g, '');
+                if (num.length >= 3) {
+                  window.location.href = `tel:${num}`;
+                } else {
+                  toast.error(`${opt.title} number not configured`);
+                }
+              }}
+              className="flex items-center gap-5 p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 active:scale-95 transition-all text-left"
+            >
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-xl">{opt.icon}</div>
+              <div>
+                <h4 className="font-bold text-gray-900">{opt.title}</h4>
+                <p className="text-xs text-gray-500 font-medium">{opt.subtitle}</p>
+              </div>
+            </button>
+          ))}
+        </div>
       </BottomPopup>
 
       {/* Floating Minimize/Restore Toggle - Above navbar */}
@@ -961,17 +975,20 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
         <motion.div 
            initial={{ y: 100, opacity: 0 }}
            animate={{ y: 0, opacity: 1 }}
-           className="fixed bottom-[100px] inset-x-0 z-[300] px-6"
+           className="fixed bottom-[100px] inset-x-0 z-[300] px-5"
         >
            <button 
              onClick={() => setIsModalMinimized(false)}
-             className="w-full bg-gray-900/90 text-white rounded-2xl py-4 flex items-center justify-between px-6 shadow-2xl backdrop-blur-md border border-white/10"
+             className="w-full bg-[#111111]/95 text-white rounded-[24px] p-4 flex items-center justify-between shadow-[0_16px_40px_rgba(0,0,0,0.6)] backdrop-blur-md border border-white/10 active:scale-[0.98] transition-transform"
            >
-              <div className="flex flex-col items-start gap-0.5">
-                 <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Order Action Pending</span>
-                 <span className="text-xs font-bold uppercase tracking-wider">Tap to open delivery panel</span>
+              <div className="flex flex-col items-start">
+                 <div className="flex items-center gap-2 mb-1">
+                   <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                   <span className="text-[10px] font-black uppercase tracking-widest text-orange-400 leading-none">Action Pending</span>
+                 </div>
+                 <span className="text-sm font-bold tracking-wide text-white leading-none mt-1">Open Delivery Panel</span>
               </div>
-              <div className="bg-orange-500 p-2 rounded-xl text-white">
+              <div className="w-10 h-10 bg-white/10 rounded-full text-white flex items-center justify-center border border-white/10 shrink-0 shadow-inner">
                  <Plus className="w-5 h-5" />
               </div>
            </button>
@@ -981,40 +998,40 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
       {/* ─── 3. BOTTOM NAV (Ultra Premium Minimalist Island) ─── */}
       <div className="absolute bottom-0 left-0 right-0 w-full pb-8 pt-2 flex justify-center z-[200] bg-transparent pointer-events-none">
         <div className="bg-[#111111]/95 backdrop-blur-md border border-white/10 rounded-full p-1.5 flex items-center shadow-[0_20px_40px_rgba(0,0,0,0.6)] pointer-events-auto">
-           {[
-             { id: 'feed', icon: LayoutGrid, label: 'Feed' },
-             { id: 'pocket', icon: Wallet, label: 'Pocket' },
-             { id: 'history', icon: History, label: 'History' },
-             { id: 'profile', icon: UserIcon, label: 'Profile' }
-           ].map((item) => {
-              const Icon = item.icon;
-              const isActive = currentTab === item.id;
-              return (
-                 <button 
-                   key={item.id}
-                   onClick={() => navigate(`/food/delivery/${item.id}`)} 
-                   className={`relative flex items-center justify-center h-12 transition-all duration-500 ease-out rounded-full ${isActive ? 'bg-[#222222] px-5 shadow-inner border border-white/5' : 'w-12 px-0 text-gray-500 hover:text-gray-300'}`}
-                 >
-                    <Icon className={`w-5 h-5 shrink-0 transition-all duration-500 ${isActive ? 'text-[#10b981]' : ''}`} />
-                    <AnimatePresence>
-                      {isActive && (
-                         <motion.div 
-                           key="text"
-                           initial={{ width: 0, opacity: 0 }}
-                           animate={{ width: 'auto', opacity: 1 }}
-                           exit={{ width: 0, opacity: 0 }}
-                           transition={{ duration: 0.3, ease: "easeInOut" }}
-                           className="overflow-hidden whitespace-nowrap flex items-center"
-                         >
-                           <span className="ml-2 text-[11px] font-black uppercase tracking-wider text-white">
-                             {item.label}
-                           </span>
-                         </motion.div>
-                      )}
-                    </AnimatePresence>
-                 </button>
-              )
-           })}
+          {[
+            { id: 'feed', icon: LayoutGrid, label: 'Feed' },
+            { id: 'pocket', icon: Wallet, label: 'Pocket' },
+            { id: 'history', icon: History, label: 'History' },
+            { id: 'profile', icon: UserIcon, label: 'Profile' }
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = currentTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(`/food/delivery/${item.id}`)}
+                className={`relative flex items-center justify-center h-12 transition-all duration-500 ease-out rounded-full ${isActive ? 'bg-[#222222] px-5 shadow-inner border border-white/5' : 'w-12 px-0 text-gray-500 hover:text-gray-300'}`}
+              >
+                <Icon className={`w-5 h-5 shrink-0 transition-all duration-500 ${isActive ? 'text-[#10b981]' : ''}`} />
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.div
+                      key="text"
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ width: 'auto', opacity: 1 }}
+                      exit={{ width: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="overflow-hidden whitespace-nowrap flex items-center"
+                    >
+                      <span className="ml-2 text-[11px] font-black uppercase tracking-wider text-white">
+                        {item.label}
+                      </span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
