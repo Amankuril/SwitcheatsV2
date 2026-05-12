@@ -508,84 +508,28 @@ function showForegroundNotification(payload = {}) {
     return;
   }
 
+  // Extract content from data first (backend often sends here), then notification object
   const title =
-    payload?.notification?.title ||
     payload?.data?.title ||
+    payload?.notification?.title ||
     "New notification";
   const body =
-    payload?.notification?.body ||
     payload?.data?.body ||
+    payload?.notification?.body ||
     "";
-  const image =
-    payload?.notification?.image ||
-    payload?.notification?.imageUrl ||
-    payload?.data?.image ||
-    payload?.data?.imageUrl ||
-    undefined;
 
+  // Play sound only when app is in foreground
   playPushSound(payload);
 
-  // Force system notification even when the tab is in focus
-  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-    try {
-      pushDebugLog(PUSH_DEBUG_PREFIX, "Showing browser notification from page", {
-        title,
-        body,
-        image,
-        notificationKey,
-      });
-      // Use service worker to show native system notification to ensure it bypasses focus checks
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then(registration => {
-          if (registration) {
-            registration.showNotification(title, {
-              body,
-              icon: "/favicon.ico",
-              image,
-              tag: notificationKey || undefined,
-              data: payload?.data || {},
-              requireInteraction: true,
-              vibrate: [200, 100, 200, 100, 300]
-            });
-          } else {
-            new Notification(title, {
-              body,
-              icon: "/favicon.ico",
-              image,
-              tag: notificationKey || undefined,
-              requireInteraction: true
-            });
-          }
-        }).catch(() => {
-          new Notification(title, {
-            body,
-            icon: "/favicon.ico",
-            image,
-            tag: notificationKey || undefined,
-          });
-        });
-      } else {
-        new Notification(title, {
-          body,
-          icon: "/favicon.ico",
-          image,
-          tag: notificationKey || undefined,
-        });
-      }
-    } catch (error) {
-      pushDebugWarn(PUSH_DEBUG_PREFIX, "Browser notification creation failed", {
-        error: error?.message || error,
-      });
-    }
-  }
-
-  // Still show in-app toast for immediate context if we are in focus
+  // App is in foreground - just show in-app toast, NOT system notification
+  // System notification will be handled by service worker only when app is closed/background
   if (typeof document !== "undefined" && document.visibilityState === "visible") {
     if (body) {
       toast.success(`${title}: ${body}`);
     } else {
       toast.success(title);
     }
+    pushDebugLog(PUSH_DEBUG_PREFIX, "Foreground notification shown as toast", { title, body });
   }
 }
 

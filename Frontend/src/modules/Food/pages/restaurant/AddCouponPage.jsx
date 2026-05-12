@@ -131,10 +131,7 @@ export default function AddCouponPage(props) {
             </h1>
             <p className="text-xs text-gray-500">Restaurant-sponsored offer</p>
           </div>
-          <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center">
-            <Tag className="w-4 h-4 text-gray-700" />
-          </div>
-        </div>
+                  </div>
       </div>
 
       <div className="px-4 py-4 pb-8 space-y-3 max-w-lg mx-auto">

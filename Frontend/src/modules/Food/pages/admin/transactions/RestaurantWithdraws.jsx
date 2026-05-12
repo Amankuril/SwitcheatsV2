@@ -164,8 +164,8 @@ export default function RestaurantWithdraws() {
   }
 
   const formatCurrency = (amount) => {
-    if (!amount) return '\u20B90.00'
-    return `\u20B9${parseFloat(amount).toLocaleString('en-IN', {
+    if (!amount) return 'Rs.0.00'
+    return `Rs.${parseFloat(amount).toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     })}`

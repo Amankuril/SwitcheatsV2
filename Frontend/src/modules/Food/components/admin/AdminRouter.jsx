@@ -123,8 +123,8 @@ const ReactSite = lazy(() => import("@food/pages/admin/system/ReactSite"));
 const CleanDatabase = lazy(() => import("@food/pages/admin/system/CleanDatabase"));
 const AddonActivation = lazy(() => import("@food/pages/admin/system/AddonActivation"));
 const LandingPageManagement = lazy(() => import("@food/pages/admin/system/LandingPageManagement"));
-const DiningManagement = lazy(() => import("@food/pages/admin/system/DiningManagement"));
-const DiningList = lazy(() => import("@food/pages/admin/system/DiningList"));
+// import DiningManagement from "@food/pages/admin/system/DiningManagement");
+// import DiningList from "@food/pages/admin/system/DiningList");
 const EditRestaurant = lazy(() => import("@food/pages/admin/restaurant/EditRestaurant"));
 const AdminLogin = lazy(() => import("@food/pages/admin/auth/AdminLogin"));
 const AdminSignup = lazy(() => import("@food/pages/admin/auth/AdminSignup"));
@@ -301,8 +301,8 @@ export default function AdminRouter() {
             <Route path="clean-database" element={<CleanDatabase />} />
             <Route path="addon-activation" element={<AddonActivation />} />
             <Route path="hero-banner-management" element={<LandingPageManagement />} />
-            <Route path="dining-management" element={<DiningManagement />} />
-            <Route path="dining-list" element={<DiningList />} />
+            {/* <Route path="dining-management" element={<DiningManagement />} /> */}
+            {/* <Route path="dining-list" element={<DiningList />} /> */}
           </Route>
 
           {/* TAXI ADMIN - Placeholder for future implementation */}

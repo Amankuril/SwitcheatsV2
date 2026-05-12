@@ -24,6 +24,9 @@ export default function PromotionalBanner() {
     preview: null
   })
 
+  // Get today's date for validation
+  const today = new Date().toISOString().split('T')[0]
+
   const fetchZones = useCallback(async () => {
     try {
       const response = await api.get("/food/admin/zones")
@@ -396,18 +399,20 @@ export default function PromotionalBanner() {
                 <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-100">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Start Date</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={formData.startDate}
-                      onChange={e => setFormData(p => ({...p, startDate: e.target.value}))}
+                      min={today}
+                      onChange={e => setFormData(p => ({...p, startDate: e.target.value, ...(e.target.value && !p.endDate) && { endDate: '' }}))}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">End Date</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={formData.endDate}
+                      min={formData.startDate || today}
                       onChange={e => setFormData(p => ({...p, endDate: e.target.value}))}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                     />

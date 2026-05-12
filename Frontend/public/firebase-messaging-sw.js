@@ -16,17 +16,6 @@ const getNotificationKey = (payload) =>
     payload?.data?.targetUrl || payload?.data?.link || "",
   ].join("::");
 
-async function notifyOpenClients(payload) {
-  pushDebugLog(PUSH_DEBUG_PREFIX, "Broadcasting push to open clients", { payload });
-  const windowClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
-  windowClients.forEach((client) => {
-    client.postMessage({
-      type: "push-notification-received",
-      payload,
-    });
-  });
-}
-
 function getTargetPathFromPayload(payload = {}) {
   const rawTarget =
     payload?.data?.targetUrl ||
@@ -43,35 +32,59 @@ function getTargetPathFromPayload(payload = {}) {
   }
 }
 
-async function hasVisibleClientForTarget(payload = {}) {
+// Check if there's a visible, focused client for the target module
+async function hasFocusedClientForTarget(payload = {}) {
   const windowClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
   const targetPath = getTargetPathFromPayload(payload);
   const targetRoot = `/${String(targetPath).split("/").filter(Boolean)[0] || ""}`;
-  const visibleClient = windowClients.find((client) => {
-    const isVisible = client.visibilityState === "visible" || client.focused;
-    if (!isVisible) return false;
+
+  // Find a visible and focused client that matches the target module
+  const focusedClient = windowClients.find((client) => {
     try {
       const clientUrl = new URL(client.url);
-      if (targetRoot === "/" || !targetRoot) {
-        return true;
-      }
+      // Client must be visible AND focused
+      const isVisibleAndFocused = client.visibilityState === "visible" && client.focused;
+      if (!isVisibleAndFocused) return false;
+      // Check if client URL matches target module
+      if (targetRoot === "/" || !targetRoot) return true;
       return clientUrl.pathname.startsWith(targetRoot);
     } catch {
       return false;
     }
   });
-  pushDebugLog(PUSH_DEBUG_PREFIX, "Visible client check", {
+
+  pushDebugLog(PUSH_DEBUG_PREFIX, "Focused client check", {
     count: windowClients.length,
     targetPath,
     targetRoot,
-    hasVisibleClient: Boolean(visibleClient),
+    hasFocusedClient: Boolean(focusedClient),
     clients: windowClients.map((client) => ({
       url: client.url,
       visibilityState: client.visibilityState,
       focused: client.focused,
     })),
   });
-  return Boolean(visibleClient);
+
+  return Boolean(focusedClient);
+}
+
+// Only notify clients if we have a FOCUSED window (app is in foreground)
+async function notifyFocusedClients(payload) {
+  const focusedClient = await hasFocusedClientForTarget(payload);
+  // Only relay to page if there's a focused client (user is actively using the app)
+  if (focusedClient) {
+    pushDebugLog(PUSH_DEBUG_PREFIX, "Relaying notification to focused client", { payload });
+    const windowClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
+    windowClients.forEach((client) => {
+      // Only send to visible, focused clients
+      if (client.visibilityState === "visible" && client.focused) {
+        client.postMessage({
+          type: "push-notification-received",
+          payload,
+        });
+      }
+    });
+  }
 }
 
 async function loadFirebaseWebConfig() {
@@ -120,41 +133,47 @@ async function loadFirebaseWebConfig() {
 
   messaging.onBackgroundMessage(async (payload) => {
     pushDebugLog(PUSH_DEBUG_PREFIX, "Received Firebase background message", { payload });
-    
-    const visibleClient = await hasVisibleClientForTarget(payload);
-    
-    if (!visibleClient) {
-      const title = payload?.notification?.title || payload?.data?.title || "New Notification";
-      const body = payload?.notification?.body || payload?.data?.body || "";
-      const image =
-        payload?.notification?.image ||
-        payload?.data?.image ||
-        payload?.data?.imageUrl ||
-        undefined;
-      const notificationKey = getNotificationKey(payload);
-      
-      pushDebugLog(PUSH_DEBUG_PREFIX, "Showing service worker notification", {
+
+    const focusedClient = await hasFocusedClientForTarget(payload);
+
+    // Extract notification content from data.data first, then notification object
+    // This fixes content not showing issue when backend sends in different formats
+    const title = payload?.data?.title || payload?.notification?.title || "New Notification";
+    const body = payload?.data?.body || payload?.notification?.body || "";
+    const image =
+      payload?.data?.image ||
+      payload?.data?.imageUrl ||
+      payload?.notification?.image ||
+      undefined;
+    const notificationKey = getNotificationKey(payload);
+
+    // If app is in foreground (focused window exists): relay to page for in-app display
+    // If app is closed/background (no focused window): show system notification
+    if (focusedClient) {
+      pushDebugLog(PUSH_DEBUG_PREFIX, "App is in foreground - relaying to page", { title, body });
+      // Only relay, don't show system notification - page will handle display
+      await notifyFocusedClients(payload);
+    } else {
+      // App is in background or closed - show system notification
+      pushDebugLog(PUSH_DEBUG_PREFIX, "App is in background/closed - showing system notification", {
         title,
         body,
         image,
         notificationKey,
       });
-  
+
       self.registration.showNotification(title, {
         body,
         icon: "/favicon.ico",
         image,
         tag: notificationKey,
-        renotify: false,
+        renotify: true,
         silent: false,
         requireInteraction: false,
         vibrate: [200, 100, 200, 100, 300],
         data: payload?.data || {},
       });
     }
-
-    // Always notify clients regardless of visibility
-    await notifyOpenClients(payload);
   });
 })();
 
