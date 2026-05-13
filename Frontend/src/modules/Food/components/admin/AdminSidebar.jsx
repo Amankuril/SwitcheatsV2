@@ -52,6 +52,7 @@ import { Input } from "@food/components/ui/input"
 import { adminSidebarMenu } from "@food/utils/adminSidebarMenu"
 import { adminAPI } from "@food/api"
 import { getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings"
+import { canAccessFeatureSettings } from "@food/utils/adminPermissions"
 import quickSpicyLogo from "@food/assets/switcheats-logo.png"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
@@ -108,6 +109,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   const [searchQuery, setSearchQuery] = useState("")
   const [badges, setBadges] = useState({})
   const [restaurantSubscriptionEnabled, setRestaurantSubscriptionEnabled] = useState(true)
+  const [canViewFeatureSettings, setCanViewFeatureSettings] = useState(false)
 
   const parseFeatureEnabled = (value, fallback = true) => {
     if (typeof value === "boolean") return value
@@ -140,6 +142,14 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   }, [])
 
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem("admin_user")
+      const adminUser = raw ? JSON.parse(raw) : null
+      setCanViewFeatureSettings(canAccessFeatureSettings(adminUser))
+    } catch (_e) {
+      setCanViewFeatureSettings(false)
+    }
+
     const loadFeatureSettings = async () => {
       try {
         const res = await adminAPI.getFeatureSettings()
@@ -171,25 +181,34 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   }, [])
 
   const menuData = useMemo(() => {
-    if (restaurantSubscriptionEnabled) return adminSidebarMenu
+    const featureSettingsPath = "/admin/food/feature-settings"
+    const subscriptionSettingsPath = "/admin/food/restaurants/subscription-settings"
+
     return adminSidebarMenu.map((section) => {
       if (section.type !== "section" || !Array.isArray(section.items)) return section
       return {
         ...section,
         items: section.items
           .map((item) => {
+            if (item.type === "link" && item.path === featureSettingsPath && !canViewFeatureSettings) {
+              return null
+            }
             if (item.type === "expandable" && Array.isArray(item.subItems)) {
+              const filteredSubItems = item.subItems.filter((sub) => {
+                if (sub.path === subscriptionSettingsPath && !restaurantSubscriptionEnabled) return false
+                return true
+              })
               return {
                 ...item,
-                subItems: item.subItems.filter((sub) => sub.path !== "/admin/food/restaurants/subscription-settings"),
+                subItems: filteredSubItems,
               }
             }
             return item
           })
-          .filter((item) => item.type !== "expandable" || (Array.isArray(item.subItems) && item.subItems.length > 0)),
+          .filter((item) => item && (item.type !== "expandable" || (Array.isArray(item.subItems) && item.subItems.length > 0))),
       }
     })
-  }, [restaurantSubscriptionEnabled])
+  }, [canViewFeatureSettings, restaurantSubscriptionEnabled])
 
   const getBadgeCount = (label = "", path = "") => {
     const l = label.toLowerCase()

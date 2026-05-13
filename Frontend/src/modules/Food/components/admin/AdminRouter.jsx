@@ -4,6 +4,8 @@ import ProtectedRoute from "./ProtectedRoute";
 import AuthRedirect from "@food/components/AuthRedirect";
 import AdminLayout from "./AdminLayout";
 import Loader from "@food/components/Loader";
+import { getCurrentUser } from "@food/utils/auth";
+import { canAccessFeatureSettings } from "@food/utils/adminPermissions";
 
 const AdminHome = lazy(() => import("@food/pages/admin/AdminHome"));
 const PointOfSale = lazy(() => import("@food/pages/admin/PointOfSale"));
@@ -130,6 +132,14 @@ const EditRestaurant = lazy(() => import("@food/pages/admin/restaurant/EditResta
 const AdminLogin = lazy(() => import("@food/pages/admin/auth/AdminLogin"));
 const AdminSignup = lazy(() => import("@food/pages/admin/auth/AdminSignup"));
 const AdminForgotPassword = lazy(() => import("@food/pages/admin/auth/AdminForgotPassword"));
+
+function FeatureSettingsRouteGuard() {
+  const adminUser = getCurrentUser("admin");
+  if (!canAccessFeatureSettings(adminUser)) {
+    return <Navigate to="/admin/food" replace />;
+  }
+  return <FeatureSettings />;
+}
 
 export default function AdminRouter() {
   // Safely enforce light mode for the Admin app to prevent User dark mode bleeding
@@ -271,7 +281,7 @@ export default function AdminRouter() {
 
             {/* SYSTEM & BUSINESS SETTINGS */}
             <Route path="business-setup" element={<BusinessSetup />} />
-            <Route path="feature-settings" element={<FeatureSettings />} />
+            <Route path="feature-settings" element={<FeatureSettingsRouteGuard />} />
             <Route path="email-template" element={<EmailTemplate />} />
             <Route path="theme-settings" element={<ThemeSettings />} />
             <Route path="gallery" element={<Gallery />} />
