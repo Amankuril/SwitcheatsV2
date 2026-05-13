@@ -159,46 +159,48 @@ export default function RestaurantOTP() {
       const paymentRequired = data?.paymentRequired === true
 
       if (accessToken && restaurant) {
+        let shouldGoToOnboardingPayment = paymentRequired
+
+        if (paymentRequired) {
+          let isSubscriptionEnabled = true
+          try {
+            const featureRes = await restaurantAPI.getFeatureSettingsPublic()
+            const rows = Array.isArray(featureRes?.data?.data) ? featureRes.data.data : []
+            const feature = rows.find((row) => row.key === "restaurant_subscription")
+            isSubscriptionEnabled = feature ? Boolean(feature.isEnabled) : true
+            localStorage.setItem("restaurant_subscription_feature_enabled", String(isSubscriptionEnabled))
+          } catch (_error) {
+            // Fail-safe: avoid payment screen flash when feature endpoint is throttled/unavailable
+            isSubscriptionEnabled = false
+            localStorage.setItem("restaurant_subscription_feature_enabled", "false")
+          }
+          shouldGoToOnboardingPayment = isSubscriptionEnabled
+        }
+
         setRestaurantAuthData("restaurant", accessToken, restaurant, refreshToken)
         window.dispatchEvent(new Event("restaurantAuthChanged"))
         sessionStorage.removeItem("restaurantAuthData")
         sessionStorage.removeItem("restaurantLoginPhone")
 
-        setTimeout(async () => {
-          if (paymentRequired) {
-            let isSubscriptionEnabled = true
-            try {
-              const featureRes = await restaurantAPI.getFeatureSettingsPublic()
-              const rows = Array.isArray(featureRes?.data?.data) ? featureRes.data.data : []
-            const feature = rows.find((row) => row.key === "restaurant_subscription")
-            isSubscriptionEnabled = feature ? Boolean(feature.isEnabled) : true
-            localStorage.setItem("restaurant_subscription_feature_enabled", String(isSubscriptionEnabled))
-            } catch (_error) {
-              isSubscriptionEnabled = false
-              localStorage.setItem("restaurant_subscription_feature_enabled", "false")
-            }
-            if (!isSubscriptionEnabled) {
-              navigate("/food/restaurant", { replace: true })
-              return
-            }
-            navigate("/food/restaurant/onboarding-payment", { replace: true })
-            return
-          }
-          if (authData?.isSignUp) {
-            navigate("/food/restaurant/onboarding", { replace: true })
-          } else {
-            try {
-              if (!isRestaurantOnboardingComplete(restaurant)) {
-                const incompleteStep = await checkOnboardingStatus()
-                if (incompleteStep) {
-                  navigate(`/food/restaurant/onboarding?step=${incompleteStep}`, { replace: true })
-                  return
-                }
+        if (shouldGoToOnboardingPayment) {
+          navigate("/food/restaurant/onboarding-payment", { replace: true })
+          return
+        }
+
+        if (authData?.isSignUp) {
+          navigate("/food/restaurant/onboarding", { replace: true })
+        } else {
+          try {
+            if (!isRestaurantOnboardingComplete(restaurant)) {
+              const incompleteStep = await checkOnboardingStatus()
+              if (incompleteStep) {
+                navigate(`/food/restaurant/onboarding?step=${incompleteStep}`, { replace: true })
+                return
               }
-              navigate("/food/restaurant", { replace: true })
-            } catch (err) { navigate("/food/restaurant", { replace: true }) }
-          }
-        }, 500)
+            }
+            navigate("/food/restaurant", { replace: true })
+          } catch (err) { navigate("/food/restaurant", { replace: true }) }
+        }
       }
     } catch (err) {
       const message = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Invalid OTP."

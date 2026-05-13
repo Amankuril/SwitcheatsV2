@@ -27,7 +27,7 @@ export default function ProtectedRoute({ children, requiredRole, loginPath = "/f
       const onboardingFeePaid = Boolean(user?.onboardingFeePaid)
       const subscriptionFeatureRaw = localStorage.getItem("restaurant_subscription_feature_enabled")
       const subscriptionFeatureEnabled =
-        subscriptionFeatureRaw == null ? true : subscriptionFeatureRaw === "true"
+        subscriptionFeatureRaw == null ? false : subscriptionFeatureRaw === "true"
       const allowedPaths = ["/food/restaurant/onboarding-payment", "/food/restaurant/onboarding", "/food/restaurant/pending-verification"]
       if (subscriptionFeatureEnabled && !onboardingFeePaid && !allowedPaths.includes(location.pathname)) {
         return <Navigate to="/food/restaurant/onboarding-payment" replace />

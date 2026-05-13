@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@food/components/ui/button"
 import { Input } from "@food/components/ui/input"
@@ -18,6 +18,19 @@ export default function PostApprovalPayment() {
   const [paymentType, setPaymentType] = useState("full")
   const [partialAmount, setPartialAmount] = useState("")
   const [plan, setPlan] = useState(null)
+  const cachedFeatureFlag = typeof window !== "undefined"
+    ? localStorage.getItem("restaurant_subscription_feature_enabled")
+    : null
+
+  useLayoutEffect(() => {
+    if (cachedFeatureFlag === "false") {
+      navigate("/food/restaurant", { replace: true })
+    }
+  }, [cachedFeatureFlag, navigate])
+
+  if (cachedFeatureFlag === "false") {
+    return null
+  }
 
   useEffect(() => {
     let mounted = true
