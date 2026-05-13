@@ -10,6 +10,7 @@ import { FoodRestaurantMenu } from '../models/restaurantMenu.model.js';
 import { FoodItem } from '../../admin/models/food.model.js';
 import { FoodOrder } from '../../orders/models/order.model.js';
 import { getRestaurantSubscriptionSettings } from '../../admin/services/admin.service.js';
+import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
 
 const normalizeName = (value) =>
     String(value || '')
@@ -631,6 +632,10 @@ export const registerRestaurant = async (payload, files) => {
 };
 
 export const createPostApprovalOnboardingPaymentOrder = async (restaurantId, payload = {}) => {
+    const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
+    if (!isRestaurantSubscriptionEnabled) {
+        throw new ValidationError('Restaurant subscription is currently disabled');
+    }
     if (!restaurantId) throw new ValidationError('Restaurant ID is required');
     const restaurant = await FoodRestaurant.findById(restaurantId);
     if (!restaurant) throw new NotFoundError('Restaurant not found');
@@ -674,6 +679,10 @@ export const createPostApprovalOnboardingPaymentOrder = async (restaurantId, pay
 };
 
 export const verifyPostApprovalOnboardingPayment = async (restaurantId, payload = {}) => {
+    const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
+    if (!isRestaurantSubscriptionEnabled) {
+        throw new ValidationError('Restaurant subscription is currently disabled');
+    }
     if (!restaurantId) throw new ValidationError('Restaurant ID is required');
     const restaurant = await FoodRestaurant.findById(restaurantId);
     if (!restaurant) throw new NotFoundError('Restaurant not found');
@@ -721,6 +730,10 @@ export const verifyPostApprovalOnboardingPayment = async (restaurantId, payload 
 };
 
 export const payRestaurantDues = async (restaurantId, paymentDetails = {}) => {
+    const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
+    if (!isRestaurantSubscriptionEnabled) {
+        throw new Error('Restaurant subscription is currently disabled');
+    }
     if (!restaurantId) throw new Error('Restaurant ID is required');
 
     const restaurant = await FoodRestaurant.findById(restaurantId);
@@ -753,6 +766,10 @@ export const payRestaurantDues = async (restaurantId, paymentDetails = {}) => {
  * Creates a Razorpay order for outstanding subscription dues.
  */
 export const createDuesPaymentOrder = async (restaurantId) => {
+    const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
+    if (!isRestaurantSubscriptionEnabled) {
+        throw new Error('Restaurant subscription is currently disabled');
+    }
     if (!restaurantId) throw new Error('Restaurant ID is required');
 
     const restaurant = await FoodRestaurant.findById(restaurantId);

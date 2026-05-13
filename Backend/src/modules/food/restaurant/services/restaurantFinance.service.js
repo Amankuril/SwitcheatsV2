@@ -3,6 +3,7 @@ import { FoodOrder } from '../../orders/models/order.model.js';
 import { FoodTransaction } from '../../orders/models/foodTransaction.model.js';
 import { FoodRestaurant } from '../models/restaurant.model.js';
 import { FoodRestaurantWithdrawal } from '../models/foodRestaurantWithdrawal.model.js';
+import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
 
 function toTwoDigitYearString(dateObj) {
     const y = String(dateObj.getFullYear());
@@ -65,6 +66,7 @@ function parseISODateParamEnd(v) {
 export async function getRestaurantFinance(restaurantId, query = {}) {
     if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) return null;
     const rid = new mongoose.Types.ObjectId(restaurantId);
+    const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
 
     // Fetch restaurant profile for header display.
     const restaurant = await FoodRestaurant.findById(rid)
@@ -152,7 +154,9 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
         { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     const totalPendingWithdrawals = Number(pendingWithdrawalsAgg?.[0]?.total || 0);
-    const subscriptionDue = Math.max(0, Number(restaurant?.subscriptionDueAmount || 0));
+    const subscriptionDue = isRestaurantSubscriptionEnabled
+        ? Math.max(0, Number(restaurant?.subscriptionDueAmount || 0))
+        : 0;
     // Calculate final balance for withdrawal.
     // NOTE: We no longer automatically deduct subscriptionDue here per user request ("direct deduct na ho").
     // We will instead block the withdrawal in the controller if subscriptionDue > 0.
@@ -238,10 +242,12 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
             subscriptionDueAmount: Number(restaurant?.subscriptionDueAmount || 0),
             subscriptionStatus: restaurant?.subscriptionStatus || 'paid'
         },
+        features: {
+            restaurantSubscriptionEnabled: isRestaurantSubscriptionEnabled
+        },
         currentCycle,
         invoiceSummary,
         pastCycles: pastCyclesResult
     };
 }
-
 

@@ -17,6 +17,7 @@ import { sendAdminResetOtpEmail } from "../../utils/email.js";
 import mongoose from "mongoose";
 import { creditReferralReward } from "../../modules/food/user/services/userWallet.service.js";
 import { getRestaurantSubscriptionSettings } from "../../modules/food/admin/services/admin.service.js";
+import { FEATURE_KEYS, isFeatureEnabled } from "../../modules/food/admin/services/featureSettings.service.js";
 
 const ROLES = {
   USER: "USER",
@@ -317,7 +318,8 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
     );
   }
 
-  if (!restaurant.onboardingFeePaid) {
+  const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
+  if (isRestaurantSubscriptionEnabled && !restaurant.onboardingFeePaid) {
     const settings = await getRestaurantSubscriptionSettings();
     const onboardingFeeBase = Number(settings?.onboardingFee || 799);
     const onboardingFeeGST = Math.round(onboardingFeeBase * 0.18);

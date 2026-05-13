@@ -24,11 +24,20 @@ export default function PostApprovalPayment() {
     const load = async () => {
       try {
         setLoadError("")
-        const [restaurantRes, settingsRes] = await Promise.all([
+        const [restaurantRes, featureRes] = await Promise.all([
           restaurantAPI.getCurrentRestaurant(),
-          restaurantAPI.getSubscriptionSettings(),
+          restaurantAPI.getFeatureSettingsPublic(),
         ])
         if (!mounted) return
+
+        const rows = Array.isArray(featureRes?.data?.data) ? featureRes.data.data : []
+        const feature = rows.find((row) => row.key === "restaurant_subscription")
+        const isSubscriptionEnabled = feature ? Boolean(feature.isEnabled) : true
+        localStorage.setItem("restaurant_subscription_feature_enabled", String(isSubscriptionEnabled))
+        if (!isSubscriptionEnabled) {
+          navigate("/food/restaurant", { replace: true })
+          return
+        }
 
         const restaurant =
           restaurantRes?.data?.data?.restaurant ||
@@ -39,11 +48,20 @@ export default function PostApprovalPayment() {
           return
         }
 
+        const settingsRes = await restaurantAPI.getSubscriptionSettings()
+        if (!mounted) return
         const s = settingsRes?.data?.data || null
         if (!s) throw new Error("Subscription settings missing")
 
         setSettings(s)
       } catch (err) {
+        const featureDisabledByMessage = /feature|subscription.*disabled/i.test(
+          err?.response?.data?.message || err?.message || ""
+        )
+        if (featureDisabledByMessage) {
+          navigate("/food/restaurant", { replace: true })
+          return
+        }
         toast.error(err?.response?.data?.message || "Failed to load payment details")
         if (mounted) {
           setLoadError("Unable to load payment details. Please retry.")

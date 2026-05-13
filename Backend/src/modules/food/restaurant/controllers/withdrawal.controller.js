@@ -2,6 +2,7 @@ import { sendResponse, sendError } from '../../../../utils/response.js';
 import { FoodRestaurantWithdrawal } from '../models/foodRestaurantWithdrawal.model.js';
 import { FoodRestaurant } from '../models/restaurant.model.js';
 import { getRestaurantFinance } from '../services/restaurantFinance.service.js';
+import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
 
 export const createWithdrawalRequestController = async (req, res, next) => {
     try {
@@ -14,13 +15,16 @@ export const createWithdrawalRequestController = async (req, res, next) => {
         // Check if restaurant has enough balance
         const finance = await getRestaurantFinance(restaurantId);
         const restaurant = await FoodRestaurant.findById(restaurantId).select('subscriptionStatus subscriptionDueAmount');
+        const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
 
         const subscriptionDue = Number(restaurant?.subscriptionDueAmount || 0);
         const totalEarnings = finance?.currentCycle?.estimatedPayout || 0;
-        const netAvailable = Math.max(0, totalEarnings - subscriptionDue);
+        const netAvailable = isRestaurantSubscriptionEnabled
+            ? Math.max(0, totalEarnings - subscriptionDue)
+            : Math.max(0, totalEarnings);
 
         if (amount > netAvailable) {
-            if (subscriptionDue > 0) {
+            if (isRestaurantSubscriptionEnabled && subscriptionDue > 0) {
                 return sendError(res, 400, `Withdrawal restricted. You can withdraw a maximum of ₹${netAvailable.toLocaleString('en-IN')} after reserving ₹${subscriptionDue.toLocaleString('en-IN')} for your outstanding subscription dues.`);
             }
             return sendError(res, 400, `Insufficient balance. Available to withdraw: ₹${netAvailable.toLocaleString('en-IN')}`);

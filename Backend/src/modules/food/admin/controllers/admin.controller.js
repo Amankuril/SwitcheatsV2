@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import * as adminService from '../services/admin.service.js';
+import * as featureSettingsService from '../services/featureSettings.service.js';
 import { validateCategoryListQuery, validateCategoryRejectDto, validateCategoryUpsertDto } from '../validators/category.validator.js';
 import { validateCreateOfferDto, validateUpdateOfferCartVisibilityDto } from '../validators/offer.validator.js';
 import { validateAddDeliveryBonusDto } from '../validators/deliveryBonus.validator.js';
@@ -1490,6 +1491,29 @@ export async function updateRestaurantSubscriptionSettings(req, res, next) {
     try {
         const data = await adminService.updateRestaurantSubscriptionSettings(req.body);
         res.status(200).json({ success: true, message: 'Subscription settings updated successfully', data });
+    } catch (error) {
+        next(error);
+    }
+}
+
+// ----- Feature Settings -----
+export async function getFeatureSettings(req, res, next) {
+    try {
+        const data = await featureSettingsService.listFeatureSettings();
+        res.status(200).json({ success: true, message: 'Feature settings fetched successfully', data });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function updateFeatureSetting(req, res, next) {
+    try {
+        const key = req.params?.key;
+        const data = await featureSettingsService.updateFeatureSetting(key, req.body || {});
+        if (!data) {
+            return res.status(404).json({ success: false, message: 'Feature not found' });
+        }
+        res.status(200).json({ success: true, message: 'Feature setting updated successfully', data });
     } catch (error) {
         next(error);
     }

@@ -50,6 +50,7 @@ import {
 import { cn } from "@food/utils/utils"
 import { Input } from "@food/components/ui/input"
 import { adminSidebarMenu } from "@food/utils/adminSidebarMenu"
+import { adminAPI } from "@food/api"
 import { getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings"
 import quickSpicyLogo from "@food/assets/switcheats-logo.png"
 const debugLog = (...args) => {}
@@ -106,6 +107,21 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   const location = useLocation()
   const [searchQuery, setSearchQuery] = useState("")
   const [badges, setBadges] = useState({})
+  const [restaurantSubscriptionEnabled, setRestaurantSubscriptionEnabled] = useState(true)
+
+  const parseFeatureEnabled = (value, fallback = true) => {
+    if (typeof value === "boolean") return value
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase()
+      if (normalized === "true") return true
+      if (normalized === "false") return false
+    }
+    if (typeof value === "number") {
+      if (value === 1) return true
+      if (value === 0) return false
+    }
+    return fallback
+  }
 
   useEffect(() => {
     const fetchBadges = async () => {
@@ -122,6 +138,58 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
     const timer = setInterval(fetchBadges, 60000)
     return () => clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    const loadFeatureSettings = async () => {
+      try {
+        const res = await adminAPI.getFeatureSettings()
+        const rows = Array.isArray(res?.data?.data) ? res.data.data : []
+        const feature = rows.find((row) => row.key === "restaurant_subscription")
+        if (!feature) return
+        setRestaurantSubscriptionEnabled((prev) =>
+          parseFeatureEnabled(feature.isEnabled, prev)
+        )
+      } catch (error) {
+        // keep default enabled if API fails
+      }
+    }
+    loadFeatureSettings()
+
+    const handleFeatureUpdate = async (event) => {
+      const detail = event?.detail || {}
+      if (detail.key !== "restaurant_subscription") return
+      setRestaurantSubscriptionEnabled((prev) =>
+        parseFeatureEnabled(detail.isEnabled, prev)
+      )
+      await loadFeatureSettings()
+    }
+
+    window.addEventListener("adminFeatureSettingUpdated", handleFeatureUpdate)
+    return () => {
+      window.removeEventListener("adminFeatureSettingUpdated", handleFeatureUpdate)
+    }
+  }, [])
+
+  const menuData = useMemo(() => {
+    if (restaurantSubscriptionEnabled) return adminSidebarMenu
+    return adminSidebarMenu.map((section) => {
+      if (section.type !== "section" || !Array.isArray(section.items)) return section
+      return {
+        ...section,
+        items: section.items
+          .map((item) => {
+            if (item.type === "expandable" && Array.isArray(item.subItems)) {
+              return {
+                ...item,
+                subItems: item.subItems.filter((sub) => sub.path !== "/admin/food/restaurants/subscription-settings"),
+              }
+            }
+            return item
+          })
+          .filter((item) => item.type !== "expandable" || (Array.isArray(item.subItems) && item.subItems.length > 0)),
+      }
+    })
+  }, [restaurantSubscriptionEnabled])
 
   const getBadgeCount = (label = "", path = "") => {
     const l = label.toLowerCase()
@@ -268,13 +336,13 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   // Filter menu items based on search query
   const filteredMenuData = useMemo(() => {
     if (!searchQuery.trim()) {
-      return adminSidebarMenu
+      return menuData
     }
 
     const query = searchQuery.toLowerCase().trim()
     const filtered = []
 
-    adminSidebarMenu.forEach((item) => {
+    menuData.forEach((item) => {
       if (item.type === "link") {
         if (item.label.toLowerCase().includes(query)) {
           filtered.push(item)
@@ -312,7 +380,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
     })
 
     return filtered
-  }, [searchQuery])
+  }, [menuData, searchQuery])
 
   // Auto-expand sections with matches when searching
   useEffect(() => {
@@ -322,7 +390,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
       setExpandedSections((prev) => {
         const newExpandedState = { ...prev }
 
-        adminSidebarMenu.forEach((item) => {
+        menuData.forEach((item) => {
           if (item.type === "section") {
             item.items.forEach((subItem) => {
               if (subItem.type === "expandable") {
@@ -343,7 +411,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
         return newExpandedState
       })
     }
-  }, [searchQuery])
+  }, [menuData, searchQuery])
 
   const isActive = (path, allPaths = []) => {
     const currentPath = location.pathname.replace(/\/+$/, "") || "/"
@@ -771,4 +839,3 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
     </>
   )
 }
-

@@ -166,6 +166,21 @@ export default function RestaurantOTP() {
 
         setTimeout(async () => {
           if (paymentRequired) {
+            let isSubscriptionEnabled = true
+            try {
+              const featureRes = await restaurantAPI.getFeatureSettingsPublic()
+              const rows = Array.isArray(featureRes?.data?.data) ? featureRes.data.data : []
+            const feature = rows.find((row) => row.key === "restaurant_subscription")
+            isSubscriptionEnabled = feature ? Boolean(feature.isEnabled) : true
+            localStorage.setItem("restaurant_subscription_feature_enabled", String(isSubscriptionEnabled))
+            } catch (_error) {
+              isSubscriptionEnabled = false
+              localStorage.setItem("restaurant_subscription_feature_enabled", "false")
+            }
+            if (!isSubscriptionEnabled) {
+              navigate("/food/restaurant", { replace: true })
+              return
+            }
             navigate("/food/restaurant/onboarding-payment", { replace: true })
             return
           }

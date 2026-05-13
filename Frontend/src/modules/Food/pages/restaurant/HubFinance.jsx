@@ -34,6 +34,7 @@ export default function HubFinance() {
   const [submittingWithdrawal, setSubmittingWithdrawal] = useState(false)
   const [submittingPayment, setSubmittingPayment] = useState(false)
   const [withdrawalRequests, setWithdrawalRequests] = useState([])
+  const isRestaurantSubscriptionEnabled = financeData?.features?.restaurantSubscriptionEnabled !== false
 
   const handlePayDues = async () => {
     try {
@@ -924,7 +925,7 @@ export default function HubFinance() {
         {activeTab === "payouts" && (
           <div className="space-y-6">
             {/* Subscription Dues Banner */}
-            {financeData?.restaurant?.subscriptionDueAmount > 0 && (
+            {isRestaurantSubscriptionEnabled && financeData?.restaurant?.subscriptionDueAmount > 0 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -960,7 +961,7 @@ export default function HubFinance() {
                     <button
                       onClick={() => {
                         const netAvailable = financeData?.currentCycle?.netAvailable ?? (financeData?.currentCycle?.estimatedPayout || 0);
-                        const hasDues = (financeData?.restaurant?.subscriptionDueAmount || 0) > 0;
+                        const hasDues = isRestaurantSubscriptionEnabled && (financeData?.restaurant?.subscriptionDueAmount || 0) > 0;
                         
                         if (hasDues && netAvailable <= 0) {
                           setShowRestrictionModal(true);
@@ -980,7 +981,7 @@ export default function HubFinance() {
                     </button>
 
                     {/* Pay Dues Section */}
-                    {financeData?.restaurant?.subscriptionDueAmount >= 0 && (
+                    {isRestaurantSubscriptionEnabled && financeData?.restaurant?.subscriptionDueAmount >= 0 && (
                       <div 
                         ref={settlementRef}
                         className="mt-8 pt-6 border-t border-gray-100 transition-all duration-500 rounded-2xl"
@@ -1446,7 +1447,7 @@ export default function HubFinance() {
                     </p>
                   </div>
 
-                  {financeData?.restaurant?.subscriptionDueAmount > 0 && (
+                  {isRestaurantSubscriptionEnabled && financeData?.restaurant?.subscriptionDueAmount > 0 && (
                     <div className="px-3 py-2.5 bg-amber-50/50 border border-amber-100 rounded-xl mb-4">
                       <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
                         <span className="font-bold">Compliance Note:</span> You can withdraw your earnings after reserving ₹{financeData.restaurant.subscriptionDueAmount.toLocaleString('en-IN')} for your outstanding subscription dues.
@@ -1556,4 +1557,3 @@ export default function HubFinance() {
     </div>
   )
 }
-

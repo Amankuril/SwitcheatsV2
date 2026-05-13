@@ -214,6 +214,7 @@ export const adminSidebarMenu = [
     type: "section",
     label: "SYSTEM SETTINGS",
     items: [
+      { type: "link", label: "Feature Settings", path: "/admin/food/feature-settings", icon: "Settings" },
       { type: "link", label: "Broadcast Notification", path: "/admin/food/broadcast-notification", icon: "Bell" },
       { type: "link", label: "Business Setup", path: "/admin/food/business-setup", icon: "Settings" },
     ],

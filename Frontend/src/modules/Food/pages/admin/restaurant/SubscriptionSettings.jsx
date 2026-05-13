@@ -10,6 +10,7 @@ import { Loader2, Save, CreditCard, Award, Rocket } from "lucide-react";
 const SubscriptionSettings = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [featureEnabled, setFeatureEnabled] = useState(true);
     const [settings, setSettings] = useState({
         silverPrice: 999,
         goldPrice: 1999,
@@ -24,6 +25,10 @@ const SubscriptionSettings = () => {
         try {
             setLoading(true);
             const res = await adminAPI.getRestaurantSubscriptionSettings();
+            const featureRes = await adminAPI.getFeatureSettings();
+            const featureRows = Array.isArray(featureRes?.data?.data) ? featureRes.data.data : [];
+            const feature = featureRows.find((row) => row.key === 'restaurant_subscription');
+            if (feature) setFeatureEnabled(Boolean(feature.isEnabled));
             if (res.data?.success && res.data.data) {
                 setSettings(res.data.data);
             }
@@ -36,6 +41,10 @@ const SubscriptionSettings = () => {
     };
 
     const handleSave = async () => {
+        if (!featureEnabled) {
+            toast.error('Restaurant Subscription feature is disabled. Enable it from Feature Settings first.');
+            return;
+        }
         try {
             setSaving(true);
             const res = await adminAPI.updateRestaurantSubscriptionSettings(settings);
@@ -63,6 +72,11 @@ const SubscriptionSettings = () => {
             <div className="flex flex-col gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-gray-900">Restaurant Subscription Settings</h1>
                 <p className="text-gray-500">Manage the pricing for restaurant subscription plans and onboarding fees.</p>
+                {!featureEnabled ? (
+                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                        This section is currently disabled by Feature Settings.
+                    </p>
+                ) : null}
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">

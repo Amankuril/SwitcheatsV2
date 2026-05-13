@@ -260,6 +260,14 @@ export const adminAPI = {
     apiClient.patch("/food/admin/restaurant-subscription-settings", body, {
       contextModule: "admin",
     }),
+  getFeatureSettings: () =>
+    apiClient.get("/food/admin/feature-settings", {
+      contextModule: "admin",
+    }),
+  updateFeatureSetting: (key, body) =>
+    apiClient.patch(`/food/admin/feature-settings/${String(key)}`, body ?? {}, {
+      contextModule: "admin",
+    }),
   /** List approved delivery partners (Deliveryman List page) */
   getDeliveryPartners: (params) =>
     apiClient.get("/food/admin/delivery/partners", {
@@ -1145,6 +1153,8 @@ export const restaurantAPI = {
     apiClient.get(`/food/restaurant/auth/pending-phone?phone=${phone}`),
   getSubscriptionSettings: () =>
     apiClient.get("/food/admin/restaurant-subscription-settings/public"),
+  getFeatureSettingsPublic: () =>
+    apiClient.get("/food/admin/feature-settings/public"),
   getOrderById: (orderId) =>
     apiClient.get(`/food/restaurant/orders/${String(orderId)}`, {
       contextModule: "restaurant",

@@ -17,6 +17,7 @@ const router = express.Router();
 router.get('/business-settings/public', businessSettingsController.getBusinessSettings);
 router.get('/fee-settings/public', adminController.getFeeSettings);
 router.get('/restaurant-subscription-settings/public', adminController.getRestaurantSubscriptionSettings);
+router.get('/feature-settings/public', adminController.getFeatureSettings);
 
 
 const requireAdmin = (req, _res, next) => {
@@ -62,6 +63,8 @@ router.get('/reports/tax/:id', adminController.getTaxReportDetail);
 router.get('/restaurants/pending', adminController.getPendingRestaurants);
 router.get('/restaurant-subscription-settings', adminController.getRestaurantSubscriptionSettings);
 router.patch('/restaurant-subscription-settings', adminController.updateRestaurantSubscriptionSettings);
+router.get('/feature-settings', adminController.getFeatureSettings);
+router.patch('/feature-settings/:key', adminController.updateFeatureSetting);
 router.get('/restaurants/reviews', adminController.getRestaurantReviews);
 router.get('/restaurants/:id', adminController.getRestaurantById);
 router.get('/restaurants/:id/analytics', adminController.getRestaurantAnalytics);
