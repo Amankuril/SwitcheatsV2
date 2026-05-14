@@ -5,6 +5,29 @@ import { restaurantAPI } from "@food/api";
 
 const debugError = (...args) => {};
 
+const getNotifiedPartnersCount = (response) => {
+  const data = response?.data?.data || {};
+  const candidates = [
+    data.notifiedCount,
+    data.notifiedPartnersCount,
+    data.deliveryPartnersNotifiedCount,
+    data.count,
+    response?.data?.notifiedCount,
+    response?.data?.count,
+  ];
+
+  for (const value of candidates) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+
+  if (Array.isArray(data.notifiedPartners)) return data.notifiedPartners.length;
+  if (Array.isArray(data.notifiedDeliveryPartners)) return data.notifiedDeliveryPartners.length;
+  if (Array.isArray(data.partners)) return data.partners.length;
+
+  return null;
+};
+
 export default function ResendNotificationButton({ orderId, mongoId, onSuccess }) {
   const [loading, setLoading] = useState(false);
 
@@ -22,8 +45,11 @@ export default function ResendNotificationButton({ orderId, mongoId, onSuccess }
       const response = await restaurantAPI.resendDeliveryNotification(id);
 
       if (response.data?.success) {
+        const notifiedCount = getNotifiedPartnersCount(response);
         toast.success(
-          `Notification sent to ${response.data.data?.notifiedCount || 0} delivery partners`,
+          notifiedCount === null
+            ? "Notification resent to delivery partners"
+            : `Notification sent to ${notifiedCount} delivery partners`,
         );
         // Refresh orders if onSuccess callback is provided
         if (onSuccess) {

@@ -785,7 +785,7 @@ export default function ExploreMore() {
   const manageOutletItems = [
     { id: 1, label: "Outlet info", icon: Info, route: "/restaurant/outlet-info" },
     { id: 2, label: "Outlet timings", icon: Clock, route: "/restaurant/outlet-timings" },
-    { id: 3, label: "Dining Reservations", icon: Calendar, route: "/restaurant/reservations" },
+    // { id: 3, label: "Dining Reservations", icon: Calendar, route: "/restaurant/reservations" }, // Hidden from UI for now
     { id: 4, label: "Menu categories", icon: Settings, route: "/restaurant/menu-categories" },
     { id: "coupons-nav", label: "Offers & Coupons", icon: FileCheck, route: "/restaurant/coupon" },
   ]
@@ -1782,4 +1782,3 @@ export default function ExploreMore() {
     </motion.div>
   )
 }
-

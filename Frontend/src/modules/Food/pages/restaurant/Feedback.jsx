@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { Bell, HelpCircle, Menu, Search, SlidersHorizontal, Calendar, ChevronLeft, X, Loader2, ChevronRight, Star } from "lucide-react"
-import { DateRangeCalendar } from "@food/components/ui/date-range-calendar"
+import { Bell, HelpCircle, Menu, Search, SlidersHorizontal, Calendar, X, Loader2, Star } from "lucide-react"
 import BottomNavOrders from "@food/components/restaurant/BottomNavOrders"
 import { restaurantAPI } from "@food/api"
 
@@ -84,9 +83,9 @@ export default function Feedback() {
   })
   const [isFilterLoading, setIsFilterLoading] = useState(false)
   const [displayedReviews, setDisplayedReviews] = useState([])
+  const [reviewsSearchQuery, setReviewsSearchQuery] = useState("")
   
   const [isComplaintsFilterOpen, setIsComplaintsFilterOpen] = useState(false)
-  const [selectedComplaintsFilterCategory, setSelectedComplaintsFilterCategory] = useState("issueType")
   const [complaintsFilterValues, setComplaintsFilterValues] = useState({
     issueType: [],
     reasons: []
@@ -96,7 +95,6 @@ export default function Feedback() {
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false)
   const [selectedDateRange, setSelectedDateRange] = useState("last5days") 
   const [customDateRange, setCustomDateRange] = useState({ start: null, end: null })
-  const [isCustomDateOpen, setIsCustomDateOpen] = useState(false)
   const [isComplaintsLoading, setIsComplaintsLoading] = useState(false)
   const [complaints, setComplaints] = useState([])
 
@@ -288,6 +286,27 @@ export default function Feedback() {
 
   useEffect(() => {
     let filtered = [...reviews]
+
+    if (reviewsSearchQuery.trim()) {
+      const q = reviewsSearchQuery.trim().toLowerCase()
+      filtered = filtered.filter((review) =>
+        String(review.userName || "").toLowerCase().includes(q) ||
+        String(review.orderNumber || "").toLowerCase().includes(q) ||
+        String(review.reviewText || "").toLowerCase().includes(q)
+      )
+    }
+
+    if (filterValues.reviewType?.length > 0) {
+      filtered = filtered.filter((review) => {
+        const rating = Number(review.rating || 0)
+        const selected = filterValues.reviewType
+        if (selected.includes("withText") && String(review.reviewText || "").trim() === "No review text") return false
+        if (selected.includes("highRated") && rating < 4) return false
+        if (selected.includes("lowRated") && rating >= 4) return false
+        return true
+      })
+    }
+
     if (filterValues.sortBy) {
       filtered.sort((a, b) => {
         const dateA = new Date(a.date); const dateB = new Date(b.date)
@@ -299,9 +318,9 @@ export default function Feedback() {
       })
     }
     setDisplayedReviews(filtered)
-  }, [reviews, filterValues])
+  }, [reviews, filterValues, reviewsSearchQuery])
 
-  const handleFilterReset = () => { setFilterValues({ duration: null, sortBy: "newest", reviewType: [] }); setIsFilterApply() }
+  const handleFilterReset = () => { setFilterValues({ duration: null, sortBy: "newest", reviewType: [] }) }
   const handleFilterApply = () => { setIsFilterLoading(true); setIsFilterOpen(false); setTimeout(() => setIsFilterLoading(false), 200) }
 
   const formatDate = (date) => {
@@ -364,11 +383,10 @@ export default function Feedback() {
 
   const handleDateRangeSelect = (range) => {
     setSelectedDateRange(range)
-    if (range === "custom") setIsCustomDateOpen(true)
-    else { setIsDateSelectorOpen(false); setIsComplaintsLoading(true); setTimeout(() => setIsComplaintsLoading(false), 200) }
+    setIsDateSelectorOpen(false)
+    setIsComplaintsLoading(true)
+    setTimeout(() => setIsComplaintsLoading(false), 200)
   }
-
-  const handleCustomDateApply = () => { setIsCustomDateOpen(false); setIsDateSelectorOpen(false); setIsComplaintsLoading(true); setTimeout(() => setIsComplaintsLoading(false), 200) }
 
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; touchStartY.current = e.touches[0].clientY; isSwiping.current = false }
   const handleTouchMove = (e) => {
@@ -503,7 +521,13 @@ export default function Feedback() {
             <div className="flex gap-2">
               <div className="flex-1 bg-white p-3 rounded-xl border border-gray-200 flex items-center gap-2">
                 <Search className="w-4 h-4 text-gray-400" />
-                <input type="text" placeholder="Search reviews" className="flex-1 text-sm bg-transparent focus:outline-none" />
+                <input
+                  type="text"
+                  value={reviewsSearchQuery}
+                  onChange={(e) => setReviewsSearchQuery(e.target.value)}
+                  placeholder="Search reviews"
+                  className="flex-1 text-sm bg-transparent focus:outline-none"
+                />
               </div>
               <button onClick={() => setIsFilterOpen(true)} className="bg-white p-3 rounded-xl border border-gray-200">
                 <SlidersHorizontal className="w-4 h-4 text-gray-900" />
@@ -533,6 +557,114 @@ export default function Feedback() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {isFilterOpen && (
+          <>
+            <motion.div className="fixed inset-0 bg-black/40 z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsFilterOpen(false)} />
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-50 p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-gray-900">Review Filters</h3>
+                <button onClick={() => setIsFilterOpen(false)} className="p-1 rounded-md hover:bg-gray-100"><X className="w-4 h-4" /></button>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-gray-500 uppercase">Sort By</p>
+                {[
+                  { id: "newest", label: "Newest first" },
+                  { id: "oldest", label: "Oldest first" },
+                  { id: "bestRated", label: "Best rated" },
+                  { id: "worstRated", label: "Worst rated" },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setFilterValues((prev) => ({ ...prev, sortBy: opt.id }))}
+                    className={`w-full text-left px-3 py-2 rounded-lg border ${filterValues.sortBy === opt.id ? "border-black bg-gray-50" : "border-gray-200"}`}
+                  >
+                    <span className="text-sm font-medium text-gray-900">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-gray-500 uppercase">Review Type</p>
+                {[
+                  { id: "withText", label: "With text review" },
+                  { id: "highRated", label: "High rated (4+)" },
+                  { id: "lowRated", label: "Low rated (<4)" },
+                ].map((opt) => {
+                  const selected = filterValues.reviewType.includes(opt.id)
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() =>
+                        setFilterValues((prev) => ({
+                          ...prev,
+                          reviewType: selected ? prev.reviewType.filter((v) => v !== opt.id) : [...prev.reviewType, opt.id]
+                        }))
+                      }
+                      className={`w-full text-left px-3 py-2 rounded-lg border ${selected ? "border-black bg-gray-50" : "border-gray-200"}`}
+                    >
+                      <span className="text-sm font-medium text-gray-900">{opt.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button onClick={handleFilterReset} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-sm font-medium">Reset</button>
+                <button onClick={handleFilterApply} className="flex-1 py-2.5 rounded-lg bg-black text-white text-sm font-medium">Apply</button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isComplaintsFilterOpen && (
+          <>
+            <motion.div className="fixed inset-0 bg-black/40 z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsComplaintsFilterOpen(false)} />
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-50 p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-gray-900">Complaints Filters</h3>
+                <button onClick={() => setIsComplaintsFilterOpen(false)} className="p-1 rounded-md hover:bg-gray-100"><X className="w-4 h-4" /></button>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-gray-500 uppercase">Issue Type</p>
+                {["food-quality", "late-delivery", "missing-item", "wrong-item", "payment-issue", "other"].map((type) => {
+                  const active = complaintsFilterValues.issueType[0] === type
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setComplaintsFilterValues((prev) => ({ ...prev, issueType: active ? [] : [type] }))}
+                      className={`w-full text-left px-3 py-2 rounded-lg border ${active ? "border-black bg-gray-50" : "border-gray-200"}`}
+                    >
+                      <span className="text-sm font-medium text-gray-900 capitalize">{type.replace(/-/g, " ")}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="bg-gray-50 rounded-lg px-3 py-2 flex items-center gap-2 border border-gray-200">
+                <Search className="w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={complaintsSearchQuery}
+                  onChange={(e) => setComplaintsSearchQuery(e.target.value)}
+                  placeholder="Search complaints"
+                  className="flex-1 text-sm bg-transparent focus:outline-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button onClick={handleComplaintsFilterReset} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-sm font-medium">Reset</button>
+                <button onClick={handleComplaintsFilterApply} className="flex-1 py-2.5 rounded-lg bg-black text-white text-sm font-medium">Apply</button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
       <BottomNavOrders />
     </div>
   )

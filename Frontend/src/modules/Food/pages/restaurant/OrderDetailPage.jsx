@@ -23,6 +23,10 @@ import { toast } from "sonner"
 import useRestaurantBackNavigation from "@food/hooks/useRestaurantBackNavigation"
 
 const formatMoney = (value) => `₹${Number(value || 0).toFixed(2)}`
+const toNumber = (value) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
 export default function OrderDetailPage() {
   const { id } = useParams()
@@ -120,6 +124,28 @@ export default function OrderDetailPage() {
 
   const items = order.items || []
   const pricing = order.pricing || {}
+  const itemsTotalFromItems = items.reduce(
+    (sum, item) => sum + (toNumber(item?.price) * toNumber(item?.quantity || 1)),
+    0
+  )
+  const taxAndCharges = toNumber(pricing.tax || pricing.restaurantTaxes || pricing.taxAmount)
+  const packagingFee = toNumber(pricing.packagingFee)
+  const deliveryFee = toNumber(pricing.deliveryFee)
+  const platformFee = toNumber(pricing.platformFee)
+  const subscriptionFee = toNumber(pricing.subscriptionFee)
+  const totalDiscount = toNumber(pricing.discount)
+  const grandTotal = toNumber(pricing.total || pricing.grandTotal)
+
+  // Prefer backend subtotal when available, otherwise derive a stable base item total.
+  const subtotalCandidate = toNumber(pricing.subtotal || pricing.itemTotal || pricing.itemsTotal)
+  const derivedItemTotal =
+    grandTotal > 0
+      ? grandTotal - taxAndCharges - packagingFee - deliveryFee - platformFee - subscriptionFee + totalDiscount
+      : 0
+  const itemTotal = subtotalCandidate > 0
+    ? subtotalCandidate
+    : (derivedItemTotal > 0 ? derivedItemTotal : itemsTotalFromItems)
+
   const status = order.orderStatus || order.status || "Created"
   const createdAt = order.createdAt ? new Date(order.createdAt).toLocaleString('en-GB', {
     day: 'numeric',
@@ -268,36 +294,48 @@ export default function OrderDetailPage() {
           <div className="space-y-3">
             <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
               <span>Item Total</span>
-              <span className="text-gray-900">{formatMoney(pricing.subtotal || pricing.itemTotal || 0)}</span>
+              <span className="text-gray-900">{formatMoney(itemTotal)}</span>
             </div>
-            {(pricing.tax > 0 || pricing.restaurantTaxes > 0) && (
+            {taxAndCharges > 0 && (
               <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
                 <span>Taxes & Charges</span>
-                <span className="text-gray-900">{formatMoney(pricing.tax || pricing.restaurantTaxes)}</span>
+                <span className="text-gray-900">{formatMoney(taxAndCharges)}</span>
               </div>
             )}
-            {pricing.packagingFee > 0 && (
+            {packagingFee > 0 && (
               <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
                 <span>Packaging Fee</span>
-                <span className="text-gray-900">{formatMoney(pricing.packagingFee)}</span>
+                <span className="text-gray-900">{formatMoney(packagingFee)}</span>
               </div>
             )}
-            {pricing.deliveryFee > 0 && (
+            {deliveryFee > 0 && (
               <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
                 <span>Delivery Fee</span>
-                <span className="text-gray-900">{formatMoney(pricing.deliveryFee)}</span>
+                <span className="text-gray-900">{formatMoney(deliveryFee)}</span>
               </div>
             )}
-            {pricing.discount > 0 && (
+            {platformFee > 0 && (
+              <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <span>Platform Fee</span>
+                <span className="text-gray-900">{formatMoney(platformFee)}</span>
+              </div>
+            )}
+            {subscriptionFee > 0 && (
+              <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <span>Subscription Fee</span>
+                <span className="text-gray-900">{formatMoney(subscriptionFee)}</span>
+              </div>
+            )}
+            {totalDiscount > 0 && (
               <div className="flex justify-between text-xs font-black text-emerald-600 uppercase tracking-wider">
                 <span>Discount</span>
-                <span>-{formatMoney(pricing.discount)}</span>
+                <span>-{formatMoney(totalDiscount)}</span>
               </div>
             )}
             
             <div className="pt-5 border-t border-gray-50 flex justify-between items-center">
               <span className="text-base font-black text-gray-900 tracking-tight">Grand Total</span>
-              <span className="text-2xl font-black text-blue-600 tabular-nums tracking-tighter">{formatMoney(pricing.total || 0)}</span>
+              <span className="text-2xl font-black text-blue-600 tabular-nums tracking-tighter">{formatMoney(grandTotal)}</span>
             </div>
 
             <div className="pt-2">
