@@ -181,7 +181,6 @@ export default function AddCouponPage(props) {
                   {formData.discountType === "percentage"
                     ? <Percent className="w-4 h-4 text-gray-700" />
                     : <IndianRupee className="w-4 h-4 text-gray-700" />}
-                  <span>{formData.discountType === "percentage" ? "%" : "₹"}</span>
                   <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
                 </button>
                 {showDiscountTypeDropdown && (

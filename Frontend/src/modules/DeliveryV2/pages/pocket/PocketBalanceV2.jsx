@@ -9,6 +9,31 @@ import { toast } from 'sonner';
 import { formatCurrency } from '@food/utils/currency';
 import useDeliveryBackNavigation from '../../hooks/useDeliveryBackNavigation';
 
+const toNum = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const derivePocketBalanceFromTransactions = (transactions = []) => {
+  if (!Array.isArray(transactions) || transactions.length === 0) return 0;
+  return transactions.reduce((sum, tx) => {
+    const type = String(tx?.type || "").trim().toLowerCase();
+    const status = String(tx?.status || "").trim().toLowerCase();
+    const amount = toNum(tx?.amount);
+    if (amount <= 0) return sum;
+
+    if (type === "withdrawal") {
+      if (status === "completed" || status === "approved" || status === "pending") return sum - amount;
+      return sum;
+    }
+
+    if (type === "payment" || type === "earning_addon" || type === "bonus") {
+      if (!status || status === "completed" || status === "approved" || status === "paid") return sum + amount;
+    }
+    return sum;
+  }, 0);
+};
+
 /**
  * PocketBalanceV2 - 1:1 Match with Old PocketBalance Page.
  * Features: Big Withdraw amount display, Withdraw button, and Detail rows.
@@ -36,27 +61,40 @@ export const PocketBalanceV2 = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [profileRes, earningsRes, walletRes] = await Promise.all([
-          deliveryAPI.getProfile(),
+        const [earningsRes, walletRes] = await Promise.allSettled([
           deliveryAPI.getEarnings({ period: 'week' }),
           deliveryAPI.getWallet()
         ]);
+
+        const summary =
+          (earningsRes.status === "fulfilled" && earningsRes.value?.data?.data?.summary) ||
+          {};
+        const wallet =
+          (walletRes.status === "fulfilled" && walletRes.value?.data?.data?.wallet) ||
+          (walletRes.status === "fulfilled" && walletRes.value?.data?.wallet) ||
+          {};
         
-        const profile = profileRes?.data?.data?.profile || {};
-        const summary = earningsRes?.data?.data?.summary || {};
-        const wallet = walletRes?.data?.data?.wallet || {};
-        
-        // Use wallet data from backend instead of non-existent profile.walletBalance
-        const pocketBalance = Number(wallet.pocketBalance) || 0;
-        const withdrawalLimit = Number(wallet.deliveryWithdrawalLimit) || 100;
-        const withdrawableAmount = pocketBalance; // Backend pocketBalance is already the withdrawable amount
+        const totalEarned = toNum(wallet.totalEarned ?? wallet.total_earned);
+        const totalBonus = toNum(wallet.totalBonus ?? wallet.total_bonus);
+        const totalWithdrawn = toNum(wallet.totalWithdrawn ?? wallet.total_withdrawn);
+        const pendingWithdrawals = toNum(wallet.pendingWithdrawals ?? wallet.pending_withdrawals);
+        const computedPocketBalance = Math.max(0, (totalEarned + totalBonus) - (totalWithdrawn + pendingWithdrawals));
+        const transactionDerivedBalance = Math.max(0, derivePocketBalanceFromTransactions(wallet.transactions));
+        const pocketBalance =
+          toNum(wallet.pocketBalance ?? wallet.pocket_balance ?? wallet.totalBalance ?? wallet.balance) ||
+          computedPocketBalance ||
+          transactionDerivedBalance ||
+          Math.max(0, toNum(summary.totalEarnings));
+        const withdrawalLimit = toNum(wallet.deliveryWithdrawalLimit ?? wallet.delivery_withdrawal_limit) || 100;
+        const withdrawableAmount = Math.max(0, pocketBalance);
+        const earningsToShow = totalEarned || toNum(summary.totalEarnings) || 0;
 
         setWalletState({
            pocketBalance: pocketBalance,
-           weeklyEarnings: Number(summary.totalEarnings) || 0,
-           totalBonus: Number(wallet.totalBonus) || 0,
-           totalWithdrawn: Number(wallet.totalWithdrawn) || 0,
-           cashCollected: Number(wallet.cashInHand) || 0,
+           weeklyEarnings: earningsToShow,
+           totalBonus: totalBonus,
+           totalWithdrawn: totalWithdrawn,
+           cashCollected: Number(wallet.cashInHand ?? wallet.cash_in_hand ?? wallet.cashCollected) || 0,
            deductions: 0, // Mocked
            withdrawalLimit,
            withdrawableAmount,

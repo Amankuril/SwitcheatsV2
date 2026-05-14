@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { Bell, HelpCircle, Menu, Search, SlidersHorizontal, Calendar, X, Loader2, Star } from "lucide-react"
+import { HelpCircle, Search, SlidersHorizontal, Calendar, X, Loader2, Star } from "lucide-react"
 import BottomNavOrders from "@food/components/restaurant/BottomNavOrders"
 import { restaurantAPI } from "@food/api"
 
@@ -49,6 +49,22 @@ const extractReviewText = (order) => {
 
 const toComparableId = (value) =>
   String(value?._id || value || "").trim()
+
+const COMPLAINT_ISSUE_OPTIONS = [
+  { label: "Food Quality", value: "Food Quality" },
+  { label: "Late Delivery", value: "Late Delivery" },
+  { label: "Missing Item", value: "Missing Item" },
+  { label: "Wrong Item", value: "Wrong Item" },
+  { label: "Payment Issue", value: "Payment Issue" },
+  { label: "Other", value: "Other" },
+]
+
+const normalizeIssueType = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 
 export default function Feedback() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -175,9 +191,6 @@ export default function Feedback() {
         const params = {}
         if (fromDate) params.fromDate = fromDate.toISOString()
         if (toDate) params.toDate = toDate.toISOString()
-        if (complaintsFilterValues.issueType?.length > 0) {
-          params.complaintType = complaintsFilterValues.issueType[0]
-        }
         if (complaintsSearchQuery) params.search = complaintsSearchQuery
 
         const response = await restaurantAPI.getComplaints(params)
@@ -196,6 +209,16 @@ export default function Feedback() {
 
     fetchComplaints()
   }, [activeTab, selectedDateRange, customDateRange, complaintsFilterValues, complaintsSearchQuery])
+
+  const filteredComplaints = complaints.filter((complaint) => {
+    const selectedIssue = complaintsFilterValues.issueType?.[0]
+    if (selectedIssue) {
+      const selectedNormalized = normalizeIssueType(selectedIssue)
+      const complaintNormalized = normalizeIssueType(complaint?.issueType)
+      if (selectedNormalized !== complaintNormalized) return false
+    }
+    return true
+  })
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -259,6 +282,7 @@ export default function Feedback() {
               ordersCount: userOrdersCount,
               rating: rating,
               date: formattedDate,
+              createdAtMs: orderDate.getTime(),
               reviewText: reviewText,
               orderData: order
             }
@@ -309,7 +333,8 @@ export default function Feedback() {
 
     if (filterValues.sortBy) {
       filtered.sort((a, b) => {
-        const dateA = new Date(a.date); const dateB = new Date(b.date)
+        const dateA = Number(a.createdAtMs || 0)
+        const dateB = Number(b.createdAtMs || 0)
         if (filterValues.sortBy === "newest") return dateB - dateA
         if (filterValues.sortBy === "oldest") return dateA - dateB
         if (filterValues.sortBy === "bestRated") return (b.rating ?? 0) - (a.rating ?? 0)
@@ -415,27 +440,11 @@ export default function Feedback() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => navigate("/food/restaurant/notifications")}
-              className="p-1 rounded-full hover:bg-gray-100 active:scale-95 transition-all"
-              aria-label="Open notifications"
-            >
-              <Bell className="w-6 h-6 text-gray-700" />
-            </button>
-            <button
-              type="button"
               onClick={() => navigate("/food/restaurant/help-centre/support")}
               className="p-1 rounded-full hover:bg-gray-100 active:scale-95 transition-all"
               aria-label="Open support"
             >
               <HelpCircle className="w-6 h-6 text-gray-700" />
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/food/restaurant/explore")}
-              className="p-1 rounded-full hover:bg-gray-100 active:scale-95 transition-all"
-              aria-label="Open explore"
-            >
-              <Menu className="w-6 h-6 text-gray-700" />
             </button>
           </div>
         </div>
@@ -474,13 +483,13 @@ export default function Feedback() {
             <AnimatePresence mode="wait">
               {isComplaintsLoading ? (
                 <div className="flex justify-center p-10"><Loader2 className="animate-spin text-gray-400" /></div>
-              ) : complaints.length === 0 ? (
+              ) : filteredComplaints.length === 0 ? (
                 <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
                   <p className="text-sm text-gray-500 font-medium">No complaints found</p>
                 </div>
               ) : (
                 <div className="space-y-4 pb-20">
-                  {complaints.map((complaint) => (
+                  {filteredComplaints.map((complaint) => (
                     <div key={complaint._id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
                       <div className="flex justify-between items-center">
                         <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${
@@ -561,8 +570,8 @@ export default function Feedback() {
       <AnimatePresence>
         {isFilterOpen && (
           <>
-            <motion.div className="fixed inset-0 bg-black/40 z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsFilterOpen(false)} />
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-50 p-4 space-y-4">
+            <motion.div className="fixed inset-0 bg-black/40 z-[65]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsFilterOpen(false)} />
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-[70] p-4 space-y-4 max-h-[calc(100vh-5.5rem)] overflow-y-auto pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-gray-900">Review Filters</h3>
                 <button onClick={() => setIsFilterOpen(false)} className="p-1 rounded-md hover:bg-gray-100"><X className="w-4 h-4" /></button>
@@ -623,8 +632,8 @@ export default function Feedback() {
       <AnimatePresence>
         {isComplaintsFilterOpen && (
           <>
-            <motion.div className="fixed inset-0 bg-black/40 z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsComplaintsFilterOpen(false)} />
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-50 p-4 space-y-4">
+            <motion.div className="fixed inset-0 bg-black/40 z-[65]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsComplaintsFilterOpen(false)} />
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-[70] p-4 space-y-4 max-h-[calc(100vh-5.5rem)] overflow-y-auto pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-gray-900">Complaints Filters</h3>
                 <button onClick={() => setIsComplaintsFilterOpen(false)} className="p-1 rounded-md hover:bg-gray-100"><X className="w-4 h-4" /></button>
@@ -632,15 +641,15 @@ export default function Feedback() {
 
               <div className="space-y-2">
                 <p className="text-xs font-bold text-gray-500 uppercase">Issue Type</p>
-                {["food-quality", "late-delivery", "missing-item", "wrong-item", "payment-issue", "other"].map((type) => {
-                  const active = complaintsFilterValues.issueType[0] === type
+                {COMPLAINT_ISSUE_OPTIONS.map((option) => {
+                  const active = complaintsFilterValues.issueType[0] === option.value
                   return (
                     <button
-                      key={type}
-                      onClick={() => setComplaintsFilterValues((prev) => ({ ...prev, issueType: active ? [] : [type] }))}
+                      key={option.value}
+                      onClick={() => setComplaintsFilterValues((prev) => ({ ...prev, issueType: active ? [] : [option.value] }))}
                       className={`w-full text-left px-3 py-2 rounded-lg border ${active ? "border-black bg-gray-50" : "border-gray-200"}`}
                     >
-                      <span className="text-sm font-medium text-gray-900 capitalize">{type.replace(/-/g, " ")}</span>
+                      <span className="text-sm font-medium text-gray-900">{option.label}</span>
                     </button>
                   )
                 })}

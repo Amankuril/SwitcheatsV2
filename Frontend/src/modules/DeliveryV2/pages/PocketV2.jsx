@@ -13,6 +13,31 @@ import { formatCurrency } from '@food/utils/currency';
 import { initRazorpayPayment } from "@food/utils/razorpay";
 import { getCompanyNameAsync } from "@food/utils/businessSettings";
 
+const toNum = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const derivePocketBalanceFromTransactions = (transactions = []) => {
+  if (!Array.isArray(transactions) || transactions.length === 0) return 0;
+  return transactions.reduce((sum, tx) => {
+    const type = String(tx?.type || "").trim().toLowerCase();
+    const status = String(tx?.status || "").trim().toLowerCase();
+    const amount = toNum(tx?.amount);
+    if (amount <= 0) return sum;
+
+    if (type === "withdrawal") {
+      if (status === "completed" || status === "approved" || status === "pending") return sum - amount;
+      return sum;
+    }
+
+    if (type === "payment" || type === "earning_addon" || type === "bonus") {
+      if (!status || status === "completed" || status === "approved" || status === "paid") return sum + amount;
+    }
+    return sum;
+  }, 0);
+};
+
 export const PocketV2 = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -45,15 +70,22 @@ export const PocketV2 = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [profileRes, earningsRes, walletRes] = await Promise.all([
+        const [profileRes, earningsRes, walletRes] = await Promise.allSettled([
           deliveryAPI.getProfile(),
           deliveryAPI.getEarnings({ period: 'week' }),
           deliveryAPI.getWallet()
         ]);
 
-        const profile = profileRes?.data?.data?.profile || {};
-        const summary = earningsRes?.data?.data?.summary || {};
-        const wallet = walletRes?.data?.data?.wallet || {};
+        const profile =
+          (profileRes.status === "fulfilled" && profileRes.value?.data?.data?.profile) ||
+          {};
+        const summary =
+          (earningsRes.status === "fulfilled" && earningsRes.value?.data?.data?.summary) ||
+          {};
+        const wallet =
+          (walletRes.status === "fulfilled" && walletRes.value?.data?.data?.wallet) ||
+          (walletRes.status === "fulfilled" && walletRes.value?.data?.wallet) ||
+          {};
         const activeAddonsRes = await deliveryAPI.getActiveEarningAddons().catch(() => null);
         const activeOfferPayload =
           activeAddonsRes?.data?.data?.activeOffer ||
@@ -63,14 +95,26 @@ export const PocketV2 = () => {
         const bankDetails = profile?.documents?.bankDetails;
         const isFilled = !!(bankDetails?.accountNumber);
 
+        const totalEarned = toNum(wallet.totalEarned ?? wallet.total_earned);
+        const totalBonus = toNum(wallet.totalBonus ?? wallet.total_bonus);
+        const totalWithdrawn = toNum(wallet.totalWithdrawn ?? wallet.total_withdrawn);
+        const pendingWithdrawals = toNum(wallet.pendingWithdrawals ?? wallet.pending_withdrawals);
+        const computedPocketBalance = Math.max(0, (totalEarned + totalBonus) - (totalWithdrawn + pendingWithdrawals));
+        const transactionDerivedBalance = Math.max(0, derivePocketBalanceFromTransactions(wallet.transactions));
+        const pocketBalance =
+          toNum(wallet.pocketBalance ?? wallet.pocket_balance ?? wallet.totalBalance ?? wallet.balance) ||
+          computedPocketBalance ||
+          transactionDerivedBalance ||
+          Math.max(0, toNum(summary.totalEarnings));
+
         setWalletState({
-          totalBalance: Number(wallet.pocketBalance) || 0,
-          cashInHand: Number(wallet.cashInHand) || 0,
-          availableCashLimit: Number(wallet.availableCashLimit) || 0,
-          totalCashLimit: Number(wallet.totalCashLimit) || 0,
+          totalBalance: pocketBalance,
+          cashInHand: Number(wallet.cashInHand ?? wallet.cash_in_hand ?? wallet.cashCollected) || 0,
+          availableCashLimit: Number(wallet.availableCashLimit ?? wallet.available_cash_limit) || 0,
+          totalCashLimit: Number(wallet.totalCashLimit ?? wallet.total_cash_limit) || 0,
           weeklyEarnings: Number(summary.totalEarnings) || 0,
           weeklyOrders: Number(summary.totalOrders) || 0,
-          payoutAmount: Number(wallet.lastPayout?.amount || wallet.totalWithdrawn || 0),
+          payoutAmount: Number(wallet.lastPayout?.amount || totalWithdrawn || 0),
           payoutPeriod: wallet.lastPayout ? new Date(wallet.lastPayout.date).toLocaleDateString() : 'No recent payout',
           bankDetailsFilled: isFilled
         });

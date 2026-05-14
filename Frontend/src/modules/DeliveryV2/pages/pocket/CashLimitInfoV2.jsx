@@ -29,14 +29,31 @@ export const CashLimitInfoV2 = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const profileRes = await deliveryAPI.getProfile();
-        const profile = profileRes?.data?.data?.profile || {};
-        
-        const totalLimit = profile.totalCashLimit || 0;
-        const cashInHand = profile.cashInHand || 0;
-        const deductions = profile.deductions || 0;
-        const withdrawals = profile.totalWithdrawn || 0;
-        const available = profile.availableCashLimit || 0;
+        const [walletRes, cashLimitRes] = await Promise.allSettled([
+          deliveryAPI.getWallet(),
+          deliveryAPI.getCashLimit()
+        ]);
+
+        const walletData =
+          (walletRes.status === "fulfilled" && walletRes.value?.data?.data?.wallet) ||
+          (walletRes.status === "fulfilled" && walletRes.value?.data?.wallet) ||
+          {};
+        const cashLimitData =
+          (cashLimitRes.status === "fulfilled" && cashLimitRes.value?.data?.data) ||
+          (cashLimitRes.status === "fulfilled" && cashLimitRes.value?.data) ||
+          {};
+
+        const totalLimit =
+          Number(walletData.totalCashLimit ?? walletData.total_cash_limit) ||
+          Number(cashLimitData.deliveryCashLimit ?? cashLimitData.delivery_cash_limit) ||
+          0;
+        const cashInHand =
+          Number(walletData.cashInHand ?? walletData.cash_in_hand ?? walletData.cashCollected) || 0;
+        const deductions = Number(walletData.deductions) || 0;
+        const withdrawals = Number(walletData.totalWithdrawn ?? walletData.total_withdrawn) || 0;
+        const available =
+          Number(walletData.availableCashLimit ?? walletData.available_cash_limit) ||
+          Math.max(0, totalLimit - cashInHand - deductions);
 
         setWalletState({
            totalCashLimit: totalLimit,

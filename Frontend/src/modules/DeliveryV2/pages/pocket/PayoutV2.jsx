@@ -32,26 +32,44 @@ export const PayoutV2 = () => {
         
         if (response?.data?.success) {
           const transactions = response.data.data.transactions || [];
-          setWithdrawals(transactions.map(t => ({
-            id: t._id || t.id,
-            amount: t.amount || 0,
-            status: t.status || 'Pending',
-            date: new Date(t.date || t.createdAt).toLocaleDateString('en-IN', {
+          const withdrawalTx = transactions
+            .filter((t) => String(t?.type || '').trim().toLowerCase() === 'withdrawal')
+            .sort((a, b) => {
+              const aTime = new Date(a?.date || a?.createdAt || 0).getTime();
+              const bTime = new Date(b?.date || b?.createdAt || 0).getTime();
+              return bTime - aTime;
+            });
+
+          const formatDateTime = (value) => {
+            if (!value) return null;
+            const dt = new Date(value);
+            if (Number.isNaN(dt.getTime())) return null;
+            return dt.toLocaleDateString('en-IN', {
               day: '2-digit',
               month: 'short',
               year: 'numeric',
               hour: '2-digit',
               minute: '2-digit'
-            }),
-            processedAt: t.processedAt ? new Date(t.processedAt).toLocaleDateString('en-IN', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            }) : null,
-            failureReason: t.failureReason || null
-          })));
+            });
+          };
+
+          setWithdrawals(withdrawalTx.map(t => {
+            const rawStatus = String(t.status || 'pending').trim().toLowerCase();
+            const status =
+              rawStatus === 'approved' ? 'Approved'
+              : rawStatus === 'completed' ? 'Completed'
+              : rawStatus === 'rejected' || rawStatus === 'denied' ? 'Rejected'
+              : 'Pending';
+
+            return {
+              id: t._id || t.id,
+              amount: Number(t.amount) || 0,
+              status,
+              date: formatDateTime(t.date || t.createdAt),
+              processedAt: formatDateTime(t.processedAt || t.updatedAt),
+              failureReason: t.failureReason || t.rejectionReason || null
+            };
+          }));
         }
       } catch (err) {
         toast.error('Failed to load payout history');

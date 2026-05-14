@@ -26,7 +26,7 @@ const resolveRestaurantBackPath = ({ pathname, state }) => {
   const explicitBackPath = toRestaurantPath(state?.backTo) || toRestaurantPath(state?.from)
 
   if (normalizedPath === "/orders/all") {
-    return explicitBackPath || "/food/restaurant"
+    return explicitBackPath || "/food/restaurant/explore"
   }
 
   if (/^\/orders\/[^/]+$/.test(normalizedPath)) {
@@ -50,10 +50,11 @@ const resolveRestaurantBackPath = ({ pathname, state }) => {
   }
 
   if (
+    normalizedPath === "/coupon" ||
     normalizedPath === "/coupon/new" ||
     /^\/coupon\/[^/]+\/edit$/.test(normalizedPath)
   ) {
-    return explicitBackPath || "/food/restaurant/coupon"
+    return explicitBackPath || (normalizedPath === "/coupon" ? "/food/restaurant/explore" : "/food/restaurant/coupon")
   }
 
   if (
