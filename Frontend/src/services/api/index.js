@@ -939,7 +939,6 @@ export const adminAPI = {
 /** Restaurant API - OTP login via new backend; no email/password. */
 export const restaurantAPI = {
   deleteAccount: () => apiClient.delete('/food/restaurant/profile/account', { contextModule: 'restaurant' }),
-  getWallet: () => apiClient.get('/food/delivery/wallet', { contextModule: 'delivery' }),
   getWallet: () => apiClient.get('/food/restaurant/finance', { contextModule: 'restaurant' }),
   sendOTP: (phone, _purpose = "login") => {
     if (!phone) return Promise.reject(new Error("Phone is required"));
@@ -1660,7 +1659,6 @@ const getDeliveryMeOnce = () => {
 export const deliveryAPI = {
   deleteAccount: () => apiClient.delete('/food/delivery/profile/account', { contextModule: 'delivery' }),
   getWallet: () => apiClient.get('/food/delivery/wallet', { contextModule: 'delivery' }),
-  getWallet: () => apiClient.get('/food/restaurant/finance', { contextModule: 'restaurant' }),
   sendOTP: (phone, _purpose = "login") => {
     if (!phone) return Promise.reject(new Error("Phone is required"));
     return authService.requestDeliveryOtp(phone);

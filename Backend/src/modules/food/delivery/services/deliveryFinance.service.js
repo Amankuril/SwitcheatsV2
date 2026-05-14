@@ -4,6 +4,7 @@ import { FoodTransaction } from '../../orders/models/foodTransaction.model.js';
 import { FoodDeliveryWithdrawal } from '../models/foodDeliveryWithdrawal.model.js';
 import { FoodDeliveryCashDeposit } from '../models/foodDeliveryCashDeposit.model.js';
 import { FoodDeliveryPartner } from '../models/deliveryPartner.model.js';
+import { FoodDeliveryWallet } from '../models/deliveryWallet.model.js';
 import { DeliveryBonusTransaction } from '../../admin/models/deliveryBonusTransaction.model.js';
 import { getDeliveryCashLimitSettings } from '../../admin/services/admin.service.js';
 import { ValidationError } from '../../../../core/auth/errors.js';
@@ -26,7 +27,7 @@ export const getDeliveryPartnerWalletEnhanced = async (deliveryPartnerId) => {
     const partner = await FoodDeliveryPartner.findById(partnerId).lean();
     if (!partner) throw new ValidationError('Delivery partner not found');
 
-    const [cashLimitSettings, earningsAgg, cashCollectedAgg, cashDepositsAgg, bonusAgg, withdrawalAgg, withdrawalsList, depositList] = await Promise.all([
+    const [cashLimitSettings, earningsAgg, cashCollectedAgg, cashDepositsAgg, bonusAgg, withdrawalAgg, withdrawalsList, depositList, walletDoc] = await Promise.all([
         getDeliveryCashLimitSettings(),
         // 1. Total Earnings from Delivered Orders
         FoodOrder.aggregate([
@@ -78,23 +79,37 @@ export const getDeliveryPartnerWalletEnhanced = async (deliveryPartnerId) => {
         FoodDeliveryCashDeposit.find({ deliveryPartnerId: partnerId })
             .sort({ createdAt: -1 })
             .limit(50)
-            .lean()
+            .lean(),
+        FoodDeliveryWallet.findOne({ deliveryPartnerId: partnerId }).lean()
     ]);
 
-    const totalEarned = Number(earningsAgg?.[0]?.totalEarned) || 0;
+    const aggTotalEarned = Number(earningsAgg?.[0]?.totalEarned) || 0;
     const grossCashCollected = Number(cashCollectedAgg?.[0]?.cashCollected) || 0;
     const totalDepositedCash = Number(cashDepositsAgg?.[0]?.depositedCash) || 0;
-    const cashInHand = Math.max(0, grossCashCollected - totalDepositedCash);
-    const totalBonus = Number(bonusAgg?.[0]?.total) || 0;
-    const totalWithdrawn = Number(withdrawalAgg?.[0]?.totalWithdrawn) || 0;
+    const computedCashInHand = Math.max(0, grossCashCollected - totalDepositedCash);
+    const aggTotalBonus = Number(bonusAgg?.[0]?.total) || 0;
+    const aggTotalWithdrawn = Number(withdrawalAgg?.[0]?.totalWithdrawn) || 0;
     const pendingWithdrawals = Number(withdrawalAgg?.[0]?.pendingWithdrawals) || 0;
+
+    // Merge computed metrics with wallet ledger values to avoid stale pocket totals across admin bonus/manual wallet updates.
+    const walletBalance = Number(walletDoc?.balance) || 0;
+    const walletCashInHand = Number(walletDoc?.cashInHand) || 0;
+    const walletTotalEarnings = Number(walletDoc?.totalEarnings) || 0;
+    const walletTotalBonus = Number(walletDoc?.totalBonus) || 0;
+    const walletTotalSettled = Number(walletDoc?.totalSettled) || 0;
+
+    const totalEarned = Math.max(aggTotalEarned, walletTotalEarnings);
+    const totalBonus = Math.max(aggTotalBonus, walletTotalBonus);
+    const totalWithdrawn = Math.max(aggTotalWithdrawn, walletTotalSettled);
+    const cashInHand = Math.max(computedCashInHand, walletCashInHand);
 
     const totalCashLimit = Number(cashLimitSettings.deliveryCashLimit) || 0;
     const deliveryWithdrawalLimit = Number(cashLimitSettings.deliveryWithdrawalLimit) || 100;
 
-    // Pocket Balance = (Earnings + Bonus) - Total Withdrawn (approved) - Pending Withdrawals
-    // Wait, usually pocket balance subtracts pending too so user knows how much is "left" to request.
-    const pocketBalance = Math.max(0, (totalEarned + totalBonus) - (totalWithdrawn + pendingWithdrawals));
+    // Pocket Balance = (Earnings + Bonus) - Total Withdrawn (approved) - Pending Withdrawals.
+    // Keep max with wallet ledger balance to honor admin/manual wallet adjustments.
+    const computedPocketBalance = Math.max(0, (totalEarned + totalBonus) - (totalWithdrawn + pendingWithdrawals));
+    const pocketBalance = Math.max(computedPocketBalance, walletBalance);
 
     // Fetch transactions for UI (Orders, Bonuses, Withdrawals)
     const [ordersTx] = await Promise.all([

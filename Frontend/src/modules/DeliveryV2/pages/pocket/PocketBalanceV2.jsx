@@ -80,11 +80,14 @@ export const PocketBalanceV2 = () => {
         const pendingWithdrawals = toNum(wallet.pendingWithdrawals ?? wallet.pending_withdrawals);
         const computedPocketBalance = Math.max(0, (totalEarned + totalBonus) - (totalWithdrawn + pendingWithdrawals));
         const transactionDerivedBalance = Math.max(0, derivePocketBalanceFromTransactions(wallet.transactions));
-        const pocketBalance =
-          toNum(wallet.pocketBalance ?? wallet.pocket_balance ?? wallet.totalBalance ?? wallet.balance) ||
-          computedPocketBalance ||
-          transactionDerivedBalance ||
-          Math.max(0, toNum(summary.totalEarnings));
+        const pocketBalance = Math.max(
+          0,
+          toNum(wallet.pocketBalance ?? wallet.pocket_balance),
+          toNum(wallet.balance),
+          toNum(wallet.totalBalance ?? wallet.total_balance),
+          computedPocketBalance,
+          transactionDerivedBalance
+        );
         const withdrawalLimit = toNum(wallet.deliveryWithdrawalLimit ?? wallet.delivery_withdrawal_limit) || 100;
         const withdrawableAmount = Math.max(0, pocketBalance);
         const earningsToShow = totalEarned || toNum(summary.totalEarnings) || 0;

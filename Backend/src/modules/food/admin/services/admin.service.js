@@ -3907,25 +3907,37 @@ export async function addDeliveryPartnerBonus(body, adminUser) {
         exists = await DeliveryBonusTransaction.findOne({ transactionId }).lean();
     }
 
+    const amountToCredit = Number(body.amount) || 0;
+    if (amountToCredit <= 0) {
+        throw new ValidationError('Bonus amount must be greater than 0');
+    }
+
     const created = await DeliveryBonusTransaction.create({
         deliveryPartnerId: body.deliveryPartnerId,
         transactionId,
-        amount: body.amount,
+        amount: amountToCredit,
         reference: body.reference || '',
         createdByAdminId: adminUser?._id
     });
+
+    // Keep wallet ledger in sync so pocket balance updates immediately in delivery app.
+    await FoodDeliveryWallet.findOneAndUpdate(
+        { deliveryPartnerId: body.deliveryPartnerId },
+        { $inc: { balance: amountToCredit, totalBonus: amountToCredit } },
+        { upsert: true }
+    );
 
     try {
         const { notifyOwnerSafely } = await import('../../../../core/notifications/firebase.service.js');
         await notifyOwnerSafely(
             { ownerType: 'DELIVERY_PARTNER', ownerId: body.deliveryPartnerId },
             {
-                title: 'Bonus Credited! ðŸŽŠ',
-                body: `You have received a bonus of \u20B9${body.amount}. ${body.reference || 'Great job!'}`,
+                title: 'Bonus Credited!',
+                body: `You have received a bonus of \u20B9${amountToCredit}. ${body.reference || 'Great job!'}`,
                 image: 'https://i.ibb.co/5GzXz7r/Switcheats-Brand-Image.png',
                 data: {
                     type: 'bonus_credited',
-                    amount: String(body.amount),
+                    amount: String(amountToCredit),
                     transactionId: created.transactionId
                 }
             }
