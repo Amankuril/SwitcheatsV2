@@ -7,8 +7,7 @@ import {
   Gift,
   Search,
   ChevronRight,
-  TrendingUp,
-  Receipt
+  TrendingUp
 } from "lucide-react";
 import { formatCurrency } from "@food/utils/currency";
 import WeekSelector from "@delivery/components/WeekSelector";
@@ -38,12 +37,22 @@ export const PocketDetailsV2 = () => {
   const [summaryData, setSummaryData] = useState({ totalEarning: 0, totalBonus: 0, grandTotal: 0 });
   const [loading, setLoading] = useState(true);
 
+  const isWithinSelectedRange = (value) => {
+    if (!value) return false;
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return false;
+    return dt >= weekRange.start && dt <= weekRange.end;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        const anchorDate = new Date(weekRange.start);
+        // Send noon time to avoid timezone rollover shifting the selected week on backend.
+        anchorDate.setHours(12, 0, 0, 0);
         const response = await deliveryAPI.getPocketDetails({
-          date: weekRange.start.toISOString(),
+          date: anchorDate.toISOString(),
           limit: 2000
         });
 
@@ -53,13 +62,26 @@ export const PocketDetailsV2 = () => {
         const bonuses = payload?.transactions?.bonus || [];
         const summary = payload?.summary || {};
 
-        setOrders(Array.isArray(trips) ? trips : []);
-        setPaymentTransactions(Array.isArray(payments) ? payments : []);
-        setBonusTransactions(Array.isArray(bonuses) ? bonuses : []);
+        const safeTrips = (Array.isArray(trips) ? trips : []).filter((trip) =>
+          isWithinSelectedRange(trip?.deliveredAt || trip?.date || trip?.createdAt || trip?.completedAt)
+        );
+        const safePayments = (Array.isArray(payments) ? payments : []).filter((tx) =>
+          isWithinSelectedRange(tx?.date || tx?.createdAt)
+        );
+        const safeBonuses = (Array.isArray(bonuses) ? bonuses : []).filter((tx) =>
+          isWithinSelectedRange(tx?.date || tx?.createdAt)
+        );
+
+        const calculatedTotalEarning = safePayments.reduce((sum, p) => sum + (Number(p?.amount) || 0), 0);
+        const calculatedTotalBonus = safeBonuses.reduce((sum, b) => sum + (Number(b?.amount) || 0), 0);
+
+        setOrders(safeTrips);
+        setPaymentTransactions(safePayments);
+        setBonusTransactions(safeBonuses);
         setSummaryData({
-          totalEarning: Number(summary.totalEarning) || 0,
-          totalBonus: Number(summary.totalBonus) || 0,
-          grandTotal: Number(summary.grandTotal) || 0,
+          totalEarning: Number(summary.totalEarning) || calculatedTotalEarning,
+          totalBonus: Number(summary.totalBonus) || calculatedTotalBonus,
+          grandTotal: Number(summary.grandTotal) || (calculatedTotalEarning + calculatedTotalBonus),
         });
       } catch (error) {
         setOrders([]);
@@ -111,7 +133,7 @@ export const PocketDetailsV2 = () => {
           </div>
         </div>
         <div className="w-10 h-10 rounded-[16px] bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm">
-          <Receipt className="w-5 h-5" />
+          <IndianRupee className="w-5 h-5" />
         </div>
       </div>
 

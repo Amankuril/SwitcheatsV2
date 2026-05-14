@@ -23,26 +23,41 @@ export const HistoryV2 = () => {
 
   const tripTypes = ["ALL TRIPS", "Completed", "Cancelled", "Pending"];
 
+  const isSameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
   // Fetch Logic
   useEffect(() => {
     const fetchTrips = async () => {
       setLoading(true);
       try {
-        const year = selectedDate.getFullYear();
-        const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
-        const day = String(selectedDate.getDate()).padStart(2, "0");
-        const dateStr = `${year}-${month}-${day}`;
+        const anchorDate = new Date(selectedDate);
+        // Noon anchor prevents timezone rollover issues on server date parsing.
+        anchorDate.setHours(12, 0, 0, 0);
 
         const params = {
           period: activeTab,
-          date: dateStr,
+          date: anchorDate.toISOString(),
           status: selectedTripType !== "ALL TRIPS" ? selectedTripType : undefined,
           limit: 1000
         };
         
         const response = await deliveryAPI.getTripHistory(params);
         if (response.data?.success) {
-          setTrips(response.data.data.trips || []);
+          const apiTrips = response.data.data.trips || [];
+          const nextTrips =
+            activeTab === "daily"
+              ? apiTrips.filter((trip) => {
+                  const tripDateRaw = trip.date || trip.deliveredAt || trip.completedAt || trip.createdAt;
+                  if (!tripDateRaw) return false;
+                  const tripDate = new Date(tripDateRaw);
+                  if (Number.isNaN(tripDate.getTime())) return false;
+                  return isSameDay(tripDate, selectedDate);
+                })
+              : apiTrips;
+          setTrips(nextTrips);
         }
       } catch (error) {
         toast.error("Failed to load history");
@@ -236,12 +251,16 @@ export const HistoryV2 = () => {
           ) : trips.length > 0 ? (
              <div className="space-y-4 pt-2">
                 {trips.map((trip, idx) => {
-                   const isCompleted = (trip.status || '').toLowerCase() === 'completed';
-                   const isCancelled = (trip.status || '').toLowerCase() === 'cancelled';
-                   const isPending = !isCompleted && !isCancelled;
-                   const payout = Number(trip.deliveryEarning || trip.amount || trip.earningAmount || 0);
-                   const collection = Number(trip.codCollectedAmount || trip.orderTotal || 0);
-                   const isCOD = (trip.paymentMethod || '').toLowerCase() === 'cash' || (trip.paymentMethod || '').toLowerCase() === 'cod';
+                  const isCompleted = (trip.status || '').toLowerCase() === 'completed';
+                  const isCancelled = (trip.status || '').toLowerCase() === 'cancelled';
+                  const isPending = !isCompleted && !isCancelled;
+                  const payout = Number(trip.deliveryEarning || trip.amount || trip.earningAmount || 0);
+                  const collection = Number(trip.codCollectedAmount || trip.orderTotal || 0);
+                  const isCOD = (trip.paymentMethod || '').toLowerCase() === 'cash' || (trip.paymentMethod || '').toLowerCase() === 'cod';
+                  const tripDateRaw = trip.date || trip.deliveredAt || trip.completedAt || trip.createdAt;
+                  const tripDateLabel = tripDateRaw
+                    ? new Date(tripDateRaw).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : '--';
 
                    return (
                       <div key={trip.orderId || idx} className="bg-white rounded-[28px] p-5 border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] relative overflow-hidden group">
@@ -266,8 +285,8 @@ export const HistoryV2 = () => {
                                 <p className="text-sm font-bold text-gray-900">{trip.time || '--:--'}</p>
                              </div>
                              <div className="text-center">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Type</p>
-                                <p className={`text-xs font-bold mt-0.5 ${isCOD ? 'text-orange-500' : 'text-emerald-500'}`}>{isCOD ? 'COD' : 'PAID'}</p>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Date</p>
+                                <p className="text-xs font-bold mt-0.5 text-gray-700">{tripDateLabel}</p>
                              </div>
                              <div className="text-right">
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Earning</p>

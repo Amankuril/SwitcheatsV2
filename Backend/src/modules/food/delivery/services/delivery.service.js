@@ -694,29 +694,36 @@ export const getDeliveryPartnerTripHistory = async (deliveryPartnerId, query = {
 
     const partnerId = new mongoose.Types.ObjectId(deliveryPartnerId);
     const match = { 'dispatch.deliveryPartnerId': partnerId };
+    const rangeOrDates = [
+        { 'deliveryState.deliveredAt': { $gte: start, $lte: end } },
+        { deliveredAt: { $gte: start, $lte: end } },
+        { completedAt: { $gte: start, $lte: end } },
+        { updatedAt: { $gte: start, $lte: end } },
+        { createdAt: { $gte: start, $lte: end } }
+    ];
 
     const sf = String(statusFilter || '').toLowerCase();
     if (sf === 'completed') {
         match.orderStatus = 'delivered';
-        match['deliveryState.deliveredAt'] = { $gte: start, $lte: end };
+        match.$or = rangeOrDates;
     } else if (sf === 'cancelled') {
         match.orderStatus = { $regex: '^cancelled', $options: 'i' };
-        match.createdAt = { $gte: start, $lte: end };
+        match.$or = rangeOrDates;
     } else if (sf === 'pending') {
-        match.createdAt = { $gte: start, $lte: end };
+        match.$or = rangeOrDates;
         // Pending = not delivered and not cancelled
         match.$and = [
             { orderStatus: { $ne: 'delivered' } },
             { orderStatus: { $not: { $regex: '^cancelled', $options: 'i' } } },
         ];
     } else {
-        // ALL TRIPS: show anything created in range, and compute earnings only for delivered orders.
-        match.createdAt = { $gte: start, $lte: end };
+        // ALL TRIPS: include trips by delivery/completion timeline, not only createdAt.
+        match.$or = rangeOrDates;
     }
 
     const orders = await FoodOrder.find(match)
         .populate({ path: 'restaurantId', select: 'restaurantName' })
-        .sort({ 'deliveryState.deliveredAt': -1, createdAt: -1 })
+        .sort({ 'deliveryState.deliveredAt': -1, deliveredAt: -1, completedAt: -1, updatedAt: -1, createdAt: -1 })
         .limit(limit)
         .lean();
 
