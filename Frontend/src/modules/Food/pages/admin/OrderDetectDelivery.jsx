@@ -278,10 +278,13 @@ export default function OrderDetectDelivery() {
 
   // Fetch orders from backend
   useEffect(() => {
+    let isMounted = true
     const fetchOrders = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
+        if (isMounted) {
+          setIsLoading(prev => prev || orders.length === 0)
+          setError(null)
+        }
         const params = {
           page: 1,
           limit: 1000, // Fetch all orders for now
@@ -293,24 +296,38 @@ export default function OrderDetectDelivery() {
           const transformedOrders = response.data.data.orders.map((order, index) => 
             transformOrder(order, index)
           )
-          setOrders(transformedOrders)
+          if (isMounted) {
+            setOrders(transformedOrders)
+          }
         } else {
           debugError("Failed to fetch orders:", response.data)
-          setError(response.data?.message || "Failed to fetch orders")
-          toast.error("Failed to fetch orders")
-          setOrders([])
+          if (isMounted) {
+            setError(response.data?.message || "Failed to fetch orders")
+            toast.error("Failed to fetch orders")
+            setOrders([])
+          }
         }
       } catch (error) {
         debugError("Error fetching orders:", error)
-        setError(error.response?.data?.message || "Failed to fetch orders")
-        toast.error(error.response?.data?.message || "Failed to fetch orders")
-        setOrders([])
+        if (isMounted) {
+          setError(error.response?.data?.message || "Failed to fetch orders")
+          toast.error(error.response?.data?.message || "Failed to fetch orders")
+          setOrders([])
+        }
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
     fetchOrders()
+    const intervalId = setInterval(fetchOrders, 30000)
+
+    return () => {
+      isMounted = false
+      clearInterval(intervalId)
+    }
   }, [])
 
   const {
@@ -342,7 +359,7 @@ export default function OrderDetectDelivery() {
 
   // Statistics
   const stats = useMemo(() => {
-    const total = orders.length
+    const total = filteredData.length
     const ordered = filteredData.filter(o => o.status === "Ordered").length
     const restaurantAccepted = filteredData.filter(o => o.status === "Restaurant Accepted" || o.status === "Accepted").length
     const rejected = filteredData.filter(o => o.status === "Rejected").length
@@ -353,7 +370,7 @@ export default function OrderDetectDelivery() {
     const delivered = filteredData.filter(o => o.status === "Ordered Delivered").length
     
     return { total, ordered, restaurantAccepted, rejected, deliveryBoyAssigned, reachedPickup, orderIdAccepted, reachedDrop, delivered }
-  }, [filteredData, orders.length])
+  }, [filteredData])
 
   const resetColumns = () => {
     setVisibleColumns({
@@ -546,5 +563,4 @@ export default function OrderDetectDelivery() {
     </div>
   )
 }
-
 

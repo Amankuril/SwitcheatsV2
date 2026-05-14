@@ -100,7 +100,38 @@ export function useGenericTableManagement(data, title, searchFields = []) {
       const restaurantName = order.restaurant || order.restaurantName || sourceOrder.restaurantName || sourceOrder.restaurantId?.restaurantName || 'N/A'
       const orderId = order.orderId || sourceOrder.orderId || sourceOrder._id || 'N/A'
       const items = sourceOrder.cart?.items || sourceOrder.items || []
-      const totalAmount = order.totalAmount || pricing.total || sourceOrder.totalAmount || 0
+      const totalAmount = Number(order.totalAmount || pricing.total || sourceOrder.totalAmount || 0) || 0
+      const subtotalFromOrder = Number(
+        pricing.subtotal ??
+        sourceOrder.subtotal ??
+        sourceOrder.itemsTotal ??
+        sourceOrder.cart?.subtotal ??
+        0
+      ) || 0
+      const deliveryFee = Number(
+        pricing.deliveryFee ??
+        sourceOrder.deliveryFee ??
+        sourceOrder.deliveryCharge ??
+        sourceOrder.shippingFee ??
+        0
+      ) || 0
+      const taxAmount = Number(
+        pricing.tax ??
+        pricing.taxAmount ??
+        sourceOrder.tax ??
+        sourceOrder.taxAmount ??
+        sourceOrder.gstAmount ??
+        0
+      ) || 0
+      const discountAmount = Number(
+        pricing.discount ??
+        sourceOrder.discount ??
+        sourceOrder.couponDiscount ??
+        0
+      ) || 0
+      const subtotal = subtotalFromOrder > 0
+        ? subtotalFromOrder
+        : Math.max(0, totalAmount - deliveryFee - taxAmount + discountAmount)
       const paymentStatus = order.paymentStatus || sourceOrder.payment?.status || sourceOrder.paymentStatus || 'N/A'
       const orderStatus = order.status || order.orderStatus || sourceOrder.orderStatus || 'N/A'
 
@@ -207,18 +238,56 @@ export function useGenericTableManagement(data, title, searchFields = []) {
         startY += 10
       }
       
-      // Total Amount
-      doc.setFontSize(14)
+      // Amount breakdown table
+      doc.setFontSize(12)
       doc.setTextColor(30, 30, 30)
       doc.setFont(undefined, 'bold')
-      const totalAmountStr = typeof totalAmount === 'number' ? totalAmount.toFixed(2) : totalAmount
-      doc.text(`Total Amount: Rs. ${totalAmountStr}`, 14, startY)
-      startY += 8
-      
+      doc.text("Amount Breakdown", 14, startY)
+      startY += 4
+
+      autoTable(doc, {
+        startY,
+        head: [["Label", "Amount"]],
+        body: [
+          ["Subtotal", `Rs. ${subtotal.toFixed(2)}`],
+          ["Delivery Fee", `Rs. ${deliveryFee.toFixed(2)}`],
+          ["Tax", `Rs. ${taxAmount.toFixed(2)}`],
+          ["Discount", `Rs. ${discountAmount.toFixed(2)}`],
+          ["Grand Total", `Rs. ${totalAmount.toFixed(2)}`],
+        ],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [59, 130, 246],
+          textColor: 255,
+          fontSize: 10,
+          fontStyle: 'bold',
+        },
+        bodyStyles: {
+          fontSize: 10,
+          textColor: [30, 30, 30],
+        },
+        styles: {
+          cellPadding: 3.5,
+          lineColor: [200, 200, 200],
+          lineWidth: 0.4,
+        },
+        columnStyles: {
+          0: { cellWidth: 120, fontStyle: 'bold' },
+          1: { cellWidth: 50, halign: 'right' },
+        },
+        margin: { left: 14, right: 14 },
+        didParseCell: (hookData) => {
+          if (hookData.row.index === 4) {
+            hookData.cell.styles.fontStyle = 'bold'
+            hookData.cell.styles.textColor = [15, 118, 110]
+          }
+        },
+      })
+
+      startY = doc.lastAutoTable.finalY + 8
+
       // Payment Status
-      doc.setFontSize(10)
       doc.setTextColor(100, 100, 100)
-      doc.setFont(undefined, 'normal')
       doc.text(`Payment Status: ${paymentStatus === 'cod_pending' ? 'Cash on Delivery' : paymentStatus}`, 14, startY)
       startY += 6
       
@@ -270,4 +339,3 @@ export function useGenericTableManagement(data, title, searchFields = []) {
     resetColumns,
   }
 }
-
