@@ -16,6 +16,14 @@ const getNotificationKey = (payload) =>
     payload?.data?.targetUrl || payload?.data?.link || "",
   ].join("::");
 
+function hasSdkNotificationPayload(payload = {}) {
+  return Boolean(
+    payload?.notification?.title ||
+      payload?.notification?.body ||
+      payload?.notification?.image,
+  );
+}
+
 function getTargetPathFromPayload(payload = {}) {
   const rawTarget =
     payload?.data?.targetUrl ||
@@ -154,6 +162,17 @@ async function loadFirebaseWebConfig() {
       // Only relay, don't show system notification - page will handle display
       await notifyFocusedClients(payload);
     } else {
+      // FCM auto-displays notifications when payload contains the "notification" block.
+      // Avoid manual showNotification in that case to prevent duplicate system pushes.
+      if (hasSdkNotificationPayload(payload)) {
+        pushDebugLog(PUSH_DEBUG_PREFIX, "Skipping manual showNotification to avoid duplicate SDK notification", {
+          title,
+          body,
+          notificationKey,
+        });
+        return;
+      }
+
       // App is in background or closed - show system notification
       pushDebugLog(PUSH_DEBUG_PREFIX, "App is in background/closed - showing system notification", {
         title,
