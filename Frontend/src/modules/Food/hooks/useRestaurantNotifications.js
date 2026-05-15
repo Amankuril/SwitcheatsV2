@@ -45,6 +45,7 @@ const triggerWebViewNativeNotification = async (orderData = {}) => {
     orderId: orderData?.orderId || orderData?.order_id || '',
     orderMongoId: orderData?.orderMongoId || orderData?.order_mongo_id || '',
     targetUrl: `/restaurant/orders/${orderData?.orderMongoId || orderData?.orderId || ''}`,
+    disableActions: true,
   };
 
   try {
@@ -55,7 +56,6 @@ const triggerWebViewNativeNotification = async (orderData = {}) => {
       const handlerNames = [
         'playNotificationSound',
         'triggerNotificationFeedback',
-        'onPushNotification',
       ];
 
       for (const handlerName of handlerNames) {
@@ -768,6 +768,5 @@ export const useRestaurantNotifications = () => {
     playNotificationSound
   };
 };
-
 
 

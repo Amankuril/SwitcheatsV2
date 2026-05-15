@@ -215,6 +215,7 @@ async function triggerWebViewNativeNotification(payload = {}) {
     notificationId: payload?.data?.notificationId || payload?.messageId || "",
     targetUrl: payload?.data?.targetUrl || payload?.data?.link || "",
     imageUrl: payload?.notification?.image || payload?.data?.image || payload?.data?.imageUrl || "",
+    disableActions: true,
   };
 
   try {
@@ -225,7 +226,6 @@ async function triggerWebViewNativeNotification(payload = {}) {
       const handlerNames = [
         "playNotificationSound",
         "triggerNotificationFeedback",
-        "onPushNotification",
       ];
 
       for (const handlerName of handlerNames) {
