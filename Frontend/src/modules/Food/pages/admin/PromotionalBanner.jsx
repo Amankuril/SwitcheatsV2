@@ -92,6 +92,38 @@ export default function PromotionalBanner() {
       return
     }
 
+    const todayAtMidnight = new Date(today)
+    todayAtMidnight.setHours(0, 0, 0, 0)
+
+    if (formData.startDate) {
+      const startAt = new Date(formData.startDate)
+      startAt.setHours(0, 0, 0, 0)
+      if (startAt < todayAtMidnight) {
+        alert("Start Date cannot be in the past")
+        return
+      }
+    }
+
+    if (formData.endDate) {
+      const endAt = new Date(formData.endDate)
+      endAt.setHours(0, 0, 0, 0)
+      if (endAt < todayAtMidnight) {
+        alert("End Date cannot be in the past")
+        return
+      }
+    }
+
+    if (formData.startDate && formData.endDate) {
+      const startAt = new Date(formData.startDate)
+      startAt.setHours(0, 0, 0, 0)
+      const endAt = new Date(formData.endDate)
+      endAt.setHours(0, 0, 0, 0)
+      if (endAt < startAt) {
+        alert("End Date cannot be earlier than Start Date")
+        return
+      }
+    }
+
     try {
       setSubmitting(true)
       const data = new FormData()

@@ -10,6 +10,7 @@ const profilePlaceholder = "https://images.unsplash.com/photo-1555396273-367ea4e
 const coverPlaceholder = "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1200&h=400&fit=crop"
 
 export default function NewAdvertisement() {
+  const todayStr = new Date().toISOString().split("T")[0]
   const [activeLanguage, setActiveLanguage] = useState("default")
   const [formData, setFormData] = useState({
     title: "",
@@ -311,6 +312,7 @@ export default function NewAdvertisement() {
                         type="date"
                         value={formData.validity}
                         onChange={(e) => handleInputChange("validity", e.target.value)}
+                        min={todayStr}
                         className={`w-full px-4 py-2.5 pr-10 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm ${
                           formErrors.validity ? "border-red-500" : "border-slate-300"
                         }`}

@@ -123,8 +123,8 @@ export default function RegularOrderReport() {
       const params = {
         page: 1,
         limit: 10000,
-        ...(filters.zone !== "All Zones" && { zoneName: filters.zone }),
-        ...(filters.restaurant !== "All restaurants" && { restaurantName: filters.restaurant }),
+        ...(filters.zone !== "All Zones" && { zoneId: filters.zone }),
+        ...(filters.restaurant !== "All restaurants" && { restaurantId: filters.restaurant }),
         ...(fromDate && { startDate: fromDate.toISOString().split('T')[0] }),
         ...(toDate && { endDate: toDate.toISOString().split('T')[0] }),
       }
@@ -165,11 +165,23 @@ export default function RegularOrderReport() {
             order.restaurantId?.restaurantName ||
             order.restaurantName ||
             ""
+          const restaurantId =
+            order.restaurantId?._id?.toString?.() ||
+            order.restaurantId?.toString?.() ||
+            ""
+          const orderZoneId =
+            order.restaurantId?.zoneId?._id?.toString?.() ||
+            order.restaurantId?.zoneId?.toString?.() ||
+            ""
 
           const customerName =
             order.userId?.name ||
             order.customerName ||
             "N/A"
+          const customerId =
+            order.userId?._id?.toString?.() ||
+            order.userId?.toString?.() ||
+            ""
 
           const backendStatus = String(order.orderStatus || "").toLowerCase()
           let displayStatus = order.orderStatus
@@ -189,7 +201,10 @@ export default function RegularOrderReport() {
 
           return {
             orderId: order.orderId,
+            restaurantId,
+            zoneId: orderZoneId,
             restaurant: restaurantName,
+            customerId,
             customerName,
             totalItemAmount: subtotal,
             couponDiscount,
@@ -227,14 +242,22 @@ export default function RegularOrderReport() {
   }, [searchQuery])
 
   const filteredOrders = useMemo(() => {
-    if (!searchQuery.trim()) return orders
+    let scoped = orders
+    if (filters.zone !== "All Zones") {
+      scoped = scoped.filter((o) => String(o.zoneId || "") === String(filters.zone))
+    }
+    if (filters.customer !== "All customers") {
+      scoped = scoped.filter((o) => String(o.customerId || "") === String(filters.customer))
+    }
+
+    if (!searchQuery.trim()) return scoped
     const q = searchQuery.toLowerCase().trim()
-    return orders.filter((o) =>
+    return scoped.filter((o) =>
       String(o.orderId || "")
         .toLowerCase()
         .includes(q),
     )
-  }, [orders, searchQuery])
+  }, [orders, searchQuery, filters.zone, filters.customer])
 
   const handleExport = (format) => {
     if (filteredOrders.length === 0) {
@@ -394,8 +417,8 @@ export default function RegularOrderReport() {
               >
                 <option value="All Zones">All Zones</option>
                 {zones.map((zone) => (
-                  <option key={zone._id} value={zone.zoneName}>
-                    {zone.zoneName}
+                  <option key={zone._id} value={zone._id}>
+                    {zone.zoneName || zone.name}
                   </option>
                 ))}
               </select>
@@ -410,8 +433,8 @@ export default function RegularOrderReport() {
               >
                 <option value="All restaurants">All restaurants</option>
                 {restaurants.map((restaurant) => (
-                  <option key={restaurant._id} value={restaurant.restaurantName}>
-                    {restaurant.restaurantName}
+                  <option key={restaurant._id} value={restaurant._id}>
+                    {restaurant.restaurantName || restaurant.name}
                   </option>
                 ))}
               </select>
@@ -426,7 +449,7 @@ export default function RegularOrderReport() {
               >
                 <option value="All customers">All customers</option>
                 {customers.map((customer) => (
-                  <option key={customer._id} value={customer.name}>
+                  <option key={customer._id} value={customer._id}>
                     {customer.name}
                   </option>
                 ))}
@@ -711,6 +734,4 @@ export default function RegularOrderReport() {
     </div>
   )
 }
-
-
 

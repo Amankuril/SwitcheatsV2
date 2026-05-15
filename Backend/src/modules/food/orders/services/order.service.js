@@ -1310,6 +1310,8 @@ export async function listOrdersAdmin(query) {
       : "";
   const restaurantIdRaw =
     typeof query.restaurantId === "string" ? query.restaurantId.trim() : "";
+  const zoneIdRaw =
+    typeof query.zoneId === "string" ? query.zoneId.trim() : "";
   const startDateRaw =
     typeof query.startDate === "string" ? query.startDate.trim() : "";
   const endDateRaw =
@@ -1375,6 +1377,21 @@ export async function listOrdersAdmin(query) {
     filter.restaurantId = new mongoose.Types.ObjectId(restaurantIdRaw);
   }
 
+  if (zoneIdRaw && mongoose.Types.ObjectId.isValid(zoneIdRaw)) {
+    const zoneRestaurantIds = await FoodRestaurant.find({
+      zoneId: new mongoose.Types.ObjectId(zoneIdRaw),
+    }).distinct("_id");
+    if (filter.restaurantId instanceof mongoose.Types.ObjectId) {
+      filter.restaurantId = {
+        $in: zoneRestaurantIds.filter(
+          (id) => String(id) === String(filter.restaurantId),
+        ),
+      };
+    } else {
+      filter.restaurantId = { $in: zoneRestaurantIds };
+    }
+  }
+
   if (startDateRaw || endDateRaw) {
     const createdAt = {};
     const start = startDateRaw ? new Date(startDateRaw) : null;
@@ -1394,7 +1411,7 @@ export async function listOrdersAdmin(query) {
     FoodOrder.find(filter)
       .select("+deliveryOtp")
       .populate("userId", "name phone email")
-      .populate("restaurantId", "restaurantName area city ownerPhone")
+      .populate("restaurantId", "restaurantName area city ownerPhone zoneId")
       .populate("dispatch.deliveryPartnerId", "name phone")
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -1630,4 +1647,3 @@ export async function processRefundAdmin(orderId, amount, adminId) {
 
     throw new Error("Refund processing failed");
 }
-

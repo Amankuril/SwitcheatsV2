@@ -90,8 +90,8 @@ export default function TransactionReport() {
 
         const params = {
           search: searchQuery || undefined,
-          zoneName: filters.zone !== "All Zones" ? filters.zone : undefined,
-          restaurantName: filters.restaurant !== "All restaurants" ? filters.restaurant : undefined,
+          zone: filters.zone !== "All Zones" ? filters.zone : undefined,
+          restaurant: filters.restaurant !== "All restaurants" ? filters.restaurant : undefined,
           fromDate: fromDate ? fromDate.toISOString() : undefined,
           toDate: toDate ? toDate.toISOString() : undefined,
           limit: 1000
@@ -220,7 +220,7 @@ export default function TransactionReport() {
               >
                 <option value="All Zones">All Zones</option>
                 {zones.map(zone => (
-                  <option key={zone._id} value={zone.zoneName || zone.name}>{zone.zoneName || zone.name}</option>
+                  <option key={zone._id} value={zone._id}>{zone.zoneName || zone.name}</option>
                 ))}
               </select>
               <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
@@ -234,7 +234,7 @@ export default function TransactionReport() {
               >
                 <option value="All restaurants">All restaurants</option>
                 {restaurants.map(restaurant => (
-                  <option key={restaurant._id} value={restaurant.restaurantName || restaurant.name}>{restaurant.restaurantName || restaurant.name}</option>
+                  <option key={restaurant._id} value={restaurant._id}>{restaurant.restaurantName || restaurant.name}</option>
                 ))}
               </select>
               <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
@@ -540,4 +540,3 @@ export default function TransactionReport() {
     </div>
   )
 }
-

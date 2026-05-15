@@ -693,19 +693,61 @@ export async function getTransactionReport(query = {}) {
         ];
     }
 
-    let restaurantIds = null;
     if (zone || restaurant) {
         const restFilter = {};
-        if (zone) restFilter.zoneId = zone; // Assuming zone is an ID or we need to lookup
-        if (restaurant && restaurant !== 'All restaurants') {
-            const restDoc = await mongoose.model('FoodRestaurant').findOne({ restaurantName: restaurant }).lean();
-            if (restDoc) restFilter._id = restDoc._id;
+
+        if (zone) {
+            const zoneRaw = String(zone).trim();
+            if (zoneRaw) {
+                if (mongoose.Types.ObjectId.isValid(zoneRaw)) {
+                    restFilter.zoneId = new mongoose.Types.ObjectId(zoneRaw);
+                } else {
+                    const matchedZone = await FoodZone.findOne({
+                        $or: [{ name: zoneRaw }, { zoneName: zoneRaw }]
+                    })
+                        .select('_id')
+                        .lean();
+                    if (matchedZone?._id) {
+                        restFilter.zoneId = matchedZone._id;
+                    } else {
+                        match.restaurantId = { $in: [] };
+                    }
+                }
+            }
         }
-        
-        if (Object.keys(restFilter).length > 0) {
-            const restaurantsList = await mongoose.model('FoodRestaurant').find(restFilter).select('_id').lean();
-            restaurantIds = restaurantsList.map(r => r._id);
-            match.restaurantId = { $in: restaurantIds };
+
+        if (restaurant && restaurant !== 'All restaurants') {
+            const restaurantRaw = String(restaurant).trim();
+            if (restaurantRaw) {
+                let restDoc = null;
+                if (mongoose.Types.ObjectId.isValid(restaurantRaw)) {
+                    restDoc = await mongoose
+                        .model('FoodRestaurant')
+                        .findById(restaurantRaw)
+                        .select('_id')
+                        .lean();
+                } else {
+                    restDoc = await mongoose.model('FoodRestaurant').findOne({
+                        $or: [{ restaurantName: restaurantRaw }, { name: restaurantRaw }]
+                    })
+                        .select('_id')
+                        .lean();
+                }
+                if (restDoc?._id) {
+                    restFilter._id = restDoc._id;
+                } else {
+                    match.restaurantId = { $in: [] };
+                }
+            }
+        }
+
+        if (!match.restaurantId && Object.keys(restFilter).length > 0) {
+            const restaurantsList = await mongoose
+                .model('FoodRestaurant')
+                .find(restFilter)
+                .select('_id')
+                .lean();
+            match.restaurantId = { $in: restaurantsList.map((r) => r._id) };
         }
     }
 
