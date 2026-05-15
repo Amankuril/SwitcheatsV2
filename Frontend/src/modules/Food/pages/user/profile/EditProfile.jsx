@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, X, Pencil, Loader2, Camera, Upload } from "lucide-react"
+import { ArrowLeft, X, Pencil, Loader2, Camera, Upload, Trash2, User } from "lucide-react"
 import { Button } from "@food/components/ui/button"
 import { Input } from "@food/components/ui/input"
 import { Label } from "@food/components/ui/label"
@@ -327,6 +327,41 @@ export default function EditProfile() {
     fileInputRef.current?.click()
   }
 
+  const handleRemoveProfileImage = async () => {
+    if (!profileImage && !imagePreview) return
+
+    try {
+      setIsUploadingImage(true)
+      await userAPI.updateProfile({ profileImage: "" })
+
+      setProfileImage("")
+      setImagePreview("")
+
+      const mergedProfile = {
+        ...(userProfile || {}),
+        name: formData.name,
+        phone: formData.mobile,
+        mobile: formData.mobile,
+        email: formData.email,
+        dateOfBirth: formData.dateOfBirth || null,
+        anniversary: formData.anniversary || null,
+        gender: formData.gender || "",
+        profileImage: "",
+      }
+
+      updateUserProfile(mergedProfile)
+      saveProfileToStorage(mergedProfile)
+      saveEditProfileDraft(mergedProfile)
+      window.dispatchEvent(new Event("userAuthChanged"))
+      toast.success("Profile image removed")
+    } catch (error) {
+      debugError("Error removing profile image:", error)
+      toast.error(error?.response?.data?.message || "Failed to remove image")
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
   const validateForm = () => {
     const nextErrors = {
       mobile: validateMobile(formData.mobile),
@@ -437,7 +472,7 @@ export default function EditProfile() {
                 />
               )}
               <AvatarFallback className="bg-[#EB590E] text-white text-3xl font-semibold">
-                {avatarInitial}
+                <User className="h-10 w-10 text-white" />
               </AvatarFallback>
             </Avatar>
             {/* Edit Icon */}
@@ -452,6 +487,16 @@ export default function EditProfile() {
                 <Pencil className="h-4 w-4 text-white" />
               )}
             </button>
+            {(profileImage || imagePreview) && (
+              <button
+                onClick={handleRemoveProfileImage}
+                disabled={isUploadingImage}
+                className="absolute bottom-0 left-0 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Remove profile image"
+              >
+                <Trash2 className="h-4 w-4 text-white" />
+              </button>
+            )}
             <input
               ref={fileInputRef}
               type="file"

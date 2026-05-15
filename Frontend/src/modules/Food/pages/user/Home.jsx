@@ -74,6 +74,7 @@ import PageNavbar from "@food/components/user/PageNavbar";
 const debugLog = (...args) => {};
 const debugWarn = (...args) => {};
 const debugError = (...args) => {};
+const VEG_MODE_OPTION_STORAGE_KEY = "food_user_veg_mode_option";
 
 // Import shared food images - prevents duplication
 import { foodImages } from "@food/constants/images";
@@ -661,7 +662,14 @@ export default function Home() {
   const [prevVegMode, setPrevVegMode] = useState(vegMode);
   const [showVegModePopup, setShowVegModePopup] = useState(false);
   const [showSwitchOffPopup, setShowSwitchOffPopup] = useState(false);
-  const [vegModeOption, setVegModeOption] = useState("all"); // "all" or "pure-veg"
+  const [vegModeOption, setVegModeOption] = useState(() => {
+    try {
+      const saved = localStorage.getItem(VEG_MODE_OPTION_STORAGE_KEY);
+      return saved === "pure-veg" ? "pure-veg" : "all";
+    } catch (_) {
+      return "all";
+    }
+  }); // "all" or "pure-veg"
   const [isApplyingVegMode, setIsApplyingVegMode] = useState(false);
   const [isSwitchingOffVegMode, setIsSwitchingOffVegMode] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0, triangleLeft: 0 });
@@ -1020,12 +1028,17 @@ export default function Home() {
     }
   }, [vegMode]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(VEG_MODE_OPTION_STORAGE_KEY, vegModeOption);
+    } catch (_) {}
+  }, [vegModeOption]);
+
   // Keep persisted Veg Mode preference; only reset popup UI state on mount.
   useEffect(() => {
     setPrevVegMode(vegMode);
     setShowVegModePopup(false);
     setShowSwitchOffPopup(false);
-    setVegModeOption("all");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -2334,9 +2347,10 @@ export default function Home() {
   const matchesVegMode = useCallback(
     (restaurant) => {
       if (!vegMode) return true;
+      if (vegModeOption === "all") return true;
       return restaurant?.pureVegRestaurant === true;
     },
-    [vegMode],
+    [vegMode, vegModeOption],
   );
 
     // Filter restaurants and foods based on active filters
@@ -2348,8 +2362,8 @@ export default function Home() {
 
   const restaurantLazyLoadResetKey = useMemo(() => {
     const activeFilterKey = Array.from(activeFilters).sort().join("|");
-    return `${restaurantsData.length}:${activeFilterKey}:${selectedCuisine || ""}:${sortBy || ""}:${vegMode ? "1" : "0"}`;
-  }, [activeFilters, restaurantsData.length, selectedCuisine, sortBy, vegMode]);
+    return `${restaurantsData.length}:${activeFilterKey}:${selectedCuisine || ""}:${sortBy || ""}:${vegMode ? "1" : "0"}:${vegModeOption}`;
+  }, [activeFilters, restaurantsData.length, selectedCuisine, sortBy, vegMode, vegModeOption]);
 
   const visibleRestaurants = useMemo(
     () => filteredRestaurants.slice(0, visibleRestaurantCount),
@@ -3461,6 +3475,18 @@ export default function Home() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-6 w-[85%] max-w-xs relative border border-gray-100 dark:border-gray-800">
+                <button
+                  type="button"
+                  aria-label="Close veg mode popup"
+                  onClick={() => {
+                    setShowVegModePopup(false);
+                    setVegModeContext(false);
+                    setPrevVegMode(false);
+                  }}
+                  className="absolute top-3 right-3 p-1 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
 
 
                 {/* Title */}
