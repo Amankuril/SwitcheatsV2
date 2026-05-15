@@ -53,6 +53,46 @@ function normalizeModuleFromPath(pathname = window.location.pathname) {
   return "user";
 }
 
+function hasModuleSession(moduleName = normalizeModuleFromPath()) {
+  if (typeof window === "undefined") return false;
+  if (!moduleName || moduleName === "admin") return false;
+  return Boolean(localStorage.getItem(`${moduleName}_accessToken`));
+}
+
+function hasAnyFoodModuleSession() {
+  if (typeof window === "undefined") return false;
+  return ["user", "restaurant", "delivery", "admin"].some((moduleName) =>
+    Boolean(localStorage.getItem(`${moduleName}_accessToken`)),
+  );
+}
+
+async function disablePushWhenLoggedOut() {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  if (hasAnyFoodModuleSession()) return;
+
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
+    if (!registration) return;
+
+    const subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      await subscription.unsubscribe();
+    }
+  } catch (error) {
+    pushDebugWarn(PUSH_DEBUG_PREFIX, "Failed to disable push for logged-out session", {
+      error: error?.message || error,
+    });
+  }
+}
+
+function isModuleOnline(moduleName = normalizeModuleFromPath()) {
+  if (typeof document === "undefined" || typeof window === "undefined") return false;
+  const isVisible = document.visibilityState === "visible";
+  const isFocused = typeof document.hasFocus === "function" ? document.hasFocus() : true;
+  const isWindowFocused = typeof window === "undefined" || typeof window.focus !== "function" ? true : isFocused;
+  return isVisible && isWindowFocused;
+}
+
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -502,6 +542,15 @@ function showForegroundNotification(payload = {}) {
     pushDebugWarn(PUSH_DEBUG_PREFIX, "Ignoring malformed foreground notification payload", { payload });
     return;
   }
+  const moduleName = normalizeModuleFromPath();
+  if (!hasModuleSession(moduleName)) {
+    pushDebugLog(PUSH_DEBUG_PREFIX, "Skipping foreground notification: module is logged out", { moduleName });
+    return;
+  }
+  if (!isModuleOnline(moduleName)) {
+    pushDebugLog(PUSH_DEBUG_PREFIX, "Skipping foreground notification: module is not online", { moduleName });
+    return;
+  }
   const notificationKey = getNotificationKey(payload);
   pushDebugLog(PUSH_DEBUG_PREFIX, "showForegroundNotification received", { notificationKey, payload });
   if (wasRecentlyHandled(notificationKey)) {
@@ -605,6 +654,12 @@ export function initPushNotificationClient() {
   });
 
   if (moduleName === "admin") {
+    return;
+  }
+
+  if (!hasModuleSession(moduleName)) {
+    pushDebugLog(PUSH_DEBUG_PREFIX, "Skipping push client init: module is logged out", { moduleName });
+    void disablePushWhenLoggedOut();
     return;
   }
 
