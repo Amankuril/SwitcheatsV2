@@ -9,6 +9,11 @@ const debugLog = (...args) => { }
 const debugWarn = (...args) => { }
 const debugError = (...args) => { }
 
+const toNum = (value) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 
 export default function Orders() {
   const navigate = useNavigate()
@@ -275,6 +280,21 @@ export default function Orders() {
             const restaurantRating = order.ratings?.restaurant?.rating || null
             const deliveryPartnerRating = order.ratings?.deliveryPartner?.rating || null
 
+            const pricing = order.pricing || {}
+            const itemSubtotal = (order.items || []).reduce((sum, item) => {
+              const qty = toNum(item?.quantity || 1)
+              const price = toNum(item?.price || item?.unitPrice || 0)
+              return sum + (qty * price)
+            }, 0)
+            const subtotal = toNum(pricing.subtotal ?? pricing.itemTotal ?? pricing.itemsTotal ?? itemSubtotal)
+            const deliveryFee = toNum(pricing.deliveryFee ?? pricing.deliveryCharge ?? pricing.shippingFee ?? 0)
+            const packagingFee = toNum(pricing.packagingFee ?? pricing.packagingCharges ?? 0)
+            const platformFee = toNum(pricing.platformFee ?? pricing.serviceFee ?? pricing.convenienceFee ?? 0)
+            const tax = toNum(pricing.tax ?? pricing.taxesAndCharges ?? pricing.taxAndCharges ?? 0)
+            const discount = toNum(pricing.discount ?? 0)
+            const computedTotal = Math.max(0, subtotal + deliveryFee + packagingFee + platformFee + tax - discount)
+            const total = toNum(pricing.total ?? order.total ?? computedTotal) || computedTotal
+
             return {
               id: order._id?.toString() || order.orderId || `ORD-${order._id}`,
               mongoId: order._id,
@@ -295,11 +315,13 @@ export default function Orders() {
                 _id: item._id || item.id,
                 id: item.id || item._id
               })),
-              total: order.pricing?.total || order.total || 0,
-              subtotal: order.pricing?.subtotal || 0,
-              deliveryFee: order.pricing?.deliveryFee || 0,
-              tax: order.pricing?.tax || 0,
-              pricing: order.pricing || {}, // Keep full pricing object for discounts, coupons
+              total,
+              subtotal,
+              deliveryFee,
+              packagingFee,
+              platformFee,
+              tax,
+              pricing: { ...pricing, discount }, // Keep full pricing object for discounts, coupons
               payment: order.payment || {},
               paymentMethod: order.payment?.method || order.paymentMethod,
               restaurant: order.restaurantId?.restaurantName || order.restaurantId?.name || order.restaurantName || 'Restaurant',
@@ -878,12 +900,24 @@ Order again from this restaurant in the ${companyName} app.`
                         <span className="text-gray-800 dark:text-gray-200 font-medium">{"\u20B9"}{order.subtotal.toFixed(2)}</span>
                       </div>
                     )}
-                    {order.deliveryFee > 0 && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-gray-600 dark:text-gray-400">Delivery Fee</span>
-                        <span className="text-gray-800 dark:text-gray-200 font-medium">{"\u20B9"}{order.deliveryFee.toFixed(2)}</span>
-                      </div>
-                    )}
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600 dark:text-gray-400">Delivery Fee</span>
+                      <span className="text-gray-800 dark:text-gray-200 font-medium">
+                        {order.deliveryFee > 0 ? `\u20B9${order.deliveryFee.toFixed(2)}` : "Free"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600 dark:text-gray-400">Packaging Fee</span>
+                      <span className="text-gray-800 dark:text-gray-200 font-medium">
+                        {order.packagingFee > 0 ? `\u20B9${order.packagingFee.toFixed(2)}` : "Free"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600 dark:text-gray-400">Platform Fee</span>
+                      <span className="text-gray-800 dark:text-gray-200 font-medium">
+                        {order.platformFee > 0 ? `\u20B9${order.platformFee.toFixed(2)}` : "Free"}
+                      </span>
+                    </div>
                     {order.tax > 0 && (
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-600 dark:text-gray-400">Tax</span>

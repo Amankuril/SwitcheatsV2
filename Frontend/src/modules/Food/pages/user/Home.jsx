@@ -547,7 +547,19 @@ const RestaurantCard = React.memo(({
           </div>
 
           {/* Content Section - Links to restaurant ONLY */}
-          <Link to={`/user/restaurants/${restaurantSlug}`} className="flex-grow">
+          <Link
+            to={`/user/restaurants/${restaurantSlug}`}
+            state={{ prefilledDistance: restaurant.distance }}
+            onClick={() => {
+              try {
+                sessionStorage.setItem(
+                  "food_last_opened_restaurant_distance",
+                  JSON.stringify({ slug: restaurantSlug, distance: restaurant.distance || "" }),
+                );
+              } catch (_) {}
+            }}
+            className="flex-grow"
+          >
             <div className="transform transition-transform duration-300 group-hover:-translate-y-1">
               <CardContent className="p-3 sm:p-4 lg:p-5 pt-3 sm:pt-4 lg:pt-5 flex flex-col h-full">
                 {/* Restaurant Name & Rating */}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Component, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { useParams, useNavigate, useSearchParams } from "react-router-dom"
+import { useParams, useNavigate, useSearchParams, useLocation as useRouterLocation } from "react-router-dom"
 import { restaurantAPI, diningAPI, orderAPI } from "@food/api"
 import { API_BASE_URL } from "@food/api/config"
 import { toast } from "sonner"
@@ -74,6 +74,24 @@ function RestaurantDetailsContent() {
   const { slug } = useParams()
   const navigate = useNavigate()
   const goBack = useAppBackNavigation()
+  const routerLocation = useRouterLocation()
+  const cachedDistanceFromHome = useMemo(() => {
+    try {
+      const raw = sessionStorage.getItem("food_last_opened_restaurant_distance")
+      if (!raw) return ""
+      const parsed = JSON.parse(raw)
+      if (parsed?.slug && String(parsed.slug) === String(slug) && typeof parsed?.distance === "string") {
+        return parsed.distance
+      }
+      return ""
+    } catch (_) {
+      return ""
+    }
+  }, [slug])
+  const prefilledDistanceFromListing = typeof routerLocation?.state?.prefilledDistance === "string"
+    ? routerLocation.state.prefilledDistance
+    : ""
+  const stableListingDistance = prefilledDistanceFromListing || cachedDistanceFromHome
   const [searchParams] = useSearchParams()
   const showOnlyUnder250 = searchParams.get('under250') === 'true'
   const targetDishId = useMemo(() => String(searchParams.get('dish') || '').trim(), [searchParams])
@@ -497,7 +515,7 @@ function RestaurantDetailsContent() {
             rating: actualRestaurant?.rating || apiRestaurant?.rating || actualRestaurant?.averageRating || apiRestaurant?.averageRating || 4.5,
             reviews: actualRestaurant?.totalRatings || apiRestaurant?.totalRatings || actualRestaurant?.reviewCount || apiRestaurant?.reviewCount || actualRestaurant?.reviews?.length || apiRestaurant?.reviews?.length || 0,
             deliveryTime: actualRestaurant?.estimatedDeliveryTime || apiRestaurant?.estimatedDeliveryTime || actualRestaurant?.deliveryTime || apiRestaurant?.deliveryTime || actualRestaurant?.avgDeliveryTime || apiRestaurant?.avgDeliveryTime || "25-30 mins",
-            distance: calculatedDistance || actualRestaurant?.distance || apiRestaurant?.distance || actualRestaurant?.distanceFromUser || apiRestaurant?.distanceFromUser || "1.2 km",
+            distance: stableListingDistance || calculatedDistance || actualRestaurant?.distance || apiRestaurant?.distance || actualRestaurant?.distanceFromUser || apiRestaurant?.distanceFromUser || "1.2 km",
             location: formattedAddress,
             locationObject: locationObj, // Store full location object for reference
             image: normalizedCoverImages?.[0]?.url
@@ -1019,6 +1037,7 @@ function RestaurantDetailsContent() {
   // Recalculate distance when user location updates
   useEffect(() => {
     if (!restaurant || !userLocation?.latitude || !userLocation?.longitude) return
+    if (stableListingDistance) return
     if (!restaurantLat || !restaurantLng) return
 
     const userLat = userLocation.latitude
@@ -1084,7 +1103,7 @@ function RestaurantDetailsContent() {
         })
       }
     }
-  }, [userLocation?.latitude, userLocation?.longitude, restaurantLat, restaurantLng])
+  }, [userLocation?.latitude, userLocation?.longitude, restaurantLat, restaurantLng, stableListingDistance, restaurant])
 
   // Sync quantities from cart on mount and when restaurant changes
   useEffect(() => {
@@ -2092,7 +2111,7 @@ function RestaurantDetailsContent() {
             onClick={() => setShowLocationSheet(true)}
           >
             <MapPin className="h-4 w-4" />
-            <span>{restaurant?.distance || "1.2 km"} � {restaurant?.location || "Location"}</span>
+            <span>{restaurant?.distance || "1.2 km"} • {restaurant?.location || "Location"}</span>
             <ChevronDown className="h-4 w-4 text-gray-500" />
           </div>
 

@@ -1,12 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, ChevronDown, Search, Mic, Bell, CheckCircle2, Tag, Gift, AlertCircle, Clock, BellOff, X, ChevronRight, ShoppingBag, Sparkles } from 'lucide-react';
-import { 
-  Popover, 
-  PopoverContent, 
-  PopoverTrigger 
-} from "@food/components/ui/popover";
 import { Badge } from "@food/components/ui/badge";
 import { Avatar, AvatarFallback } from "@food/components/ui/avatar";
 import foodIcon from "@food/assets/category-icons/food.png";
@@ -117,6 +112,8 @@ export default function HomeHeader({
   };
 
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const notificationsHistoryPushedRef = useRef(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -124,6 +121,39 @@ export default function HomeHeader({
     }, 4000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    if (!notificationsHistoryPushedRef.current) {
+      window.history.pushState({ notificationsPopup: true }, "");
+      notificationsHistoryPushedRef.current = true;
+    }
+
+    const handlePopState = () => {
+      notificationsHistoryPushedRef.current = false;
+      setIsNotificationsOpen(false);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isNotificationsOpen]);
+
+  const closeNotifications = (useHistoryBack = true) => {
+    if (useHistoryBack && notificationsHistoryPushedRef.current) {
+      notificationsHistoryPushedRef.current = false;
+      window.history.back();
+      return;
+    }
+    setIsNotificationsOpen(false);
+  };
 
   const slideBanners = [
     {
@@ -239,82 +269,15 @@ export default function HomeHeader({
           </div>
           
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Popover>
-              <PopoverTrigger asChild>
-                <div className="h-10 w-10 relative flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm cursor-pointer active:scale-95 transition-all hover:bg-white/30 dark:bg-black/20 dark:border-white/10 dark:hover:bg-white/10 flex-shrink-0">
-                  <Bell className="h-[22px] w-[22px] text-gray-900 dark:text-white" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-yellow-400 rounded-full border-2 border-white animate-pulse dark:border-gray-900" />
-                  )}
-                </div>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-0 overflow-hidden border-none shadow-2xl rounded-2xl mt-2" align="end">
-                <div className="bg-white dark:bg-gray-900">
-                  <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">
-                    <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      Notifications
-                      {unreadCount > 0 && (
-                        <Badge variant="secondary" className="bg-orange-100 text-orange-600 border-none text-[10px] h-4">
-                          {unreadCount} New
-                        </Badge>
-                      )}
-                    </h3>
-                    <Link to="/food/user/notifications" className="text-xs font-bold text-orange-600 hover:text-orange-700">
-                      {mergedNotifications.length > 0 ? "View All" : ""}
-                    </Link>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {mergedNotifications.length > 0 ? (
-                      mergedNotifications.slice(0, 5).map((notif) => {
-                        const Icon = ICON_MAP[notif.icon] || Bell;
-                        return (
-                          <div 
-                            key={notif.id}
-                            className={`p-4 flex items-start gap-3 border-b border-gray-50 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer ${!notif.read ? 'bg-orange-50/20' : ''}`}
-                          >
-                            <div className={`mt-1 p-2 rounded-full ${notif.type === "order" ? "bg-green-100/50 text-green-600" : "bg-orange-100/50 text-orange-600"}`}>
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2 mb-0.5">
-                                <span className="text-sm font-bold text-gray-900 dark:text-white truncate">{notif.title}</span>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[10px] text-gray-400 whitespace-nowrap">{notif.time}</span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleDeleteNotification(notif.id, notif.source);
-                                    }}
-                                    className="rounded-full p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                  >
-                                    <X className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
-                                {notif.message}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="p-8 text-center flex flex-col items-center gap-2">
-                        <BellOff className="h-10 w-10 text-gray-200" />
-                        <p className="text-xs text-gray-400 font-medium">All caught up!</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3 bg-gray-50/50 dark:bg-gray-800/50 text-center">
-                    <Link to="/food/user/notifications" className="text-xs font-bold text-gray-400 hover:text-gray-600">
-                      {mergedNotifications.length > 0 ? "Manage Settings" : "Check Notifications Page"}
-                    </Link>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+            <div
+              onClick={() => setIsNotificationsOpen(true)}
+              className="h-10 w-10 relative flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm cursor-pointer active:scale-95 transition-all hover:bg-white/30 dark:bg-black/20 dark:border-white/10 dark:hover:bg-white/10 flex-shrink-0"
+            >
+              <Bell className="h-[22px] w-[22px] text-gray-900 dark:text-white" />
+              {unreadCount > 0 && (
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-yellow-400 rounded-full border-2 border-white animate-pulse dark:border-gray-900" />
+              )}
+            </div>
  
             {/* Veg Mode Toggle */}
             <div 
@@ -345,6 +308,108 @@ export default function HomeHeader({
           ))}
         </div>
       </div>
+
+      <AnimatePresence>
+        {isNotificationsOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] bg-black/25 backdrop-blur-[1px]"
+            onClick={() => closeNotifications()}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="absolute top-[84px] right-3 w-[calc(100vw-24px)] max-w-80 rounded-2xl overflow-hidden shadow-2xl bg-white dark:bg-gray-900"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">
+                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  Notifications
+                  {unreadCount > 0 && (
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-600 border-none text-[10px] h-4">
+                      {unreadCount} New
+                    </Badge>
+                  )}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/food/user/notifications"
+                    onClick={() => closeNotifications()}
+                    className="text-xs font-bold text-orange-600 hover:text-orange-700"
+                  >
+                    {mergedNotifications.length > 0 ? "View All" : ""}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => closeNotifications()}
+                    className="rounded-full p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Close notifications"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
+                {mergedNotifications.length > 0 ? (
+                  mergedNotifications.slice(0, 5).map((notif) => {
+                    const Icon = ICON_MAP[notif.icon] || Bell;
+                    return (
+                      <div
+                        key={notif.id}
+                        className={`p-4 flex items-start gap-3 border-b border-gray-50 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer ${!notif.read ? 'bg-orange-50/20' : ''}`}
+                      >
+                        <div className={`mt-1 p-2 rounded-full ${notif.type === "order" ? "bg-green-100/50 text-green-600" : "bg-orange-100/50 text-orange-600"}`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-0.5">
+                            <span className="text-sm font-bold text-gray-900 dark:text-white truncate">{notif.title}</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-gray-400 whitespace-nowrap">{notif.time}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteNotification(notif.id, notif.source);
+                                }}
+                                className="rounded-full p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                            {notif.message}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="p-8 text-center flex flex-col items-center gap-2">
+                    <BellOff className="h-10 w-10 text-gray-200" />
+                    <p className="text-xs text-gray-400 font-medium">All caught up!</p>
+                  </div>
+                )}
+              </div>
+              <div className="p-3 bg-gray-50/50 dark:bg-gray-800/50 text-center">
+                <Link
+                  to="/food/user/notifications"
+                  onClick={() => closeNotifications()}
+                  className="text-xs font-bold text-gray-400 hover:text-gray-600"
+                >
+                  {mergedNotifications.length > 0 ? "Manage Settings" : "Check Notifications Page"}
+                </Link>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Sticky Search Bar wrapper — position adjusts when categories are also stuck */}
       <div

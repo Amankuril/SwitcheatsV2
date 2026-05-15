@@ -1052,7 +1052,7 @@ export default function Cart() {
   const gstCharges = pricing?.tax || Math.round(subtotal * (feeSettings.gstRate / 100))
   const discount = pricing?.discount || (appliedCoupon ? Math.min(appliedCoupon.discount, subtotal * 0.5) : 0)
   const totalBeforeDiscount = subtotal + (deliveryFee === 0 ? (feeSettings.deliveryFee ?? 25) : deliveryFee) + platformFee + gstCharges
-  const total = pricing?.total || (subtotal + deliveryFee + platformFee + gstCharges - (pricing?.discount || discount))
+  const total = subtotal + deliveryFee + platformFee + gstCharges - (pricing?.discount || discount)
   const savings = pricing?.savings ?? Math.max(0, totalBeforeDiscount - total)
   const selectedPaymentLabel =
     selectedPaymentMethod === "wallet"
@@ -1460,14 +1460,15 @@ export default function Cart() {
       debugLog("?? Delivery address:", defaultAddress?.label || defaultAddress?.city)
 
       // Ensure couponCode is included in pricing
-      const orderPricing = pricing || {
+      const orderPricing = {
+        ...(pricing || {}),
         subtotal,
         deliveryFee,
         tax: gstCharges,
         platformFee,
         discount,
         total,
-        couponCode: appliedCoupon?.code || null
+        couponCode: pricing?.couponCode || appliedCoupon?.code || null
       };
 
       // Add couponCode if not present but coupon is applied
