@@ -120,7 +120,20 @@ export default function DeliverymanBonus() {
   }, [transactions, searchQuery])
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    if (field === "amount") {
+      const normalized = String(value ?? "").trim()
+      if (normalized === "") {
+        setFormData(prev => ({ ...prev, [field]: "" }))
+      } else {
+        const parsed = Number(normalized)
+        if (!Number.isFinite(parsed)) {
+          return
+        }
+        setFormData(prev => ({ ...prev, [field]: parsed < 0 ? "0" : normalized }))
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    }
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: "" }))
     }
@@ -325,8 +338,20 @@ export default function DeliverymanBonus() {
                 <input
                   type="number"
                   step="0.01"
+                  min="0.01"
                   value={formData.amount}
                   onChange={(e) => handleInputChange("amount", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "Minus") {
+                      e.preventDefault()
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData?.getData("text") || ""
+                    if (pasted.includes("-")) {
+                      e.preventDefault()
+                    }
+                  }}
                   placeholder="Enter amount"
                   className={`w-full px-4 py-2.5 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
                     formErrors.amount ? "border-red-500" : "border-slate-300"

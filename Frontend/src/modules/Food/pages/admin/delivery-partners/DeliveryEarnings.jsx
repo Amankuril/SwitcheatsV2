@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { Search, Download, ChevronDown, DollarSign, Calendar, Filter, Loader2, FileText, FileSpreadsheet, Code } from "lucide-react"
+import { Search, Download, ChevronDown, DollarSign, Calendar, Filter, Loader2, FileText, FileSpreadsheet, Code, Users, FileDown } from "lucide-react"
 import { adminAPI } from "@food/api"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@food/components/ui/dropdown-menu"
 import { toast } from "sonner"
@@ -10,6 +10,14 @@ const debugError = (...args) => {}
 
 const formatCurrency = (amount) => {
   return `\u20B9${Number(amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+const formatNumberForExport = (amount) => {
+  return Number(amount || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  })
 }
 
 const formatDate = (dateString) => {
@@ -128,7 +136,7 @@ export default function DeliveryEarnings() {
       { key: "orderTotal", label: "Order Total" },
       { key: "deliveryFee", label: "Delivery Fee" },
       { key: "orderStatus", label: "Status" },
-      { key: "createdAt", label: "Date" },
+      { key: "createdAt", label: "Date & Time" },
     ]
 
     const data = earnings.map((earning, index) => ({
@@ -137,9 +145,9 @@ export default function DeliveryEarnings() {
       deliveryPartnerPhone: earning.deliveryPartnerPhone || 'N/A',
       orderId: earning.orderId || 'N/A',
       restaurantName: earning.restaurantName || 'N/A',
-      amount: formatCurrency(earning.amount),
-      orderTotal: formatCurrency(earning.orderTotal),
-      deliveryFee: formatCurrency(earning.deliveryFee),
+      amount: formatNumberForExport(earning.amount),
+      orderTotal: formatNumberForExport(earning.orderTotal),
+      deliveryFee: formatNumberForExport(earning.deliveryFee),
       orderStatus: earning.orderStatus || 'N/A',
       createdAt: formatDate(earning.createdAt)
     }))
@@ -168,6 +176,7 @@ export default function DeliveryEarnings() {
           row.restaurantName,
           row.amount,
           row.orderTotal,
+          row.deliveryFee,
           row.orderStatus,
           row.createdAt
         ])
@@ -205,7 +214,35 @@ export default function DeliveryEarnings() {
         toast.success("Excel exported successfully")
         break
       case "pdf":
-        toast.info("PDF export coming soon")
+        ;(async () => {
+          try {
+            const { default: jsPDF } = await import("jspdf")
+            const { default: autoTable } = await import("jspdf-autotable")
+            const doc = new jsPDF("l", "mm", "a4")
+
+            doc.setFontSize(16)
+            doc.text("Delivery Earnings Report", 14, 14)
+            doc.setFontSize(10)
+            doc.text(`Exported on: ${new Date().toLocaleString("en-IN")} | Total Records: ${data.length}`, 14, 22)
+
+            const tableHeaders = headers.map((h) => h.label)
+            const tableRows = data.map((row) => headers.map((h) => row[h.key] ?? ""))
+
+            autoTable(doc, {
+              head: [tableHeaders],
+              body: tableRows,
+              startY: 28,
+              styles: { fontSize: 8, cellPadding: 2 },
+              headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
+            })
+
+            doc.save(`delivery_earnings_${new Date().toISOString().split("T")[0]}.pdf`)
+            toast.success("PDF exported successfully")
+          } catch (pdfError) {
+            debugError("PDF export error:", pdfError)
+            toast.error("Failed to export PDF")
+          }
+        })()
         break
       case "json":
         const jsonContent = JSON.stringify(data, null, 2)
@@ -259,7 +296,7 @@ export default function DeliveryEarnings() {
                 <p className="text-2xl font-bold text-slate-900">{summary.totalDeliveryPartners || 0}</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                <span className="text-lg font-bold text-blue-600">₹</span>
+                <Users className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </div>
@@ -374,6 +411,10 @@ export default function DeliveryEarnings() {
                   <FileSpreadsheet className="w-4 h-4 mr-2" />
                   Export as Excel
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("pdf")}>
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleExport("json")}>
                   <Code className="w-4 h-4 mr-2" />
                   Export as JSON
@@ -402,14 +443,15 @@ export default function DeliveryEarnings() {
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Restaurant</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Earning</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Order Total</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Delivery Fee</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">Date &amp; Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {earnings.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-12 text-center">
+                    <td colSpan={10} className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <p className="text-lg font-semibold text-slate-700 mb-1">No Earnings Found</p>
                         <p className="text-sm text-slate-500">No earnings match your filters</p>
@@ -439,6 +481,9 @@ export default function DeliveryEarnings() {
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700">
                         {formatCurrency(earning.orderTotal)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-700">
+                        {formatCurrency(earning.deliveryFee)}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -509,5 +554,4 @@ export default function DeliveryEarnings() {
     </div>
   )
 }
-
 

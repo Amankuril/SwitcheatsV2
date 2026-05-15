@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react"
-import { Outlet } from "react-router-dom"
+import { useState, useEffect, useRef } from "react"
+import { Outlet, useLocation } from "react-router-dom"
 import AdminSidebar from "./AdminSidebar"
 import AdminNavbar from "./AdminNavbar"
 import { API_BASE_URL } from "@food/api/config"
@@ -9,8 +9,10 @@ const debugError = (...args) => {}
 
 
 export default function AdminLayout() {
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const mainContentRef = useRef(null);
 
   // Safely enforce light mode for the Admin panel to prevent User dark mode bleeding
   useEffect(() => {
@@ -41,6 +43,16 @@ export default function AdminLayout() {
   const handleCollapseChange = (collapsed) => {
     setIsSidebarCollapsed(collapsed)
   }
+
+  // Ensure each admin route opens from top of the scrollable content area.
+  useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTop = 0;
+    }
+    if (typeof window !== "undefined") {
+      window.scrollTo(0, 0);
+    }
+  }, [location.pathname]);
 
   return (
     <div className="h-screen bg-neutral-200 flex overflow-hidden">
@@ -75,11 +87,13 @@ export default function AdminLayout() {
         )}
 
         {/* Page Content */}
-        <main className="flex-1 min-h-0 w-full max-w-full overflow-x-hidden overflow-y-auto bg-neutral-100">
+        <main
+          ref={mainContentRef}
+          className="flex-1 min-h-0 w-full max-w-full overflow-x-hidden overflow-y-auto bg-neutral-100"
+        >
           <Outlet />
         </main>
       </div>
     </div>
   );
 }
-
