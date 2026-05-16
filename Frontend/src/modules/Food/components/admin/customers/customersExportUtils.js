@@ -2,6 +2,20 @@ const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
+const formatJoiningDateTime = (value) => {
+  if (!value) return "N/A"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  })
+}
+
 // Export utility functions for customers
 export const exportCustomersToCSV = (customers, filename = "customers") => {
   if (!customers || customers.length === 0) {
@@ -17,7 +31,7 @@ export const exportCustomersToCSV = (customers, filename = "customers") => {
     customer.phone || "N/A",
     customer.totalOrder || 0,
     `Rs. ${(customer.totalOrderAmount || 0).toFixed(2)}`,
-    customer.joiningDate || "N/A",
+    formatJoiningDateTime(customer.joiningDate),
     customer.status ? "Active" : "Inactive"
   ])
   
@@ -65,7 +79,7 @@ export const exportCustomersToExcel = (customers, filename = "customers") => {
     customer.phone || "N/A",
     customer.totalOrder || 0,
     (customer.totalOrderAmount || 0).toFixed(2),
-    customer.joiningDate || "N/A",
+    formatJoiningDateTime(customer.joiningDate),
     customer.status ? "Active" : "Inactive"
   ])
   
@@ -147,7 +161,7 @@ export const exportCustomersToPDF = (customers, filename = "customers") => {
           customer.phone || "N/A",
           customer.totalOrder || 0,
           `Rs. ${(customer.totalOrderAmount || 0).toFixed(2)}`,
-          customer.joiningDate || "N/A",
+          formatJoiningDateTime(customer.joiningDate),
           customer.status ? "Active" : "Inactive"
         ])
 
@@ -215,7 +229,7 @@ export const exportCustomersToJSON = (customers, filename = "customers") => {
       phone: customer.phone || "N/A",
       totalOrders: customer.totalOrder || 0,
       totalOrderAmount: customer.totalOrderAmount || 0,
-      joiningDate: customer.joiningDate || "N/A",
+      joiningDate: formatJoiningDateTime(customer.joiningDate),
       status: customer.status ? "Active" : "Inactive",
       isActive: customer.status
     }))
@@ -234,5 +248,4 @@ export const exportCustomersToJSON = (customers, filename = "customers") => {
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
 }
-
 

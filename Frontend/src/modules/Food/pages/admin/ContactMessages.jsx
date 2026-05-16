@@ -72,6 +72,25 @@ export default function ContactMessages() {
     setIsViewDialogOpen(true)
   }
 
+  const normalizeRatingToFive = (value) => {
+    const n = Number(value || 0)
+    if (!Number.isFinite(n) || n <= 0) return 0
+    if (n > 5) return Math.max(0, Math.min(5, Math.round(n / 2)))
+    return Math.max(0, Math.min(5, Math.round(n)))
+  }
+
+  const normalizeFeedbackScaleText = (value) => {
+    const text = String(value || "")
+    if (!text) return "No comment provided"
+    return text.replace(/(\d+(?:\.\d+)?)\s*\/\s*10\b/g, (_, raw) => {
+      const n = Number(raw)
+      if (!Number.isFinite(n)) return `${raw}/10`
+      const outOfFive = Math.max(0, Math.min(5, n / 2))
+      const formatted = Number.isInteger(outOfFive) ? String(outOfFive) : outOfFive.toFixed(1).replace(/\.0$/, "")
+      return `${formatted}/5`
+    })
+  }
+
   const renderStars = (rating) => {
     const stars = []
     const count = Math.floor(rating || 0)
@@ -244,11 +263,11 @@ export default function ContactMessages() {
                     </td>
                     <td className="px-6 py-4 max-w-md">
                       <span className="text-sm text-slate-700 line-clamp-2">
-                        {feedback.comment || 'No comment provided'}
+                        {normalizeFeedbackScaleText(feedback.comment)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getRatingBadge(feedback.rating)}
+                      {getRatingBadge(normalizeRatingToFive(feedback.rating))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <DropdownMenu>
@@ -344,10 +363,10 @@ export default function ContactMessages() {
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-5 border border-slate-200 dark:border-slate-700 shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1">
-                      {renderStars(selectedFeedback.rating)}
+                      {renderStars(normalizeRatingToFive(selectedFeedback.rating))}
                     </div>
                     <span className="text-lg font-bold text-slate-900 dark:text-white">
-                      {selectedFeedback.rating} / 5
+                      {normalizeRatingToFive(selectedFeedback.rating)} / 5
                     </span>
                   </div>
                 </div>
@@ -362,7 +381,7 @@ export default function ContactMessages() {
                   </h3>
                   <div className="bg-white dark:bg-slate-800 rounded-lg p-5 border border-slate-200 dark:border-slate-700 shadow-sm">
                     <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
-                      {selectedFeedback.comment}
+                      {normalizeFeedbackScaleText(selectedFeedback.comment)}
                     </p>
                   </div>
                 </div>
@@ -402,4 +421,3 @@ export default function ContactMessages() {
     </div>
   )
 }
-

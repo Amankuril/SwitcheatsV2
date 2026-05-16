@@ -26,6 +26,18 @@ export default function FeedbackExperienceReport() {
   })
   const [isFilterOpen, setIsFilterOpen] = useState(true)
 
+  const normalizeExperienceScaleText = (value) => {
+    const text = String(value || "")
+    if (!text) return "N/A"
+    return text.replace(/(\d+(?:\.\d+)?)\s*\/\s*10\b/g, (_, raw) => {
+      const n = Number(raw)
+      if (!Number.isFinite(n)) return `${raw}/10`
+      const outOfFive = Math.max(0, Math.min(5, n / 2))
+      const formatted = Number.isInteger(outOfFive) ? String(outOfFive) : outOfFive.toFixed(1).replace(/\.0$/, "")
+      return `${formatted}/5`
+    })
+  }
+
   // Get today's date for max date validation
   const today = new Date().toISOString().split('T')[0]
 
@@ -65,7 +77,7 @@ export default function FeedbackExperienceReport() {
             userPhone: fb.userPhone || 'N/A',
             restaurantName: fb.restaurantId?.restaurantName || 'N/A',
             rating: ratingValue,
-            experience: fb.comment || 'N/A',
+            experience: normalizeExperienceScaleText(fb.comment || 'N/A'),
             module: fb.module,
             createdAt: fb.createdAt
           }
@@ -143,7 +155,7 @@ export default function FeedbackExperienceReport() {
       userEmail: fb.userEmail || 'N/A',
       userPhone: fb.userPhone || 'N/A',
       rating: fb.rating,
-      experience: fb.experience || 'N/A',
+      experience: normalizeExperienceScaleText(fb.experience || 'N/A'),
       module: fb.module || 'N/A',
       createdAt: new Date(fb.createdAt).toLocaleString(),
     }))
@@ -191,7 +203,7 @@ export default function FeedbackExperienceReport() {
       good: 'Good',
       very_good: 'Very Good'
     }
-    return labels[experience] || experience
+    return labels[experience] || normalizeExperienceScaleText(experience)
   }
 
   const activeFiltersCount = (filters.fromDate ? 1 : 0) + (filters.toDate ? 1 : 0) + 
@@ -597,5 +609,4 @@ export default function FeedbackExperienceReport() {
     </div>
   )
 }
-
 
