@@ -172,11 +172,13 @@ export const exportDeliverymenToJSON = (deliverymen, filename = "deliverymen") =
 }
 
 // Export utilities for reviews
-export const exportReviewsToCSV = (reviews, filename = "deliveryman_reviews") => {
-  const headers = ["SI", "Deliveryman", "Customer", "Review", "Rating"]
+export const exportReviewsToCSV = (reviews, filename = "deliveryman_reviews", options = {}) => {
+  const subjectLabel = options?.subjectLabel || "Deliveryman"
+  const subjectKey = options?.subjectKey || "deliveryman"
+  const headers = ["SI", subjectLabel, "Customer", "Review", "Rating"]
   const rows = reviews.map((review) => [
     review.sl,
-    review.deliveryman,
+    review?.[subjectKey] || review?.deliveryman || "N/A",
     review.customer,
     review.review,
     review.rating
@@ -198,11 +200,13 @@ export const exportReviewsToCSV = (reviews, filename = "deliveryman_reviews") =>
   document.body.removeChild(link)
 }
 
-export const exportReviewsToExcel = (reviews, filename = "deliveryman_reviews") => {
-  const headers = ["SI", "Deliveryman", "Customer", "Review", "Rating"]
+export const exportReviewsToExcel = (reviews, filename = "deliveryman_reviews", options = {}) => {
+  const subjectLabel = options?.subjectLabel || "Deliveryman"
+  const subjectKey = options?.subjectKey || "deliveryman"
+  const headers = ["SI", subjectLabel, "Customer", "Review", "Rating"]
   const rows = reviews.map((review) => [
     review.sl,
-    review.deliveryman,
+    review?.[subjectKey] || review?.deliveryman || "N/A",
     review.customer,
     review.review,
     review.rating
@@ -224,14 +228,17 @@ export const exportReviewsToExcel = (reviews, filename = "deliveryman_reviews") 
   document.body.removeChild(link)
 }
 
-export const exportReviewsToPDF = (reviews, filename = "deliveryman_reviews") => {
-  const headers = ["SI", "Deliveryman", "Customer", "Review", "Rating"]
+export const exportReviewsToPDF = (reviews, filename = "deliveryman_reviews", options = {}) => {
+  const reportTitle = options?.reportTitle || "Deliveryman Reviews Report"
+  const subjectLabel = options?.subjectLabel || "Deliveryman"
+  const subjectKey = options?.subjectKey || "deliveryman"
+  const headers = ["SI", subjectLabel, "Customer", "Review", "Rating"]
   
   let htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Deliveryman Reviews Report</title>
+      <title>${reportTitle}</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -242,7 +249,7 @@ export const exportReviewsToPDF = (reviews, filename = "deliveryman_reviews") =>
       </style>
     </head>
     <body>
-      <h1>Deliveryman Reviews Report</h1>
+      <h1>${reportTitle}</h1>
       <p>Generated on: ${new Date().toLocaleString()}</p>
       <table>
         <thead>
@@ -254,7 +261,7 @@ export const exportReviewsToPDF = (reviews, filename = "deliveryman_reviews") =>
           ${reviews.map(review => `
             <tr>
               <td>${review.sl}</td>
-              <td>${review.deliveryman}</td>
+              <td>${review?.[subjectKey] || review?.deliveryman || "N/A"}</td>
               <td>${review.customer}</td>
               <td>${review.review}</td>
               <td>${review.rating}</td>

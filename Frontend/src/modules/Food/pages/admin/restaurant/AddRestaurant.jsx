@@ -439,6 +439,22 @@ export default function AddRestaurant() {
     return errors
   }
 
+  const checkDuplicateRestaurantPhone = async (phoneNumber = "") => {
+    const normalized = sanitizeDigits(phoneNumber).slice(-10)
+    if (!normalized || normalized.length !== 10) return false
+    try {
+      const res = await adminAPI.getRestaurants({ limit: 1000 })
+      const list = res?.data?.data?.restaurants || res?.data?.restaurants || []
+      return list.some((restaurant) => {
+        const owner = sanitizeDigits(String(restaurant?.ownerPhone || "")).slice(-10)
+        const primary = sanitizeDigits(String(restaurant?.primaryContactNumber || "")).slice(-10)
+        return owner === normalized || primary === normalized
+      })
+    } catch (err) {
+      return false
+    }
+  }
+
   const validateStep2 = () => {
     const errors = []
     if (!step2.menuImages || step2.menuImages.length === 0) errors.push("At least one menu image is required")
@@ -503,7 +519,7 @@ export default function AddRestaurant() {
     return errors
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setFormErrors({})
     let validationErrors = []
 
@@ -520,6 +536,16 @@ export default function AddRestaurant() {
         toast.error(error)
       })
       return
+    }
+
+    if (step === 1) {
+      const duplicateOwnerPhone = await checkDuplicateRestaurantPhone(step1.ownerPhone)
+      if (duplicateOwnerPhone) {
+        const msg = "Restaurant already exists with the same mobile number"
+        setFormErrors({ ownerPhone: msg })
+        toast.error(msg)
+        return
+      }
     }
 
     if (step < 3) {
@@ -949,12 +975,24 @@ export default function AddRestaurant() {
             <Label className="text-xs text-gray-700">Phone number*</Label>
             <Input
               value={step1.ownerPhone || ""}
-              onChange={(e) => setStep1({ ...step1, ownerPhone: sanitizeDigits(e.target.value).slice(0, 10) })}
+              onChange={(e) => {
+                setStep1({ ...step1, ownerPhone: sanitizeDigits(e.target.value).slice(0, 10) })
+                setFormErrors((prev) => ({ ...prev, ownerPhone: undefined }))
+              }}
+              onBlur={async () => {
+                const duplicateOwnerPhone = await checkDuplicateRestaurantPhone(step1.ownerPhone)
+                if (duplicateOwnerPhone) {
+                  setFormErrors((prev) => ({ ...prev, ownerPhone: "Restaurant already exists with the same mobile number" }))
+                }
+              }}
               className="mt-1 bg-white text-sm text-black placeholder-black"
               placeholder="10-digit mobile number"
               inputMode="numeric"
               maxLength={10}
             />
+            {formErrors.ownerPhone && (
+              <p className="mt-1 text-xs text-red-600">{formErrors.ownerPhone}</p>
+            )}
           </div>
         </div>
       </section>
@@ -1362,7 +1400,16 @@ export default function AddRestaurant() {
           </button>
           <button
             type="button"
-            onClick={() => setStep3({ ...step3, gstRegistered: false })}
+            onClick={() =>
+              setStep3({
+                ...step3,
+                gstRegistered: false,
+                gstNumber: "",
+                gstLegalName: "",
+                gstAddress: "",
+                gstImage: null,
+              })
+            }
             className={`px-3 py-1.5 text-xs rounded-full ${!step3.gstRegistered ? "bg-black text-white" : "bg-gray-100 text-gray-800"}`}
           >
             No
@@ -1389,7 +1436,10 @@ export default function AddRestaurant() {
       <section className="bg-white p-4 sm:p-6 rounded-md space-y-4">
         <h2 className="text-lg font-semibold text-black">FSSAI details</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input value={step3.fssaiNumber || ""} onChange={(e) => setStep3({ ...step3, fssaiNumber: sanitizeFssai(e.target.value) })} className="bg-white text-sm" placeholder="FSSAI number*" inputMode="numeric" maxLength={14} />
+          <div>
+            <Label className="text-xs text-gray-700 mb-1 block">FSSAI number*</Label>
+            <Input value={step3.fssaiNumber || ""} onChange={(e) => setStep3({ ...step3, fssaiNumber: sanitizeFssai(e.target.value) })} className="bg-white text-sm" placeholder="FSSAI number*" inputMode="numeric" maxLength={14} />
+          </div>
           <div>
             <Label className="text-xs text-gray-700 mb-1 block">FSSAI expiry date*</Label>
             <Input
@@ -1500,6 +1550,4 @@ export default function AddRestaurant() {
     </div>
   )
 }
-
-
 

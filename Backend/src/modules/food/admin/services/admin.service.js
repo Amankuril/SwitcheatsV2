@@ -292,7 +292,7 @@ export async function getRestaurants(query) {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
-            .select('restaurantName slug location area city status ownerName ownerPhone zoneId profileImage coverImages menuImages rating totalRatings isActive')
+            .select('restaurantName slug location area city status ownerName ownerPhone primaryContactNumber zoneId profileImage coverImages menuImages rating totalRatings isActive')
             .populate('zoneId', 'name zoneName')
             .lean(),
         FoodRestaurant.countDocuments(filter)
@@ -3302,6 +3302,49 @@ export async function createRestaurantByAdmin(body) {
     }
     if (!doc.ownerPhone && !doc.primaryContactNumber) {
         throw new ValidationError('Owner phone or primary contact number is required');
+    }
+
+    // Prevent duplicate restaurant onboarding with the same contact number
+    // across existing restaurants and restaurant-auth users.
+    const phoneCandidates = [doc.ownerPhone, doc.primaryContactNumber]
+        .map((v) => String(v || '').trim())
+        .filter(Boolean);
+    const normalizedPhoneCandidates = Array.from(
+        new Set(
+            phoneCandidates.flatMap((phone) => {
+                const digits = phone.replace(/\D/g, '');
+                const last10 = digits.slice(-10);
+                return [phone, digits, last10].filter(Boolean);
+            })
+        )
+    );
+
+    if (normalizedPhoneCandidates.length) {
+        const duplicateRestaurant = await FoodRestaurant.findOne({
+            $or: [
+                { ownerPhone: { $in: normalizedPhoneCandidates } },
+                { primaryContactNumber: { $in: normalizedPhoneCandidates } },
+                { ownerPhoneDigits: { $in: normalizedPhoneCandidates } },
+                { ownerPhoneLast10: { $in: normalizedPhoneCandidates } },
+            ],
+        })
+            .select('_id restaurantName ownerPhone primaryContactNumber')
+            .lean();
+
+        if (duplicateRestaurant?._id) {
+            throw new ValidationError('A restaurant with this phone number already exists');
+        }
+
+        const duplicateRestaurantUser = await FoodUser.findOne({
+            role: 'RESTAURANT',
+            phone: { $in: normalizedPhoneCandidates },
+        })
+            .select('_id phone')
+            .lean();
+
+        if (duplicateRestaurantUser?._id) {
+            throw new ValidationError('A restaurant account with this phone number already exists');
+        }
     }
 
     const restaurant = await FoodRestaurant.create(doc);

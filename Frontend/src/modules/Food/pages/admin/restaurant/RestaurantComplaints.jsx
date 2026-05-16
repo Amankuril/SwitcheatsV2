@@ -221,6 +221,9 @@ export default function RestaurantComplaints() {
                     <div className="flex items-center gap-3 mb-2">
                       {getStatusIcon(complaint.status)}
                       <h3 className="font-semibold text-gray-900">{complaint.subject || complaint.issueType?.replace('_', ' ')}</h3>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${getStatusColor(complaint.status)}`}>
+                        {(complaint.status || 'pending').replace('_', ' ')}
+                      </span>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
                       <div>
@@ -358,4 +361,3 @@ export default function RestaurantComplaints() {
     </div>
   )
 }
-

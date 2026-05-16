@@ -64,12 +64,15 @@ export default function RestaurantReviews() {
       alert("No data to export")
       return
     }
-    // Reuse deliveryman export utils or create new ones if needed
+    const exportRows = filteredReviews.map((review) => ({
+      ...review,
+      restaurant: review.restaurant || "N/A",
+    }))
     switch (format) {
-      case "csv": exportReviewsToCSV(filteredReviews); break
-      case "excel": exportReviewsToExcel(filteredReviews); break
-      case "pdf": exportReviewsToPDF(filteredReviews); break
-      case "json": exportReviewsToJSON(filteredReviews); break
+      case "csv": exportReviewsToCSV(exportRows, "restaurant_reviews", { subjectLabel: "Restaurant", subjectKey: "restaurant" }); break
+      case "excel": exportReviewsToExcel(exportRows, "restaurant_reviews", { subjectLabel: "Restaurant", subjectKey: "restaurant" }); break
+      case "pdf": exportReviewsToPDF(exportRows, "restaurant_reviews", { reportTitle: "Restaurant Reviews Report", subjectLabel: "Restaurant", subjectKey: "restaurant" }); break
+      case "json": exportReviewsToJSON(exportRows, "restaurant_reviews"); break
     }
   }
 
