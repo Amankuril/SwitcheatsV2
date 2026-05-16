@@ -7,7 +7,6 @@ import {
   setAuthData as setRestaurantAuthData,
   setRestaurantPendingPhone,
 } from "@food/utils/auth"
-import { checkOnboardingStatus, isRestaurantOnboardingComplete } from "@food/utils/onboardingUtils"
 import { useCompanyName } from "@food/hooks/useCompanyName"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -188,16 +187,9 @@ export default function RestaurantOTP() {
         }
 
         if (authData?.isSignUp) {
-          navigate("/food/restaurant/onboarding", { replace: true })
+          navigate("/food/restaurant", { replace: true })
         } else {
           try {
-            if (!isRestaurantOnboardingComplete(restaurant)) {
-              const incompleteStep = await checkOnboardingStatus()
-              if (incompleteStep) {
-                navigate(`/food/restaurant/onboarding?step=${incompleteStep}`, { replace: true })
-                return
-              }
-            }
             navigate("/food/restaurant", { replace: true })
           } catch (err) { navigate("/food/restaurant", { replace: true }) }
         }

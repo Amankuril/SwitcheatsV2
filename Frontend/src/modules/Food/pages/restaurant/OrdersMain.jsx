@@ -1,9 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  checkOnboardingStatus,
-  isRestaurantOnboardingComplete,
-} from "@food/utils/onboardingUtils";
 import { motion, AnimatePresence } from "framer-motion";
 import Lenis from "lenis";
 import {
@@ -978,17 +974,7 @@ export default function OrdersMain() {
             isLoading: false,
           });
 
-          // Check if onboarding is incomplete and redirect if needed
-          if (!isRestaurantOnboardingComplete(restaurant)) {
-            // Onboarding is incomplete, redirect to onboarding page
-            const incompleteStep = await checkOnboardingStatus();
-            if (incompleteStep) {
-              navigate(`/restaurant/onboarding?step=${incompleteStep}`, {
-                replace: true,
-              });
-              return;
-            }
-          }
+          // Keep logged-in users in app flow; onboarding route is guest-only.
         }
       } catch (error) {
         // Only log error if it's not a network/timeout error (backend might be down/slow)

@@ -81,7 +81,7 @@ export default function RestaurantRouter() {
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><OrdersMain /></ProtectedRoute>} path="" />
-        <Route path="onboarding" element={<RestaurantOnboarding />} />
+        <Route path="onboarding" element={<AuthRedirect module="restaurant"><RestaurantOnboarding /></AuthRedirect>} />
         <Route element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><RestaurantNotifications /></ProtectedRoute>} path="notifications" />
         <Route element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><AllOrdersPage /></ProtectedRoute>} path="orders/all" />
         <Route element={<ProtectedRoute requiredRole="restaurant" loginPath="/food/restaurant/login"><OrderDetailPage /></ProtectedRoute>} path="orders/:id" />

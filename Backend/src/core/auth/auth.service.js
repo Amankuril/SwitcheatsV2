@@ -5,6 +5,7 @@ import { FoodAdmin } from "../admin/admin.model.js";
 import { AdminResetOtp } from "../admin/adminResetOtp.model.js";
 import { FoodRestaurant } from "../../modules/food/restaurant/models/restaurant.model.js";
 import { FoodDeliveryPartner } from "../../modules/food/delivery/models/deliveryPartner.model.js";
+import { FoodOrder } from "../../modules/food/orders/models/order.model.js";
 import { FoodReferralSettings } from "../../modules/food/admin/models/referralSettings.model.js";
 import { FoodReferralLog } from "../../modules/food/admin/models/referralLog.model.js";
 import { createOrUpdateOtp, verifyOtp } from "../otp/otp.service.js";
@@ -309,13 +310,24 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
     }
   }
 
-  // If restaurant approval status is used, only allow login for approved restaurants.
+  // Allow login for previously-operational restaurants even if they are temporarily
+  // moved to "pending" due to profile-change review requests.
   if (restaurant.status && restaurant.status !== "approved") {
-    throw new AuthError(
-      restaurant.status === "pending"
-        ? "Your restaurant registration is pending approval."
-        : "Your restaurant registration has been rejected. Please contact support.",
-    );
+    if (restaurant.status === "pending") {
+      const hasHistoricalApproval = Boolean(restaurant.approvedAt);
+      const hasOperationalHistory = await FoodOrder.exists({
+        restaurantId: restaurant._id,
+      });
+
+      // New onboarding requests (no approval + no orders) must stay blocked.
+      if (!hasHistoricalApproval && !hasOperationalHistory) {
+        throw new AuthError("Your restaurant registration is pending approval.");
+      }
+    } else {
+      throw new AuthError(
+        "Your restaurant registration has been rejected. Please contact support.",
+      );
+    }
   }
 
   const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
