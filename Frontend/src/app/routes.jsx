@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Suspense, lazy, useEffect } from 'react'
 import { AppShellSkeleton } from '@food/components/ui/loading-skeletons'
+import LandingPage from './LandingPage'
 
 const NATIVE_LAST_ROUTE_KEY = 'native_last_route'
 
@@ -64,7 +65,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Root → Master Landing Page */}
-      <Route path="/" element={<Navigate to="/food/user" replace />} />
+      <Route path="/" element={<LandingPage />} />
 
       {/* Auth Module */}
 
