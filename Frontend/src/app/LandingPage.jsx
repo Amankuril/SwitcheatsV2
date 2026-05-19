@@ -42,6 +42,16 @@ export default function LandingPage() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isRestaurantOpen, setIsRestaurantOpen] = useState(false);
   const [isDeliveryOpen, setIsDeliveryOpen] = useState(false);
+  const [mapRotate, setMapRotate] = useState({ x: 0, y: 0 });
+  const handleMapMouseMove = (e) => {
+    const card = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - card.left - card.width / 2;
+    const y = e.clientY - card.top - card.height / 2;
+    setMapRotate({ x: -y / 15, y: x / 15 });
+  };
+  const handleMapMouseLeave = () => {
+    setMapRotate({ x: 0, y: 0 });
+  };
   const lenisRef = useRef(null);
 
   useEffect(() => {
@@ -101,22 +111,22 @@ export default function LandingPage() {
           <span className="text-[#FA0272]">.</span>
         </div>
         <nav className="flex items-center gap-1.5 bg-white/50 backdrop-blur-md border border-slate-200/30 p-1 rounded-full shadow-lg shadow-slate-900/5 relative z-50">
-          <a 
-            href="/" 
+          <a
+            href="/"
             className="group flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-full text-xs font-bold text-slate-700 hover:text-[#FA0272] hover:bg-white/80 transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5"
           >
             <Home className="w-4 h-4 md:w-3.5 md:h-3.5 text-slate-500 group-hover:text-[#FA0272] transition-colors" />
             <span className="hidden md:inline">Home</span>
           </a>
-          <button 
-            onClick={() => setIsRestaurantOpen(true)} 
+          <button
+            onClick={() => setIsRestaurantOpen(true)}
             className="group flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-full text-xs font-bold text-slate-700 hover:text-[#FA0272] hover:bg-white/80 transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
           >
             <Store className="w-4 h-4 md:w-3.5 md:h-3.5 text-slate-500 group-hover:text-[#FA0272] transition-colors" />
             <span className="hidden md:inline">Restaurant Partner</span>
           </button>
-          <button 
-            onClick={() => setIsDeliveryOpen(true)} 
+          <button
+            onClick={() => setIsDeliveryOpen(true)}
             className="group flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-full text-xs font-bold text-slate-700 hover:text-[#FA0272] hover:bg-white/80 transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
           >
             <Bike className="w-4 h-4 md:w-3.5 md:h-3.5 text-slate-500 group-hover:text-[#FA0272] transition-colors" />
@@ -160,8 +170,8 @@ export default function LandingPage() {
 
             <div className="overflow-hidden mt-6 lg:mt-8">
               <motion.div custom={4} initial="hidden" animate="visible" variants={textReveal}>
-                <button 
-                  onClick={() => setIsAboutOpen(true)} 
+                <button
+                  onClick={() => setIsAboutOpen(true)}
                   className="group flex items-center gap-3 bg-slate-900 hover:bg-[#FA0272] text-white px-8 py-4 rounded-full font-bold text-sm transition-all duration-500 hover:shadow-xl hover:shadow-[#FA0272]/20 cursor-pointer"
                 >
                   Learn More About Our Mission
@@ -226,7 +236,7 @@ export default function LandingPage() {
               Unlike traditional delivery apps that squeeze restaurant margins, SwitchEats works on a lifetime 0% commission model. We believe in creating a balanced, fair, and growth-oriented food ecosystem.
             </p>
             <div className="pt-2">
-              <button 
+              <button
                 onClick={() => setIsAboutOpen(true)}
                 className="group inline-flex items-center gap-2.5 text-slate-900 hover:text-[#FA0272] font-bold text-sm tracking-wide uppercase transition-colors"
               >
@@ -313,17 +323,17 @@ export default function LandingPage() {
               Live tracking that actually updates. Beautifully designed interface. Zero friction. Download the app to experience food delivery designed for the modern era.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <a 
-                href="https://apps.apple.com/in/app/switcheats/id6766444150" 
-                target="_blank" 
+              <a
+                href="https://apps.apple.com/in/app/switcheats/id6766444150"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-3 bg-slate-900 text-white hover:bg-[#FA0272] px-8 py-4 rounded-2xl font-bold transition-all duration-300 text-sm shadow-md shadow-slate-900/10 cursor-pointer"
               >
                 <Apple className="w-5 h-5" /> App Store
               </a>
-              <a 
-                href="https://play.google.com/store/apps/details?id=com.switcheats.user1" 
-                target="_blank" 
+              <a
+                href="https://play.google.com/store/apps/details?id=com.switcheats.user1"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-800 hover:bg-slate-50 px-8 py-4 rounded-2xl font-bold transition-all duration-300 text-sm shadow-sm cursor-pointer"
               >
@@ -381,7 +391,7 @@ export default function LandingPage() {
       </section>
       {/* 4.1 whats waiting for you section */}
       <section className="relative z-10 py-20 md:py-24 px-6 md:px-12 lg:px-20 max-w-[1800px] mx-auto bg-[#FCFBFA]">
-        
+
         {/* Section Header */}
         <div className="mb-12 md:mb-16 flex flex-col md:flex-row md:items-end justify-between gap-8">
           <div>
@@ -400,22 +410,22 @@ export default function LandingPage() {
 
         {/* Asymmetrical Bento Grid */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-auto md:h-[600px]">
-          
+
           {/* Left Column - Card 1 */}
           <div className="md:col-span-8 h-full">
             {/* Card 1: Large Featured */}
-            <motion.div 
+            <motion.div
               custom={0} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }}
               variants={gridVariants}
               className="group relative w-full h-full min-h-[350px] md:min-h-0 rounded-[2rem] overflow-hidden bg-slate-900 shadow-xl"
             >
-              <img 
-                src="https://images.unsplash.com/photo-1600891964092-4316c288032e?q=80&w=1200&auto=format&fit=crop" 
-                alt="Chef preparing premium steak" 
+              <img
+                src="https://images.unsplash.com/photo-1600891964092-4316c288032e?q=80&w=1200&auto=format&fit=crop"
+                alt="Chef preparing premium steak"
                 className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:scale-105 group-hover:opacity-90 transition-all duration-1000 ease-out"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-              
+
               <div className="absolute top-6 left-6 w-11 h-11 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
                 <Award className="w-5 h-5 text-white" />
               </div>
@@ -435,7 +445,7 @@ export default function LandingPage() {
           {/* Right Column - Card 2 & Card 3 */}
           <div className="md:col-span-4 flex flex-col gap-6 h-full">
             {/* Card 2: Top Right */}
-            <motion.div 
+            <motion.div
               custom={1} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }}
               variants={gridVariants}
               className="group relative flex-1 min-h-[250px] md:min-h-0 rounded-[2rem] overflow-hidden bg-white border border-slate-200 shadow-xl shadow-slate-200/50 p-6 md:p-8 flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-500"
@@ -452,21 +462,21 @@ export default function LandingPage() {
             </motion.div>
 
             {/* Card 3: Bottom Right (Split into two on desktop) */}
-            <motion.div 
+            <motion.div
               custom={2} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }}
               variants={gridVariants}
               className="flex-1 min-h-[250px] md:min-h-0 grid grid-cols-2 gap-6"
             >
               {/* Sub-card A */}
               <div className="col-span-1 rounded-[2rem] overflow-hidden relative group shadow-lg">
-                <img 
-                  src="https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?q=80&w=800&auto=format&fit=crop" 
-                  alt="Premium Packaging" 
+                <img
+                  src="https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?q=80&w=800&auto=format&fit=crop"
+                  alt="Premium Packaging"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
                 />
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors duration-500" />
                 <div className="absolute bottom-5 left-5 right-5">
-                  <h4 className="text-white font-bold text-base md:text-lg leading-tight">Bespoke<br/>Packaging</h4>
+                  <h4 className="text-white font-bold text-base md:text-lg leading-tight">Bespoke<br />Packaging</h4>
                 </div>
               </div>
 
@@ -476,7 +486,7 @@ export default function LandingPage() {
                   <ShieldCheck className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h4 className="text-white font-bold text-base md:text-lg leading-tight mb-1">Zero<br/>Compromise</h4>
+                  <h4 className="text-white font-bold text-base md:text-lg leading-tight mb-1">Zero<br />Compromise</h4>
                   <p className="text-slate-400 text-[10px] md:text-xs group-hover:text-white/80 transition-colors">Sealed, hygienic, and pristine.</p>
                 </div>
               </div>
@@ -493,7 +503,7 @@ export default function LandingPage() {
         <div className="absolute bottom-[10%] left-[-10%] w-[25vw] h-[25vw] bg-orange-400/5 rounded-full blur-[100px] pointer-events-none z-0" />
 
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center relative z-10">
-          
+
           {/* Left Column: Text Content */}
           <div className="lg:col-span-5 space-y-8">
             <div className="space-y-4">
@@ -539,13 +549,20 @@ export default function LandingPage() {
 
           {/* Right Column: Dynamic Glowing India Map Visual */}
           <div className="lg:col-span-7 flex justify-center w-full">
-            <div className="w-full max-w-[550px] bg-slate-950 rounded-[3rem] p-6 md:p-10 border border-slate-800 shadow-2xl relative overflow-hidden h-[540px] flex flex-col justify-between">
-              
+            <motion.div 
+              className="w-full max-w-[550px] bg-slate-950 rounded-[3rem] p-6 md:p-10 border border-slate-800 shadow-2xl relative overflow-hidden h-[540px] flex flex-col justify-between cursor-pointer"
+              onMouseMove={handleMapMouseMove}
+              onMouseLeave={handleMapMouseLeave}
+              animate={{ rotateX: mapRotate.x, rotateY: mapRotate.y }}
+              transition={{ type: "spring", stiffness: 150, damping: 15 }}
+              style={{ transformStyle: "preserve-3d", perspective: 1000 }}
+            >
+
               {/* Grid Overlay */}
               <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none z-0" />
-              
+
               {/* Scanner Line Overlay */}
-              <motion.div 
+              <motion.div
                 className="absolute left-0 right-0 h-[100px] bg-gradient-to-b from-[#FA0272]/0 via-[#FA0272]/5 to-[#FA0272]/0 pointer-events-none z-0 border-y border-[#FA0272]/5"
                 animate={{ top: ["-100px", "540px"] }}
                 transition={{ repeat: Infinity, duration: 6, ease: "linear" }}
@@ -562,57 +579,37 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* The Map Graph Wrapper */}
-              <div className="relative z-10 flex-1 flex items-center justify-center py-4 overflow-hidden">
-                <svg viewBox="0 0 360 440" className="w-full h-full max-h-[380px]">
+              {/* The Map Graph Wrapper with Masked Image and Premium Overlays */}
+              <div className="relative z-10 flex-1 flex items-center justify-center py-4 overflow-hidden select-none pointer-events-none">
+                <img 
+                  src="/india-map-operations.jpg" 
+                  alt="Switcheats Operational Map" 
+                  className="w-full h-full object-contain filter brightness-110 contrast-105 saturate-110 transform scale-[1.18]"
+                  style={{
+                    maskImage: 'radial-gradient(circle at center, black 65%, transparent 100%)',
+                    WebkitMaskImage: 'radial-gradient(circle at center, black 65%, transparent 100%)'
+                  }}
+                />
+
+                {/* Horizontal glowing pointer connector line */}
+                <div 
+                  className="absolute top-[61.5%] left-[46.8%] w-[10.2%] h-[1.5px] bg-gradient-to-r from-[#FA0272] to-[#FA0272]/40 z-20 pointer-events-none"
+                  style={{ transform: "translateY(-50%)" }}
+                />
+
+                {/* Animated Pulsing Pin on top of Telangana in the image */}
+                <div className="absolute top-[61.5%] left-[46.8%] -translate-x-1/2 -translate-y-1/2 z-20">
+                  {/* Super tight ping beacon */}
+                  <span className="absolute inline-flex h-5 w-5 -top-2.5 -left-2.5 rounded-full bg-[#FA0272]/85 animate-ping" />
                   
-                  {/* Highly Accurate Silhouette of India Map */}
-                  <path 
-                    d="M 175,20 C 180,10 185,10 190,20 C 192,27 197,32 195,38 C 193,42 188,48 190,52 C 192,56 200,60 198,68 C 196,75 190,78 185,82 C 192,90 205,100 220,115 C 235,130 250,140 260,140 C 265,135 270,135 275,142 C 278,146 274,152 280,152 C 285,152 292,142 298,142 C 304,142 308,148 312,148 C 320,148 328,155 330,165 C 332,175 325,185 320,192 C 315,198 305,200 300,195 C 295,190 292,185 288,185 C 284,185 282,192 280,195 C 278,198 272,205 268,202 C 264,199 262,188 258,188 C 254,188 250,195 245,198 C 240,215 230,240 222,265 C 214,290 205,325 196,355 C 187,385 180,405 178,415 C 176,415 174,410 172,400 C 165,375 160,345 155,315 C 150,285 142,255 136,230 C 130,205 120,190 105,190 C 95,190 90,195 85,200 C 80,205 76,215 72,215 C 68,215 65,205 68,198 C 71,191 80,185 85,182 C 88,178 78,175 75,170 C 72,165 76,160 82,160 C 88,160 98,168 105,168 C 112,168 118,155 125,150 C 132,145 138,135 142,125 C 146,115 145,100 148,85 C 151,70 158,60 162,50 C 166,40 170,30 175,20 Z"
-                    fill="rgba(250, 2, 114, 0.02)"
-                    stroke="rgba(255, 255, 255, 0.08)"
-                    strokeWidth="1.5"
-                    strokeDasharray="4 4"
-                  />
+                  {/* Glowing Core center - sharp, bright, and tiny */}
+                  <span className="relative block rounded-full h-2.5 w-2.5 bg-white shadow-[0_0_8px_#fff,0_0_12px_#FA0272]" />
+                </div>
 
-                  {/* Highlighting Telangana Region Base Map */}
-                  <circle cx="175" cy="285" r="30" fill="rgba(250, 2, 114, 0.04)" stroke="rgba(250, 2, 114, 0.1)" strokeWidth="1" strokeDasharray="3 3" />
-
-                  {/* Standard Network Connections */}
-                  <line x1="185" y1="30" x2="170" y2="100" stroke="rgba(255, 255, 255, 0.15)" strokeWidth="1" />
-                  <line x1="170" y1="100" x2="125" y2="240" stroke="rgba(255, 255, 255, 0.15)" strokeWidth="1" />
-                  <line x1="170" y1="100" x2="255" y2="190" stroke="rgba(255, 255, 255, 0.15)" strokeWidth="1" />
-                  <line x1="255" y1="190" x2="305" y2="165" stroke="rgba(255, 255, 255, 0.15)" strokeWidth="1" />
-                  <line x1="125" y1="240" x2="170" y2="360" stroke="rgba(255, 255, 255, 0.15)" strokeWidth="1" />
-                  <line x1="170" y1="360" x2="255" y2="190" stroke="rgba(255, 255, 255, 0.15)" strokeWidth="1" />
-
-                  {/* Active Network Waves (Telangana to Others) */}
-                  <motion.line x1="175" y1="285" x2="185" y2="30" stroke="#FA0272" strokeWidth="1.5" strokeDasharray="5 5" animate={{ strokeDashoffset: [0, -20] }} transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }} />
-                  <motion.line x1="175" y1="285" x2="170" y2="100" stroke="#FA0272" strokeWidth="1.5" strokeDasharray="5 5" animate={{ strokeDashoffset: [0, -20] }} transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }} />
-                  <motion.line x1="175" y1="285" x2="125" y2="240" stroke="#FA0272" strokeWidth="1.5" strokeDasharray="5 5" animate={{ strokeDashoffset: [0, -20] }} transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }} />
-                  <motion.line x1="175" y1="285" x2="255" y2="190" stroke="#FA0272" strokeWidth="1.5" strokeDasharray="5 5" animate={{ strokeDashoffset: [0, -20] }} transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }} />
-                  <motion.line x1="175" y1="285" x2="170" y2="360" stroke="#FA0272" strokeWidth="1.5" strokeDasharray="5 5" animate={{ strokeDashoffset: [0, -20] }} transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }} />
-
-                  {/* Standard City Nodes */}
-                  <circle cx="185" cy="30" r="3.5" fill="#334155" stroke="#475569" strokeWidth="1" />
-                  <circle cx="170" cy="100" r="3.5" fill="#334155" stroke="#475569" strokeWidth="1" />
-                  <circle cx="125" cy="240" r="3.5" fill="#334155" stroke="#475569" strokeWidth="1" />
-                  <circle cx="255" cy="190" r="3.5" fill="#334155" stroke="#475569" strokeWidth="1" />
-                  <circle cx="170" cy="360" r="3.5" fill="#334155" stroke="#475569" strokeWidth="1" />
-                  <circle cx="305" cy="165" r="3.5" fill="#334155" stroke="#475569" strokeWidth="1" />
-
-                  {/* Active Telangana Beacon Glowing Effects */}
-                  <motion.circle cx="175" cy="285" r="14" fill="none" stroke="#FA0272" strokeWidth="2" animate={{ scale: [1, 2.8], opacity: [0.8, 0] }} transition={{ repeat: Infinity, duration: 2, ease: "easeOut" }} />
-                  <motion.circle cx="175" cy="285" r="14" fill="none" stroke="#FA0272" strokeWidth="1" animate={{ scale: [1, 4.5], opacity: [0.5, 0] }} transition={{ repeat: Infinity, duration: 2, ease: "easeOut", delay: 0.6 }} />
-                  <circle cx="175" cy="285" r="6" fill="#FA0272" className="shadow-lg shadow-[#FA0272]/50" />
-                  <circle cx="175" cy="285" r="2" fill="#fff" />
-                  
-                </svg>
-
-                {/* Floating Active Info Tag */}
-                <div className="absolute top-[65%] left-[49%] -translate-x-1/2 -translate-y-1/2 bg-slate-900 border border-[#FA0272]/40 text-[9px] font-black text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-xl shadow-pink-500/10 pointer-events-none">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FA0272] animate-ping" />
-                  TELANGANA (ACTIVE LAUNCHPAD)
+                {/* Floating Active Info Tag over the beacon, shifted to the right */}
+                <div className="absolute top-[61.5%] left-[57%] -translate-y-1/2 bg-slate-900/95 border border-[#FA0272]/50 text-[9px] font-black text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xl shadow-pink-500/20 whitespace-nowrap z-30">
+                  <span className="w-2 h-2 rounded-full bg-[#FA0272] animate-ping" />
+                  TELANGANA (ACTIVE HUB)
                 </div>
               </div>
 
@@ -622,7 +619,7 @@ export default function LandingPage() {
                 <span>Latency: 18ms</span>
                 <span>Network Integrity: 100%</span>
               </div>
-            </div>
+            </motion.div>
           </div>
 
         </div>
@@ -757,7 +754,7 @@ export default function LandingPage() {
 
             {/* Page Content Container */}
             <main className="flex-1 relative z-10 w-full max-w-[1400px] mx-auto px-6 py-12 md:py-20 lg:px-20 flex flex-col gap-12 md:gap-20">
-              
+
               {/* Cinematic Page Title */}
               <div className="max-w-3xl space-y-6">
                 <span className="inline-flex items-center gap-2 text-[#FA0272] font-bold tracking-widest uppercase text-xs bg-[#FA0272]/10 px-4 py-2 rounded-full">
@@ -786,7 +783,7 @@ export default function LandingPage() {
 
               {/* Dynamic Value Story Grid */}
               <div className="grid md:grid-cols-2 gap-8 lg:gap-12 shrink-0">
-                
+
                 {/* Story Card 1: 0% Commission */}
                 <div className="group bg-white border border-slate-200/60 rounded-[2rem] p-8 lg:p-10 hover:shadow-2xl hover:shadow-pink-500/5 hover:-translate-y-1 transition-all duration-500 flex flex-col justify-between">
                   <div>
@@ -912,7 +909,7 @@ export default function LandingPage() {
 
             {/* Page Content Container */}
             <main className="flex-1 relative z-10 w-full max-w-[1400px] mx-auto px-6 py-12 md:py-20 lg:px-20 flex flex-col gap-12 md:gap-20">
-              
+
               {/* Cinematic Page Title - Centered Elegant Culinary Accent */}
               <div className="max-w-4xl space-y-6 text-center mx-auto mb-4">
                 <span className="inline-flex items-center gap-2 text-[#FA0272] font-black tracking-widest uppercase text-xs bg-[#FA0272]/10 border border-[#FA0272]/20 px-4 py-2 rounded-full">
@@ -930,7 +927,7 @@ export default function LandingPage() {
               {/* Download CTA Block - Customized as a POS Tablet Terminal Layout */}
               <div className="bg-slate-900 text-white rounded-[2.5rem] p-8 md:p-14 relative overflow-hidden shadow-2xl shrink-0 flex flex-col lg:flex-row items-center gap-12 border border-slate-800">
                 <div className="absolute top-[-50%] right-[-10%] w-[350px] h-[350px] bg-[#FA0272]/10 rounded-full blur-[90px] pointer-events-none" />
-                
+
                 <div className="flex-1 space-y-6 relative z-10">
                   <div className="inline-block text-[10px] uppercase tracking-widest font-black text-pink-500 bg-[#FA0272]/10 border border-[#FA0272]/20 px-3 py-1.5 rounded-full">
                     Active Operations: Telangana Region
@@ -939,19 +936,19 @@ export default function LandingPage() {
                   <p className="text-slate-400 font-light max-w-xl leading-relaxed text-sm md:text-base">
                     Register your business profile, customize your digital menu, and start receiving commission-free orders directly on your phone or tablet in minutes.
                   </p>
-                  
+
                   <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                    <a 
-                      href="https://apps.apple.com/in/app/switcheats-partner/id6766466794" 
-                      target="_blank" 
+                    <a
+                      href="https://apps.apple.com/in/app/switcheats-partner/id6766466794"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-3 bg-white text-slate-950 hover:bg-[#FA0272] hover:text-white px-8 py-4 rounded-2xl font-bold transition-all duration-300 text-sm shadow-md cursor-pointer text-center"
                     >
                       <Apple className="w-5 h-5" /> iOS App Store
                     </a>
-                    <a 
-                      href="https://play.google.com/store/apps/details?id=com.switcheats.restaurant1" 
-                      target="_blank" 
+                    <a
+                      href="https://play.google.com/store/apps/details?id=com.switcheats.restaurant1"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-3 bg-slate-800 border border-slate-700 text-white hover:bg-[#FA0272] hover:border-[#FA0272] px-8 py-4 rounded-2xl font-bold transition-all duration-300 text-sm shadow-md cursor-pointer text-center"
                     >
@@ -965,7 +962,7 @@ export default function LandingPage() {
                   <div className="w-full max-w-[380px] h-[250px] bg-slate-900 border-4 border-slate-700 rounded-2xl shadow-2xl p-4 flex flex-col justify-between relative overflow-hidden">
                     {/* Tablet Top Notch and bezel look */}
                     <div className="absolute top-1 left-1/2 -translate-x-1/2 w-16 h-2 bg-slate-700 rounded-full" />
-                    
+
                     {/* POS Header */}
                     <div className="flex items-center justify-between border-b border-slate-800 pb-2 shrink-0 mt-1">
                       <div className="flex items-center gap-2">
@@ -999,7 +996,7 @@ export default function LandingPage() {
 
               {/* Partner Benefits 2x2 Grid - Styled with Elegant Champagne Glassmorphism */}
               <div className="grid md:grid-cols-2 gap-8 lg:gap-12 shrink-0">
-                
+
                 {/* Benefit 1 */}
                 <div className="group bg-white/80 border border-slate-200/40 rounded-[2rem] p-8 lg:p-10 hover:shadow-2xl hover:shadow-[#FA0272]/5 hover:-translate-y-1 transition-all duration-500 flex flex-col justify-between shadow-sm">
                   <div>
@@ -1125,7 +1122,7 @@ export default function LandingPage() {
 
             {/* Page Content Container */}
             <main className="flex-1 relative z-10 w-full max-w-[1400px] mx-auto px-6 py-12 md:py-20 lg:px-20 flex flex-col gap-12 md:gap-20">
-              
+
               {/* Cinematic Page Title - Cyber Centered HUD Accent */}
               <div className="max-w-4xl space-y-6 text-center mx-auto mb-4">
                 <span className="inline-flex items-center gap-2 text-[#FA0272] font-black tracking-widest uppercase text-xs bg-[#FA0272]/15 border border-[#FA0272]/30 px-4 py-2 rounded-full animate-pulse">
@@ -1145,7 +1142,7 @@ export default function LandingPage() {
                 {/* Grid Overlay */}
                 <div className="absolute inset-0 bg-[radial-gradient(#ffffff04_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none z-0" />
                 <div className="absolute top-[-50%] right-[-10%] w-[350px] h-[350px] bg-indigo-500/10 rounded-full blur-[90px] pointer-events-none" />
-                
+
                 <div className="flex-1 space-y-6 relative z-10">
                   <div className="inline-block text-[10px] uppercase tracking-widest font-black text-[#FA0272] bg-[#FA0272]/10 border border-[#FA0272]/20 px-3 py-1.5 rounded-full">
                     Squad Expanding: Telangana Core Hubs
@@ -1154,19 +1151,19 @@ export default function LandingPage() {
                   <p className="text-slate-400 font-light max-w-xl leading-relaxed text-sm md:text-base">
                     Quick onboarding. Setup your profile, upload identification documents, and start accepting dispatch requests with zero hidden deductions.
                   </p>
-                  
+
                   <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                    <a 
-                      href="https://apps.apple.com/in/app/switcheats-captain/id6766778164" 
-                      target="_blank" 
+                    <a
+                      href="https://apps.apple.com/in/app/switcheats-captain/id6766778164"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-3 bg-white text-slate-950 hover:bg-[#FA0272] hover:text-white px-8 py-4 rounded-2xl font-bold transition-all duration-300 text-sm shadow-md cursor-pointer text-center"
                     >
                       <Apple className="w-5 h-5" /> iOS App Store
                     </a>
-                    <a 
-                      href="https://play.google.com/store/apps/details?id=com.switcheats.delivery1" 
-                      target="_blank" 
+                    <a
+                      href="https://play.google.com/store/apps/details?id=com.switcheats.delivery1"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-3 bg-slate-800 border border-slate-800 text-white hover:bg-[#FA0272] hover:border-[#FA0272] px-8 py-4 rounded-2xl font-bold transition-all duration-300 text-sm shadow-md cursor-pointer text-center"
                     >
@@ -1180,7 +1177,7 @@ export default function LandingPage() {
                   <div className="w-[260px] h-[340px] bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl p-4 flex flex-col justify-between relative overflow-hidden">
                     {/* Top Speaker bezel */}
                     <div className="absolute top-1 left-1/2 -translate-x-1/2 w-20 h-3 bg-slate-800 rounded-full" />
-                    
+
                     {/* Active State Header */}
                     <div className="flex items-center justify-between mt-2 shrink-0">
                       <div className="flex items-center gap-1.5">
@@ -1196,16 +1193,16 @@ export default function LandingPage() {
                         <span>Target Node</span>
                         <span className="text-white font-bold">1.2 km away</span>
                       </div>
-                      
+
                       {/* Fake GPS Path Indicator */}
                       <div className="flex-1 flex items-center justify-center relative my-2">
                         <svg className="w-full h-16" viewBox="0 0 100 40">
                           {/* Dotted target path */}
-                          <motion.path 
-                            d="M10,20 C40,5 60,35 90,20" 
-                            fill="none" 
-                            stroke="#FA0272" 
-                            strokeWidth="2" 
+                          <motion.path
+                            d="M10,20 C40,5 60,35 90,20"
+                            fill="none"
+                            stroke="#FA0272"
+                            strokeWidth="2"
                             strokeDasharray="4 4"
                             animate={{ strokeDashoffset: [0, -20] }}
                             transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
@@ -1233,7 +1230,7 @@ export default function LandingPage() {
 
               {/* Captain Benefits 2x2 Grid - Cyberpunk Dark Glass cards */}
               <div className="grid md:grid-cols-2 gap-8 lg:gap-12 shrink-0">
-                
+
                 {/* Benefit 1 */}
                 <div className="group bg-slate-900/40 border border-slate-800/80 rounded-[2rem] p-8 lg:p-10 hover:shadow-2xl hover:shadow-pink-500/5 hover:border-pink-500/30 hover:-translate-y-1 transition-all duration-500 flex flex-col justify-between">
                   <div>
