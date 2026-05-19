@@ -844,21 +844,92 @@ export default function LandingPage() {
         <div className="flex flex-col lg:flex-row items-center gap-20">
 
           <div className="flex-1 space-y-8">
-            <span className="inline-block text-xs font-black tracking-[0.3em] text-[#FA0272] uppercase bg-pink-50 border border-pink-100 rounded-full px-3 py-1">
-              Precision
-            </span>
-            <h3 className="text-5xl lg:text-7xl font-black leading-[1.1] tracking-tight text-slate-900">
-              Fastest <br /><span className="italic text-slate-500 font-light">Delivery Route.</span>
-            </h3>
-            <p className="text-lg md:text-xl text-slate-600 font-light leading-relaxed max-w-lg">
-              Our advanced routing algorithm calculates the exact fastest path to your door, avoiding traffic and delays. Watch your order arrive in real-time.
-            </p>
+            <div className="space-y-4">
+              <span className="inline-block text-xs font-black tracking-[0.3em] text-[#FA0272] uppercase bg-pink-50 border border-pink-100 rounded-full px-3 py-1">
+                Precision Logistics
+              </span>
+              <h3 className="text-5xl lg:text-7xl font-black leading-[1.1] tracking-tight text-slate-900">
+                Fastest <br /><span className="italic text-slate-500 font-light">Delivery Route.</span>
+              </h3>
+              <p className="text-base md:text-lg text-slate-600 font-light leading-relaxed max-w-lg">
+                Our advanced routing algorithm calculates the exact fastest path to your door, avoiding traffic and delays. Watch your order arrive in real-time.
+              </p>
+            </div>
+
+            {/* Premium Feature Stats / Cards */}
+            <div className="grid grid-cols-1 gap-4 pt-4">
+              {[
+                { 
+                  icon: Zap, 
+                  title: "Predictive AI Dispatch", 
+                  desc: "Riders are auto-positioned based on historical demand models before you even checkout." 
+                },
+                { 
+                  icon: ShieldCheck, 
+                  title: "Active Thermal Control", 
+                  desc: "Meals are packed in temperature-isolated chambers maintaining exact kitchen heat." 
+                },
+                { 
+                  icon: TrendingUp, 
+                  title: "Average Speed: 22 Mins", 
+                  desc: "A highly optimized city-wide rider network designed for unmatched delivery velocity." 
+                }
+              ].map((feat, idx) => (
+                <motion.div 
+                  key={idx}
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.1, duration: 0.6 }}
+                  className="flex gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-200/60 hover:bg-white hover:border-[#FA0272]/20 hover:shadow-lg transition-all duration-300 group cursor-pointer"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-pink-50 border border-pink-100 flex items-center justify-center text-[#FA0272] group-hover:bg-[#FA0272] group-hover:text-white transition-all duration-300 shrink-0">
+                    <feat.icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">{feat.title}</h4>
+                    <p className="text-slate-500 text-xs font-light mt-0.5 leading-relaxed">{feat.desc}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
 
-          <div className="flex-1 w-full h-[400px] relative rounded-[2.5rem] border border-slate-100 bg-slate-50/50 backdrop-blur-sm overflow-hidden flex items-center justify-center shadow-xl">
+          {/* Interactive live radar route container with glass HUDs */}
+          <div className="flex-1 w-full h-[500px] relative rounded-[2.5rem] border border-slate-200/80 bg-slate-50/50 backdrop-blur-sm overflow-hidden flex items-center justify-center shadow-xl">
 
-            {/* Map Background Mock */}
+            {/* Radar Sweep Animation Effect */}
+            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_50%,rgba(250,2,114,0.025)_0%,transparent_60%)] z-0" />
+            <div className="absolute top-[20%] left-[20%] w-[350px] h-[350px] bg-pink-100/30 rounded-full blur-[80px] opacity-40 pointer-events-none" />
+
+            {/* Map Grid Dots Background */}
             <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #0F172A 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+
+            {/* Glass HUD 1: Active Signal */}
+            <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md border border-slate-200/50 px-4 py-2 rounded-2xl flex items-center gap-2.5 shadow-md z-20">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-[10px] font-black tracking-widest text-slate-800 uppercase">Live Dispatch Signal</span>
+            </div>
+
+            {/* Glass HUD 2: Rider Stats */}
+            <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-md border border-slate-200/50 px-4 py-3 rounded-2xl flex flex-col gap-1 shadow-md z-20 text-xs w-[220px]">
+              <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                <Zap className="w-3.5 h-3.5 text-[#FA0272]" /> <span>Rider Telemetry</span>
+              </div>
+              <div className="text-slate-500 text-[10px] font-medium font-mono leading-relaxed pt-1.5 border-t border-slate-100 mt-1">
+                Speed: 42 km/h <br />
+                Temperature: 74°C (Hot Chamber) <br />
+                Optimal Route: Engaged
+              </div>
+            </div>
+
+            {/* Floating Location Badges */}
+            <div className="absolute top-[18%] left-[10%] bg-pink-50/95 backdrop-blur-sm border border-pink-100 px-3 py-1 rounded-xl text-[9px] font-black tracking-widest text-[#FA0272] shadow-sm z-20 animate-pulse">
+              KITCHEN PICKUP
+            </div>
+            <div className="absolute bottom-[20%] right-[10%] bg-[#0F172A]/90 backdrop-blur-sm px-3 py-1 rounded-xl text-[9px] font-black tracking-widest text-white shadow-sm z-20 animate-pulse">
+              YOUR DOORSTEP
+            </div>
 
             {/* Animated SVG Route */}
             <svg viewBox="0 0 400 300" className="w-full h-full max-w-[400px] relative z-10 p-6">
@@ -872,7 +943,7 @@ export default function LandingPage() {
                 initial={{ pathLength: 0 }}
                 whileInView={{ pathLength: 1 }}
                 viewport={{ once: false, margin: "-100px" }}
-                transition={{ duration: 2, ease: "easeInOut", repeat: Infinity, repeatType: "loop", repeatDelay: 1 }}
+                transition={{ duration: 2.5, ease: "easeInOut", repeat: Infinity, repeatType: "loop", repeatDelay: 1 }}
                 style={{ filter: "drop-shadow(0px 0px 8px rgba(250,2,114,0.5))" }}
               />
               <circle cx="50" cy="250" r="8" fill="#FA0272" className="shadow-[0_0_10px_#FA0272]" />
