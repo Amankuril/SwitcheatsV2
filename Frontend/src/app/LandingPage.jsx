@@ -807,7 +807,7 @@ export default function LandingPage() {
 
                 {/* Horizontal glowing pointer connector line */}
                 <div 
-                  className="absolute top-[61.5%] left-[46.8%] w-[10.2%] h-[1.5px] bg-gradient-to-r from-[#FA0272] to-[#FA0272]/40 z-20 pointer-events-none"
+                  className="hidden lg:block absolute top-[61.5%] left-[46.8%] w-[10.2%] h-[1.5px] bg-gradient-to-r from-[#FA0272] to-[#FA0272]/40 z-20 pointer-events-none"
                   style={{ transform: "translateY(-50%)" }}
                 />
 
@@ -820,8 +820,8 @@ export default function LandingPage() {
                   <span className="relative block rounded-full h-2.5 w-2.5 bg-white shadow-[0_0_8px_#fff,0_0_12px_#FA0272]" />
                 </div>
 
-                {/* Floating Active Info Tag over the beacon, shifted to the right */}
-                <div className="absolute top-[61.5%] left-[57%] -translate-y-1/2 bg-slate-900/95 border border-[#FA0272]/50 text-[9px] font-black text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xl shadow-pink-500/20 whitespace-nowrap z-30">
+                {/* Floating Active Info Tag over the beacon, centered above it on mobile, shifted right on desktop */}
+                <div className="absolute top-[61.5%] left-[48%] lg:left-[57%] -translate-x-1/2 lg:translate-x-0 -translate-y-[280%] lg:-translate-y-1/2 bg-slate-900/95 border border-[#FA0272]/50 text-[9px] font-black text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xl shadow-pink-500/20 whitespace-nowrap z-30">
                   <span className="w-2 h-2 rounded-full bg-[#FA0272] animate-ping" />
                   TELANGANA (ACTIVE HUB)
                 </div>
@@ -896,7 +896,7 @@ export default function LandingPage() {
           </div>
 
           {/* Interactive live radar route container with glass HUDs */}
-          <div className="flex-1 w-full h-[500px] relative rounded-[2.5rem] border border-slate-200/80 bg-slate-50/50 backdrop-blur-sm overflow-hidden flex items-center justify-center shadow-xl">
+          <div className="flex-1 w-full h-[380px] sm:h-[500px] relative rounded-[2.5rem] border border-slate-200/80 bg-slate-50/50 backdrop-blur-sm overflow-hidden flex items-center justify-center shadow-xl">
 
             {/* Radar Sweep Animation Effect */}
             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_50%,rgba(250,2,114,0.025)_0%,transparent_60%)] z-0" />
@@ -906,28 +906,28 @@ export default function LandingPage() {
             <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #0F172A 1px, transparent 0)', backgroundSize: '32px 32px' }} />
 
             {/* Glass HUD 1: Active Signal */}
-            <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md border border-slate-200/50 px-4 py-2 rounded-2xl flex items-center gap-2.5 shadow-md z-20">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-              <span className="text-[10px] font-black tracking-widest text-slate-800 uppercase">Live Dispatch Signal</span>
+            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 bg-white/90 backdrop-blur-md border border-slate-200/50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl flex items-center gap-2 shadow-md z-20">
+              <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-[9px] sm:text-[10px] font-black tracking-widest text-slate-800 uppercase">Live Dispatch Signal</span>
             </div>
 
             {/* Glass HUD 2: Rider Stats */}
-            <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-md border border-slate-200/50 px-4 py-3 rounded-2xl flex flex-col gap-1 shadow-md z-20 text-xs w-[220px]">
+            <div className="hidden sm:flex absolute sm:bottom-6 sm:left-6 bg-white/90 backdrop-blur-md border border-slate-200/50 sm:p-4 rounded-2xl flex-col gap-1 shadow-md z-20 sm:text-xs sm:w-[220px]">
               <div className="flex items-center gap-1.5 font-bold text-slate-800">
                 <Zap className="w-3.5 h-3.5 text-[#FA0272]" /> <span>Rider Telemetry</span>
               </div>
               <div className="text-slate-500 text-[10px] font-medium font-mono leading-relaxed pt-1.5 border-t border-slate-100 mt-1">
                 Speed: 42 km/h <br />
-                Temperature: 74°C (Hot Chamber) <br />
-                Optimal Route: Engaged
+                Temp: 74°C (Hot Chamber) <br />
+                Route: Optimal Engaged
               </div>
             </div>
 
             {/* Floating Location Badges */}
-            <div className="absolute top-[18%] left-[10%] bg-pink-50/95 backdrop-blur-sm border border-pink-100 px-3 py-1 rounded-xl text-[9px] font-black tracking-widest text-[#FA0272] shadow-sm z-20 animate-pulse">
+            <div className="hidden sm:block absolute top-[18%] left-[10%] bg-pink-50/95 backdrop-blur-sm border border-pink-100 px-3 py-1 rounded-xl text-[9px] font-black tracking-widest text-[#FA0272] shadow-sm z-20 animate-pulse">
               KITCHEN PICKUP
             </div>
-            <div className="absolute bottom-[20%] right-[10%] bg-[#0F172A]/90 backdrop-blur-sm px-3 py-1 rounded-xl text-[9px] font-black tracking-widest text-white shadow-sm z-20 animate-pulse">
+            <div className="hidden sm:block absolute bottom-[20%] right-[10%] bg-[#0F172A]/90 backdrop-blur-sm px-3 py-1 rounded-xl text-[9px] font-black tracking-widest text-white shadow-sm z-20 animate-pulse">
               YOUR DOORSTEP
             </div>
 
