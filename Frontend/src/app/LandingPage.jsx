@@ -3,11 +3,12 @@ import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
 import Lenis from "lenis";
 import {
   ArrowRight, ArrowLeft, Search, ShoppingCart, Play, Apple,
-  MapPin, Clock, Star, Facebook, Twitter, Instagram, Linkedin,
+  MapPin, Clock, Star, Facebook, Youtube, Instagram, Linkedin,
   Zap, Award, ShieldCheck, TrendingUp, ArrowUpRight, Map,
   Users, Percent, Heart, Sparkles, X, Home, Store, Bike
 } from "lucide-react";
 import { APP_CONFIG } from "../config/constants"; // Adjust path if needed
+import apiClient from "../services/api";
 
 // --- Animation Variants for Cinematic Reveals ---
 const textReveal = {
@@ -42,6 +43,32 @@ export default function LandingPage() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isRestaurantOpen, setIsRestaurantOpen] = useState(false);
   const [isDeliveryOpen, setIsDeliveryOpen] = useState(false);
+  const [supportContact, setSupportContact] = useState({
+    email: "support@switcheats.com",
+    mobile: "1-800-123-4567"
+  });
+  const [activeCraving, setActiveCraving] = useState(0);
+
+  useEffect(() => {
+    async function fetchSupportInfo() {
+      try {
+        const response = await apiClient.get("/food/pages/support", {
+          params: { module: "USER" }
+        });
+        const data = response?.data?.data || response?.data;
+        if (data && (data.email || data.mobile)) {
+          setSupportContact({
+            email: data.email || "support@switcheats.com",
+            mobile: data.mobile || "1-800-123-4567"
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching support contact for footer:", err);
+      }
+    }
+    fetchSupportInfo();
+  }, []);
+
   const [mapRotate, setMapRotate] = useState({ x: 0, y: 0 });
   const handleMapMouseMove = (e) => {
     const card = e.currentTarget.getBoundingClientRect();
@@ -83,6 +110,35 @@ export default function LandingPage() {
     return () => {
       document.body.style.overflow = "";
     };
+  }, [isAboutOpen, isRestaurantOpen, isDeliveryOpen]);
+
+  // Handle browser back button (popstate) to close overlays instead of navigating away
+  useEffect(() => {
+    const handlePopState = (event) => {
+      setIsAboutOpen(false);
+      setIsRestaurantOpen(false);
+      setIsDeliveryOpen(false);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  // Sync React states to browser history stack
+  useEffect(() => {
+    const isAnyOpen = isAboutOpen || isRestaurantOpen || isDeliveryOpen;
+    
+    if (isAnyOpen) {
+      if (!window.history.state?.modalOpen) {
+        window.history.pushState({ modalOpen: true }, "");
+      }
+    } else {
+      if (window.history.state?.modalOpen) {
+        window.history.back();
+      }
+    }
   }, [isAboutOpen, isRestaurantOpen, isDeliveryOpen]);
 
   // Global Scroll Progress Hook
@@ -344,48 +400,206 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 4. LATE NIGHT CRAVINGS - Dark Theme Accent Section */}
-      <section className="relative z-10 py-32 bg-[#0A0A0B] text-slate-100 overflow-hidden">
+      {/* 4. LATE NIGHT CRAVINGS - Cinematic 3D Interactive Midnight Console Stage */}
+      <section className="relative z-10 py-36 bg-[#030303] text-slate-100 overflow-hidden">
+        
+        {/* Dynamic ambient backdrop glow matching active item */}
+        <div 
+          className="absolute inset-0 transition-all duration-1000 ease-out pointer-events-none opacity-40 blur-[150px]"
+          style={{
+            background: `radial-gradient(circle at 50% 50%, ${
+              activeCraving === 0 ? '#FA0272' : activeCraving === 1 ? '#EB590E' : '#EAB308'
+            } 0%, transparent 60%)`
+          }}
+        />
 
-        {/* Glow behind the dark section */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#FA0272]/5 to-transparent pointer-events-none" />
-        <div className="absolute top-[20%] left-[20%] w-[300px] h-[300px] bg-[#FA0272] rounded-full blur-[120px] opacity-10 pointer-events-none" />
+        {/* Abstract Grid Lines for Spatial Depth */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:80px_80px] pointer-events-none opacity-20" />
 
         <div className="max-w-[1800px] mx-auto px-6 md:px-16 lg:px-24 relative z-10">
-          <div className="text-center mb-20">
-            <span className="inline-block text-xs font-black tracking-[0.3em] text-[#FA0272] uppercase bg-[#FA0272]/10 border border-[#FA0272]/20 rounded-full px-3 py-1 mb-4">
-              Midnight Magic
+          
+          {/* Section Header */}
+          <div className="text-center mb-24">
+            <span className="inline-flex items-center gap-2 text-[10px] font-black tracking-[0.35em] text-[#FA0272] uppercase bg-[#FA0272]/10 border border-[#FA0272]/30 rounded-full px-4 py-2 mb-6">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#FA0272] animate-ping" />
+              Midnight Gastronomy
             </span>
-            <h3 className="text-5xl lg:text-7xl font-black tracking-tight text-white">
-              Late Night <span className="italic text-slate-400 font-light">Cravings.</span>
+            <h3 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight text-white mb-6">
+              Late Night <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-200 via-slate-400 to-[#FA0272] italic font-light">Cravings.</span>
             </h3>
+            <p className="text-slate-400 max-w-xl mx-auto text-sm md:text-base font-light leading-relaxed">
+              Curated epicurean experiences crafted for the midnight hours. Fully active between 11:00 PM and 4:00 AM.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { title: "Midnight Burger", time: "15-20 min", img: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=1000&auto=format&fit=crop" },
-              { title: "Spicy Ramen", time: "20-30 min", img: "https://images.unsplash.com/photo-1557872943-16a5ac26437e?q=80&w=1000&auto=format&fit=crop" },
-              { title: "Loaded Fries", time: "10-15 min", img: "https://images.unsplash.com/photo-1534080564583-6be75777b70a?q=80&w=1000&auto=format&fit=crop" }
-            ].map((item, i) => (
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.2, duration: 0.8 }}
-                key={i}
-                className="group relative rounded-[2rem] overflow-hidden cursor-pointer h-[400px] border border-white/5 shadow-2xl"
-              >
-                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/10 transition-colors duration-500 z-10" />
-                <img src={item.img} className="absolute inset-0 w-full h-full object-cover transform scale-105 group-hover:scale-110 transition-transform duration-700 ease-out" alt={item.title} />
-                <div className="absolute bottom-0 w-full p-8 z-20 bg-gradient-to-t from-black via-black/90 to-transparent">
-                  <h4 className="text-2xl font-black text-white mb-2">{item.title}</h4>
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-[#FA0272]" />
-                    <span className="text-slate-300 font-bold text-sm">{item.time}</span>
+          {/* Interactive Console Console Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+            
+            {/* Left Console: Tab selectors (Columns 5) */}
+            <div className="lg:col-span-5 flex flex-col gap-6 order-2 lg:order-1">
+              {[
+                { 
+                  tag: "🔥 BESTSELLER", 
+                  title: "Midnight Wagyu Burger", 
+                  num: "01",
+                  time: "15-20 min", 
+                  desc: "Double-patty dry-aged Wagyu beef, aged cheddar melt, caramelized onion jam, and truffle aioli on toasted brioche.",
+                  color: "#FA0272",
+                  ingredients: ["🧀 Cheddar", "🧅 Onion Jam", "🍞 Brioche", "🍄 Truffle"]
+                },
+                { 
+                  tag: "⚡ CHEF'S SPECIAL", 
+                  title: "Spicy Tonkotsu Ramen", 
+                  num: "02",
+                  time: "20-30 min", 
+                  desc: "Rich 12-hour pork bone broth, hand-pulled noodles, spicy tare, pork chashu, and soy-cured soft egg.",
+                  color: "#EB590E",
+                  ingredients: ["🥚 Cured Egg", "🥩 Chashu", "🧅 Scallions", "🌶️ Chili Tare"]
+                },
+                { 
+                  tag: "👑 LATE NIGHT EXCLUSIVE", 
+                  title: "Signature Loaded Fries", 
+                  num: "03",
+                  time: "10-15 min", 
+                  desc: "Triple-cooked crispy potatoes smothered in cheddar melt, wood-smoked bacon, and white truffle oil.",
+                  color: "#EAB308",
+                  ingredients: ["🍟 Crispy Fries", "🥓 Smoked Bacon", "🌿 Chives", "🧀 Cheddar"]
+                }
+              ].map((item, index) => {
+                const isActive = activeCraving === index;
+                return (
+                  <div
+                    key={index}
+                    onClick={() => setActiveCraving(index)}
+                    className={`group relative rounded-[2rem] p-8 cursor-pointer border transition-all duration-500 ease-out select-none ${
+                      isActive 
+                        ? "bg-white/[0.03] border-white/10 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)]" 
+                        : "bg-transparent border-transparent hover:bg-white/[0.01] hover:border-white/5"
+                    }`}
+                  >
+                    {/* Left Active border bar indicator */}
+                    <div 
+                      className={`absolute left-0 top-8 bottom-8 w-1 rounded-r-full transition-all duration-500 ${
+                        isActive ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0 group-hover:scale-y-50 group-hover:opacity-50"
+                      }`}
+                      style={{ backgroundColor: item.color }}
+                    />
+
+                    <div className="flex gap-6 items-start">
+                      <span 
+                        className={`text-2xl font-black transition-colors duration-500 ${isActive ? "text-white" : "text-slate-600 group-hover:text-slate-400"}`}
+                        style={{ color: isActive ? item.color : undefined }}
+                      >
+                        {item.num}
+                      </span>
+                      
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-3 mb-2">
+                          <span 
+                            className="text-[9px] font-black tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10"
+                            style={{ color: isActive ? item.color : '#94A3B8' }}
+                          >
+                            {item.tag}
+                          </span>
+                          <span className="text-[11px] text-slate-500 font-bold flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-slate-500" />
+                            {item.time}
+                          </span>
+                        </div>
+
+                        <h4 className="text-xl md:text-2xl font-black text-white group-hover:text-slate-200 transition-colors duration-300">
+                          {item.title}
+                        </h4>
+
+                        {/* Slide open description & action */}
+                        <div 
+                          className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                            isActive ? "max-h-[300px] mt-4 opacity-100" : "max-h-0 opacity-0"
+                          }`}
+                        >
+                          <p className="text-slate-400 text-xs md:text-sm font-light leading-relaxed mb-5">
+                            {item.desc}
+                          </p>
+
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {item.ingredients.map((ing, k) => (
+                              <span key={k} className="text-[10px] font-semibold text-slate-300 bg-white/5 border border-white/5 px-2.5 py-1 rounded-lg">
+                                {ing}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Right Console: The floating cinematic 3D Stage (Columns 7) */}
+            <div className="lg:col-span-7 flex justify-center items-center order-1 lg:order-2 h-[500px] md:h-[600px] relative">
+              
+              {/* Dynamic Pedestal Under-glow Shadow */}
+              <div 
+                className="absolute bottom-12 w-[350px] md:w-[480px] h-[35px] rounded-full blur-[40px] opacity-40 transition-all duration-1000 ease-out"
+                style={{
+                  background: activeCraving === 0 ? '#FA0272' : activeCraving === 1 ? '#EB590E' : '#EAB308'
+                }}
+              />
+
+              {/* Floating Culinary Stage Container */}
+              <motion.div
+                className="relative cursor-pointer select-none group/plate"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 1 }}
+              >
+                {/* Orbital floating decorative elements */}
+                <div className="absolute inset-0 pointer-events-none z-20">
+                  <span className="absolute -top-6 -right-6 animate-bounce text-2xl" style={{ animationDuration: '4s' }}>🌶️</span>
+                  <span className="absolute -bottom-8 -left-8 animate-bounce text-2xl" style={{ animationDuration: '6s' }}>🌿</span>
+                  <span className="absolute top-1/2 -left-12 animate-bounce text-2xl" style={{ animationDuration: '5s' }}>🧄</span>
+                </div>
+
+                {/* Animated plate layout transitions */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeCraving}
+                    initial={{ rotate: -45, scale: 0.8, opacity: 0 }}
+                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                    exit={{ rotate: 45, scale: 0.8, opacity: 0 }}
+                    transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    className="relative w-[340px] h-[340px] md:w-[480px] md:h-[480px] rounded-full p-2 bg-gradient-to-tr from-white/10 to-transparent border border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.9)] overflow-hidden"
+                  >
+                    {/* Inner gloss layer */}
+                    <div className="absolute inset-0 bg-black/10 group-hover/plate:bg-black/0 transition-all duration-500" />
+                    
+                    {/* Plate Food Image */}
+                    <img 
+                      src={
+                        activeCraving === 0 
+                          ? "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=1000&auto=format&fit=crop" 
+                          : activeCraving === 1 
+                            ? "https://images.unsplash.com/photo-1557872943-16a5ac26437e?q=80&w=1000&auto=format&fit=crop" 
+                            : "https://images.unsplash.com/photo-1534080564583-6be75777b70a?q=80&w=1000&auto=format&fit=crop"
+                      }
+                      alt="Late Night Cravings Showcase Plate" 
+                      className="w-full h-full object-cover rounded-full transform scale-100 group-hover/plate:scale-105 transition-all duration-700 ease-out"
+                    />
+
+                    {/* Stage circular glass highlight border */}
+                    <div className="absolute inset-0 rounded-full border-[10px] border-white/5 pointer-events-none" />
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Clock Overlay Badge */}
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-full flex items-center gap-2.5 shadow-2xl z-30">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] font-black tracking-widest text-white uppercase whitespace-nowrap">Service Active</span>
                 </div>
               </motion.div>
-            ))}
+            </div>
+            
           </div>
         </div>
       </section>
@@ -681,34 +895,69 @@ export default function LandingPage() {
                 Elevating the dining experience. Premium food delivery for those who expect more.
               </p>
               <div className="flex gap-4">
-                {[Facebook, Twitter, Instagram, Linkedin].map((Icon, i) => (
-                  <div key={i} className="w-11 h-11 rounded-full border border-slate-200 flex items-center justify-center hover:bg-[#FA0272] hover:border-[#FA0272] hover:text-white cursor-pointer transition-all duration-300 text-slate-700 bg-white shadow-sm">
+                {[
+                  { Icon: Facebook, url: "https://www.facebook.com/share/1J8C8U4wnK/?mibextid=wwXIfr" },
+                  { Icon: Youtube, url: "https://youtube.com/@switcheats?si=EzceIs61zBwz3SGO" },
+                  { Icon: Instagram, url: "https://www.instagram.com/switcheats?igsh=MTA3eXJnMTRlMTF5Zw%3D%3D&utm_source=qr" },
+                  { Icon: Linkedin, url: "https://www.linkedin.com/company/switcheats/" }
+                ].map(({ Icon, url }, i) => (
+                  <a 
+                    key={i} 
+                    href={url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-11 h-11 rounded-full border border-slate-200 flex items-center justify-center hover:bg-[#FA0272] hover:border-[#FA0272] hover:text-white cursor-pointer transition-all duration-300 text-slate-700 bg-white shadow-sm"
+                  >
                     <Icon className="w-4.5 h-4.5" />
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>
 
             <div className="flex flex-col gap-5 text-sm font-medium">
               <h4 className="text-slate-900 font-bold tracking-widest text-xs uppercase mb-1">Legal</h4>
-              <a href="#" className="hover:text-[#FA0272] transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-[#FA0272] transition-colors">Terms of Service</a>
-              <a href="#" className="hover:text-[#FA0272] transition-colors">Cookie Policy</a>
-              <a href="#" className="hover:text-[#FA0272] transition-colors">Compliance</a>
+              <a 
+                href="https://switcheats.com/food/user/profile/privacy" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:text-[#FA0272] transition-colors"
+              >
+                Privacy Policy
+              </a>
+              <a 
+                href="https://switcheats.com/food/user/profile/terms" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:text-[#FA0272] transition-colors"
+              >
+                Terms of Service
+              </a>
             </div>
 
             <div className="flex flex-col gap-5 text-sm font-medium">
               <h4 className="text-slate-900 font-bold tracking-widest text-xs uppercase mb-1">Company</h4>
-              <a href="#" className="hover:text-[#FA0272] transition-colors">About Us</a>
-              <a href="#" className="hover:text-[#FA0272] transition-colors">Careers</a>
-              <a href="#" className="hover:text-[#FA0272] transition-colors">Press</a>
-              <a href="#" className="hover:text-[#FA0272] transition-colors">Investors</a>
+              <a 
+                href="https://switcheats.com/food/user/profile/about" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:text-[#FA0272] transition-colors"
+              >
+                About Us
+              </a>
+              <a 
+                href="https://switcheats.com/food/user/profile/help-content" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:text-[#FA0272] transition-colors"
+              >
+                Support
+              </a>
             </div>
 
             <div className="flex flex-col gap-5 text-sm font-medium">
               <h4 className="text-slate-900 font-bold tracking-widest text-xs uppercase mb-1">Contact</h4>
-              <a href={`mailto:support@${APP_CONFIG?.NAME?.toLowerCase() || 'brand'}.com`} className="hover:text-[#FA0272] transition-colors">support@{APP_CONFIG?.NAME?.toLowerCase() || 'brand'}.com</a>
-              <a href="tel:18001234567" className="hover:text-[#FA0272] transition-colors">1-800-123-4567</a>
+              <a href={`mailto:${supportContact.email}`} className="hover:text-[#FA0272] transition-colors">{supportContact.email}</a>
+              <a href={`tel:${supportContact.mobile}`} className="hover:text-[#FA0272] transition-colors">{supportContact.mobile}</a>
               <p className="text-slate-400 text-xs mt-3 leading-relaxed">Available 24/7 for premium members.</p>
             </div>
           </div>
