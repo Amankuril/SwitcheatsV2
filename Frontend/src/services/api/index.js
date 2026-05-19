@@ -216,6 +216,14 @@ export const adminAPI = {
     apiClient.get("/food/admin/restaurants/pending", {
       contextModule: "admin",
     }),
+  getUnregisteredRestaurants: () =>
+    apiClient.get("/food/admin/restaurants/unregistered", {
+      contextModule: "admin",
+    }),
+  deleteUnregisteredRestaurant: (id) =>
+    apiClient.delete(`/food/admin/restaurants/unregistered/${id}`, {
+      contextModule: "admin",
+    }),
   /** List restaurant complaints (admin). */
   getRestaurantComplaints: (params = {}) =>
     apiClient.get("/food/admin/restaurants/complaints", {
@@ -938,6 +946,8 @@ export const adminAPI = {
 
 /** Restaurant API - OTP login via new backend; no email/password. */
 export const restaurantAPI = {
+  createUnregisteredRestaurant: (data) =>
+    apiClient.post("/food/restaurant/unregistered", data),
   deleteAccount: () => apiClient.delete('/food/restaurant/profile/account', { contextModule: 'restaurant' }),
   getWallet: () => apiClient.get('/food/restaurant/finance', { contextModule: 'restaurant' }),
   sendOTP: (phone, _purpose = "login") => {

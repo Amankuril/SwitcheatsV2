@@ -5,10 +5,10 @@ import {
   ArrowRight, ArrowLeft, Search, ShoppingCart, Play, Apple,
   MapPin, Clock, Star, Facebook, Youtube, Instagram, Linkedin,
   Zap, Award, ShieldCheck, TrendingUp, ArrowUpRight, Map,
-  Users, Percent, Heart, Sparkles, X, Home, Store, Bike
+  Users, Percent, Heart, Sparkles, X, Home, Store, Bike, Loader2
 } from "lucide-react";
 import { APP_CONFIG } from "../config/constants"; // Adjust path if needed
-import apiClient from "../services/api";
+import apiClient, { restaurantAPI } from "../services/api";
 
 // --- Animation Variants for Cinematic Reveals ---
 const textReveal = {
@@ -47,6 +47,15 @@ export default function LandingPage() {
     email: "support@switcheats.com",
     mobile: "1-800-123-4567"
   });
+  const [leadForm, setLeadForm] = useState({
+    ownerName: "",
+    restaurantName: "",
+    mobileNumber: "",
+    emailId: "",
+    location: "",
+  });
+  const [submittingLead, setSubmittingLead] = useState(false);
+  const [leadSuccess, setLeadSuccess] = useState(false);
   const [activeCraving, setActiveCraving] = useState(0);
 
   useEffect(() => {
@@ -78,6 +87,31 @@ export default function LandingPage() {
   };
   const handleMapMouseLeave = () => {
     setMapRotate({ x: 0, y: 0 });
+  };
+
+  const handleLeadSubmit = async (e) => {
+    e.preventDefault();
+    if (!leadForm.ownerName || !leadForm.restaurantName || !leadForm.mobileNumber || !leadForm.emailId || !leadForm.location) {
+      alert("Please fill all the details to register.");
+      return;
+    }
+    try {
+      setSubmittingLead(true);
+      await restaurantAPI.createUnregisteredRestaurant(leadForm);
+      setLeadSuccess(true);
+      setLeadForm({
+        ownerName: "",
+        restaurantName: "",
+        mobileNumber: "",
+        emailId: "",
+        location: "",
+      });
+    } catch (err) {
+      console.error("Error submitting lead:", err);
+      alert(err.response?.data?.message || "Failed to submit. Please try again later.");
+    } finally {
+      setSubmittingLead(false);
+    }
   };
   const lenisRef = useRef(null);
 
@@ -1218,13 +1252,22 @@ export default function LandingPage() {
                 {APP_CONFIG?.NAME || "SwitchEats"}
                 <span className="text-[#FA0272]">.</span>
               </div>
-              <button
-                onClick={() => setIsRestaurantOpen(false)}
-                className="group flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-xs font-bold hover:bg-[#FA0272] transition-all duration-300 shadow-md hover:shadow-lg cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                Back to Home
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => document.getElementById("partner-lead-form")?.scrollIntoView({ behavior: "smooth" })}
+                  className="group flex items-center gap-2 bg-[#FA0272]/10 hover:bg-[#FA0272] text-[#FA0272] hover:text-white px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-300 border border-[#FA0272]/20 cursor-pointer shadow-sm"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Become a Partner
+                </button>
+                <button
+                  onClick={() => setIsRestaurantOpen(false)}
+                  className="group flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-xs font-bold hover:bg-[#FA0272] transition-all duration-300 shadow-md hover:shadow-lg cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                  Back to Home
+                </button>
+              </div>
             </header>
 
             {/* Page Content Container */}
@@ -1387,20 +1430,124 @@ export default function LandingPage() {
 
               </div>
 
-              {/* Bottom Call to Action */}
-              <div className="text-center py-12 md:py-20 border-t border-slate-200/40 flex flex-col items-center gap-6 shrink-0">
-                <h3 className="text-3xl md:text-4xl font-black text-slate-900">Empower Your Kitchen Today</h3>
-                <p className="text-slate-600 max-w-lg font-light text-sm md:text-base">
-                  Join hundreds of forward-thinking culinary businesses who have taken back their financial independence with SwitchEats.
-                </p>
-                <div className="flex gap-4 mt-2">
-                  <button
-                    onClick={() => setIsRestaurantOpen(false)}
-                    className="bg-slate-900 text-white hover:bg-[#FA0272] px-8 py-4 rounded-full font-bold text-sm transition-all duration-300 shadow-md cursor-pointer"
-                  >
-                    Return to Homepage
-                  </button>
+              {/* Bottom Call to Action and Lead Form */}
+              <div id="partner-lead-form" className="py-12 md:py-20 border-t border-slate-200/40 shrink-0 max-w-3xl mx-auto w-full">
+                <div className="text-center mb-10">
+                  <h3 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Become a Restaurant Partner</h3>
+                  <p className="text-slate-600 max-w-lg font-light text-sm md:text-base mx-auto mt-3">
+                    Fill out the form below to register your interest, and our onboarding team will contact you to set up your restaurant on SwitchEats.
+                  </p>
                 </div>
+
+                {leadSuccess ? (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-[#FA0272]/5 border border-[#FA0272]/20 rounded-3xl p-8 text-center space-y-4"
+                  >
+                    <div className="w-16 h-16 bg-[#FA0272]/10 rounded-full flex items-center justify-center mx-auto text-[#FA0272]">
+                      <Sparkles className="w-8 h-8" />
+                    </div>
+                    <h4 className="text-xl font-bold text-slate-900">Application Submitted Successfully!</h4>
+                    <p className="text-sm text-slate-600 max-w-md mx-auto">
+                      Thank you for choosing SwitchEats. Our onboarding representative will get in touch with you shortly to finalize your registration.
+                    </p>
+                    <button
+                      onClick={() => setLeadSuccess(false)}
+                      className="px-6 py-2.5 text-xs font-bold text-[#FA0272] bg-[#FA0272]/10 hover:bg-[#FA0272]/20 transition-all rounded-full"
+                    >
+                      Submit Another Inquiry
+                    </button>
+                  </motion.div>
+                ) : (
+                  <form onSubmit={handleLeadSubmit} className="space-y-5 bg-white border border-slate-200/60 p-6 md:p-10 rounded-[2.5rem] shadow-xl shadow-slate-900/5">
+                    <div className="grid md:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Owner Name</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ex: John Doe"
+                          value={leadForm.ownerName}
+                          onChange={(e) => setLeadForm({ ...leadForm, ownerName: e.target.value })}
+                          className="w-full px-5 py-3.5 text-sm rounded-2xl border border-slate-200 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-[#FA0272]/20 focus:border-[#FA0272] transition-all text-slate-800"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Restaurant Name</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ex: The Culinary Hub"
+                          value={leadForm.restaurantName}
+                          onChange={(e) => setLeadForm({ ...leadForm, restaurantName: e.target.value })}
+                          className="w-full px-5 py-3.5 text-sm rounded-2xl border border-slate-200 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-[#FA0272]/20 focus:border-[#FA0272] transition-all text-slate-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Mobile Number</label>
+                        <input
+                          type="tel"
+                          required
+                          placeholder="Ex: +91 98765 43210"
+                          value={leadForm.mobileNumber}
+                          onChange={(e) => setLeadForm({ ...leadForm, mobileNumber: e.target.value })}
+                          className="w-full px-5 py-3.5 text-sm rounded-2xl border border-slate-200 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-[#FA0272]/20 focus:border-[#FA0272] transition-all text-slate-800"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Mail ID</label>
+                        <input
+                          type="email"
+                          required
+                          placeholder="Ex: partner@domain.com"
+                          value={leadForm.emailId}
+                          onChange={(e) => setLeadForm({ ...leadForm, emailId: e.target.value })}
+                          className="w-full px-5 py-3.5 text-sm rounded-2xl border border-slate-200 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-[#FA0272]/20 focus:border-[#FA0272] transition-all text-slate-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Location / Address</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: Madhapur, Hyderabad, Telangana"
+                        value={leadForm.location}
+                        onChange={(e) => setLeadForm({ ...leadForm, location: e.target.value })}
+                        className="w-full px-5 py-3.5 text-sm rounded-2xl border border-slate-200 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-[#FA0272]/20 focus:border-[#FA0272] transition-all text-slate-800"
+                      />
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                      <button
+                        type="submit"
+                        disabled={submittingLead}
+                        className="flex-1 bg-slate-900 text-white hover:bg-[#FA0272] px-8 py-4 rounded-2xl font-bold text-sm transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {submittingLead ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin text-white" />
+                            Registering Your Lead...
+                          </>
+                        ) : (
+                          "Submit Registration Request"
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsRestaurantOpen(false)}
+                        className="sm:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 px-8 py-4 rounded-2xl font-bold text-sm transition-all duration-300 text-center cursor-pointer"
+                      >
+                        Return to Homepage
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
 
             </main>

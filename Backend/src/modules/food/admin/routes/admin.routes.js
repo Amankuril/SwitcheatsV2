@@ -61,6 +61,8 @@ router.get('/reports/transactions', adminController.getTransactionReport);
 router.get('/reports/tax', adminController.getTaxReport);
 router.get('/reports/tax/:id', adminController.getTaxReportDetail);
 router.get('/restaurants/pending', adminController.getPendingRestaurants);
+router.get('/restaurants/unregistered', adminController.getUnregisteredRestaurants);
+router.delete('/restaurants/unregistered/:id', adminController.deleteUnregisteredRestaurant);
 router.get('/restaurant-subscription-settings', adminController.getRestaurantSubscriptionSettings);
 router.patch('/restaurant-subscription-settings', adminController.updateRestaurantSubscriptionSettings);
 router.get('/feature-settings', adminController.getFeatureSettings);

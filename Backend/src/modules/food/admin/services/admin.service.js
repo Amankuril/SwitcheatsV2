@@ -34,6 +34,7 @@ import { FoodRestaurantWithdrawal } from '../../restaurant/models/foodRestaurant
 import { FoodDeliveryWithdrawal } from '../../delivery/models/foodDeliveryWithdrawal.model.js';
 import { FoodDeliveryWallet } from '../../delivery/models/deliveryWallet.model.js';
 import { FoodDeliveryCashDeposit } from '../../delivery/models/foodDeliveryCashDeposit.model.js';
+import { FoodUnregisteredRestaurant } from '../../restaurant/models/unregisteredRestaurant.model.js';
 import {
     backfillLegacyCategoryWorkflow,
     categoryAllowsFoodType,
@@ -2313,6 +2314,22 @@ export async function getPendingRestaurants() {
         sl: i + 1,
         zone: r.zoneId?.zoneName || r.zoneId?.name || null,
     }));
+}
+
+export async function getUnregisteredRestaurants() {
+    const list = await FoodUnregisteredRestaurant.find()
+        .sort({ createdAt: -1 })
+        .lean();
+    return list.map((item, index) => ({
+        ...item,
+        sl: index + 1
+    }));
+}
+
+export async function deleteUnregisteredRestaurant(id) {
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) throw new ValidationError('Invalid unregistered restaurant id');
+    const deleted = await FoodUnregisteredRestaurant.findByIdAndDelete(id).lean();
+    return deleted;
 }
 
 export async function updateRestaurantById(id, body = {}) {

@@ -614,6 +614,36 @@ export async function getPendingRestaurants(req, res, next) {
     }
 }
 
+export async function getUnregisteredRestaurants(req, res, next) {
+    try {
+        const list = await adminService.getUnregisteredRestaurants();
+        res.status(200).json({
+            success: true,
+            message: 'Unregistered restaurants fetched successfully',
+            data: list
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function deleteUnregisteredRestaurant(req, res, next) {
+    try {
+        const { id } = req.params;
+        const result = await adminService.deleteUnregisteredRestaurant(id);
+        if (!result) {
+            return res.status(404).json({ success: false, message: 'Unregistered restaurant not found' });
+        }
+        res.status(200).json({
+            success: true,
+            message: 'Unregistered restaurant deleted successfully',
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
 // ----- Delivery partner bonus (admin) -----
 export async function getDeliveryPartnerBonusTransactions(req, res, next) {
     try {

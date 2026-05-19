@@ -21,7 +21,8 @@ import {
     createDuesOrderController,
     verifyDuesPaymentController,
     createPostApprovalOnboardingOrderController,
-    verifyPostApprovalOnboardingPaymentController
+    verifyPostApprovalOnboardingPaymentController,
+    registerUnregisteredRestaurantController
 } from '../controllers/restaurant.controller.js';
 import {
     createRestaurantOfferController,
@@ -91,6 +92,7 @@ const uploadFields = upload.fields([
 
 router.post('/payment/onboarding-order', createRestaurantOnboardingOrderController);
 router.post('/register', uploadFields, registerRestaurantController);
+router.post('/unregistered', registerUnregisteredRestaurantController);
 router.post('/upload-attachment', upload.single('file'), uploadRestaurantAttachmentController);
 
 // Public: approved restaurants list (for user app)

@@ -23,6 +23,8 @@ import {
 } from '../services/restaurant.service.js';
 import { validateRestaurantRegisterDto } from '../validators/restaurant.validator.js';
 import { sendResponse, sendError } from '../../../../utils/response.js';
+import { FoodUnregisteredRestaurant } from '../models/unregisteredRestaurant.model.js';
+
 
 export const createDuesOrderController = async (req, res, next) => {
     try {
@@ -231,3 +233,23 @@ export const deleteCurrentRestaurantAccountController = async (req, res, next) =
         next(error);
     }
 };
+
+export const registerUnregisteredRestaurantController = async (req, res, next) => {
+    try {
+        const { ownerName, restaurantName, mobileNumber, emailId, location } = req.body;
+        if (!ownerName || !restaurantName || !mobileNumber || !emailId || !location) {
+            return sendError(res, 400, 'All fields are required');
+        }
+        const newUnregistered = await FoodUnregisteredRestaurant.create({
+            ownerName,
+            restaurantName,
+            mobileNumber,
+            emailId,
+            location
+        });
+        return sendResponse(res, 201, 'Restaurant details submitted successfully', newUnregistered);
+    } catch (error) {
+        next(error);
+    }
+};
+
