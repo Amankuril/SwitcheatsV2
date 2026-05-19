@@ -1247,25 +1247,27 @@ export default function LandingPage() {
             <div className="absolute bottom-0 left-0 w-[40vw] h-[40vw] bg-orange-400/5 rounded-full blur-[120px] pointer-events-none z-0" />
 
             {/* Sticky Header */}
-            <header className="sticky top-0 w-full z-50 px-6 py-6 md:px-12 lg:px-20 flex items-center justify-between bg-[#FAF7F2]/90 backdrop-blur-md border-b border-slate-200/40 shrink-0">
-              <div className="text-2xl font-black text-slate-900 tracking-tighter">
+            <header className="sticky top-0 w-full z-50 px-4 py-4 md:px-12 lg:px-20 flex items-center justify-between bg-[#FAF7F2]/90 backdrop-blur-md border-b border-slate-200/40 shrink-0">
+              <div className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter">
                 {APP_CONFIG?.NAME || "SwitchEats"}
                 <span className="text-[#FA0272]">.</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <button
                   onClick={() => document.getElementById("partner-lead-form")?.scrollIntoView({ behavior: "smooth" })}
-                  className="group flex items-center gap-2 bg-[#FA0272]/10 hover:bg-[#FA0272] text-[#FA0272] hover:text-white px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-300 border border-[#FA0272]/20 cursor-pointer shadow-sm"
+                  className="group flex items-center gap-1.5 sm:gap-2 bg-[#FA0272]/10 hover:bg-[#FA0272] text-[#FA0272] hover:text-white px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs font-bold transition-all duration-300 border border-[#FA0272]/20 cursor-pointer shadow-sm"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  Become a Partner
+                  <span className="hidden sm:inline">Become a Partner</span>
+                  <span className="sm:hidden">Join</span>
                 </button>
                 <button
                   onClick={() => setIsRestaurantOpen(false)}
-                  className="group flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-xs font-bold hover:bg-[#FA0272] transition-all duration-300 shadow-md hover:shadow-lg cursor-pointer"
+                  className="group flex items-center gap-1.5 sm:gap-2 bg-slate-900 text-white px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs font-bold hover:bg-[#FA0272] transition-all duration-300 shadow-md hover:shadow-lg cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                  Back to Home
+                  <span className="hidden sm:inline">Back to Home</span>
+                  <span className="sm:hidden">Back</span>
                 </button>
               </div>
             </header>
