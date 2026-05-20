@@ -7,7 +7,7 @@ import {
   Sparkles, Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { deliveryAPI } from '@food/api';
+import { deliveryAPI, restaurantAPI } from '@food/api';
 import { toast } from 'sonner';
 import { formatCurrency } from '@food/utils/currency';
 import { initRazorpayPayment } from "@food/utils/razorpay";
@@ -65,6 +65,23 @@ export const PocketV2 = () => {
   const [showDepositPopup, setShowDepositPopup] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
   const [depositing, setDepositing] = useState(false);
+  const [codControlEnabled, setCodControlEnabled] = useState(true);
+
+  useEffect(() => {
+    const loadFeatureSettings = async () => {
+      try {
+        const res = await restaurantAPI.getFeatureSettingsPublic();
+        const rows = Array.isArray(res?.data?.data) ? res.data.data : [];
+        const codControl = rows.find((row) => row.key === "cod_control");
+        if (codControl) {
+          setCodControlEnabled(Boolean(codControl.isEnabled));
+        }
+      } catch (_error) {
+        // Keep default enabled if API fails.
+      }
+    };
+    loadFeatureSettings();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -375,33 +392,37 @@ export const PocketV2 = () => {
                 </div>
              </button>
 
-             <button 
-                onClick={() => navigate('/food/delivery/pocket/cash-limit')}
-                className="w-full p-5 border-b border-gray-50 flex items-center justify-between active:bg-gray-50 transition-colors"
-             >
-                <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-500 border border-purple-100">
-                      <ShieldCheck className="w-6 h-6" />
-                   </div>
-                   <div className="text-left">
-                      <span className="text-sm font-bold text-gray-900 block">Available cash limit</span>
-                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-0.5">Spend Control</p>
-                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                   <span className="text-base font-black text-gray-900">₹{walletState.availableCashLimit.toFixed(2)}</span>
-                   <ChevronRight className="w-5 h-5 text-gray-300" />
-                </div>
-             </button>
+             {codControlEnabled && (
+               <button 
+                  onClick={() => navigate('/food/delivery/pocket/cash-limit')}
+                  className="w-full p-5 border-b border-gray-50 flex items-center justify-between active:bg-gray-50 transition-colors"
+               >
+                  <div className="flex items-center gap-4">
+                     <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-500 border border-purple-100">
+                        <ShieldCheck className="w-6 h-6" />
+                     </div>
+                     <div className="text-left">
+                        <span className="text-sm font-bold text-gray-900 block">Available cash limit</span>
+                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-0.5">Spend Control</p>
+                     </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                     <span className="text-base font-black text-gray-900">₹{walletState.availableCashLimit.toFixed(2)}</span>
+                     <ChevronRight className="w-5 h-5 text-gray-300" />
+                  </div>
+               </button>
+             )}
 
-             <div className="p-4">
-                <button 
-                   onClick={() => setShowDepositPopup(true)}
-                   className="w-full py-4 bg-gradient-to-br from-orange-400 to-orange-500 text-white rounded-[24px] font-black text-sm uppercase tracking-widest shadow-[0_8px_20px_rgba(249,115,22,0.3)] active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-                >
-                   <IndianRupee className="w-4 h-4" /> Deposit Cash
-                </button>
-             </div>
+             {codControlEnabled && (
+               <div className="p-4">
+                  <button 
+                     onClick={() => setShowDepositPopup(true)}
+                     className="w-full py-4 bg-gradient-to-br from-orange-400 to-orange-500 text-white rounded-[24px] font-black text-sm uppercase tracking-widest shadow-[0_8px_20px_rgba(249,115,22,0.3)] active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                  >
+                     <IndianRupee className="w-4 h-4" /> Deposit Cash
+                  </button>
+               </div>
+             )}
           </div>
 
           {/* 5. MORE SERVICES - Grid */}
@@ -415,12 +436,14 @@ export const PocketV2 = () => {
                 <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tight">Prev Week Info</p>
              </div>
 
-             <div onClick={() => navigate('/food/delivery/pocket/limit-settlement')} className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:bg-gray-50 transition-colors flex flex-col justify-between group">
-                <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 mb-4 border border-orange-100 group-active:scale-95 transition-transform">
-                   <Receipt className="w-5 h-5" />
-                </div>
-                <p className="text-sm font-bold text-gray-700 leading-tight">Limit<br/>Settlement</p>
-             </div>
+             {codControlEnabled && (
+               <div onClick={() => navigate('/food/delivery/pocket/limit-settlement')} className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:bg-gray-50 transition-colors flex flex-col justify-between group">
+                  <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 mb-4 border border-orange-100 group-active:scale-95 transition-transform">
+                     <Receipt className="w-5 h-5" />
+                  </div>
+                  <p className="text-sm font-bold text-gray-700 leading-tight">Limit<br/>Settlement</p>
+               </div>
+             )}
 
              <div onClick={() => navigate('/food/delivery/pocket/deductions')} className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:bg-gray-50 transition-colors flex flex-col justify-between group">
                 <div className="w-10 h-10 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 mb-4 border border-red-100 group-active:scale-95 transition-transform">

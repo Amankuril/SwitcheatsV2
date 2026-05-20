@@ -135,6 +135,7 @@ export default function Cart() {
   const [couponCode, setCouponCode] = useState("")
   const [manualCouponCode, setManualCouponCode] = useState("")
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("cash")
+  const [isCodEnabled, setIsCodEnabled] = useState(true)
   const [showPaymentSheet, setShowPaymentSheet] = useState(false)
   const [walletBalance, setWalletBalance] = useState(0)
   const [isLoadingWallet, setIsLoadingWallet] = useState(false)
@@ -235,6 +236,28 @@ export default function Cart() {
     platformFee: 0,
     gstRate: 0,
   })
+
+  useEffect(() => {
+    const loadFeatureSettings = async () => {
+      try {
+        const res = await restaurantAPI.getFeatureSettingsPublic()
+        const rows = Array.isArray(res?.data?.data) ? res.data.data : []
+        const codFeature = rows.find((row) => row.key === "cod_control")
+        if (codFeature) {
+          setIsCodEnabled(Boolean(codFeature.isEnabled))
+        }
+      } catch (_error) {
+        // Keep default enabled if public feature API fails.
+      }
+    }
+    loadFeatureSettings()
+  }, [])
+
+  useEffect(() => {
+    if (!isCodEnabled && selectedPaymentMethod === "cash") {
+      setSelectedPaymentMethod("razorpay")
+    }
+  }, [isCodEnabled, selectedPaymentMethod])
 
 
   const availableTimeSlots = useMemo(() => {
@@ -2902,7 +2925,7 @@ export default function Cart() {
                           color: 'bg-orange-50 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400',
                           selectedColor: 'bg-orange-500 text-white'
                         }
-                      ].map((option) => (
+                      ].filter((option) => isCodEnabled || option.id !== "cash").map((option) => (
                         <button
                           key={option.id}
                           onClick={() => {

@@ -109,6 +109,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   const [searchQuery, setSearchQuery] = useState("")
   const [badges, setBadges] = useState({})
   const [restaurantSubscriptionEnabled, setRestaurantSubscriptionEnabled] = useState(true)
+  const [codControlEnabled, setCodControlEnabled] = useState(true)
   const [canViewFeatureSettings, setCanViewFeatureSettings] = useState(false)
 
   const parseFeatureEnabled = (value, fallback = true) => {
@@ -155,10 +156,17 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
         const res = await adminAPI.getFeatureSettings()
         const rows = Array.isArray(res?.data?.data) ? res.data.data : []
         const feature = rows.find((row) => row.key === "restaurant_subscription")
-        if (!feature) return
-        setRestaurantSubscriptionEnabled((prev) =>
-          parseFeatureEnabled(feature.isEnabled, prev)
-        )
+        const codFeature = rows.find((row) => row.key === "cod_control")
+        if (feature) {
+          setRestaurantSubscriptionEnabled((prev) =>
+            parseFeatureEnabled(feature.isEnabled, prev)
+          )
+        }
+        if (codFeature) {
+          setCodControlEnabled((prev) =>
+            parseFeatureEnabled(codFeature.isEnabled, prev)
+          )
+        }
       } catch (error) {
         // keep default enabled if API fails
       }
@@ -167,10 +175,16 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
 
     const handleFeatureUpdate = async (event) => {
       const detail = event?.detail || {}
-      if (detail.key !== "restaurant_subscription") return
-      setRestaurantSubscriptionEnabled((prev) =>
-        parseFeatureEnabled(detail.isEnabled, prev)
-      )
+      if (detail.key === "restaurant_subscription") {
+        setRestaurantSubscriptionEnabled((prev) =>
+          parseFeatureEnabled(detail.isEnabled, prev)
+        )
+      }
+      if (detail.key === "cod_control") {
+        setCodControlEnabled((prev) =>
+          parseFeatureEnabled(detail.isEnabled, prev)
+        )
+      }
       await loadFeatureSettings()
     }
 
@@ -183,6 +197,8 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   const menuData = useMemo(() => {
     const featureSettingsPath = "/admin/food/feature-settings"
     const subscriptionSettingsPath = "/admin/food/restaurants/subscription-settings"
+    const deliveryCashLimitPath = "/admin/food/delivery-cash-limit"
+    const cashLimitSettlementPath = "/admin/food/cash-limit-settlement"
 
     return adminSidebarMenu.map((section) => {
       if (section.type !== "section" || !Array.isArray(section.items)) return section
@@ -191,6 +207,9 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
         items: section.items
           .map((item) => {
             if (item.type === "link" && item.path === featureSettingsPath && !canViewFeatureSettings) {
+              return null
+            }
+            if (item.type === "link" && !codControlEnabled && (item.path === deliveryCashLimitPath || item.path === cashLimitSettlementPath)) {
               return null
             }
             if (item.type === "expandable" && Array.isArray(item.subItems)) {
@@ -208,7 +227,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
           .filter((item) => item && (item.type !== "expandable" || (Array.isArray(item.subItems) && item.subItems.length > 0))),
       }
     })
-  }, [canViewFeatureSettings, restaurantSubscriptionEnabled])
+  }, [canViewFeatureSettings, codControlEnabled, restaurantSubscriptionEnabled])
 
   const getBadgeCount = (label = "", path = "") => {
     const l = label.toLowerCase()

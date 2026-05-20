@@ -1,7 +1,8 @@
 import { FoodFeatureSetting } from '../models/featureSetting.model.js';
 
 export const FEATURE_KEYS = {
-    RESTAURANT_SUBSCRIPTION: 'restaurant_subscription'
+    RESTAURANT_SUBSCRIPTION: 'restaurant_subscription',
+    COD_CONTROL: 'cod_control'
 };
 
 const DEFAULT_FEATURES = [
@@ -9,6 +10,12 @@ const DEFAULT_FEATURES = [
         key: FEATURE_KEYS.RESTAURANT_SUBSCRIPTION,
         name: 'Restaurant Subscription',
         description: 'Controls restaurant onboarding payment, subscription dues checks, and subscription settings UI.',
+        isEnabled: true
+    },
+    {
+        key: FEATURE_KEYS.COD_CONTROL,
+        name: 'Cash On Delivery (COD)',
+        description: 'Controls COD option visibility and delivery cash-limit related UI sections.',
         isEnabled: true
     }
 ];

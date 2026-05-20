@@ -6,7 +6,10 @@ import { Switch } from '@food/components/ui/switch';
 import { Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
-const FEATURE_KEY = 'restaurant_subscription';
+const FEATURE_KEYS = {
+    RESTAURANT_SUBSCRIPTION: 'restaurant_subscription',
+    COD_CONTROL: 'cod_control'
+};
 
 export default function FeatureSettings() {
     const [loading, setLoading] = useState(true);
@@ -14,7 +17,12 @@ export default function FeatureSettings() {
     const [features, setFeatures] = useState([]);
 
     const restaurantSubscription = useMemo(
-        () => features.find((item) => item.key === FEATURE_KEY) || null,
+        () => features.find((item) => item.key === FEATURE_KEYS.RESTAURANT_SUBSCRIPTION) || null,
+        [features]
+    );
+
+    const codControl = useMemo(
+        () => features.find((item) => item.key === FEATURE_KEYS.COD_CONTROL) || null,
         [features]
     );
 
@@ -34,27 +42,34 @@ export default function FeatureSettings() {
         load();
     }, []);
 
-    const setToggle = (checked) => {
+    const setToggle = (key, checked) => {
         setFeatures((prev) =>
             prev.map((row) =>
-                row.key === FEATURE_KEY ? { ...row, isEnabled: Boolean(checked) } : row
+                row.key === key ? { ...row, isEnabled: Boolean(checked) } : row
             )
         );
     };
 
     const handleSave = async () => {
-        if (!restaurantSubscription) return;
+        const updates = [restaurantSubscription, codControl].filter(Boolean);
+        if (updates.length === 0) return;
         try {
             setSaving(true);
-            await adminAPI.updateFeatureSetting(FEATURE_KEY, {
-                isEnabled: Boolean(restaurantSubscription.isEnabled)
+            await Promise.all(
+                updates.map((feature) =>
+                    adminAPI.updateFeatureSetting(feature.key, {
+                        isEnabled: Boolean(feature.isEnabled)
+                    })
+                )
+            );
+            updates.forEach((feature) => {
+                window.dispatchEvent(new CustomEvent('adminFeatureSettingUpdated', {
+                    detail: {
+                        key: feature.key,
+                        isEnabled: Boolean(feature.isEnabled)
+                    }
+                }));
             });
-            window.dispatchEvent(new CustomEvent('adminFeatureSettingUpdated', {
-                detail: {
-                    key: FEATURE_KEY,
-                    isEnabled: Boolean(restaurantSubscription.isEnabled)
-                }
-            }));
             toast.success('Feature setting updated successfully.');
         } catch (error) {
             toast.error(error?.response?.data?.message || 'Failed to update feature setting.');
@@ -93,13 +108,33 @@ export default function FeatureSettings() {
                     </div>
                     <Switch
                         checked={Boolean(restaurantSubscription?.isEnabled)}
-                        onCheckedChange={setToggle}
+                        onCheckedChange={(checked) => setToggle(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, checked)}
+                    />
+                </CardContent>
+            </Card>
+
+            <Card className="border-slate-200">
+                <CardHeader>
+                    <CardTitle className="text-lg">Cash On Delivery (COD)</CardTitle>
+                    <CardDescription>
+                        Controls COD visibility on user checkout and delivery cash-limit related sections in delivery/admin panels.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-between gap-4">
+                    <div className="text-sm text-gray-700">
+                        {codControl?.isEnabled
+                            ? 'Enabled: COD and cash-limit sections are visible'
+                            : 'Disabled: COD and cash-limit sections are hidden'}
+                    </div>
+                    <Switch
+                        checked={Boolean(codControl?.isEnabled)}
+                        onCheckedChange={(checked) => setToggle(FEATURE_KEYS.COD_CONTROL, checked)}
                     />
                 </CardContent>
             </Card>
 
             <div className="flex justify-end">
-                <Button onClick={handleSave} disabled={saving || !restaurantSubscription}>
+                <Button onClick={handleSave} disabled={saving || (!restaurantSubscription && !codControl)}>
                     {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                     Save Changes
                 </Button>
