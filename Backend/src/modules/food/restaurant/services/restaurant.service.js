@@ -14,10 +14,12 @@ import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSett
 import {
     attemptAutoSettleSubscriptionDue,
     buildSubscriptionTotals,
+    getRestaurantGmvLast30Days,
     isSubscriptionExpired,
     normalizePlanName,
     resolvePlanPricingFromEligibility,
 } from './subscriptionPlan.service.js';
+import { logRestaurantSubscriptionHistory } from './subscriptionHistory.service.js';
 
 const normalizeName = (value) =>
     String(value || '')
@@ -716,6 +718,8 @@ export const verifyPostApprovalOnboardingPayment = async (restaurantId, payload 
         restaurant.onboardingFeePaymentId = razorpayPaymentId;
         restaurant.onboardingFeePaymentSignature = razorpaySignature;
     }
+    const dueBefore = Number(restaurant.subscriptionDueAmount || 0);
+    const paidBefore = Number(restaurant.subscriptionPaidAmount || 0);
     restaurant.subscriptionPlan = planName;
     restaurant.subscriptionAmount = needsOnboardingPayment
         ? subscription.planTotal
@@ -727,6 +731,25 @@ export const verifyPostApprovalOnboardingPayment = async (restaurantId, payload 
     restaurant.subscriptionStatus = subscription.dueTotal > 0 ? 'due' : 'paid';
     restaurant.subscriptionValidTill = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await restaurant.save();
+    const gmvLast30Days = await getRestaurantGmvLast30Days(restaurant._id);
+    await logRestaurantSubscriptionHistory({
+        restaurantId: restaurant._id,
+        eventType: 'subscription_payment',
+        plan: planName,
+        paymentType: subscription.paymentType,
+        amount: subscription.paidTotal,
+        dueBefore,
+        dueAfter: Number(restaurant.subscriptionDueAmount || 0),
+        paidBefore,
+        paidAfter: Number(restaurant.subscriptionPaidAmount || 0),
+        gmvLast30Days,
+        note: needsOnboardingPayment ? 'Onboarding subscription payment captured' : 'Renewal subscription payment captured',
+        metadata: {
+            mode: needsOnboardingPayment ? 'onboarding' : 'renewal',
+            onboardingFeeApplied: needsOnboardingPayment,
+            subscriptionTotal: subscription.planTotal,
+        },
+    }).catch(() => null);
 
     await attemptAutoSettleSubscriptionDue(restaurant._id);
 
@@ -751,6 +774,8 @@ export const payRestaurantDues = async (restaurantId, paymentDetails = {}) => {
     // In a real flow, we would verify the paymentDetails.razorpayPaymentId here.
     // For this end-to-end "direct" implementation, we'll mark it as paid.
 
+    const dueBefore = Number(restaurant.subscriptionDueAmount || 0);
+    const paidBefore = Number(restaurant.subscriptionPaidAmount || 0);
     restaurant.subscriptionPaidAmount = (Number(restaurant.subscriptionPaidAmount) || 0) + dueAmount;
     restaurant.subscriptionDueAmount = 0;
     restaurant.subscriptionStatus = 'paid';
@@ -763,6 +788,20 @@ export const payRestaurantDues = async (restaurantId, paymentDetails = {}) => {
     }
 
     await restaurant.save();
+    const gmvLast30Days = await getRestaurantGmvLast30Days(restaurant._id);
+    await logRestaurantSubscriptionHistory({
+        restaurantId: restaurant._id,
+        eventType: 'subscription_payment',
+        plan: restaurant.subscriptionPlan,
+        paymentType: 'manual',
+        amount: dueAmount,
+        dueBefore,
+        dueAfter: 0,
+        paidBefore,
+        paidAfter: Number(restaurant.subscriptionPaidAmount || 0),
+        gmvLast30Days,
+        note: 'Manual subscription due payment settled',
+    }).catch(() => null);
     return restaurant.toObject();
 };
 

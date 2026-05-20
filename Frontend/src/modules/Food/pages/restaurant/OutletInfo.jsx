@@ -339,6 +339,17 @@ export default function OutletInfo() {
     }
   }
 
+  const currentPlanLabel = String(restaurantData?.subscriptionPlan || "").trim()
+    ? String(restaurantData?.subscriptionPlan || "").trim().toUpperCase()
+    : "N/A"
+  const subscriptionValidTillLabel = restaurantData?.subscriptionValidTill
+    ? new Date(restaurantData.subscriptionValidTill).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "N/A"
+
   return (
     <>
       <div className="min-h-screen bg-white overflow-x-hidden">
@@ -462,6 +473,20 @@ export default function OutletInfo() {
                 <p className="text-base font-semibold text-gray-900">{loading ? "Loading..." : (restaurantName || "N/A")}</p>
               </div>
               <button onClick={handleOpenEditDialog} className="text-blue-600 text-sm font-normal">Edit</button>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-amber-700 font-medium mb-1">Subscription</p>
+                <p className="text-sm text-gray-900">
+                  <span className="font-semibold">Current Plan:</span> {loading ? "Loading..." : currentPlanLabel}
+                </p>
+                <p className="text-sm text-gray-900 mt-1">
+                  <span className="font-semibold">Valid Till:</span> {loading ? "Loading..." : subscriptionValidTillLabel}
+                </p>
+              </div>
             </div>
           </div>
           {/* ... other info cards ... */}

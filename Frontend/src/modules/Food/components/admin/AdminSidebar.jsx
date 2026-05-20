@@ -197,6 +197,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   const menuData = useMemo(() => {
     const featureSettingsPath = "/admin/food/feature-settings"
     const subscriptionSettingsPath = "/admin/food/restaurants/subscription-settings"
+    const subscriptionHistoryPath = "/admin/food/restaurants/subscription-history"
     const deliveryCashLimitPath = "/admin/food/delivery-cash-limit"
     const cashLimitSettlementPath = "/admin/food/cash-limit-settlement"
 
@@ -214,7 +215,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
             }
             if (item.type === "expandable" && Array.isArray(item.subItems)) {
               const filteredSubItems = item.subItems.filter((sub) => {
-                if (sub.path === subscriptionSettingsPath && !restaurantSubscriptionEnabled) return false
+                if ((sub.path === subscriptionSettingsPath || sub.path === subscriptionHistoryPath) && !restaurantSubscriptionEnabled) return false
                 return true
               })
               return {

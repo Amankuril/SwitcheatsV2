@@ -264,6 +264,11 @@ export const adminAPI = {
     apiClient.get("/food/admin/restaurant-subscription-settings", {
       contextModule: "admin",
     }),
+  getRestaurantSubscriptionHistory: (params = {}) =>
+    apiClient.get("/food/admin/restaurant-subscriptions/history", {
+      params,
+      contextModule: "admin",
+    }),
   updateRestaurantSubscriptionSettings: (body) =>
     apiClient.patch("/food/admin/restaurant-subscription-settings", body, {
       contextModule: "admin",
@@ -994,6 +999,11 @@ export const restaurantAPI = {
   verifyDuesPayment: (body = {}) => apiClient.post("/food/restaurant/pay-dues/verify", body, { contextModule: "restaurant" }),
   getWithdrawalHistory: () =>
     apiClient.get("/food/restaurant/withdrawals", {
+      contextModule: "restaurant"
+    }),
+  getSubscriptionHistory: (params = {}) =>
+    apiClient.get("/food/restaurant/subscription-history", {
+      params,
       contextModule: "restaurant"
     }),
   /** Update restaurant profile fields (name/cuisines/location/menuImages). */

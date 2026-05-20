@@ -1,10 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { Bell, Menu, ChevronDown, Calendar, Download, ArrowRight, FileText, Wallet, X, Info } from "lucide-react"
+import { Bell, Menu, ChevronDown, Calendar, Download, FileText, Wallet, X, Info } from "lucide-react"
 import BottomNavOrders from "@food/components/restaurant/BottomNavOrders"
 import { restaurantAPI } from "@food/api"
-import { initRazorpayPayment } from "@food/utils/razorpay"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -22,7 +21,6 @@ export default function HubFinance() {
   const [showDateRangePicker, setShowDateRangePicker] = useState(false)
   const downloadMenuRef = useRef(null)
   const dateRangePickerRef = useRef(null)
-  const settlementRef = useRef(null)
   const [financeData, setFinanceData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [pastCyclesData, setPastCyclesData] = useState(null)
@@ -32,73 +30,11 @@ export default function HubFinance() {
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false)
   const [withdrawalAmount, setWithdrawalAmount] = useState('')
   const [submittingWithdrawal, setSubmittingWithdrawal] = useState(false)
-  const [submittingPayment, setSubmittingPayment] = useState(false)
   const [withdrawalRequests, setWithdrawalRequests] = useState([])
+  const [subscriptionHistory, setSubscriptionHistory] = useState([])
+  const [loadingSubscriptionHistory, setLoadingSubscriptionHistory] = useState(false)
   const isRestaurantSubscriptionEnabled = financeData?.features?.restaurantSubscriptionEnabled !== false
 
-  const handlePayDues = async () => {
-    try {
-      setSubmittingPayment(true)
-      
-      // 1. Create Razorpay Order on backend
-      const orderRes = await restaurantAPI.createDuesOrder()
-      const data = orderRes.data
-      if (!data?.success) {
-        throw new Error(data?.message || 'Failed to create payment order')
-      }
-      
-      const order = data.data
-      if (!order?.orderId) {
-        throw new Error('Invalid order data received from server')
-      }
-      
-      // 2. Open Razorpay Checkout
-      await initRazorpayPayment({
-        key: order.keyId,
-        amount: order.amount * 100, 
-        currency: order.currency || 'INR',
-        order_id: order.orderId,
-        name: 'Switcheats',
-        description: 'Subscription Due Settlement',
-        prefill: {
-          name: order.restaurant?.name || '',
-          contact: order.restaurant?.phone || ''
-        },
-        handler: async (response) => {
-          try {
-            setSubmittingPayment(true) // Keep processing during verification
-            const verifyRes = await restaurantAPI.verifyDuesPayment({
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature
-            })
-            
-            if (verifyRes.data?.success) {
-              const financeResponse = await restaurantAPI.getFinance()
-              if (financeResponse.data?.success && financeResponse.data?.data) {
-                setFinanceData(financeResponse.data.data)
-              }
-              setShowRestrictionModal(false)
-            }
-          } catch (err) {
-            console.error('Dues verification failed:', err)
-          } finally {
-            setSubmittingPayment(false)
-          }
-        },
-        onClose: () => {
-          setSubmittingPayment(false)
-        },
-        onError: (err) => {
-          console.error('Razorpay Error:', err)
-          setSubmittingPayment(false)
-        }
-      })
-    } catch (error) {
-       console.error('Payment initialization error:', error)
-       setSubmittingPayment(false)
-    }
-  }
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false)
 
   // Fetch finance data on mount
@@ -148,6 +84,25 @@ export default function HubFinance() {
     }
 
     fetchWithdrawals()
+  }, [])
+
+  useEffect(() => {
+    const fetchSubscriptionHistory = async () => {
+      try {
+        setLoadingSubscriptionHistory(true)
+        const response = await restaurantAPI.getSubscriptionHistory({ limit: 20 })
+        const list = Array.isArray(response?.data?.data?.items) ? response.data.data.items : []
+        setSubscriptionHistory(list)
+      } catch (error) {
+        if (error?.response?.status !== 401) {
+          debugError("Error fetching subscription history:", error)
+        }
+        setSubscriptionHistory([])
+      } finally {
+        setLoadingSubscriptionHistory(false)
+      }
+    }
+    fetchSubscriptionHistory()
   }, [])
 
   // Fetch restaurant data for header display
@@ -813,23 +768,6 @@ export default function HubFinance() {
 
                 <div className="w-full space-y-3">
                   <button
-                    onClick={() => {
-                      setShowRestrictionModal(false);
-                      // Scroll to the settlement section
-                      settlementRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      // Add a temporary highlight effect
-                      setTimeout(() => {
-                        settlementRef.current?.classList.add('ring-4', 'ring-amber-500/30', 'ring-offset-4');
-                        setTimeout(() => {
-                          settlementRef.current?.classList.remove('ring-4', 'ring-amber-500/30', 'ring-offset-4');
-                        }, 2000);
-                      }, 500);
-                    }}
-                    className="w-full py-4 bg-black text-white rounded-2xl font-bold text-sm shadow-xl shadow-gray-200 hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
-                  >
-                    Clear Dues Now <ArrowRight className="w-4 h-4" />
-                  </button>
-                  <button
                     onClick={() => setShowRestrictionModal(false)}
                     className="w-full py-4 bg-gray-50 text-gray-500 rounded-2xl font-bold text-sm hover:bg-gray-100 transition-all"
                   >
@@ -980,47 +918,6 @@ export default function HubFinance() {
                       Withdraw
                     </button>
 
-                    {/* Pay Dues Section */}
-                    {isRestaurantSubscriptionEnabled && financeData?.restaurant?.subscriptionDueAmount >= 0 && (
-                      <div 
-                        ref={settlementRef}
-                        className="mt-8 pt-6 border-t border-gray-100 transition-all duration-500 rounded-2xl"
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h3 className="text-sm font-bold text-gray-900">Subscription Settlement</h3>
-                            <p className="text-[11px] text-gray-500 mt-0.5">Pay your outstanding platform dues</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-gray-900">
-                              ₹{(financeData?.restaurant?.subscriptionDueAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                            </p>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-tight">Due Amount</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={handlePayDues}
-                          disabled={submittingPayment || (financeData?.restaurant?.subscriptionDueAmount || 0) <= 0}
-                          className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                            (financeData?.restaurant?.subscriptionDueAmount || 0) > 0
-                              ? "bg-amber-500 text-white shadow-lg shadow-amber-100 hover:bg-amber-600"
-                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          }`}
-                        >
-                          {submittingPayment ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                              Processing...
-                            </>
-                          ) : (
-                            <>
-                              <ArrowRight className="w-4 h-4" />
-                              Pay Subscription Due
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -1342,6 +1239,39 @@ export default function HubFinance() {
                       </div>
                     )}
                   </>
+                )}
+              </div>
+            </div>
+
+            {/* Subscription history */}
+            <div>
+              <h2 className="text-base font-bold text-gray-900 mb-3">Subscription history</h2>
+              <div className="bg-white rounded-lg p-4">
+                {loadingSubscriptionHistory ? (
+                  <div className="py-6 text-center text-sm text-gray-500">Loading subscription history...</div>
+                ) : subscriptionHistory.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-gray-500">No subscription history found.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {subscriptionHistory.map((item, idx) => (
+                      <div key={item?._id || idx} className="border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {String(item?.eventType || "").replaceAll("_", " ")}
+                          </p>
+                          <p className="text-sm font-bold text-gray-900">
+                            ₹{Number(item?.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Plan: {String(item?.plan || "-").toUpperCase()} • Due: ₹{Number(item?.dueBefore || 0).toLocaleString("en-IN")} -> ₹{Number(item?.dueAfter || 0).toLocaleString("en-IN")}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {item?.createdAt ? new Date(item.createdAt).toLocaleString() : ""}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

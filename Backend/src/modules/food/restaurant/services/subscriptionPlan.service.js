@@ -3,6 +3,7 @@ import { FoodRestaurant } from "../models/restaurant.model.js";
 import { FoodTransaction } from "../../orders/models/foodTransaction.model.js";
 import { FoodRestaurantWithdrawal } from "../models/foodRestaurantWithdrawal.model.js";
 import { getRestaurantSubscriptionSettings } from "../../admin/services/admin.service.js";
+import { logRestaurantSubscriptionHistory } from "./subscriptionHistory.service.js";
 
 const GST_RATE = 0.18;
 
@@ -177,6 +178,8 @@ export const attemptAutoSettleSubscriptionDue = async (restaurantId) => {
 
     const dueAmount = Math.max(0, toNum(restaurant.subscriptionDueAmount, 0));
     if (dueAmount <= 0) return { settled: false, reason: "no_due" };
+    const dueBefore = dueAmount;
+    const paidBefore = toNum(restaurant.subscriptionPaidAmount, 0);
 
     const availableEarnings = await computeRestaurantAvailableEarnings(restaurantId);
     if (availableEarnings < dueAmount) {
@@ -188,6 +191,19 @@ export const attemptAutoSettleSubscriptionDue = async (restaurantId) => {
     restaurant.subscriptionDueAmount = 0;
     restaurant.subscriptionStatus = "paid";
     await restaurant.save();
+    const gmvLast30Days = await getRestaurantGmvLast30Days(restaurantId);
+    await logRestaurantSubscriptionHistory({
+        restaurantId,
+        eventType: "subscription_auto_deduct",
+        plan: restaurant.subscriptionPlan,
+        amount: dueAmount,
+        dueBefore,
+        dueAfter: 0,
+        paidBefore,
+        paidAfter: toNum(restaurant.subscriptionPaidAmount, 0),
+        gmvLast30Days,
+        note: "Auto-settled subscription due from available earnings",
+    }).catch(() => null);
 
     return {
         settled: true,

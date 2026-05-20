@@ -59,6 +59,7 @@ export const adminSidebarMenu = [
           { label: "Restaurant Reviews", path: "/admin/food/restaurants/reviews" },
           { label: "Restaurant Complaints", path: "/admin/food/restaurants/complaints" },
           { label: "Subscription Settings", path: "/admin/food/restaurants/subscription-settings" },
+          { label: "Subscription History", path: "/admin/food/restaurants/subscription-history" },
         ],
       },
     ],

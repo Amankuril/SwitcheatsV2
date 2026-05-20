@@ -34,6 +34,7 @@ const RestaurantReviews = lazy(() => import("@food/pages/admin/restaurant/Restau
 const RestaurantsBulkImport = lazy(() => import("@food/pages/admin/restaurant/RestaurantsBulkImport"));
 const RestaurantsBulkExport = lazy(() => import("@food/pages/admin/restaurant/RestaurantsBulkExport"));
 const SubscriptionSettings = lazy(() => import("@food/pages/admin/restaurant/SubscriptionSettings"));
+const SubscriptionHistory = lazy(() => import("@food/pages/admin/restaurant/SubscriptionHistory"));
 // Food Management
 const FoodsList = lazy(() => import("@food/pages/admin/foods/FoodsList"));
 const AddonsList = lazy(() => import("@food/pages/admin/addons/AddonsList"));
@@ -215,6 +216,7 @@ export default function AdminRouter() {
             <Route path="restaurants/bulk-import" element={<RestaurantsBulkImport />} />
             <Route path="restaurants/bulk-export" element={<RestaurantsBulkExport />} />
             <Route path="restaurants/subscription-settings" element={<SubscriptionSettings />} />
+            <Route path="restaurants/subscription-history" element={<SubscriptionHistory />} />
 
             {/* FOOD & CATEGORY MANAGEMENT */}
             <Route path="categories" element={<Category />} />

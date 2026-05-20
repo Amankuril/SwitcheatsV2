@@ -2,7 +2,8 @@ import { FoodRestaurant } from '../models/restaurant.model.js';
 import { FoodNotification } from '../../../../core/notifications/models/notification.model.js';
 import { notifyOwnerSafely, notifyAdminsSafely } from '../../../../core/notifications/firebase.service.js';
 import { getRestaurantSubscriptionSettings } from '../../admin/services/admin.service.js';
-import { resolvePlanPricingFromEligibility } from './subscriptionPlan.service.js';
+import { getRestaurantGmvLast30Days, resolvePlanPricingFromEligibility } from './subscriptionPlan.service.js';
+import { logRestaurantSubscriptionHistory } from './subscriptionHistory.service.js';
 
 /**
  * Service to handle subscription renewals and debt accumulation.
@@ -34,6 +35,7 @@ export const processSubscriptionExpiries = async () => {
             // 2. Update the restaurant record
             // Add new month's fee to the due amount
             const oldDue = Number(restaurant.subscriptionDueAmount || 0);
+            const paidBefore = Number(restaurant.subscriptionPaidAmount || 0);
             const newDue = oldDue + renewalTotal;
             
             // Set new expiry for next month
@@ -48,6 +50,19 @@ export const processSubscriptionExpiries = async () => {
             restaurant.subscriptionPlan = planName;
 
             await restaurant.save();
+            const gmvLast30Days = await getRestaurantGmvLast30Days(restaurant._id);
+            await logRestaurantSubscriptionHistory({
+                restaurantId: restaurant._id,
+                eventType: 'subscription_renewal_due_added',
+                plan: planName,
+                amount: renewalTotal,
+                dueBefore: oldDue,
+                dueAfter: newDue,
+                paidBefore,
+                paidAfter: Number(restaurant.subscriptionPaidAmount || 0),
+                gmvLast30Days,
+                note: 'Renewal cycle due added automatically after subscription expiry',
+            }).catch(() => null);
 
             // 3. Notify the owner
             const message = `Your subscription for "${restaurant.restaurantName}" has been renewed. An amount of ₹${renewalTotal} has been added to your dues. Total due: ₹${newDue}.`;

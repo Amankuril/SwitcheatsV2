@@ -65,6 +65,7 @@ router.get('/restaurants/unregistered', adminController.getUnregisteredRestauran
 router.delete('/restaurants/unregistered/:id', adminController.deleteUnregisteredRestaurant);
 router.get('/restaurant-subscription-settings', adminController.getRestaurantSubscriptionSettings);
 router.patch('/restaurant-subscription-settings', adminController.updateRestaurantSubscriptionSettings);
+router.get('/restaurant-subscriptions/history', adminController.getRestaurantSubscriptionHistory);
 router.get('/feature-settings', adminController.getFeatureSettings);
 router.patch('/feature-settings/:key', adminController.updateFeatureSetting);
 router.get('/restaurants/reviews', adminController.getRestaurantReviews);

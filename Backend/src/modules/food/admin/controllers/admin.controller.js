@@ -1526,6 +1526,15 @@ export async function updateRestaurantSubscriptionSettings(req, res, next) {
     }
 }
 
+export async function getRestaurantSubscriptionHistory(req, res, next) {
+    try {
+        const data = await adminService.getAdminRestaurantSubscriptionHistory(req.query || {});
+        res.status(200).json({ success: true, message: 'Restaurant subscription history fetched successfully', data });
+    } catch (error) {
+        next(error);
+    }
+}
+
 // ----- Feature Settings -----
 export async function getFeatureSettings(req, res, next) {
     try {

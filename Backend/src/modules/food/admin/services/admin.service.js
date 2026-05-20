@@ -35,6 +35,7 @@ import { FoodDeliveryWithdrawal } from '../../delivery/models/foodDeliveryWithdr
 import { FoodDeliveryWallet } from '../../delivery/models/deliveryWallet.model.js';
 import { FoodDeliveryCashDeposit } from '../../delivery/models/foodDeliveryCashDeposit.model.js';
 import { FoodUnregisteredRestaurant } from '../../restaurant/models/unregisteredRestaurant.model.js';
+import { getAdminRestaurantSubscriptionHistory as getAdminRestaurantSubscriptionHistoryFromRestaurant } from '../../restaurant/services/subscriptionHistory.service.js';
 import {
     backfillLegacyCategoryWorkflow,
     categoryAllowsFoodType,
@@ -3815,6 +3816,10 @@ export const updateRestaurantSubscriptionSettings = async (data) => {
 
     await settings.save();
     return getRestaurantSubscriptionSettings();
+};
+
+export const getAdminRestaurantSubscriptionHistory = async (query = {}) => {
+    return getAdminRestaurantSubscriptionHistoryFromRestaurant(query);
 };
 
 // ----- Delivery partners (approved list) -----
