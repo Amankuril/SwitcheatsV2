@@ -4,6 +4,7 @@ import { FoodTransaction } from '../../orders/models/foodTransaction.model.js';
 import { FoodRestaurant } from '../models/restaurant.model.js';
 import { FoodRestaurantWithdrawal } from '../models/foodRestaurantWithdrawal.model.js';
 import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
+import { attemptAutoSettleSubscriptionDue } from './subscriptionPlan.service.js';
 
 function toTwoDigitYearString(dateObj) {
     const y = String(dateObj.getFullYear());
@@ -67,10 +68,13 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
     if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) return null;
     const rid = new mongoose.Types.ObjectId(restaurantId);
     const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
+    if (isRestaurantSubscriptionEnabled) {
+        await attemptAutoSettleSubscriptionDue(restaurantId).catch(() => null);
+    }
 
     // Fetch restaurant profile for header display.
     const restaurant = await FoodRestaurant.findById(rid)
-        .select('restaurantName addressLine1 addressLine2 area city state pincode location subscriptionDueAmount subscriptionStatus')
+        .select('restaurantName addressLine1 addressLine2 area city state pincode location subscriptionDueAmount subscriptionStatus subscriptionAutoDeductedAmount')
         .lean();
 
     const address =
@@ -160,7 +164,8 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
     // Calculate final balance for withdrawal.
     // NOTE: We no longer automatically deduct subscriptionDue here per user request ("direct deduct na ho").
     // We will instead block the withdrawal in the controller if subscriptionDue > 0.
-    const availableBalance = Math.max(0, globalEstimatedPayout - totalPendingWithdrawals);
+    const subscriptionReserved = Math.max(0, Number(restaurant?.subscriptionAutoDeductedAmount || 0));
+    const availableBalance = Math.max(0, globalEstimatedPayout - totalPendingWithdrawals - subscriptionReserved);
 
     const currentCycle = {
         start: { ...nowWindow.startMeta },
@@ -250,4 +255,3 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
         pastCycles: pastCyclesResult
     };
 }
-

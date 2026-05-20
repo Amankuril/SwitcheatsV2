@@ -3759,7 +3759,29 @@ export async function updateDeliverySupportTicket(id, body = {}) {
  */
 export const getRestaurantSubscriptionSettings = async () => {
     const settings = await FoodRestaurantSubscriptionSettings.findOne();
-    return settings ? settings.toObject() : null;
+    const raw = settings ? settings.toObject() : {};
+    const starterPrice = Number(raw?.starterPrice ?? raw?.silverPrice ?? 999) || 999;
+    const growthPrice = Number(raw?.growthPrice ?? raw?.goldPrice ?? 1999) || 1999;
+    const premiumPrice = Number(raw?.premiumPrice ?? 2999) || 2999;
+    const starterMinGmv = Number(raw?.starterMinGmv ?? 0) || 0;
+    const starterMaxGmv = Number(raw?.starterMaxGmv ?? 30000) || 30000;
+    const growthMinGmv = Number(raw?.growthMinGmv ?? (starterMaxGmv + 0.01)) || (starterMaxGmv + 0.01);
+    const growthMaxGmv = Number(raw?.growthMaxGmv ?? 60000) || 60000;
+    const premiumMinGmv = Number(raw?.premiumMinGmv ?? (growthMaxGmv + 0.01)) || (growthMaxGmv + 0.01);
+    const onboardingFee = Number(raw?.onboardingFee ?? 799) || 799;
+
+    return {
+        ...raw,
+        starterPrice,
+        growthPrice,
+        premiumPrice,
+        starterMinGmv,
+        starterMaxGmv,
+        growthMinGmv,
+        growthMaxGmv,
+        premiumMinGmv,
+        onboardingFee
+    };
 };
 
 
@@ -3769,12 +3791,30 @@ export const updateRestaurantSubscriptionSettings = async (data) => {
         settings = new FoodRestaurantSubscriptionSettings();
     }
 
-    if (data.silverPrice !== undefined) settings.silverPrice = data.silverPrice;
-    if (data.goldPrice !== undefined) settings.goldPrice = data.goldPrice;
-    if (data.onboardingFee !== undefined) settings.onboardingFee = data.onboardingFee;
+    if (data.starterPrice !== undefined) settings.starterPrice = Math.max(0, Number(data.starterPrice) || 0);
+    if (data.growthPrice !== undefined) settings.growthPrice = Math.max(0, Number(data.growthPrice) || 0);
+    if (data.premiumPrice !== undefined) settings.premiumPrice = Math.max(0, Number(data.premiumPrice) || 0);
+    if (data.starterMinGmv !== undefined) settings.starterMinGmv = Math.max(0, Number(data.starterMinGmv) || 0);
+    if (data.starterMaxGmv !== undefined) settings.starterMaxGmv = Math.max(0, Number(data.starterMaxGmv) || 0);
+    if (data.growthMinGmv !== undefined) settings.growthMinGmv = Math.max(0, Number(data.growthMinGmv) || 0);
+    if (data.growthMaxGmv !== undefined) settings.growthMaxGmv = Math.max(0, Number(data.growthMaxGmv) || 0);
+    if (data.premiumMinGmv !== undefined) settings.premiumMinGmv = Math.max(0, Number(data.premiumMinGmv) || 0);
+    if (data.onboardingFee !== undefined) settings.onboardingFee = Math.max(0, Number(data.onboardingFee) || 0);
+
+    // Keep ranges monotonic and contiguous by default.
+    settings.starterMinGmv = Math.min(Number(settings.starterMinGmv || 0), Number(settings.starterMaxGmv || 0));
+    if (Number(settings.growthMinGmv || 0) < Number(settings.starterMaxGmv || 0)) {
+        settings.growthMinGmv = Number(settings.starterMaxGmv || 0);
+    }
+    if (Number(settings.growthMaxGmv || 0) < Number(settings.growthMinGmv || 0)) {
+        settings.growthMaxGmv = Number(settings.growthMinGmv || 0);
+    }
+    if (Number(settings.premiumMinGmv || 0) < Number(settings.growthMaxGmv || 0)) {
+        settings.premiumMinGmv = Number(settings.growthMaxGmv || 0);
+    }
 
     await settings.save();
-    return settings.toObject();
+    return getRestaurantSubscriptionSettings();
 };
 
 // ----- Delivery partners (approved list) -----

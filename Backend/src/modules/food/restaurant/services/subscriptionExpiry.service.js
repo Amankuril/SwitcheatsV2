@@ -1,6 +1,8 @@
 import { FoodRestaurant } from '../models/restaurant.model.js';
 import { FoodNotification } from '../../../../core/notifications/models/notification.model.js';
 import { notifyOwnerSafely, notifyAdminsSafely } from '../../../../core/notifications/firebase.service.js';
+import { getRestaurantSubscriptionSettings } from '../../admin/services/admin.service.js';
+import { resolvePlanPricingFromEligibility } from './subscriptionPlan.service.js';
 
 /**
  * Service to handle subscription renewals and debt accumulation.
@@ -22,24 +24,11 @@ export const processSubscriptionExpiries = async () => {
         errors: 0
     };
 
-    const GST_RATE = 0.18;
-
     for (const restaurant of expiredRestaurants) {
         try {
-            // 1. Calculate the renewal amount (Debt Accumulation)
-            let planBase = 0;
-            const plan = String(restaurant.subscriptionPlan || '');
-            
-            if (plan === 'elite' || plan === '4999') {
-                planBase = 4999;
-            } else if (plan === 'pro' || plan === '9999') {
-                planBase = 9999;
-            } else {
-                // Fallback to existing subscriptionAmount if plan name is missing/custom
-                planBase = Math.round((restaurant.subscriptionAmount || 0) / (1 + GST_RATE));
-            }
-
-            const planGST = Math.round(planBase * GST_RATE);
+            const settings = await getRestaurantSubscriptionSettings();
+            const { planName, baseAmount: planBase } = await resolvePlanPricingFromEligibility(restaurant._id, settings);
+            const planGST = Math.round(planBase * 0.18);
             const renewalTotal = planBase + planGST;
 
             // 2. Update the restaurant record
@@ -56,6 +45,7 @@ export const processSubscriptionExpiries = async () => {
             restaurant.subscriptionAmount = (restaurant.subscriptionAmount || 0) + renewalTotal;
             restaurant.subscriptionValidTill = nextExpiry;
             restaurant.subscriptionStatus = 'due';
+            restaurant.subscriptionPlan = planName;
 
             await restaurant.save();
 

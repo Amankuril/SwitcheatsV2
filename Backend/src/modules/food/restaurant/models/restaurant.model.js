@@ -287,6 +287,10 @@ const restaurantSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    subscriptionAutoDeductedAmount: {
+      type: Number,
+      default: 0,
+    },
     subscriptionDueAmount: {
       type: Number,
       default: 0,

@@ -19,6 +19,7 @@ import mongoose from "mongoose";
 import { creditReferralReward } from "../../modules/food/user/services/userWallet.service.js";
 import { getRestaurantSubscriptionSettings } from "../../modules/food/admin/services/admin.service.js";
 import { FEATURE_KEYS, isFeatureEnabled } from "../../modules/food/admin/services/featureSettings.service.js";
+import { isSubscriptionExpired, resolveRestaurantPlanEligibility } from "../../modules/food/restaurant/services/subscriptionPlan.service.js";
 
 const ROLES = {
   USER: "USER",
@@ -331,14 +332,16 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
   }
 
   const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
-  if (isRestaurantSubscriptionEnabled && !restaurant.onboardingFeePaid) {
+  if (isRestaurantSubscriptionEnabled && (!restaurant.onboardingFeePaid || isSubscriptionExpired(restaurant))) {
     const settings = await getRestaurantSubscriptionSettings();
     const onboardingFeeBase = Number(settings?.onboardingFee || 799);
     const onboardingFeeGST = Math.round(onboardingFeeBase * 0.18);
-    const onboardingFeeTotal = onboardingFeeBase + onboardingFeeGST;
+    const needsOnboardingPayment = !restaurant.onboardingFeePaid;
+    const onboardingFeeTotal = needsOnboardingPayment ? onboardingFeeBase + onboardingFeeGST : 0;
     const subscriptionTotal = Number(restaurant.subscriptionAmount || 0);
     const subscriptionPaid = Number(restaurant.subscriptionPaidAmount || 0);
     const subscriptionDue = Math.max(0, subscriptionTotal - subscriptionPaid);
+    const eligibility = await resolveRestaurantPlanEligibility(restaurant._id, settings);
 
     const payload = { userId: restaurant._id.toString(), role: ROLES.RESTAURANT };
     const accessToken = signAccessToken(payload);
@@ -353,19 +356,24 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
 
     return {
       paymentRequired: true,
-      paymentReason: "onboarding_fee_pending",
+      paymentReason: needsOnboardingPayment ? "onboarding_fee_pending" : "subscription_expired",
       needsRegistration: false,
       user: restaurant,
       accessToken,
       refreshToken,
       paymentSummary: {
-        onboardingFeeBase,
-        onboardingFeeGST,
+        mode: needsOnboardingPayment ? "onboarding" : "renewal",
+        onboardingFeeBase: needsOnboardingPayment ? onboardingFeeBase : 0,
+        onboardingFeeGST: needsOnboardingPayment ? onboardingFeeGST : 0,
         onboardingFeeTotal,
-        subscriptionPlan: restaurant.subscriptionPlan || "silver",
+        subscriptionPlan: restaurant.subscriptionPlan || eligibility.eligiblePlan || "starter",
         subscriptionTotal,
         subscriptionPaid,
         subscriptionDue,
+        eligiblePlan: eligibility.eligiblePlan,
+        gmvLast30Days: eligibility.gmv30d,
+        thresholdsUsed: eligibility.thresholdsUsed,
+        planCatalog: eligibility.planCatalog,
       },
     };
   }

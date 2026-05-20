@@ -11,6 +11,13 @@ import { FoodItem } from '../../admin/models/food.model.js';
 import { FoodOrder } from '../../orders/models/order.model.js';
 import { getRestaurantSubscriptionSettings } from '../../admin/services/admin.service.js';
 import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
+import {
+    attemptAutoSettleSubscriptionDue,
+    buildSubscriptionTotals,
+    isSubscriptionExpired,
+    normalizePlanName,
+    resolvePlanPricingFromEligibility,
+} from './subscriptionPlan.service.js';
 
 const normalizeName = (value) =>
     String(value || '')
@@ -62,43 +69,6 @@ export const createRestaurantOnboardingOrder = async (payload = {}) => {
 };
 
 const GST_RATE = 0.18;
-
-const resolvePlanPricing = (plan, settings) => {
-    const silverPrice = Number(settings?.silverPrice || 999);
-    const goldPrice = Number(settings?.goldPrice || 1999);
-    const planStr = String(plan || '').toLowerCase();
-
-    if (planStr === 'gold' || planStr === 'pro' || planStr === '9999' || planStr === String(goldPrice)) {
-        return { planName: 'gold', baseAmount: goldPrice };
-    }
-    return { planName: 'silver', baseAmount: silverPrice };
-};
-
-const buildSubscriptionTotals = (planBase, paymentType = 'later', partialBase = 0) => {
-    const normalizedType = ['full', 'partial', 'later'].includes(String(paymentType)) ? String(paymentType) : 'later';
-    const planGST = Math.round(planBase * GST_RATE);
-    const planTotal = planBase + planGST;
-
-    let paidBase = 0;
-    if (normalizedType === 'full') {
-        paidBase = planBase;
-    } else if (normalizedType === 'partial') {
-        paidBase = Math.max(0, Math.min(planBase, Number(partialBase || 0)));
-    }
-    const paidGST = Math.round(paidBase * GST_RATE);
-    const paidTotal = paidBase + paidGST;
-    const dueTotal = Math.max(0, planTotal - paidTotal);
-
-    return {
-        paymentType: normalizedType,
-        planGST,
-        planTotal,
-        paidBase,
-        paidGST,
-        paidTotal,
-        dueTotal
-    };
-};
 
 const normalizeRatingValue = (value) => {
     const numeric = Number(value);
@@ -309,6 +279,7 @@ const toRestaurantProfile = (doc) => {
         subscriptionPaidAmount: Number.isFinite(Number(doc.subscriptionPaidAmount)) ? Number(doc.subscriptionPaidAmount) : 0,
         subscriptionDueAmount: Number.isFinite(Number(doc.subscriptionDueAmount)) ? Number(doc.subscriptionDueAmount) : 0,
         subscriptionStatus: doc.subscriptionStatus || 'due',
+        subscriptionValidTill: doc.subscriptionValidTill || null,
         onboardingFeePaid: Boolean(doc.onboardingFeePaid),
         onboardingFeePaidAt: doc.onboardingFeePaidAt || null,
         onboardingFeePaymentMethod: doc.onboardingFeePaymentMethod || '',
@@ -455,7 +426,14 @@ export const registerRestaurant = async (payload, files) => {
     }
 
     const settings = await getRestaurantSubscriptionSettings();
-    const { planName, baseAmount: planBase } = resolvePlanPricing(subscriptionPlan, settings);
+    // First-time onboarding restaurants have zero earnings by definition.
+    const planName = 'starter';
+    const planCatalog = {
+        starter: Number(settings?.starterPrice || 999),
+        growth: Number(settings?.growthPrice || 1999),
+        premium: Number(settings?.premiumPrice || 2999),
+    };
+    const planBase = Number(planCatalog[planName] || planCatalog.starter || 999);
     const planTotals = buildSubscriptionTotals(planBase, 'later', 0);
 
     const { digits: ownerPhoneDigits, last10: ownerPhoneLast10 } = normalizePhone(ownerPhone);
@@ -642,16 +620,22 @@ export const createPostApprovalOnboardingPaymentOrder = async (restaurantId, pay
     if (String(restaurant.status || '') !== 'approved') {
         throw new ValidationError('Payment is allowed only after admin approval');
     }
-    if (restaurant.onboardingFeePaid) {
-        throw new ValidationError('Onboarding fee is already paid');
+    const needsOnboardingPayment = !restaurant.onboardingFeePaid;
+    const isExpiredRenewal = restaurant.onboardingFeePaid && isSubscriptionExpired(restaurant);
+    if (!needsOnboardingPayment && !isExpiredRenewal) {
+        throw new ValidationError('No subscription payment is required right now');
     }
 
     const settings = await getRestaurantSubscriptionSettings();
     const onboardingFeeBase = Number(settings?.onboardingFee || 799);
     const onboardingFeeGST = Math.round(onboardingFeeBase * GST_RATE);
-    const onboardingFeeTotal = onboardingFeeBase + onboardingFeeGST;
-    const { planName, baseAmount: planBase } = resolvePlanPricing(payload?.subscriptionPlan || restaurant.subscriptionPlan, settings);
-    const subscription = buildSubscriptionTotals(planBase, payload?.subscriptionPaymentType || payload?.paymentType || 'later', payload?.subscriptionPartialAmount);
+    const onboardingFeeTotal = needsOnboardingPayment ? onboardingFeeBase + onboardingFeeGST : 0;
+    const { planName, baseAmount: planBase, eligibility } = await resolvePlanPricingFromEligibility(restaurant._id, settings);
+    const subscription = buildSubscriptionTotals(
+        planBase,
+        payload?.subscriptionPaymentType || payload?.paymentType || 'later',
+        payload?.subscriptionPartialAmount
+    );
 
     if (subscription.paymentType === 'partial' && subscription.paidBase <= 0) {
         throw new ValidationError('Please enter a valid partial subscription amount');
@@ -663,8 +647,9 @@ export const createPostApprovalOnboardingPaymentOrder = async (restaurantId, pay
     return {
         ...orderPayload,
         paymentSummary: {
-            onboardingFeeBase,
-            onboardingFeeGST,
+            mode: needsOnboardingPayment ? 'onboarding' : 'renewal',
+            onboardingFeeBase: needsOnboardingPayment ? onboardingFeeBase : 0,
+            onboardingFeeGST: needsOnboardingPayment ? onboardingFeeGST : 0,
             onboardingFeeTotal,
             subscriptionPlan: planName,
             subscriptionBase: planBase,
@@ -673,7 +658,11 @@ export const createPostApprovalOnboardingPaymentOrder = async (restaurantId, pay
             subscriptionPaymentType: subscription.paymentType,
             subscriptionPaidNowTotal: subscription.paidTotal,
             subscriptionDueAfterPayment: subscription.dueTotal,
-            payableNow: paymentAmountTotal
+            payableNow: paymentAmountTotal,
+            eligiblePlan: eligibility.eligiblePlan,
+            gmvLast30Days: eligibility.gmv30d,
+            thresholdsUsed: eligibility.thresholdsUsed,
+            planCatalog: eligibility.planCatalog
         }
     };
 };
@@ -689,7 +678,9 @@ export const verifyPostApprovalOnboardingPayment = async (restaurantId, payload 
     if (String(restaurant.status || '') !== 'approved') {
         throw new ValidationError('Payment is allowed only after admin approval');
     }
-    if (restaurant.onboardingFeePaid) {
+    const needsOnboardingPayment = !restaurant.onboardingFeePaid;
+    const isExpiredRenewal = restaurant.onboardingFeePaid && isSubscriptionExpired(restaurant);
+    if (!needsOnboardingPayment && !isExpiredRenewal) {
         return restaurant.toObject();
     }
 
@@ -706,25 +697,38 @@ export const verifyPostApprovalOnboardingPayment = async (restaurantId, payload 
     }
 
     const settings = await getRestaurantSubscriptionSettings();
-    const { planName, baseAmount: planBase } = resolvePlanPricing(payload?.subscriptionPlan || restaurant.subscriptionPlan, settings);
-    const subscription = buildSubscriptionTotals(planBase, payload?.subscriptionPaymentType || payload?.paymentType || 'later', payload?.subscriptionPartialAmount);
+    const { planName, baseAmount: planBase } = await resolvePlanPricingFromEligibility(restaurant._id, settings);
+    const subscription = buildSubscriptionTotals(
+        planBase,
+        payload?.subscriptionPaymentType || payload?.paymentType || 'later',
+        payload?.subscriptionPartialAmount
+    );
 
     if (subscription.paymentType === 'partial' && subscription.paidBase <= 0) {
         throw new ValidationError('Please enter a valid partial subscription amount');
     }
 
-    restaurant.onboardingFeePaid = true;
-    restaurant.onboardingFeePaidAt = new Date();
-    restaurant.onboardingFeePaymentMethod = 'razorpay';
-    restaurant.onboardingFeePaymentOrderId = razorpayOrderId;
-    restaurant.onboardingFeePaymentId = razorpayPaymentId;
-    restaurant.onboardingFeePaymentSignature = razorpaySignature;
+    if (needsOnboardingPayment) {
+        restaurant.onboardingFeePaid = true;
+        restaurant.onboardingFeePaidAt = new Date();
+        restaurant.onboardingFeePaymentMethod = 'razorpay';
+        restaurant.onboardingFeePaymentOrderId = razorpayOrderId;
+        restaurant.onboardingFeePaymentId = razorpayPaymentId;
+        restaurant.onboardingFeePaymentSignature = razorpaySignature;
+    }
     restaurant.subscriptionPlan = planName;
-    restaurant.subscriptionAmount = subscription.planTotal;
-    restaurant.subscriptionPaidAmount = subscription.paidTotal;
-    restaurant.subscriptionDueAmount = subscription.dueTotal;
+    restaurant.subscriptionAmount = needsOnboardingPayment
+        ? subscription.planTotal
+        : (Number(restaurant.subscriptionAmount || 0) + subscription.planTotal);
+    restaurant.subscriptionPaidAmount = Number(restaurant.subscriptionPaidAmount || 0) + subscription.paidTotal;
+    restaurant.subscriptionDueAmount = needsOnboardingPayment
+        ? subscription.dueTotal
+        : Math.max(0, Number(restaurant.subscriptionDueAmount || 0) + subscription.dueTotal);
     restaurant.subscriptionStatus = subscription.dueTotal > 0 ? 'due' : 'paid';
+    restaurant.subscriptionValidTill = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await restaurant.save();
+
+    await attemptAutoSettleSubscriptionDue(restaurant._id);
 
     return restaurant.toObject();
 };
@@ -864,6 +868,7 @@ export const getCurrentRestaurantProfile = async (restaurantId) => {
                 'subscriptionPaidAmount',
                 'subscriptionDueAmount',
                 'subscriptionStatus',
+                'subscriptionValidTill',
                 'onboardingFeePaid',
                 'onboardingFeePaidAt',
                 'onboardingFeePaymentMethod',
@@ -876,7 +881,21 @@ export const getCurrentRestaurantProfile = async (restaurantId) => {
             ].join(' ')
         )
         .lean();
-    return toRestaurantProfile(doc);
+    const profile = toRestaurantProfile(doc);
+    if (!profile) return null;
+    try {
+        const settings = await getRestaurantSubscriptionSettings();
+        const { eligibility } = await resolvePlanPricingFromEligibility(restaurantId, settings);
+        profile.subscriptionEligibility = {
+            eligiblePlan: eligibility.eligiblePlan,
+            gmvLast30Days: eligibility.gmv30d,
+            thresholdsUsed: eligibility.thresholdsUsed,
+            planCatalog: eligibility.planCatalog
+        };
+    } catch (_error) {
+        // Keep profile response resilient even if eligibility calculation fails.
+    }
+    return profile;
 };
 
 export const updateRestaurantAcceptingOrders = async (restaurantId, isAcceptingOrders) => {

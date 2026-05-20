@@ -3,6 +3,7 @@ import { FoodRestaurantWithdrawal } from '../models/foodRestaurantWithdrawal.mod
 import { FoodRestaurant } from '../models/restaurant.model.js';
 import { getRestaurantFinance } from '../services/restaurantFinance.service.js';
 import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
+import { attemptAutoSettleSubscriptionDue } from '../services/subscriptionPlan.service.js';
 
 export const createWithdrawalRequestController = async (req, res, next) => {
     try {
@@ -11,6 +12,8 @@ export const createWithdrawalRequestController = async (req, res, next) => {
 
         if (!restaurantId) return sendError(res, 401, 'Restaurant authentication required');
         if (!amount || amount <= 0) return sendError(res, 400, 'Invalid withdrawal amount');
+
+        await attemptAutoSettleSubscriptionDue(restaurantId).catch(() => null);
 
         // Check if restaurant has enough balance
         const finance = await getRestaurantFinance(restaurantId);

@@ -490,7 +490,7 @@ export default function RestaurantOnboarding() {
   const [error, setError] = useState("")
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [step4State, setStep4State] = useState({
-    subscriptionPlan: 'silver',
+    subscriptionPlan: 'starter',
     subscriptionAmount: 0,
     paymentType: 'full',
     customAmount: 0,
@@ -1541,7 +1541,7 @@ export default function RestaurantOnboarding() {
     formData.append('ifscCode', (step3.ifscCode || '').toUpperCase())
     formData.append('accountHolderName', step3.accountHolderName || '')
     formData.append('accountType', step3.accountType || '')
-    formData.append('subscriptionPlan', 'silver')
+    formData.append('subscriptionPlan', 'starter')
 
     setRegistrationProcessing(true)
     const loadingToast = toast.loading('Submitting onboarding request...')
@@ -2880,15 +2880,18 @@ export default function RestaurantOnboarding() {
       )
     }
 
-    const silverPrice = subscriptionSettings.silverPrice
-    const goldPrice = subscriptionSettings.goldPrice
+    const starterPrice = Number(subscriptionSettings.starterPrice || 999)
+    const growthPrice = Number(subscriptionSettings.growthPrice || 1999)
+    const premiumPrice = Number(subscriptionSettings.premiumPrice || 2999)
     const onboardingFeeBase = subscriptionSettings.onboardingFee
 
 
     const subscriptionPlans = [
-      { id: 'silver', price: silverPrice, label: 'Silver Plan', features: ['Silver Plan', 'Basic features', 'Standard support'] },
-      { id: 'gold', price: goldPrice, label: 'Gold Plan', features: ['Gold Plan', 'Premium features', 'Priority support'] }
+      { id: 'starter', price: starterPrice, label: 'Starter Plan', gmvLabel: `GMV: ₹${Number(subscriptionSettings?.starterMinGmv ?? 0).toFixed(2)} - ₹${Number(subscriptionSettings?.starterMaxGmv ?? 30000).toFixed(2)}`, features: ['Starter Plan', 'Basic features', 'Standard support'] },
+      { id: 'growth', price: growthPrice, label: 'Growth Plan', gmvLabel: `GMV: ₹${Number(subscriptionSettings?.growthMinGmv ?? 30000.01).toFixed(2)} - ₹${Number(subscriptionSettings?.growthMaxGmv ?? 60000).toFixed(2)}`, features: ['Growth Plan', 'Advanced features', 'Priority support'] },
+      { id: 'premium', price: premiumPrice, label: 'Premium Plan', gmvLabel: `GMV: ₹${Number(subscriptionSettings?.premiumMinGmv ?? 60000.01).toFixed(2)}+`, features: ['Premium Plan', 'Full features', 'Dedicated support'] }
     ]
+    const eligiblePlanId = 'starter'
 
     const GST_RATE = 0.18
     const onboardingGST = Math.round(onboardingFeeBase * GST_RATE)
@@ -2934,33 +2937,43 @@ export default function RestaurantOnboarding() {
 
         <section className="bg-white p-4 sm:p-6 rounded-md space-y-4">
           <h2 className="text-lg font-semibold text-black">Select subscription plan</h2>
-          <p className="text-sm text-gray-600">Choose one of the plans below and then select how much you want to pay now.</p>
+          <p className="text-sm text-gray-600">For new onboarding GMV is ₹0, so only Starter plan is selectable right now.</p>
 
           <div className="space-y-3">
-            {subscriptionPlans.map((plan) => (
+            {subscriptionPlans.map((plan) => {
+              const isSelectable = plan.id === eligiblePlanId
+              const selected = step4State.subscriptionPlan === plan.id
+              return (
               <button
                 key={plan.id}
-                onClick={() => setStep4State({ ...step4State, subscriptionPlan: plan.id, paymentType: 'full', customAmount: 0, errors: [] })}
+                type="button"
+                disabled={!isSelectable}
+                onClick={() => {
+                  if (!isSelectable) return
+                  setStep4State({ ...step4State, subscriptionPlan: plan.id, paymentType: 'full', customAmount: 0, errors: [] })
+                }}
                 className={`w-full p-4 border-2 rounded-md text-left transition-colors ${
-                  step4State.subscriptionPlan === plan.id
+                  selected
                     ? 'border-black bg-black/5'
                     : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
+                } ${!isSelectable ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-medium text-black">{plan.label} (₹{plan.price}/mo + 18% GST)</p>
+                    <p className="text-xs text-indigo-700 mt-1 font-medium">{plan.gmvLabel}</p>
                     <p className="text-sm font-semibold text-gray-700">Total: ₹{Math.round(plan.price * 1.18)}</p>
                     <ul className="mt-2 space-y-1">
                       {plan.features.map((f, i) => (
                         <li key={i} className="text-xs text-gray-600">• {f}</li>
                       ))}
                     </ul>
+                    {!isSelectable ? <p className="text-xs text-amber-700 mt-2">Locked for now. Available after GMV slab eligibility.</p> : null}
                   </div>
-                  <div className={`w-5 h-5 rounded-full border-2 ${step4State.subscriptionPlan === plan.id ? 'border-black bg-black' : 'border-gray-300'}`} />
+                  <div className={`w-5 h-5 rounded-full border-2 ${selected ? 'border-black bg-black' : 'border-gray-300'}`} />
                 </div>
               </button>
-            ))}
+            )})}
           </div>
         </section>
 
@@ -3131,12 +3144,19 @@ export default function RestaurantOnboarding() {
 
     try {
       const GST_RATE = 0.18
-      const silverPrice = subscriptionSettings.silverPrice
-      const goldPrice = subscriptionSettings.goldPrice
+      const starterPrice = Number(subscriptionSettings.starterPrice || 999)
+      const growthPrice = Number(subscriptionSettings.growthPrice || 1999)
+      const premiumPrice = Number(subscriptionSettings.premiumPrice || 2999)
       const onboardingFeeBase = subscriptionSettings.onboardingFee
 
-
-      const selectedPlanBase = step4State.subscriptionPlan === 'silver' ? silverPrice : (step4State.subscriptionPlan === 'gold' ? goldPrice : 0)
+      const selectedPlanBase =
+        step4State.subscriptionPlan === 'premium'
+          ? premiumPrice
+          : step4State.subscriptionPlan === 'growth'
+            ? growthPrice
+            : step4State.subscriptionPlan === 'starter'
+              ? starterPrice
+              : 0
       const planErrors = []
       if (!selectedPlanBase) {
         planErrors.push('Please select a subscription plan')
@@ -3329,7 +3349,7 @@ export default function RestaurantOnboarding() {
             // Payment & Subscription fields
             formData.append('onboardingFeePaid', 'true')
             formData.append('onboardingFeeAmount', String(onboardingFeeTotal))
-            formData.append('subscriptionPlan', step4State.subscriptionPlan || 'silver')
+            formData.append('subscriptionPlan', step4State.subscriptionPlan || 'starter')
             formData.append('subscriptionAmount', String(subscriptionPlanTotal))
             formData.append('subscriptionPaidAmount', String(subscriptionPaidNowTotal))
             formData.append('subscriptionDueAmount', String(Math.max(0, subscriptionPlanTotal - subscriptionPaidNowTotal)))

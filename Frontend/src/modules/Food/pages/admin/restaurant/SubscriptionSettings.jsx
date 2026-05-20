@@ -5,15 +5,21 @@ import { Input } from '@food/components/ui/input';
 import { Label } from '@food/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@food/components/ui/card';
 import { toast } from "sonner";
-import { Loader2, Save, CreditCard, Award, Rocket } from "lucide-react";
+import { Loader2, Save, CreditCard, Award, Rocket, TrendingUp, BarChart3 } from "lucide-react";
 
 const SubscriptionSettings = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [featureEnabled, setFeatureEnabled] = useState(true);
     const [settings, setSettings] = useState({
-        silverPrice: 999,
-        goldPrice: 1999,
+        starterPrice: 999,
+        growthPrice: 1999,
+        premiumPrice: 2999,
+        starterMinGmv: 0,
+        starterMaxGmv: 30000,
+        growthMinGmv: 30000.01,
+        growthMaxGmv: 60000,
+        premiumMinGmv: 60000.01,
         onboardingFee: 799
     });
 
@@ -30,7 +36,18 @@ const SubscriptionSettings = () => {
             const feature = featureRows.find((row) => row.key === 'restaurant_subscription');
             if (feature) setFeatureEnabled(Boolean(feature.isEnabled));
             if (res.data?.success && res.data.data) {
-                setSettings(res.data.data);
+                const data = res.data.data;
+                setSettings({
+                    starterPrice: Number(data?.starterPrice ?? 999),
+                    growthPrice: Number(data?.growthPrice ?? 1999),
+                    premiumPrice: Number(data?.premiumPrice ?? 2999),
+                    starterMinGmv: Number(data?.starterMinGmv ?? 0),
+                    starterMaxGmv: Number(data?.starterMaxGmv ?? 30000),
+                    growthMinGmv: Number(data?.growthMinGmv ?? 30000.01),
+                    growthMaxGmv: Number(data?.growthMaxGmv ?? 60000),
+                    premiumMinGmv: Number(data?.premiumMinGmv ?? 60000.01),
+                    onboardingFee: Number(data?.onboardingFee ?? 799),
+                });
             }
         } catch (error) {
             console.error('Error fetching settings:', error);
@@ -84,25 +101,47 @@ const SubscriptionSettings = () => {
                     <CardHeader className="bg-slate-50/50 pb-4">
                         <div className="flex items-center gap-2">
                             <Award className="h-5 w-5 text-slate-600" />
-                            <CardTitle className="text-lg">Silver Plan</CardTitle>
+                            <CardTitle className="text-lg">Starter Plan</CardTitle>
                         </div>
-                        <CardDescription>Basic monthly subscription for restaurants</CardDescription>
+                        <CardDescription>For GMV from ₹0 to Starter Max GMV</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
                         <div className="space-y-2">
-                            <Label htmlFor="silverPrice">Monthly Price (₹)</Label>
+                            <Label htmlFor="starterPrice">Monthly Price (₹)</Label>
                             <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
                                 <Input
-                                    id="silverPrice"
+                                    id="starterPrice"
                                     type="number"
                                     min="0"
                                     className="pl-7"
-                                    value={settings.silverPrice}
-                                    onChange={(e) => setSettings({ ...settings, silverPrice: Math.max(0, Number(e.target.value)) })}
+                                    value={settings.starterPrice}
+                                    onChange={(e) => setSettings({ ...settings, starterPrice: Math.max(0, Number(e.target.value)) })}
                                 />
                             </div>
                             <p className="text-xs text-gray-400 italic">GST (18%) will be added automatically on the onboarding page.</p>
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                                <div className="space-y-1">
+                                    <Label htmlFor="starterMinGmv">Starter Min GMV</Label>
+                                    <Input
+                                        id="starterMinGmv"
+                                        type="number"
+                                        min="0"
+                                        value={settings.starterMinGmv}
+                                        onChange={(e) => setSettings({ ...settings, starterMinGmv: Math.max(0, Number(e.target.value)) })}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="starterMaxGmv">Starter Max GMV</Label>
+                                    <Input
+                                        id="starterMaxGmv"
+                                        type="number"
+                                        min="0"
+                                        value={settings.starterMaxGmv}
+                                        onChange={(e) => setSettings({ ...settings, starterMaxGmv: Math.max(0, Number(e.target.value)) })}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -111,26 +150,102 @@ const SubscriptionSettings = () => {
                     <CardHeader className="bg-amber-50/50 pb-4">
                         <div className="flex items-center gap-2">
                             <Award className="h-5 w-5 text-amber-600" />
-                            <CardTitle className="text-lg">Gold Plan</CardTitle>
+                            <CardTitle className="text-lg">Growth Plan</CardTitle>
                         </div>
-                        <CardDescription>Premium monthly subscription for restaurants</CardDescription>
+                        <CardDescription>For GMV above Starter Max and up to Growth Max</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
                         <div className="space-y-2">
-                            <Label htmlFor="goldPrice">Monthly Price (₹)</Label>
+                            <Label htmlFor="growthPrice">Monthly Price (₹)</Label>
                             <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
                                 <Input
-                                    id="goldPrice"
+                                    id="growthPrice"
                                     type="number"
                                     min="0"
                                     className="pl-7"
-                                    value={settings.goldPrice}
-                                    onChange={(e) => setSettings({ ...settings, goldPrice: Math.max(0, Number(e.target.value)) })}
+                                    value={settings.growthPrice}
+                                    onChange={(e) => setSettings({ ...settings, growthPrice: Math.max(0, Number(e.target.value)) })}
                                 />
                             </div>
                             <p className="text-xs text-gray-400 italic">GST (18%) will be added automatically on the onboarding page.</p>
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                                <div className="space-y-1">
+                                    <Label htmlFor="growthMinGmv">Growth Min GMV</Label>
+                                    <Input
+                                        id="growthMinGmv"
+                                        type="number"
+                                        min="0"
+                                        value={settings.growthMinGmv}
+                                        onChange={(e) => setSettings({ ...settings, growthMinGmv: Math.max(0, Number(e.target.value)) })}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="growthMaxGmv">Growth Max GMV</Label>
+                                    <Input
+                                        id="growthMaxGmv"
+                                        type="number"
+                                        min="0"
+                                        value={settings.growthMaxGmv}
+                                        onChange={(e) => setSettings({ ...settings, growthMaxGmv: Math.max(0, Number(e.target.value)) })}
+                                    />
+                                </div>
+                            </div>
                         </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-emerald-200 shadow-sm overflow-hidden border-l-4 border-l-emerald-400">
+                    <CardHeader className="bg-emerald-50/50 pb-4">
+                        <div className="flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-emerald-600" />
+                            <CardTitle className="text-lg">Premium Plan</CardTitle>
+                        </div>
+                        <CardDescription>For GMV above Growth Max GMV</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="premiumPrice">Monthly Price (₹)</Label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                                <Input
+                                    id="premiumPrice"
+                                    type="number"
+                                    min="0"
+                                    className="pl-7"
+                                    value={settings.premiumPrice}
+                                    onChange={(e) => setSettings({ ...settings, premiumPrice: Math.max(0, Number(e.target.value)) })}
+                                />
+                            </div>
+                            <p className="text-xs text-gray-400 italic">GST (18%) will be added automatically on the onboarding page.</p>
+                            <div className="space-y-1 pt-1">
+                                <Label htmlFor="premiumMinGmv">Premium Min GMV</Label>
+                                <Input
+                                    id="premiumMinGmv"
+                                    type="number"
+                                    min="0"
+                                    value={settings.premiumMinGmv}
+                                    onChange={(e) => setSettings({ ...settings, premiumMinGmv: Math.max(0, Number(e.target.value)) })}
+                                />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-indigo-200 shadow-sm overflow-hidden border-l-4 border-l-indigo-400 md:col-span-2">
+                    <CardHeader className="bg-indigo-50/50 pb-4">
+                        <div className="flex items-center gap-2">
+                            <BarChart3 className="h-5 w-5 text-indigo-600" />
+                            <CardTitle className="text-lg">GMV Slab Thresholds</CardTitle>
+                        </div>
+                        <CardDescription>Plan eligibility is auto-picked by last 30 days GMV.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6 grid gap-4 md:grid-cols-2">
+                        <p className="md:col-span-2 text-xs text-gray-500">
+                            Effective slabs: Starter = ₹{Number(settings.starterMinGmv || 0).toFixed(2)} to ₹{Number(settings.starterMaxGmv || 0).toFixed(2)},
+                            Growth = ₹{Number(settings.growthMinGmv || 0).toFixed(2)} to ₹{Number(settings.growthMaxGmv || 0).toFixed(2)},
+                            Premium {">="} ₹{Number(settings.premiumMinGmv || 0).toFixed(2)}.
+                        </p>
                     </CardContent>
                 </Card>
 
