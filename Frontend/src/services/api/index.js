@@ -55,32 +55,6 @@ export const api = {
   delete: (_url, _config) => emptyDataStub(),
 };
 
-/** Single in-flight + short cache for user /auth/me - avoids duplicate calls. */
-let userMeInFlight = null;
-let userMeCached = null;
-let userMeCacheTime = 0;
-const USER_ME_CACHE_MS = 3000;
-
-const getUserMeOnce = () => {
-  const now = Date.now();
-  if (userMeCached && now - userMeCacheTime < USER_ME_CACHE_MS) {
-    return Promise.resolve(userMeCached);
-  }
-  if (!userMeInFlight) {
-    userMeInFlight = authService
-      .getMe("user")
-      .then((res) => {
-        userMeCached = res;
-        userMeCacheTime = Date.now();
-        return res;
-      })
-      .finally(() => {
-        userMeInFlight = null;
-      });
-  }
-  return userMeInFlight;
-};
-
 /** Auth API - user OTP + admin login via new backend */
 export const authAPI = {
   sendOTP: (phone, _purpose = "login", _email = null) => {
@@ -110,7 +84,7 @@ export const authAPI = {
       platform,
     );
   },
-  getCurrentUser: () => getUserMeOnce(),
+  getCurrentUser: () => authService.getMe("user"),
   refreshToken: (token) => authService.refreshToken(token),
   logout: (refreshToken, fcmToken = null, platform = "web") => {
     const token =
@@ -965,8 +939,9 @@ export const restaurantAPI = {
     return authService.verifyRestaurantOtp(phone, otp, fcmToken, platform);
   },
   getMe: () => authService.getMe("restaurant"),
-  /** Restaurant dashboard: fetch current restaurant profile (deduped + short-cached). */
-  getCurrentRestaurant: () => getRestaurantCurrentOnce(),
+  /** Restaurant dashboard: always fetch fresh profile data. */
+  getCurrentRestaurant: () =>
+    apiClient.get("/food/restaurant/current", { contextModule: "restaurant" }),
   /** Finance dashboard for `hub-finance`. */
   getFinance: (params = {}) =>
     apiClient.get("/food/restaurant/finance", {
@@ -1012,22 +987,13 @@ export const restaurantAPI = {
       .patch("/food/restaurant/profile", body ?? {}, {
         contextModule: "restaurant",
       })
-      .then((res) => {
-        // Keep cache coherent to avoid an immediate refetch storm.
-        restaurantCurrentCached = res;
-        restaurantCurrentCacheTime = Date.now();
-        return res;
-      }),
+      .then((res) => res),
   updateDiningSettings: (body) =>
     apiClient
       .patch("/food/restaurant/dining-settings", body ?? {}, {
         contextModule: "restaurant",
       })
-      .then((res) => {
-        restaurantCurrentCached = res;
-        restaurantCurrentCacheTime = Date.now();
-        return res;
-      }),
+      .then((res) => res),
   /** PATCH /food/restaurant/availability. Body: { isAcceptingOrders: boolean } */
   updateAcceptingOrders: (isAcceptingOrders) =>
     apiClient
@@ -1036,12 +1002,7 @@ export const restaurantAPI = {
         { isAcceptingOrders: Boolean(isAcceptingOrders) },
         { contextModule: "restaurant" },
       )
-      .then((res) => {
-        // Keep cache coherent to avoid an immediate refetch storm.
-        restaurantCurrentCached = res;
-        restaurantCurrentCacheTime = Date.now();
-        return res;
-      }),
+      .then((res) => res),
   /** Upload and set restaurant profile image (multipart). Field name: file */
   uploadProfileImage: (file) => {
     if (!file) return Promise.reject(new Error("File is required"));
@@ -1388,9 +1349,6 @@ export const restaurantAPI = {
       contextModule: "restaurant",
     }),
   logout: (refreshToken) => {
-    restaurantCurrentInFlight = null;
-    restaurantCurrentCached = null;
-    restaurantCurrentCacheTime = 0;
     const token =
       refreshToken ||
       (typeof localStorage !== "undefined"
@@ -1618,35 +1576,6 @@ const getPublicRestaurantOutletTimingsOnce = (id, config = {}) => {
       ...axiosConfig,
     }),
   );
-};
-
-/** Single in-flight + short cache for restaurant /food/restaurant/current - prevents request storms. */
-let restaurantCurrentInFlight = null;
-let restaurantCurrentCached = null;
-let restaurantCurrentCacheTime = 0;
-const RESTAURANT_CURRENT_CACHE_MS = 3000;
-
-const getRestaurantCurrentOnce = () => {
-  const now = Date.now();
-  if (
-    restaurantCurrentCached &&
-    now - restaurantCurrentCacheTime < RESTAURANT_CURRENT_CACHE_MS
-  ) {
-    return Promise.resolve(restaurantCurrentCached);
-  }
-  if (!restaurantCurrentInFlight) {
-    restaurantCurrentInFlight = apiClient
-      .get("/food/restaurant/current", { contextModule: "restaurant" })
-      .then((res) => {
-        restaurantCurrentCached = res;
-        restaurantCurrentCacheTime = Date.now();
-        return res;
-      })
-      .finally(() => {
-        restaurantCurrentInFlight = null;
-      });
-  }
-  return restaurantCurrentInFlight;
 };
 
 /** Single in-flight + short cache for delivery /auth/me - one call per page load / refresh. */
@@ -2107,7 +2036,7 @@ export const userAPI = {
   deleteCurrentUserAccount: () => apiClient.delete('/food/user/profile', { contextModule: 'user' }),
   /** Get current user profile (Bearer USER). */
   getProfile: () =>
-    getUserMeOnce().then((res) => {
+    authService.getMe("user").then((res) => {
       const user =
         res?.data?.data?.user ??
         res?.data?.user ??
@@ -2523,7 +2452,7 @@ const getCurrentUserForBookings = async () => {
   if (storedUser) return storedUser;
 
   try {
-    const me = await getUserMeOnce();
+    const me = await authService.getMe("user");
     return me?.data?.data?.user || me?.data?.user || me?.data?.data || null;
   } catch {
     return null;
