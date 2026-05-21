@@ -31,10 +31,16 @@ const SubscriptionSettings = () => {
         try {
             setLoading(true);
             const res = await adminAPI.getRestaurantSubscriptionSettings();
-            const featureRes = await adminAPI.getFeatureSettings();
-            const featureRows = Array.isArray(featureRes?.data?.data) ? featureRes.data.data : [];
-            const feature = featureRows.find((row) => row.key === 'restaurant_subscription');
-            if (feature) setFeatureEnabled(Boolean(feature.isEnabled));
+            try {
+                const featureRes = await adminAPI.getFeatureSettings();
+                const featureRows = Array.isArray(featureRes?.data?.data) ? featureRes.data.data : [];
+                const feature = featureRows.find((row) => row.key === 'restaurant_subscription');
+                if (feature) setFeatureEnabled(Boolean(feature.isEnabled));
+            } catch (_featureError) {
+                // Sub-admins without system_settings permission can still manage subscription settings.
+                // Keep feature enabled by default if this call is forbidden.
+                setFeatureEnabled(true);
+            }
             if (res.data?.success && res.data.data) {
                 const data = res.data.data;
                 setSettings({

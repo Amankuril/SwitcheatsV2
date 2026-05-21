@@ -9,6 +9,7 @@ import { validateDeliveryCommissionRuleDto, validateOptionalStatusDto, validateR
 import { validateFeeSettingsUpsertDto } from '../validators/feeSettings.validator.js';
 import { validateDeliveryEmergencyHelpUpsertDto } from '../validators/deliveryEmergencyHelp.validator.js';
 import { validateReferralSettingsUpsertDto } from '../validators/referralSettings.validator.js';
+import { ADMIN_ACTIONS, ADMIN_PERMISSION_SECTIONS, sanitizeAdminPermissions } from '../../../../constants/permissions.js';
 
 // ----- Customers / Users -----
 export async function getCustomers(req, res, next) {
@@ -173,6 +174,115 @@ export async function getTransactionReport(req, res, next) {
             success: true,
             message: 'Transaction report fetched successfully',
             data
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+const ensureSuperAdmin = (req, res) => {
+    const adminType = req.adminAccess?.adminType || req.user?.adminType;
+    if (adminType && adminType !== 'super_admin') {
+        res.status(403).json({ success: false, message: 'Only super admin can perform this action' });
+        return false;
+    }
+    return true;
+};
+
+const normalizePermissionPayload = (permissions) => sanitizeAdminPermissions(permissions || {});
+
+export async function createSubAdmin(req, res, next) {
+    try {
+        if (!ensureSuperAdmin(req, res)) return;
+        const created = await adminService.createSubAdmin(req.body || {}, req.user?.userId);
+        res.status(201).json({ success: true, message: 'Sub-admin created successfully', data: { subAdmin: created } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function listSubAdmins(req, res, next) {
+    try {
+        if (!ensureSuperAdmin(req, res)) return;
+        const data = await adminService.getSubAdmins(req.query || {});
+        res.status(200).json({ success: true, message: 'Sub-admins fetched successfully', data });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function getSubAdminDetails(req, res, next) {
+    try {
+        if (!ensureSuperAdmin(req, res)) return;
+        const data = await adminService.getSubAdminById(req.params.id);
+        res.status(200).json({ success: true, message: 'Sub-admin fetched successfully', data: { subAdmin: data } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function updateSubAdminProfile(req, res, next) {
+    try {
+        if (!ensureSuperAdmin(req, res)) return;
+        const data = await adminService.updateSubAdminProfile(req.params.id, req.body || {}, req.user?.userId);
+        res.status(200).json({ success: true, message: 'Sub-admin profile updated', data: { subAdmin: data } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function updateSubAdminPermissions(req, res, next) {
+    try {
+        if (!ensureSuperAdmin(req, res)) return;
+        const normalized = normalizePermissionPayload(req.body?.permissions || {});
+        const data = await adminService.updateSubAdminPermissions(req.params.id, normalized, req.user?.userId);
+        res.status(200).json({ success: true, message: 'Sub-admin permissions updated', data: { subAdmin: data } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function updateSubAdminStatus(req, res, next) {
+    try {
+        if (!ensureSuperAdmin(req, res)) return;
+        const data = await adminService.updateSubAdminStatus(req.params.id, req.body?.isActive, req.user?.userId);
+        res.status(200).json({ success: true, message: 'Sub-admin status updated', data: { subAdmin: data } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function deleteSubAdmin(req, res, next) {
+    try {
+        if (!ensureSuperAdmin(req, res)) return;
+        const data = await adminService.deleteSubAdmin(req.params.id, req.user?.userId);
+        res.status(200).json({ success: true, message: 'Sub-admin deleted successfully', data: { subAdmin: data } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function getAdminPermissionCatalog(req, res, next) {
+    try {
+        if (!ensureSuperAdmin(req, res)) return;
+        const data = adminService.getAdminPermissionCatalog();
+        const visibleActions = ADMIN_ACTIONS.filter((action) => action !== 'export');
+        const sections = Array.isArray(data?.sections)
+            ? data.sections.map((section) => ({
+                  ...section,
+                  actions: Array.isArray(section?.actions)
+                      ? section.actions.filter((action) => action !== 'export')
+                      : visibleActions,
+              }))
+            : [];
+        res.status(200).json({
+            success: true,
+            message: 'Permission catalog fetched successfully',
+            data: {
+                actions: visibleActions,
+                sections,
+                supportedSections: ADMIN_PERMISSION_SECTIONS,
+            },
         });
     } catch (error) {
         next(error);

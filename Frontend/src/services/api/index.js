@@ -255,6 +255,30 @@ export const adminAPI = {
     apiClient.patch(`/food/admin/feature-settings/${String(key)}`, body ?? {}, {
       contextModule: "admin",
     }),
+  getSubAdmins: (params = {}) =>
+    apiClient.get("/food/admin/sub-admins", { params, contextModule: "admin" }),
+  createSubAdmin: (body = {}) =>
+    apiClient.post("/food/admin/sub-admins", body ?? {}, { contextModule: "admin" }),
+  getSubAdminById: (id) =>
+    apiClient.get(`/food/admin/sub-admins/${String(id)}`, { contextModule: "admin" }),
+  updateSubAdmin: (id, body = {}) =>
+    apiClient.patch(`/food/admin/sub-admins/${String(id)}`, body ?? {}, { contextModule: "admin" }),
+  updateSubAdminPermissions: (id, permissions = {}) =>
+    apiClient.patch(
+      `/food/admin/sub-admins/${String(id)}/permissions`,
+      { permissions },
+      { contextModule: "admin" },
+    ),
+  updateSubAdminStatus: (id, isActive) =>
+    apiClient.patch(
+      `/food/admin/sub-admins/${String(id)}/status`,
+      { isActive: Boolean(isActive) },
+      { contextModule: "admin" },
+    ),
+  deleteSubAdmin: (id) =>
+    apiClient.delete(`/food/admin/sub-admins/${String(id)}`, { contextModule: "admin" }),
+  getSubAdminPermissionCatalog: () =>
+    apiClient.get("/food/admin/sub-admins/permission-catalog", { contextModule: "admin" }),
   /** List approved delivery partners (Deliveryman List page) */
   getDeliveryPartners: (params) =>
     apiClient.get("/food/admin/delivery/partners", {

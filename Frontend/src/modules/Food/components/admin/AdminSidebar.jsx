@@ -53,6 +53,7 @@ import { adminSidebarMenu } from "@food/utils/adminSidebarMenu"
 import { adminAPI } from "@food/api"
 import { getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings"
 import { canAccessFeatureSettings } from "@food/utils/adminPermissions"
+import { canAdminAccess, isSuperAdmin, resolvePermissionSectionByPath } from "@food/utils/adminRbac"
 import quickSpicyLogo from "@food/assets/switcheats-logo.png"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
@@ -104,6 +105,30 @@ const iconMap = {
   X,
 }
 
+const buildLabelDictionary = (menu = []) => {
+  const dictionary = new Map()
+  const walkItems = (items = []) => {
+    items.forEach((entry) => {
+      if (!entry || typeof entry !== "object") return
+      const path = String(entry.path || "").trim()
+      const label = String(entry.label || "").trim()
+      if (path && label && !dictionary.has(path)) {
+        dictionary.set(path, label)
+      }
+      if (entry.type === "section" && Array.isArray(entry.items)) {
+        walkItems(entry.items)
+      }
+      if (entry.type === "expandable" && Array.isArray(entry.subItems)) {
+        walkItems(entry.subItems)
+      }
+    })
+  }
+  walkItems(menu)
+  return dictionary
+}
+
+const SIDEBAR_LABEL_BY_PATH = buildLabelDictionary(adminSidebarMenu)
+
 export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange }) {
   const location = useLocation()
   const [searchQuery, setSearchQuery] = useState("")
@@ -111,6 +136,14 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   const [restaurantSubscriptionEnabled, setRestaurantSubscriptionEnabled] = useState(true)
   const [codControlEnabled, setCodControlEnabled] = useState(true)
   const [canViewFeatureSettings, setCanViewFeatureSettings] = useState(false)
+  const [adminUser, setAdminUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem("admin_user")
+      return raw ? JSON.parse(raw) : null
+    } catch (_e) {
+      return null
+    }
+  })
 
   const parseFeatureEnabled = (value, fallback = true) => {
     if (typeof value === "boolean") return value
@@ -124,6 +157,24 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
       if (value === 0) return false
     }
     return fallback
+  }
+
+  const deriveMenuLabel = (menuItem, parentLabel = "") => {
+    const rawPath = String(menuItem?.path || "").trim()
+    const canonical = rawPath ? SIDEBAR_LABEL_BY_PATH.get(rawPath) : ""
+    if (canonical) return canonical
+    const explicit = String(menuItem?.label || "").trim()
+    if (explicit) return explicit
+    if (rawPath) {
+      const last = rawPath.split("/").filter(Boolean).pop() || ""
+      if (last) {
+        return last
+          .replace(/[-_]+/g, " ")
+          .replace(/\b\w/g, (ch) => ch.toUpperCase())
+      }
+    }
+    const parent = String(parentLabel || "").trim()
+    return parent || "Untitled"
   }
 
   useEffect(() => {
@@ -143,13 +194,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   }, [])
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("admin_user")
-      const adminUser = raw ? JSON.parse(raw) : null
-      setCanViewFeatureSettings(canAccessFeatureSettings(adminUser))
-    } catch (_e) {
-      setCanViewFeatureSettings(false)
-    }
+    setCanViewFeatureSettings(canAccessFeatureSettings(adminUser))
 
     const loadFeatureSettings = async () => {
       try {
@@ -189,10 +234,23 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
     }
 
     window.addEventListener("adminFeatureSettingUpdated", handleFeatureUpdate)
+    const handleAuthUpdate = () => {
+      try {
+        const raw = localStorage.getItem("admin_user")
+        const nextAdminUser = raw ? JSON.parse(raw) : null
+        setAdminUser(nextAdminUser)
+        setCanViewFeatureSettings(canAccessFeatureSettings(nextAdminUser))
+      } catch (_e) {
+        setAdminUser(null)
+        setCanViewFeatureSettings(false)
+      }
+    }
+    window.addEventListener("adminAuthChanged", handleAuthUpdate)
     return () => {
       window.removeEventListener("adminFeatureSettingUpdated", handleFeatureUpdate)
+      window.removeEventListener("adminAuthChanged", handleAuthUpdate)
     }
-  }, [])
+  }, [adminUser])
 
   const menuData = useMemo(() => {
     const featureSettingsPath = "/admin/food/feature-settings"
@@ -201,7 +259,18 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
     const deliveryCashLimitPath = "/admin/food/delivery-cash-limit"
     const cashLimitSettlementPath = "/admin/food/cash-limit-settlement"
 
-    return adminSidebarMenu.map((section) => {
+    const mapped = adminSidebarMenu.map((section) => {
+      if (section.type === "link") {
+        const permissionSection = resolvePermissionSectionByPath(section.path)
+        if (!permissionSection && !isSuperAdmin(adminUser)) {
+          return null
+        }
+        if (permissionSection && !canAdminAccess(adminUser, permissionSection, "view")) {
+          return null
+        }
+        return section
+      }
+
       if (section.type !== "section" || !Array.isArray(section.items)) return section
       return {
         ...section,
@@ -210,16 +279,31 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
             if (item.type === "link" && item.path === featureSettingsPath && !canViewFeatureSettings) {
               return null
             }
+            if (item.type === "link") {
+              const permissionSection = resolvePermissionSectionByPath(item.path)
+              if (!permissionSection && !isSuperAdmin(adminUser)) return null
+              if (permissionSection && !canAdminAccess(adminUser, permissionSection, "view")) return null
+            }
             if (item.type === "link" && !codControlEnabled && (item.path === deliveryCashLimitPath || item.path === cashLimitSettlementPath)) {
               return null
             }
             if (item.type === "expandable" && Array.isArray(item.subItems)) {
-              const filteredSubItems = item.subItems.filter((sub) => {
-                if ((sub.path === subscriptionSettingsPath || sub.path === subscriptionHistoryPath) && !restaurantSubscriptionEnabled) return false
-                return true
-              })
+              const filteredSubItems = item.subItems
+                .filter((sub) => {
+                  if (!sub?.path) return false
+                  if ((sub.path === subscriptionSettingsPath || sub.path === subscriptionHistoryPath) && !restaurantSubscriptionEnabled) return false
+                  const permissionSection = resolvePermissionSectionByPath(sub.path)
+                  if (!permissionSection && !isSuperAdmin(adminUser)) return false
+                  if (permissionSection && !canAdminAccess(adminUser, permissionSection, "view")) return false
+                  return true
+                })
+                .map((sub) => ({
+                  ...sub,
+                  label: deriveMenuLabel(sub, item.label),
+                }))
               return {
                 ...item,
+                label: deriveMenuLabel(item),
                 subItems: filteredSubItems,
               }
             }
@@ -228,7 +312,12 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
           .filter((item) => item && (item.type !== "expandable" || (Array.isArray(item.subItems) && item.subItems.length > 0))),
       }
     })
-  }, [canViewFeatureSettings, codControlEnabled, restaurantSubscriptionEnabled])
+    return mapped.filter((section) => {
+      if (!section) return false
+      if (section?.type !== "section") return true
+      return Array.isArray(section.items) && section.items.length > 0
+    })
+  }, [adminUser, canViewFeatureSettings, codControlEnabled, restaurantSubscriptionEnabled])
 
   const getBadgeCount = (label = "", path = "") => {
     const l = label.toLowerCase()
@@ -382,6 +471,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
     const filtered = []
 
     menuData.forEach((item) => {
+      if (!item) return
       if (item.type === "link") {
         if (item.label.toLowerCase().includes(query)) {
           filtered.push(item)
@@ -430,6 +520,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
         const newExpandedState = { ...prev }
 
         menuData.forEach((item) => {
+          if (!item) return
           if (item.type === "section") {
             item.items.forEach((subItem) => {
               if (subItem.type === "expandable") {
@@ -510,11 +601,23 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   }
 
   const renderMenuItem = (item, index, isInSection = false) => {
+    const getDisplayLabel = (menuItem) => {
+      const rawLabel = String(menuItem?.label || "").trim()
+      if (rawLabel) return rawLabel
+      const path = String(menuItem?.path || "").trim()
+      if (!path) return "Untitled"
+      const last = path.split("/").filter(Boolean).pop() || "item"
+      return last
+        .replace(/[-_]+/g, " ")
+        .replace(/\b\w/g, (ch) => ch.toUpperCase())
+    }
+
     if (item.type === "link") {
       const Icon = iconMap[item.icon] || Utensils
+      const displayLabel = getDisplayLabel(item)
       return (
         <Link
-          key={index}
+          key={item.path || index}
           to={item.path}
           onClick={() => {
             if (window.innerWidth < 1024 && onClose) {
@@ -530,7 +633,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
             isCollapsed && "justify-center px-2"
           )}
           style={{ animationDelay: `${index * 0.05}s` }}
-          title={isCollapsed ? item.label : undefined}
+          title={isCollapsed ? displayLabel : undefined}
         >
           <Icon className={cn(
             "shrink-0 transition-all duration-300 text-left",
@@ -540,16 +643,16 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
           {!isCollapsed && (
             <div className="flex-1 flex items-center justify-between overflow-hidden">
               <span className={cn("text-left truncate", isInSection ? "font-semibold" : "font-medium")}>
-                {item.label}
+                {displayLabel}
               </span>
-              {getBadgeCount(item.label, item.path) > 0 && (
+              {getBadgeCount(displayLabel, item.path) > 0 && (
                 <span className="shrink-0 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1 min-w-[18px] text-center">
-                  {getBadgeCount(item.label, item.path) > 99 ? "99+" : getBadgeCount(item.label, item.path)}
+                  {getBadgeCount(displayLabel, item.path) > 99 ? "99+" : getBadgeCount(displayLabel, item.path)}
                 </span>
               )}
             </div>
           )}
-          {isCollapsed && getBadgeCount(item.label, item.path) > 0 && (
+          {isCollapsed && getBadgeCount(displayLabel, item.path) > 0 && (
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-neutral-950" />
           )}
         </Link>
@@ -609,9 +712,14 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
             <div className="ml-5 mt-1 space-y-1 border-neutral-800/60 pl-3 submenu-animate overflow-hidden">
               {item.subItems.map((subItem, subIndex) => {
                 const allSubPaths = item.subItems.map(si => si.path)
+                const isSubItemActive = isActive(subItem.path, allSubPaths)
+                const displaySubLabel = deriveMenuLabel(
+                  subItem,
+                  item.subItems.length === 1 ? item.label : ""
+                )
                 return (
                   <Link
-                    key={subIndex}
+                    key={subItem.path || `${index}-${subIndex}`}
                     to={subItem.path}
                     onClick={() => {
                       if (window.innerWidth < 1024 && onClose) {
@@ -619,8 +727,8 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                       }
                     }}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-md transition-all duration-300 ease-out text-sm font-normal text-left",
-                      isActive(subItem.path, allSubPaths)
+                      "w-full grid grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-1.5 rounded-md transition-all duration-300 ease-out text-sm font-normal text-left",
+                      isSubItemActive
                         ? "bg-white/10 text-white font-semibold"
                         : "text-neutral-300 hover:bg-white/5 hover:text-white"
                     )}
@@ -628,12 +736,19 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                   >
                     <span className={cn(
                       "w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-300",
-                      isActive(subItem.path, allSubPaths) ? "bg-white scale-125" : "bg-neutral-400"
+                      isSubItemActive ? "bg-white scale-125" : "bg-neutral-400"
                     )}></span>
-                    <span className="text-left flex-1 truncate">{subItem.label}</span>
-                    {getBadgeCount(subItem.label, subItem.path) > 0 && (
+                    <span
+                      className={cn(
+                        "block text-left text-[13px] leading-5",
+                        isSubItemActive ? "text-white" : "text-neutral-300"
+                      )}
+                    >
+                      {String(displaySubLabel || subItem?.label || subItem?.path || "Menu item")}
+                    </span>
+                    {getBadgeCount(displaySubLabel, subItem.path) > 0 && (
                       <span className="shrink-0 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1 min-w-[18px] text-center">
-                        {getBadgeCount(subItem.label, subItem.path) > 99 ? "99+" : getBadgeCount(subItem.label, subItem.path)}
+                        {getBadgeCount(displaySubLabel, subItem.path) > 99 ? "99+" : getBadgeCount(displaySubLabel, subItem.path)}
                       </span>
                     )}
                   </Link>
@@ -842,14 +957,16 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
             </div>
           ) : (
             filteredMenuData.map((item, index) => {
+              if (!item) return null
               if (item.type === "link") {
-                return renderMenuItem(item, index)
+                return renderMenuItem(item, item.path || item.label || `link-${index}`)
               }
 
               if (item.type === "section") {
+                const sectionStableKey = `section-${item.label || index}`
                 return (
                   <div
-                    key={index}
+                    key={sectionStableKey}
                     className={cn(
                       index > 0 ? "mt-4 pt-4 border-t border-neutral-800/60" : "",
                       "animate-[fadeIn_0.4s_ease-out]"
@@ -864,7 +981,13 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                       </div>
                     )}
                     <div className="space-y-1">
-                      {item.items.map((subItem, subIndex) => renderMenuItem(subItem, `${index}-${subIndex}`, true))}
+                      {item.items.map((subItem, subIndex) =>
+                        renderMenuItem(
+                          subItem,
+                          subItem?.path || subItem?.label || `${sectionStableKey}-item-${subIndex}`,
+                          true
+                        )
+                      )}
                     </div>
                   </div>
                 )

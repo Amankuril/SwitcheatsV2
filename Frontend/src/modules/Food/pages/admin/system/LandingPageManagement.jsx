@@ -97,7 +97,8 @@ export default function LandingPageManagement() {
       lowerMessage.includes('unauthorized') ||
       lowerMessage.includes('no token') ||
       lowerMessage.includes('authentication') ||
-      lowerMessage.includes('session expired')) {
+      lowerMessage.includes('session expired') ||
+      lowerMessage.includes('insufficient permissions for this action')) {
       setError(null)
     } else {
       setError(errorMessage)
@@ -140,7 +141,6 @@ export default function LandingPageManagement() {
     fetchBanners()
     fetchUnder250Banners()
     fetchDiningBanners()
-    fetchAllRestaurants()
     fetchSettings()
   }, [])
 
@@ -1095,7 +1095,7 @@ export default function LandingPageManagement() {
         setAllRestaurants(restaurants)
       }
     } catch (err) {
-      if (err.response?.status === 401 || err.response?.status === 404) {
+      if (err.response?.status === 401 || err.response?.status === 403 || err.response?.status === 404) {
         setAllRestaurants([])
         setError(null)
       } else {
@@ -2116,5 +2116,3 @@ export default function LandingPageManagement() {
     </div >
   )
 }
-
-

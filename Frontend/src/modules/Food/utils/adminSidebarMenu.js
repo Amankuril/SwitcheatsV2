@@ -31,10 +31,10 @@ export const adminSidebarMenu = [
         ],
       },
       {
-        type: "expandable",
+        type: "link",
         label: "Categories",
         icon: "FolderTree",
-        subItems: [{ label: "Category", path: "/admin/food/categories" }],
+        path: "/admin/food/categories",
       },
     ],
   },
@@ -136,9 +136,7 @@ export const adminSidebarMenu = [
     type: "section",
     label: "DELIVERYMAN MANAGEMENT",
     items: [
-      { type: "link", label: "Delivery Cash Limit", path: "/admin/food/delivery-cash-limit", icon: "IndianRupee" },
       { type: "link", label: "Delivery & Platform Fee", path: "/admin/food/fee-settings", icon: "DollarSign" },
-      { type: "link", label: "Cash limit settlement", path: "/admin/food/cash-limit-settlement", icon: "Receipt" },
       { type: "link", label: "Delivery Withdrawal", path: "/admin/food/delivery-withdrawal", icon: "Wallet" },
       { type: "link", label: "Delivery boy Wallet", path: "/admin/food/delivery-boy-wallet", icon: "PiggyBank" },
       { type: "link", label: "Delivery Emergency Help", path: "/admin/food/delivery-emergency-help", icon: "Phone" },
@@ -219,6 +217,13 @@ export const adminSidebarMenu = [
       { type: "link", label: "Feature Settings", path: "/admin/food/feature-settings", icon: "Settings" },
       { type: "link", label: "Broadcast Notification", path: "/admin/food/broadcast-notification", icon: "Bell" },
       { type: "link", label: "Business Setup", path: "/admin/food/business-setup", icon: "Settings" },
+    ],
+  },
+  {
+    type: "section",
+    label: "ADMIN ACCESS",
+    items: [
+      { type: "link", label: "Sub Admin List", path: "/admin/food/employees", icon: "UserCog" },
     ],
   },
   {

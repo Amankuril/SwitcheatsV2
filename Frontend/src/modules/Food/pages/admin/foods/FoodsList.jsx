@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@food/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@food/components/ui/popover"
 import { getFoodDisplayPrice, getFoodVariants } from "@food/utils/foodVariants"
+import { canCurrentAdminAction } from "@food/utils/adminRbac"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -31,6 +32,16 @@ const createVariantDraft = (variant = {}) => ({
   price: variant?.price != null ? String(variant.price) : "",
 })
 
+const FOOD_FALLBACK_IMAGE =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
+      <rect width="80" height="80" rx="12" fill="#F1F5F9"/>
+      <circle cx="40" cy="30" r="12" fill="#CBD5E1"/>
+      <rect x="20" y="48" width="40" height="8" rx="4" fill="#CBD5E1"/>
+    </svg>`
+  )
+
 export default function FoodsList() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedRestaurant, setSelectedRestaurant] = useState("all")
@@ -53,6 +64,11 @@ export default function FoodsList() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [imageVersion, setImageVersion] = useState(Date.now())
+  const ensureActionAccess = (action) => {
+    if (canCurrentAdminAction(action)) return true
+    toast.error("Insufficient permissions for this action")
+    return false
+  }
 
   const getItemCreatedMs = (item = {}) => {
     const direct = [item.createdAt, item.addedAt, item.requestedAt, item.updatedAt]
@@ -71,79 +87,87 @@ export default function FoodsList() {
 
   const toArray = (value) => (Array.isArray(value) ? value : [])
   const withImageVersion = (url) => {
-    if (!url || typeof url !== "string") return "https://via.placeholder.com/40"
+    if (!url || typeof url !== "string") return FOOD_FALLBACK_IMAGE
     return `${url}${url.includes("?") ? "&" : "?"}v=${imageVersion}`
   }
 
   const fetchAllFoods = useCallback(async () => {
     try {
       setLoading(true)
-
-      const [activeRestaurantsResponse, inactiveRestaurantsResponse] = await Promise.all([
-        adminAPI.getRestaurants({ limit: 1000 }),
-        adminAPI.getRestaurants({ limit: 1000, status: "inactive" }),
-      ])
-
-      const activeRestaurants = activeRestaurantsResponse?.data?.data?.restaurants ||
-        activeRestaurantsResponse?.data?.restaurants ||
-        []
-      const inactiveRestaurants = inactiveRestaurantsResponse?.data?.data?.restaurants ||
-        inactiveRestaurantsResponse?.data?.restaurants ||
-        []
-
-      const restaurantsMap = new Map()
-      ;[...activeRestaurants, ...inactiveRestaurants].forEach((restaurant) => {
-        const restaurantId = String(restaurant?._id || restaurant?.id || "")
-        if (!restaurantId) return
-        if (!restaurantsMap.has(restaurantId)) {
-          restaurantsMap.set(restaurantId, restaurant)
-        }
-      })
-      const restaurants = Array.from(restaurantsMap.values())
-      setRestaurantsForFilter(
-        restaurants
-          .map((restaurant) => ({
-            id: String(restaurant?._id || restaurant?.id || ""),
-            name: restaurant?.name || restaurant?.restaurantName || "Unknown Restaurant",
-          }))
-          .filter((restaurant) => restaurant.id)
-          .sort((a, b) => a.name.localeCompare(b.name))
-      )
-
-      if (restaurants.length === 0) {
-        setFoods([])
-        return
-      }
-
       const foodsRes = await adminAPI.getFoods({ limit: 1000 })
       const list = foodsRes?.data?.data?.foods || []
       const approvedOnly = Array.isArray(list)
         ? list.filter((f) => String(f?.approvalStatus || "").toLowerCase() === "approved")
         : []
-      setFoods(
-        Array.isArray(approvedOnly)
-          ? approvedOnly.map((f) => ({
-              id: String(f.id || f._id || ""),
-              _id: f._id || f.id,
-              name: f.name || "Unnamed Item",
-              image: f.image || "https://via.placeholder.com/40",
-              status: f.isAvailable !== false && String(f.approvalStatus || "").toLowerCase() !== "rejected",
-              restaurantId: String(f.restaurantId || ""),
-              restaurantName: f.restaurantName || "Unknown Restaurant",
-              categoryId: String(f.categoryId || ""),
-              categoryName: f.categoryName || "",
-              price: getFoodDisplayPrice(f),
-              variants: getFoodVariants(f),
-              foodType: f.foodType || "Non-Veg",
-              approvalStatus: f.approvalStatus || "approved",
-              description: f.description || "",
-              preparationTime: f.preparationTime || "",
-              isAvailable: f.isAvailable !== false,
-              createdAt: f.createdAt,
-              updatedAt: f.updatedAt,
+      const normalizedFoods = Array.isArray(approvedOnly)
+        ? approvedOnly.map((f) => ({
+            id: String(f.id || f._id || ""),
+            _id: f._id || f.id,
+            name: f.name || "Unnamed Item",
+            image: f.image || FOOD_FALLBACK_IMAGE,
+            status: f.isAvailable !== false && String(f.approvalStatus || "").toLowerCase() !== "rejected",
+            restaurantId: String(f.restaurantId || ""),
+            restaurantName: f.restaurantName || "Unknown Restaurant",
+            categoryId: String(f.categoryId || ""),
+            categoryName: f.categoryName || "",
+            price: getFoodDisplayPrice(f),
+            variants: getFoodVariants(f),
+            foodType: f.foodType || "Non-Veg",
+            approvalStatus: f.approvalStatus || "approved",
+            description: f.description || "",
+            preparationTime: f.preparationTime || "",
+            isAvailable: f.isAvailable !== false,
+            createdAt: f.createdAt,
+            updatedAt: f.updatedAt,
+          }))
+        : []
+
+      setFoods(normalizedFoods)
+
+      try {
+        const [activeRestaurantsResponse, inactiveRestaurantsResponse] = await Promise.all([
+          adminAPI.getRestaurants({ limit: 1000 }),
+          adminAPI.getRestaurants({ limit: 1000, status: "inactive" }),
+        ])
+
+        const activeRestaurants = activeRestaurantsResponse?.data?.data?.restaurants ||
+          activeRestaurantsResponse?.data?.restaurants ||
+          []
+        const inactiveRestaurants = inactiveRestaurantsResponse?.data?.data?.restaurants ||
+          inactiveRestaurantsResponse?.data?.restaurants ||
+          []
+
+        const restaurantsMap = new Map()
+        ;[...activeRestaurants, ...inactiveRestaurants].forEach((restaurant) => {
+          const restaurantId = String(restaurant?._id || restaurant?.id || "")
+          if (!restaurantId) return
+          if (!restaurantsMap.has(restaurantId)) {
+            restaurantsMap.set(restaurantId, restaurant)
+          }
+        })
+        const restaurants = Array.from(restaurantsMap.values())
+        setRestaurantsForFilter(
+          restaurants
+            .map((restaurant) => ({
+              id: String(restaurant?._id || restaurant?.id || ""),
+              name: restaurant?.name || restaurant?.restaurantName || "Unknown Restaurant",
             }))
-          : []
-      )
+            .filter((restaurant) => restaurant.id)
+            .sort((a, b) => a.name.localeCompare(b.name))
+        )
+      } catch (_restaurantError) {
+        const fallbackMap = new Map()
+        normalizedFoods.forEach((food) => {
+          const id = String(food.restaurantId || "")
+          if (!id) return
+          if (!fallbackMap.has(id)) {
+            fallbackMap.set(id, { id, name: food.restaurantName || "Unknown Restaurant" })
+          }
+        })
+        setRestaurantsForFilter(
+          Array.from(fallbackMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+        )
+      }
       setImageVersion(Date.now())
     } catch (error) {
       debugError("Error fetching foods:", error)
@@ -250,6 +274,7 @@ export default function FoodsList() {
   }, [restaurantsForFilter])
 
   const openAddFoodModal = () => {
+    if (!ensureActionAccess("create")) return
     setFoodFormMode("add")
     setEditingFood(null)
     setFoodForm({
@@ -264,6 +289,7 @@ export default function FoodsList() {
   }
 
   const openEditFoodModal = (food) => {
+    if (!ensureActionAccess("edit")) return
     setFoodFormMode("edit")
     setEditingFood(food)
     setFoodForm({
@@ -328,6 +354,7 @@ export default function FoodsList() {
   }
 
   const handleAddVariant = () => {
+    if (!ensureActionAccess(foodFormMode === "edit" ? "edit" : "create")) return
     setFoodForm((prev) => ({
       ...prev,
       variants: [...(Array.isArray(prev.variants) ? prev.variants : []), createVariantDraft()],
@@ -335,6 +362,7 @@ export default function FoodsList() {
   }
 
   const handleRemoveVariant = (variantId) => {
+    if (!ensureActionAccess(foodFormMode === "edit" ? "edit" : "create")) return
     setFoodForm((prev) => ({
       ...prev,
       variants: (Array.isArray(prev.variants) ? prev.variants : []).filter((variant) => variant.id !== variantId),
@@ -342,6 +370,7 @@ export default function FoodsList() {
   }
 
   const handleFoodFormSubmit = async () => {
+    if (!ensureActionAccess(foodFormMode === "edit" ? "edit" : "create")) return
     if (!foodForm.restaurantId) {
       toast.error("Please select a restaurant")
       return
@@ -434,6 +463,7 @@ export default function FoodsList() {
   }
 
   const handleDelete = async (id) => {
+    if (!ensureActionAccess("delete")) return
     const food = foods.find(f => f.id === id)
     if (!food) return
 
@@ -581,7 +611,7 @@ export default function FoodsList() {
                           key={`${food.id}-${imageVersion}`}
                           loading="lazy"
                           onError={(e) => {
-                            e.target.src = "https://via.placeholder.com/40"
+                            e.target.src = FOOD_FALLBACK_IMAGE
                           }}
                         />
                       </div>
@@ -703,7 +733,7 @@ export default function FoodsList() {
                           alt={selectedFood.name}
                           className="w-20 h-20 rounded-xl object-cover border border-slate-200"
                   onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/64"
+                    e.target.src = FOOD_FALLBACK_IMAGE
                   }}
                 />
                 <div>
@@ -1007,4 +1037,3 @@ export default function FoodsList() {
     </div>
   )
 }
-

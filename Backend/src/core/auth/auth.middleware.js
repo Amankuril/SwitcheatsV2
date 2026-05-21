@@ -21,7 +21,8 @@ export const authMiddleware = (req, res, next) => {
         const decoded = verifyAccessToken(token);
         req.user = {
             userId: decoded.userId,
-            role: decoded.role
+            role: decoded.role,
+            adminType: decoded.adminType
         };
         if (decoded.role === 'USER') {
             // Enforce active status in real-time - deactivated users are logged out on next request.
@@ -50,7 +51,8 @@ export const optionalAuth = (req, res, next) => {
         const decoded = verifyAccessToken(token);
         req.user = {
             userId: decoded.userId,
-            role: decoded.role
+            role: decoded.role,
+            adminType: decoded.adminType
         };
         next();
     } catch (error) {

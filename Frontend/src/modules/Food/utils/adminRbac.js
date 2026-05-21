@@ -16,9 +16,7 @@ export const ADMIN_PERMISSION_SECTIONS = [
   "report_management",
   "transaction_management",
   "banner_management",
-  "system_settings",
   "pages_social_media",
-  "sub_admin_management",
 ];
 
 const PATH_PREFIX_TO_SECTION = [
@@ -113,24 +111,32 @@ export function canCurrentAdminAction(action = "view", pathname = "") {
 }
 
 export function findFirstAllowedAdminPath(adminUser) {
-  const candidates = [
-    "/admin/food",
-    "/admin/food/point-of-sale",
-    "/admin/food/food-approval",
-    "/admin/food/restaurants",
-    "/admin/food/orders/all",
-    "/admin/food/coupons",
-    "/admin/food/customers",
-    "/admin/food/delivery-partners",
-    "/admin/food/transaction-report",
-  ];
+  const sectionHomePath = {
+    dashboard: "/admin/food",
+    point_of_sale: "/admin/food/point-of-sale",
+    food_management: "/admin/food/food-approval",
+    restaurant_management: "/admin/food/restaurants",
+    order_management: "/admin/food/orders/all",
+    promotions_management: "/admin/food/coupons",
+    referral_rewards: "/admin/food/referral-settings",
+    customer_management: "/admin/food/customers",
+    delivery_management: "/admin/food/delivery-partners",
+    support_management: "/admin/food/contact-messages",
+    report_management: "/admin/food/transaction-report",
+    transaction_management: "/admin/food/restaurant-withdraws",
+    banner_management: "/admin/food/hero-banner-management",
+    pages_social_media: "/admin/food/pages-social-media/about",
+  };
 
-  for (const path of candidates) {
-    const section = resolvePermissionSectionByPath(path);
-    if (!section || canAdminAccess(adminUser, section, "view")) {
-      return path;
+  if (isSuperAdmin(adminUser)) {
+    return "/admin/food";
+  }
+
+  for (const section of ADMIN_PERMISSION_SECTIONS) {
+    if (canAdminAccess(adminUser, section, "view")) {
+      return sectionHomePath[section] || "/admin/food/profile";
     }
   }
 
-  return "/admin/login";
+  return "/admin/food/profile";
 }

@@ -18,6 +18,7 @@ import { API_BASE_URL } from "@food/api/config"
 import { toast } from "sonner"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
+import { canCurrentAdminAction } from "@food/utils/adminRbac"
 
 const defaultFormData = {
   name: "",
@@ -65,6 +66,11 @@ export default function Category() {
   const [imagePreview, setImagePreview] = useState(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const fileInputRef = useRef(null)
+  const ensureActionAccess = (action) => {
+    if (canCurrentAdminAction(action)) return true
+    toast.error("Insufficient permissions for this action")
+    return false
+  }
 
   useEffect(() => {
     const adminToken = localStorage.getItem("admin_accessToken")
@@ -160,6 +166,7 @@ export default function Category() {
   }
 
   const handleAddNew = () => {
+    if (!ensureActionAccess("create")) return
     setEditingCategory(null)
     setFormData(defaultFormData)
     setSelectedImageFile(null)
@@ -168,6 +175,7 @@ export default function Category() {
   }
 
   const handleEdit = (category) => {
+    if (!ensureActionAccess("edit")) return
     setEditingCategory(category)
     const zoneIdValue =
       typeof category?.zoneId === "string"
@@ -210,6 +218,7 @@ export default function Category() {
   }
 
   const handleToggleStatus = async (id) => {
+    if (!ensureActionAccess("edit")) return
     try {
       const response = await adminAPI.toggleCategoryStatus(String(id))
       if (response?.data?.success) {
@@ -222,6 +231,7 @@ export default function Category() {
   }
 
   const handleApprove = async (id) => {
+    if (!ensureActionAccess("edit")) return
     try {
       const response = await adminAPI.approveCategory(String(id))
       if (response?.data?.success) {
@@ -234,6 +244,7 @@ export default function Category() {
   }
 
   const handleReject = async (category) => {
+    if (!ensureActionAccess("edit")) return
     const reason = window.prompt(`Reject "${category?.name}" with a reason:`)
     if (reason == null) return
     if (!String(reason).trim()) {
@@ -253,6 +264,7 @@ export default function Category() {
   }
 
   const handleMakeGlobal = async (category) => {
+    if (!ensureActionAccess("edit")) return
     if (!window.confirm(`Make "${category?.name}" global for every restaurant?`)) return
 
     try {
@@ -267,6 +279,7 @@ export default function Category() {
   }
 
   const handleDelete = async (id) => {
+    if (!ensureActionAccess("delete")) return
     const categoryName = categories.find((category) => String(category?.id) === String(id))?.name || "this category"
     if (!window.confirm(`Delete "${categoryName}"? This action cannot be undone.`)) return
 
@@ -326,6 +339,7 @@ export default function Category() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (!ensureActionAccess(editingCategory ? "edit" : "create")) return
 
     try {
       setUploadingImage(true)

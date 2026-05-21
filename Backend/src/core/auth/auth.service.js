@@ -20,6 +20,7 @@ import { creditReferralReward } from "../../modules/food/user/services/userWalle
 import { getRestaurantSubscriptionSettings } from "../../modules/food/admin/services/admin.service.js";
 import { FEATURE_KEYS, isFeatureEnabled } from "../../modules/food/admin/services/featureSettings.service.js";
 import { isSubscriptionExpired, resolveRestaurantPlanEligibility } from "../../modules/food/restaurant/services/subscriptionPlan.service.js";
+import { ADMIN_FULL_PERMISSIONS, sanitizeAdminPermissions } from '../../constants/permissions.js';
 
 const ROLES = {
   USER: "USER",
@@ -219,12 +220,24 @@ export const adminLogin = async (email, password) => {
     throw new AuthError("Invalid credentials");
   }
 
+  if (admin.isDeleted || admin.isActive === false) {
+    throw new AuthError("Admin account is inactive");
+  }
+
   const isMatch = await admin.comparePassword(password);
   if (!isMatch) {
     throw new AuthError("Invalid credentials");
   }
 
-  const payload = { userId: admin._id.toString(), role: admin.role };
+  const effectivePermissions = admin.adminType === "super_admin"
+    ? ADMIN_FULL_PERMISSIONS
+    : sanitizeAdminPermissions(admin.permissions || {});
+
+  const payload = {
+    userId: admin._id.toString(),
+    role: admin.role,
+    adminType: admin.adminType || "super_admin",
+  };
 
   const accessToken = signAccessToken(payload);
   const refreshToken = signRefreshToken(payload);
@@ -240,6 +253,7 @@ export const adminLogin = async (email, password) => {
 
   const userObj = admin.toObject();
   delete userObj.password;
+  userObj.effectivePermissions = effectivePermissions;
   return { accessToken, refreshToken, user: userObj };
 };
 
@@ -543,6 +557,11 @@ export const getProfile = async (userId, role) => {
       break;
     case ROLES.ADMIN:
       profile = await FoodAdmin.findById(id).select("-password").lean();
+      if (profile) {
+        profile.effectivePermissions = profile.adminType === "super_admin"
+          ? ADMIN_FULL_PERMISSIONS
+          : sanitizeAdminPermissions(profile.permissions || {});
+      }
       break;
     case ROLES.RESTAURANT:
       {
