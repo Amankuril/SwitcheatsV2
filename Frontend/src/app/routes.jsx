@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { AppShellSkeleton } from '@food/components/ui/loading-skeletons'
 import LandingPage from './LandingPage'
+import { adminAPI } from '@/services/api'
 
 const NATIVE_LAST_ROUTE_KEY = 'native_last_route'
 
@@ -36,6 +37,47 @@ const RedirectToFood = () => {
   return <Navigate to={`/food${location.pathname}${location.search}`} replace />;
 };
 
+const parseFeatureEnabled = (value, fallback = true) => {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true') return true
+    if (normalized === 'false') return false
+  }
+  if (typeof value === 'number') {
+    if (value === 1) return true
+    if (value === 0) return false
+  }
+  return fallback
+}
+
+const RootEntryRoute = () => {
+  const [loading, setLoading] = useState(true)
+  const [showLandingAtRoot, setShowLandingAtRoot] = useState(true)
+
+  useEffect(() => {
+    const loadFeatureSettings = async () => {
+      try {
+        const res = await adminAPI.getPublicFeatureSettings()
+        const rows = Array.isArray(res?.data?.data) ? res.data.data : []
+        const feature = rows.find((row) => row.key === 'root_landing_and_unregistered_control')
+        if (feature) {
+          setShowLandingAtRoot(parseFeatureEnabled(feature.isEnabled, true))
+        }
+      } catch (_error) {
+        // fallback to landing page when API is unavailable
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadFeatureSettings()
+  }, [])
+
+  if (loading) return <PageLoader />
+  if (!showLandingAtRoot) return <Navigate to="/food/user" replace />
+  return <LandingPage />
+}
+
 
 const AdminRouter = lazy(() => import('../modules/Food/components/admin/AdminRouter'))
 
@@ -65,7 +107,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Root → Master Landing Page */}
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<RootEntryRoute />} />
 
       {/* Auth Module */}
 

@@ -8,7 +8,9 @@ import { toast } from 'sonner';
 
 const FEATURE_KEYS = {
     RESTAURANT_SUBSCRIPTION: 'restaurant_subscription',
-    COD_CONTROL: 'cod_control'
+    COD_CONTROL: 'cod_control',
+    ADMIN_ACCESS_SECTION: 'admin_access_section',
+    ROOT_LANDING_AND_UNREGISTERED_CONTROL: 'root_landing_and_unregistered_control'
 };
 
 export default function FeatureSettings() {
@@ -23,6 +25,16 @@ export default function FeatureSettings() {
 
     const codControl = useMemo(
         () => features.find((item) => item.key === FEATURE_KEYS.COD_CONTROL) || null,
+        [features]
+    );
+
+    const adminAccessSection = useMemo(
+        () => features.find((item) => item.key === FEATURE_KEYS.ADMIN_ACCESS_SECTION) || null,
+        [features]
+    );
+
+    const rootLandingAndUnregisteredControl = useMemo(
+        () => features.find((item) => item.key === FEATURE_KEYS.ROOT_LANDING_AND_UNREGISTERED_CONTROL) || null,
         [features]
     );
 
@@ -51,7 +63,7 @@ export default function FeatureSettings() {
     };
 
     const handleSave = async () => {
-        const updates = [restaurantSubscription, codControl].filter(Boolean);
+        const updates = [restaurantSubscription, codControl, adminAccessSection, rootLandingAndUnregisteredControl].filter(Boolean);
         if (updates.length === 0) return;
         try {
             setSaving(true);
@@ -133,8 +145,48 @@ export default function FeatureSettings() {
                 </CardContent>
             </Card>
 
+            <Card className="border-slate-200">
+                <CardHeader>
+                    <CardTitle className="text-lg">Admin Access Section</CardTitle>
+                    <CardDescription>
+                        Controls visibility of the Admin Access sidebar section, including Sub Admin List.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-between gap-4">
+                    <div className="text-sm text-gray-700">
+                        {adminAccessSection?.isEnabled
+                            ? 'Enabled: Admin Access section is visible'
+                            : 'Disabled: Admin Access section is hidden'}
+                    </div>
+                    <Switch
+                        checked={Boolean(adminAccessSection?.isEnabled)}
+                        onCheckedChange={(checked) => setToggle(FEATURE_KEYS.ADMIN_ACCESS_SECTION, checked)}
+                    />
+                </CardContent>
+            </Card>
+
+            <Card className="border-slate-200">
+                <CardHeader>
+                    <CardTitle className="text-lg">Root Landing & Unregistered Restaurants</CardTitle>
+                    <CardDescription>
+                        Controls root URL and Unregistered Restaurants visibility. OFF redirects root (/) to /food/user and hides Unregistered Restaurants.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-between gap-4">
+                    <div className="text-sm text-gray-700">
+                        {rootLandingAndUnregisteredControl?.isEnabled
+                            ? 'Enabled: root opens Landing Page and Unregistered Restaurants is visible'
+                            : 'Disabled: root redirects to /food/user and Unregistered Restaurants is hidden'}
+                    </div>
+                    <Switch
+                        checked={Boolean(rootLandingAndUnregisteredControl?.isEnabled)}
+                        onCheckedChange={(checked) => setToggle(FEATURE_KEYS.ROOT_LANDING_AND_UNREGISTERED_CONTROL, checked)}
+                    />
+                </CardContent>
+            </Card>
+
             <div className="flex justify-end">
-                <Button onClick={handleSave} disabled={saving || (!restaurantSubscription && !codControl)}>
+                <Button onClick={handleSave} disabled={saving || (!restaurantSubscription && !codControl && !adminAccessSection && !rootLandingAndUnregisteredControl)}>
                     {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                     Save Changes
                 </Button>

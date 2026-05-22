@@ -135,6 +135,8 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
   const [badges, setBadges] = useState({})
   const [restaurantSubscriptionEnabled, setRestaurantSubscriptionEnabled] = useState(true)
   const [codControlEnabled, setCodControlEnabled] = useState(true)
+  const [adminAccessSectionEnabled, setAdminAccessSectionEnabled] = useState(true)
+  const [rootLandingAndUnregisteredControlEnabled, setRootLandingAndUnregisteredControlEnabled] = useState(true)
   const [canViewFeatureSettings, setCanViewFeatureSettings] = useState(false)
   const [adminUser, setAdminUser] = useState(() => {
     try {
@@ -202,6 +204,8 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
         const rows = Array.isArray(res?.data?.data) ? res.data.data : []
         const feature = rows.find((row) => row.key === "restaurant_subscription")
         const codFeature = rows.find((row) => row.key === "cod_control")
+        const adminAccessFeature = rows.find((row) => row.key === "admin_access_section")
+        const rootAndUnregisteredFeature = rows.find((row) => row.key === "root_landing_and_unregistered_control")
         if (feature) {
           setRestaurantSubscriptionEnabled((prev) =>
             parseFeatureEnabled(feature.isEnabled, prev)
@@ -210,6 +214,16 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
         if (codFeature) {
           setCodControlEnabled((prev) =>
             parseFeatureEnabled(codFeature.isEnabled, prev)
+          )
+        }
+        if (adminAccessFeature) {
+          setAdminAccessSectionEnabled((prev) =>
+            parseFeatureEnabled(adminAccessFeature.isEnabled, prev)
+          )
+        }
+        if (rootAndUnregisteredFeature) {
+          setRootLandingAndUnregisteredControlEnabled((prev) =>
+            parseFeatureEnabled(rootAndUnregisteredFeature.isEnabled, prev)
           )
         }
       } catch (error) {
@@ -227,6 +241,16 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
       }
       if (detail.key === "cod_control") {
         setCodControlEnabled((prev) =>
+          parseFeatureEnabled(detail.isEnabled, prev)
+        )
+      }
+      if (detail.key === "admin_access_section") {
+        setAdminAccessSectionEnabled((prev) =>
+          parseFeatureEnabled(detail.isEnabled, prev)
+        )
+      }
+      if (detail.key === "root_landing_and_unregistered_control") {
+        setRootLandingAndUnregisteredControlEnabled((prev) =>
           parseFeatureEnabled(detail.isEnabled, prev)
         )
       }
@@ -277,6 +301,9 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
         ...section,
         items: section.items
           .map((item) => {
+            if (section.label === "ADMIN ACCESS" && !adminAccessSectionEnabled) {
+              return null
+            }
             if (item.type === "link" && item.path === featureSettingsPath && !canViewFeatureSettings) {
               return null
             }
@@ -294,6 +321,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                   if (!sub?.path) return false
                   if ((sub.path === subscriptionSettingsPath || sub.path === subscriptionHistoryPath) && !restaurantSubscriptionEnabled) return false
                   if (sub.path === offlinePaymentsPath && !codControlEnabled) return false
+                  if (sub.path === "/admin/food/restaurants/unregistered" && !rootLandingAndUnregisteredControlEnabled) return false
                   const permissionSection = resolvePermissionSectionByPath(sub.path)
                   if (!permissionSection && !isSuperAdmin(adminUser)) return false
                   if (permissionSection && !canAdminAccess(adminUser, permissionSection, "view")) return false
@@ -319,7 +347,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
       if (section?.type !== "section") return true
       return Array.isArray(section.items) && section.items.length > 0
     })
-  }, [adminUser, canViewFeatureSettings, codControlEnabled, restaurantSubscriptionEnabled])
+  }, [adminAccessSectionEnabled, adminUser, canViewFeatureSettings, codControlEnabled, restaurantSubscriptionEnabled, rootLandingAndUnregisteredControlEnabled])
 
   const getBadgeCount = (label = "", path = "") => {
     const l = label.toLowerCase()

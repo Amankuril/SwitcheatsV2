@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
 import AuthRedirect from "@food/components/AuthRedirect";
@@ -6,6 +6,7 @@ import AdminLayout from "./AdminLayout";
 import Loader from "@food/components/Loader";
 import { getCurrentUser } from "@food/utils/auth";
 import { canAccessFeatureSettings } from "@food/utils/adminPermissions";
+import { adminAPI } from "@/services/api";
 
 const AdminHome = lazy(() => import("@food/pages/admin/AdminHome"));
 const PointOfSale = lazy(() => import("@food/pages/admin/PointOfSale"));
@@ -143,6 +144,47 @@ function FeatureSettingsRouteGuard() {
   return <FeatureSettings />;
 }
 
+function UnregisteredRestaurantsRouteGuard() {
+  const [loading, setLoading] = useState(true);
+  const [isEnabled, setIsEnabled] = useState(true);
+
+  useEffect(() => {
+    const parseEnabled = (value, fallback = true) => {
+      if (typeof value === "boolean") return value;
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === "true") return true;
+        if (normalized === "false") return false;
+      }
+      if (typeof value === "number") {
+        if (value === 1) return true;
+        if (value === 0) return false;
+      }
+      return fallback;
+    };
+
+    const load = async () => {
+      try {
+        const res = await adminAPI.getPublicFeatureSettings();
+        const rows = Array.isArray(res?.data?.data) ? res.data.data : [];
+        const feature = rows.find((row) => row.key === "root_landing_and_unregistered_control");
+        if (feature) {
+          setIsEnabled(parseEnabled(feature.isEnabled, true));
+        }
+      } catch (_error) {
+        // keep safe default (enabled) on API failure
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) return <Loader />;
+  if (!isEnabled) return <Navigate to="/admin/food/restaurants" replace />;
+  return <UnregisteredRestaurants />;
+}
+
 export default function AdminRouter() {
   // Safely enforce light mode for the Admin app to prevent User dark mode bleeding
   useEffect(() => {
@@ -209,7 +251,7 @@ export default function AdminRouter() {
             <Route path="restaurants/add" element={<AddRestaurant />} />
             <Route path="restaurants/edit/:id" element={<EditRestaurant />} />
             <Route path="restaurants/joining-request" element={<JoiningRequest />} />
-            <Route path="restaurants/unregistered" element={<UnregisteredRestaurants />} />
+            <Route path="restaurants/unregistered" element={<UnregisteredRestaurantsRouteGuard />} />
             <Route path="restaurants/commission" element={<RestaurantCommission />} />
             <Route path="restaurants/complaints" element={<RestaurantComplaints />} />
             <Route path="restaurants/reviews" element={<RestaurantReviews />} />

@@ -251,6 +251,8 @@ export const adminAPI = {
     apiClient.get("/food/admin/feature-settings", {
       contextModule: "admin",
     }),
+  getPublicFeatureSettings: () =>
+    apiClient.get("/food/admin/feature-settings/public"),
   updateFeatureSetting: (key, body) =>
     apiClient.patch(`/food/admin/feature-settings/${String(key)}`, body ?? {}, {
       contextModule: "admin",

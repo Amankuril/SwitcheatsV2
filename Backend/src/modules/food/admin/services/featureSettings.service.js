@@ -2,7 +2,9 @@ import { FoodFeatureSetting } from '../models/featureSetting.model.js';
 
 export const FEATURE_KEYS = {
     RESTAURANT_SUBSCRIPTION: 'restaurant_subscription',
-    COD_CONTROL: 'cod_control'
+    COD_CONTROL: 'cod_control',
+    ADMIN_ACCESS_SECTION: 'admin_access_section',
+    ROOT_LANDING_AND_UNREGISTERED_CONTROL: 'root_landing_and_unregistered_control'
 };
 
 const DEFAULT_FEATURES = [
@@ -16,6 +18,18 @@ const DEFAULT_FEATURES = [
         key: FEATURE_KEYS.COD_CONTROL,
         name: 'Cash On Delivery (COD)',
         description: 'Controls COD option visibility and delivery cash-limit related UI sections.',
+        isEnabled: true
+    },
+    {
+        key: FEATURE_KEYS.ADMIN_ACCESS_SECTION,
+        name: 'Admin Access Section',
+        description: 'Controls visibility of the Admin Access section (including Sub Admin List) in admin panel sidebar.',
+        isEnabled: true
+    },
+    {
+        key: FEATURE_KEYS.ROOT_LANDING_AND_UNREGISTERED_CONTROL,
+        name: 'Root Landing & Unregistered Restaurants',
+        description: 'Controls root URL behavior and Unregistered Restaurants visibility. When disabled, root redirects to /food/user and Unregistered Restaurants is hidden.',
         isEnabled: true
     }
 ];
