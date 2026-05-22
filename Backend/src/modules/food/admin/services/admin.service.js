@@ -2753,10 +2753,16 @@ export async function updateCategory(id, body) {
 
 export async function deleteCategory(id) {
     if (!id || !mongoose.Types.ObjectId.isValid(id)) return null;
-    const inUse = await FoodItem.countDocuments({ categoryId: id });
-    if (inUse > 0) {
-        throw new ValidationError('Cannot delete category while it has items');
-    }
+    const categoryObjectId = new mongoose.Types.ObjectId(id);
+    await FoodItem.updateMany(
+        { categoryId: categoryObjectId },
+        {
+            $set: {
+                categoryId: null,
+                categoryName: ''
+            }
+        }
+    );
     const deleted = await FoodCategory.findByIdAndDelete(id).lean();
     return deleted ? { id } : null;
 }

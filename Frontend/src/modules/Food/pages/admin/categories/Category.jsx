@@ -52,6 +52,8 @@ const zoneLabel = (zone) => {
   return zone?.name || zone?.zoneName || zone?.serviceLocation || "Zone"
 }
 
+const resolveCategoryId = (category) => String(category?._id || category?.id || "").trim()
+
 export default function Category() {
   const [searchQuery, setSearchQuery] = useState("")
   const [categories, setCategories] = useState([])
@@ -280,7 +282,8 @@ export default function Category() {
 
   const handleDelete = async (id) => {
     if (!ensureActionAccess("delete")) return
-    const categoryName = categories.find((category) => String(category?.id) === String(id))?.name || "this category"
+    const categoryName =
+      categories.find((category) => resolveCategoryId(category) === String(id))?.name || "this category"
     if (!window.confirm(`Delete "${categoryName}"? This action cannot be undone.`)) return
 
     try {
@@ -290,7 +293,11 @@ export default function Category() {
         fetchCategories()
       }
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to delete category")
+      toast.error(
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          "Failed to delete category"
+      )
     }
   }
 
@@ -473,13 +480,14 @@ export default function Category() {
                 </tr>
               ) : (
                 filteredCategories.map((category) => {
+                  const categoryId = resolveCategoryId(category)
                   const creatorName = category?.createdByRestaurant?.name || category?.restaurant?.name || "Admin"
                   const approvalStatus = category?.approvalStatus || "pending"
                   const isRestaurantCategory = Boolean(category?.createdByRestaurantId || category?.restaurantId)
                   const zoneText = zoneLabel(category?.zoneId)
 
                   return (
-                    <tr key={category.id} className="align-top hover:bg-slate-50/80">
+                    <tr key={categoryId || `category-${category?.name || "item"}`} className="align-top hover:bg-slate-50/80">
                       <td className="px-5 py-5">
                         <div className="flex items-start gap-3">
                           <div className="h-11 w-11 overflow-hidden rounded-2xl bg-slate-100">
@@ -529,7 +537,7 @@ export default function Category() {
                       </td>
                       <td className="px-4 py-5 text-center">
                         <button
-                          onClick={() => handleToggleStatus(category.id)}
+                          onClick={() => handleToggleStatus(categoryId)}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full ${category?.status ? "bg-blue-600" : "bg-slate-300"}`}
                           title={category?.status ? "Deactivate" : "Activate"}
                         >
@@ -552,7 +560,7 @@ export default function Category() {
                           <div className="flex flex-wrap justify-end gap-2">
                             {approvalStatus !== "approved" && (
                               <button
-                                onClick={() => handleApprove(category.id)}
+                                onClick={() => handleApprove(categoryId)}
                                 className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
                               >
                                 Approve
@@ -584,7 +592,7 @@ export default function Category() {
                               <Pencil className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(category.id)}
+                              onClick={() => handleDelete(categoryId)}
                               className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"
                               title="Delete"
                             >
