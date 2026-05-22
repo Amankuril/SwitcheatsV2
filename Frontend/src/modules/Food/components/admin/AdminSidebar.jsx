@@ -52,7 +52,7 @@ import { Input } from "@food/components/ui/input"
 import { adminSidebarMenu } from "@food/utils/adminSidebarMenu"
 import { adminAPI } from "@food/api"
 import { getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings"
-import { canAccessFeatureSettings } from "@food/utils/adminPermissions"
+import { canAccessFeatureSettings, canAccessSuperPowers } from "@food/utils/adminPermissions"
 import { canAdminAccess, isSuperAdmin, resolvePermissionSectionByPath } from "@food/utils/adminRbac"
 import quickSpicyLogo from "@food/assets/switcheats-logo.png"
 const debugLog = (...args) => {}
@@ -302,6 +302,9 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
         items: section.items
           .map((item) => {
             if (section.label === "ADMIN ACCESS" && !adminAccessSectionEnabled) {
+              return null
+            }
+            if (section.label === "SUPER POWERS" && !canAccessSuperPowers(adminUser)) {
               return null
             }
             if (item.type === "link" && item.path === featureSettingsPath && !canViewFeatureSettings) {
