@@ -114,6 +114,8 @@ export default function HomeHeader({
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notificationsHistoryPushedRef = useRef(false);
+  const touchStartXRef = useRef(0);
+  const touchEndXRef = useRef(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -121,6 +123,31 @@ export default function HomeHeader({
     }, 4000);
     return () => clearInterval(timer);
   }, []);
+
+  const handleTouchStart = (event) => {
+    touchStartXRef.current = event.touches[0]?.clientX || 0;
+    touchEndXRef.current = touchStartXRef.current;
+  };
+
+  const handleTouchMove = (event) => {
+    touchEndXRef.current = event.touches[0]?.clientX || touchEndXRef.current;
+  };
+
+  const handleTouchEnd = () => {
+    const deltaX = touchStartXRef.current - touchEndXRef.current;
+    const minSwipeDistance = 45;
+
+    if (Math.abs(deltaX) < minSwipeDistance) return;
+
+    if (deltaX > 0) {
+      // Swipe left -> next slide
+      setCurrentSlide((prev) => (prev + 1) % slideBanners.length);
+      return;
+    }
+
+    // Swipe right -> previous slide
+    setCurrentSlide((prev) => (prev - 1 + slideBanners.length) % slideBanners.length);
+  };
 
   useEffect(() => {
     if (!isNotificationsOpen) return undefined;
@@ -221,7 +248,12 @@ export default function HomeHeader({
 
   return (
     <>
-      <div className="relative h-[340px] w-full overflow-hidden rounded-b-[2rem] shadow-[0_10px_40px_rgba(250,2,114,0.15)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+      <div
+        className="relative h-[340px] w-full overflow-hidden rounded-b-[2rem] shadow-[0_10px_40px_rgba(250,2,114,0.15)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         
         {/* Sliding Background Track */}
         <div 
@@ -301,9 +333,12 @@ export default function HomeHeader({
         {/* Carousel Pager Dots */}
         <div className="absolute bottom-2 inset-x-0 flex justify-center gap-1.5 z-20">
           {slideBanners.map((_, i) => (
-            <span 
-              key={i} 
-              className={`h-1 rounded-full transition-all duration-300 ${i === currentSlide ? 'bg-black/60 w-3 dark:bg-white/80' : 'bg-black/20 w-1.5 dark:bg-white/30'}`} 
+            <button
+              key={i}
+              type="button"
+              aria-label={`Go to slide ${i + 1}`}
+              onClick={() => setCurrentSlide(i)}
+              className={`h-1 rounded-full transition-all duration-300 ${i === currentSlide ? 'bg-black/60 w-3 dark:bg-white/80' : 'bg-black/20 w-1.5 dark:bg-white/30'}`}
             />
           ))}
         </div>
