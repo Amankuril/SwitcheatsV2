@@ -856,12 +856,18 @@ export default function Inventory() {
       const response = await restaurantAPI.bulkUpload(bulkUploadFile)
       
       if (response.data && response.data.success) {
-        const results = response.data.data
-        setBulkUploadResults(results)
-        toast.info(`Processed ${results.success + results.failed} items`)
+        const results = response.data.data || {}
+        const normalizedErrors = Array.isArray(results.errors)
+          ? results.errors
+          : Array.isArray(results.details)
+            ? results.details
+            : []
+        const normalizedResults = { ...results, errors: normalizedErrors }
+        setBulkUploadResults(normalizedResults)
+        toast.info(`Processed ${normalizedResults.success + normalizedResults.failed} items`)
         
         // Refresh data in background without reloading the page
-        if (results.success > 0) {
+        if (normalizedResults.success > 0) {
             fetchMenuAndAddons()
         }
       }
@@ -3051,6 +3057,9 @@ export default function Inventory() {
                              {bulkUploadResults.errors.length} FLAGS
                           </span>
                         </div>
+                        <p className="text-xs text-slate-500">
+                          Note: Failed rows were skipped. Reason shown below for each rejected row.
+                        </p>
                         <div className="max-h-60 overflow-y-auto space-y-3 custom-scrollbar pr-1">
                           {bulkUploadResults.errors.map((err, i) => (
                             <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">

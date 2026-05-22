@@ -681,11 +681,17 @@ export default function HubMenu() {
       const response = await restaurantAPI.bulkUpload(bulkUploadFile)
       
       if (response.data && response.data.success) {
-        const results = response.data.data
-        setBulkUploadResults(results)
-        toast.info(`Processed ${results.success + results.failed} items`)
+        const results = response.data.data || {}
+        const normalizedErrors = Array.isArray(results.errors)
+          ? results.errors
+          : Array.isArray(results.details)
+            ? results.details
+            : []
+        const normalizedResults = { ...results, errors: normalizedErrors }
+        setBulkUploadResults(normalizedResults)
+        toast.info(`Processed ${normalizedResults.success + normalizedResults.failed} items`)
         
-        if (results.success > 0) {
+        if (normalizedResults.success > 0) {
           fetchMenu() // Refresh menu to show new items
         }
       }
@@ -2603,6 +2609,9 @@ export default function HubMenu() {
                     {bulkUploadResults.errors && bulkUploadResults.errors.length > 0 && (
                       <div className="text-left mb-8">
                         <h5 className="text-sm font-bold text-gray-900 mb-3 ml-1">Issues Found:</h5>
+                        <p className="text-xs text-gray-500 mb-2 ml-1">
+                          Note: Failed rows were skipped. Each row below shows the rejection reason.
+                        </p>
                         <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 max-h-40 overflow-y-auto space-y-2">
                           {bulkUploadResults.errors.map((err, idx) => (
                             <div key={idx} className="flex gap-2 text-xs">
@@ -2644,4 +2653,3 @@ export default function HubMenu() {
     </div>
   )
 }
-

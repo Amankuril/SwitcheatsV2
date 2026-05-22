@@ -7,6 +7,7 @@ import { FoodCategory } from '../../admin/models/category.model.js';
 import { FoodRestaurant } from '../models/restaurant.model.js';
 import { ValidationError } from '../../../../core/auth/errors.js';
 import { config } from '../../../../config/env.js';
+import { categoryAllowsFoodType, normalizeFoodTypeForCategory } from '../../shared/categoryWorkflow.js';
 
 cloudinary.config({
     cloud_name: config.cloudinaryCloudName,
@@ -18,6 +19,52 @@ const PREP_TIME_OPTIONS = [
     '5-10 mins', '10-15 mins', '15-20 mins', '20-25 mins', 
     '25-30 mins', '30-40 mins', '40-50 mins', '50+ mins'
 ];
+
+const TEMPLATE_SAMPLE_ROW_SIGNATURE = Object.freeze({
+    category: 'starters',
+    name: 'paneer tikka',
+    description: 'spicy marinated paneer grilled to perfection',
+    price: 250,
+    foodType: 'veg',
+    prepTime: '20-25 mins',
+    imageUrl: 'https://example.com/paneer.jpg',
+    variants: [
+        { name: 'half', price: 150 },
+        { name: 'full', price: 280 }
+    ]
+});
+
+const isLegacyTemplateSampleRow = (data = {}) => {
+    const normalizedVariants = Array.isArray(data.variants)
+        ? data.variants.map((v) => ({
+            name: String(v?.name || '').trim().toLowerCase(),
+            price: Number(v?.price || 0)
+        }))
+        : [];
+
+    if (normalizedVariants.length !== TEMPLATE_SAMPLE_ROW_SIGNATURE.variants.length) return false;
+
+    const variantsMatch = TEMPLATE_SAMPLE_ROW_SIGNATURE.variants.every((sampleVariant, idx) => {
+        const rowVariant = normalizedVariants[idx];
+        return (
+            rowVariant &&
+            rowVariant.name === sampleVariant.name &&
+            rowVariant.price === sampleVariant.price
+        );
+    });
+
+    if (!variantsMatch) return false;
+
+    return (
+        String(data.category || '').trim().toLowerCase() === TEMPLATE_SAMPLE_ROW_SIGNATURE.category &&
+        String(data.name || '').trim().toLowerCase() === TEMPLATE_SAMPLE_ROW_SIGNATURE.name &&
+        String(data.description || '').trim().toLowerCase() === TEMPLATE_SAMPLE_ROW_SIGNATURE.description &&
+        Number(data.price || 0) === TEMPLATE_SAMPLE_ROW_SIGNATURE.price &&
+        String(data.foodType || '').trim().toLowerCase() === TEMPLATE_SAMPLE_ROW_SIGNATURE.foodType &&
+        String(data.prepTime || '').trim().toLowerCase() === TEMPLATE_SAMPLE_ROW_SIGNATURE.prepTime &&
+        String(data.imageUrl || '').trim().toLowerCase() === TEMPLATE_SAMPLE_ROW_SIGNATURE.imageUrl
+    );
+};
 
 /**
  * Generates an Excel template for bulk menu upload.
@@ -89,22 +136,6 @@ export async function generateBulkMenuTemplate() {
             };
         });
     }
-
-    // Add Sample Row
-    sheet.addRow({
-        category: 'Starters',
-        name: 'Paneer Tikka',
-        description: 'Spicy marinated paneer grilled to perfection',
-        price: 250,
-        foodType: 'Veg',
-        isRecommended: 'Yes',
-        prepTime: '20-25 mins',
-        imageUrl: 'https://example.com/paneer.jpg',
-        v1Name: 'Half',
-        v1Price: 150,
-        v2Name: 'Full',
-        v2Price: 280
-    });
 
     return workbook;
 }
@@ -178,7 +209,11 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
                 // Only report as error if row is not completely empty
                 const hasAnyData = row.values.some(v => v !== null && v !== undefined && v !== '');
                 if (hasAnyData) {
-                    parsingErrors.push({ row: rowNumber, error: 'Category and Item Name are mandatory' });
+                    parsingErrors.push({
+                        row: rowNumber,
+                        item: data.name || 'Unknown Entry',
+                        error: 'Category and Item Name are mandatory'
+                    });
                 }
                 return;
             }
@@ -194,9 +229,19 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
                 }
             }
 
+            // Backward compatibility guard:
+            // Old templates had a pre-filled sample row (Paneer Tikka). Skip it automatically.
+            if (isLegacyTemplateSampleRow(data)) {
+                return;
+            }
+
             items.push({ data, rowNumber });
         } catch (err) {
-            parsingErrors.push({ row: rowNumber, error: `Parsing error: ${err.message}` });
+            parsingErrors.push({
+                row: rowNumber,
+                item: getTextValue(row.getCell(2)) || 'Unknown Entry',
+                error: `Parsing error: ${err.message}`
+            });
         }
     });
 
@@ -204,9 +249,10 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
         throw new ValidationError('No valid items found in the Excel sheet');
     }
 
+    const totalProcessedRows = items.length + parsingErrors.length;
     const results = {
         success: 0,
-        failed: 0,
+        failed: parsingErrors.length,
         details: [...parsingErrors]
     };
 
@@ -273,6 +319,14 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
                 }
 
                 // 3. Prepare Bulk Operation
+                const normalizedFoodType = normalizeFoodTypeForCategory(data.foodType);
+                const categoryScope = String(category?.foodTypeScope || 'Both').trim();
+                if (!categoryAllowsFoodType(categoryScope, normalizedFoodType)) {
+                    throw new Error(
+                        `Category "${category.name}" allows only ${categoryScope} items, but row has ${normalizedFoodType}`
+                    );
+                }
+
                 bulkOps.push({
                     updateOne: {
                         filter: { name: data.name, restaurantId: restaurant._id },
@@ -284,7 +338,7 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
                                 price: data.variants.length > 0 ? Math.min(...data.variants.map(v => v.price)) : data.price,
                                 variants: data.variants,
                                 ...(finalImageUrl && { image: finalImageUrl }),
-                                foodType: data.foodType === 'Veg' ? 'Veg' : 'Non-Veg',
+                                foodType: normalizedFoodType,
                                 isRecommended: data.isRecommended,
                                 preparationTime: data.prepTime,
                                 approvalStatus: 'pending',
@@ -298,10 +352,13 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
                     }
                 });
 
-                results.success++;
             } catch (err) {
                 results.failed++;
-                results.details.push({ row: item.rowNumber, error: err.message });
+                results.details.push({
+                    row: item.rowNumber,
+                    item: item?.data?.name || 'Unknown Entry',
+                    error: err.message
+                });
             }
         });
 
@@ -317,6 +374,8 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
             results.details.push({ row: 'N/A', error: `Database saving failed: ${bulkErr.message}` });
         }
     }
+
+    results.success = Math.max(0, totalProcessedRows - results.failed);
 
     if (results.success > 0) {
         try {
