@@ -636,6 +636,9 @@ export default function RestaurantOnboarding() {
   const previewUrlCacheRef = useRef(new Map())
   const locationSearchInputRef = useRef(null)
   const placesAutocompleteRef = useRef(null)
+  const placesAutocompleteServiceRef = useRef(null)
+  const placesDetailsServiceRef = useRef(null)
+  const placesSessionTokenRef = useRef(null)
   const mapsScriptLoadedRef = useRef(false)
   const menuImagesInputRef = useRef(null)
   const profileImageInputRef = useRef(null)
@@ -654,6 +657,7 @@ export default function RestaurantOnboarding() {
   const [locationSearchValue, setLocationSearchValue] = useState("")
   const [locationSuggestions, setLocationSuggestions] = useState([])
   const [isSearchingLocation, setIsSearchingLocation] = useState(false)
+  const normalizeLocationQuery = (value) => String(value || "").replace(/\s+/g, " ").trim()
 
   const getPreviewImageUrl = (value) => {
     if (!value) return null
@@ -1812,8 +1816,62 @@ export default function RestaurantOnboarding() {
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => {
-                      const { lat, lng, display, addr } = s
+                    onClick={async () => {
+                      if (s.source === "google" && s.placeId && placesDetailsServiceRef.current && window.google?.maps?.places?.PlacesServiceStatus) {
+                        try {
+                          const place = await new Promise((resolve, reject) => {
+                            placesDetailsServiceRef.current.getDetails(
+                              {
+                                placeId: s.placeId,
+                                fields: ["formatted_address", "address_components", "geometry"],
+                                sessionToken: placesSessionTokenRef.current || undefined,
+                              },
+                              (result, status) => {
+                                if (status === window.google.maps.places.PlacesServiceStatus.OK && result) {
+                                  resolve(result)
+                                  return
+                                }
+                                reject(new Error(String(status || "Failed to fetch place details")))
+                              }
+                            )
+                          })
+
+                          const comps = Array.isArray(place?.address_components) ? place.address_components : []
+                          const get = (types) => comps.find((c) => types.some((t) => c.types?.includes(t)))?.long_name || ""
+                          const formattedAddress = place?.formatted_address || s.display || ""
+                          const area = get(["sublocality_level_1", "sublocality", "neighborhood"]) || get(["locality"])
+                          const city = get(["locality"]) || get(["administrative_area_level_2"])
+                          const state = get(["administrative_area_level_1"]) || get(["administrative_area_level_2"])
+                          const pincode = get(["postal_code"])
+                          const lat = place?.geometry?.location?.lat?.()
+                          const lng = place?.geometry?.location?.lng?.()
+
+                          setStep1((prev) => ({
+                            ...prev,
+                            location: {
+                              ...prev.location,
+                              formattedAddress,
+                              addressLine1: formattedAddress,
+                              area: area || prev.location.area,
+                              city: city || prev.location.city,
+                              state: state || prev.location.state,
+                              pincode: pincode || prev.location.pincode,
+                              latitude: typeof lat === "number" ? Number(lat.toFixed(6)) : prev.location.latitude,
+                              longitude: typeof lng === "number" ? Number(lng.toFixed(6)) : prev.location.longitude,
+                            },
+                          }))
+                          setLocationSearchValue(formattedAddress)
+                          setLocationSuggestions([])
+                          if (window.google?.maps?.places?.AutocompleteSessionToken) {
+                            placesSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+                          }
+                          return
+                        } catch (err) {
+                          debugWarn("Google place details failed, falling back to manual suggestion mapping:", err)
+                        }
+                      }
+
+                      const { lat, lng, display, addr = {} } = s
                       const area = addr.suburb || addr.neighbourhood || addr.city_district || addr.locality || ""
                       const city = addr.city || addr.town || addr.village || ""
                       const state = addr.state || ""
@@ -1829,8 +1887,8 @@ export default function RestaurantOnboarding() {
                           city: city || prev.location.city,
                           state: state || prev.location.state,
                           pincode: pincode || prev.location.pincode,
-                          latitude: lat,
-                          longitude: lng,
+                          latitude: Number.isFinite(lat) ? lat : prev.location.latitude,
+                          longitude: Number.isFinite(lng) ? lng : prev.location.longitude,
                         },
                       }))
                       setLocationSearchValue(display)
@@ -1838,7 +1896,10 @@ export default function RestaurantOnboarding() {
                     }}
                     className="w-full px-4 py-2 text-left text-[13px] hover:bg-orange-50 border-b border-gray-100 last:border-none font-medium text-gray-700"
                   >
-                    <span className="truncate">{s.display}</span>
+                    <span className="block truncate">{s.mainText || s.display}</span>
+                    {s.secondaryText && (
+                      <span className="block truncate text-[11px] text-gray-500">{s.secondaryText}</span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -2040,10 +2101,20 @@ export default function RestaurantOnboarding() {
       if (inputElement.hasAttribute("data-google-places-initialized")) return
 
       try {
+        if (!placesAutocompleteServiceRef.current && window.google?.maps?.places?.AutocompleteService) {
+          placesAutocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+        }
+        if (!placesDetailsServiceRef.current && window.google?.maps?.places?.PlacesService) {
+          const detailsHost = document.createElement("div")
+          placesDetailsServiceRef.current = new window.google.maps.places.PlacesService(detailsHost)
+        }
+        if (!placesSessionTokenRef.current && window.google?.maps?.places?.AutocompleteSessionToken) {
+          placesSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+        }
+
         autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
           fields: ["formatted_address", "address_components", "geometry"],
-          componentRestrictions: { country: "in" },
-          types: ["geocode", "establishment"]
+          componentRestrictions: { country: "in" }
         })
 
         inputElement.setAttribute("data-google-places-initialized", "true")
@@ -2111,32 +2182,73 @@ export default function RestaurantOnboarding() {
     }
   }, [step])
 
-  // Hybrid Search Fallback (Nominatim)
+  // Hybrid Search: Google predictions first, Nominatim fallback
   useEffect(() => {
     if (step !== 1) return
-    const q = String(locationSearchValue || "").trim()
+    const q = normalizeLocationQuery(locationSearchValue)
     if (q.length < 3) {
       setLocationSuggestions([])
       setIsSearchingLocation(false)
+      if (window.google?.maps?.places?.AutocompleteSessionToken) {
+        placesSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+      }
       return
     }
 
     const t = setTimeout(async () => {
       try {
         setIsSearchingLocation(true)
-        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=4&q=${encodeURIComponent(q)}&countrycodes=in`
+        const hasGoogleAutocompleteService =
+          !!placesAutocompleteServiceRef.current && !!window.google?.maps?.places?.PlacesServiceStatus
+
+        if (hasGoogleAutocompleteService) {
+          if (!placesSessionTokenRef.current && window.google?.maps?.places?.AutocompleteSessionToken) {
+            placesSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+          }
+
+          const predictions = await new Promise((resolve) => {
+            placesAutocompleteServiceRef.current.getPlacePredictions(
+              {
+                input: q,
+                componentRestrictions: { country: "in" },
+                sessionToken: placesSessionTokenRef.current || undefined,
+              },
+              (items, status) => {
+                const ok = status === window.google.maps.places.PlacesServiceStatus.OK
+                resolve(ok && Array.isArray(items) ? items : [])
+              }
+            )
+          })
+
+          if (predictions.length > 0) {
+            const mappedGoogle = predictions.slice(0, 6).map((p) => ({
+              id: p.place_id,
+              placeId: p.place_id,
+              display: p.description || "",
+              mainText: p.structured_formatting?.main_text || "",
+              secondaryText: p.structured_formatting?.secondary_text || "",
+              source: "google",
+            }))
+            setLocationSuggestions(mappedGoogle)
+            return
+          }
+        }
+
+        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&q=${encodeURIComponent(q)}&countrycodes=in`
         const res = await fetch(url, { headers: { Accept: "application/json" } })
         const json = await res.json()
-        const mapped = (Array.isArray(json) ? json : []).map(r => ({
-          id: r.place_id,
+        const mappedFallback = (Array.isArray(json) ? json : []).map((r) => ({
+          id: `n-${r.place_id}`,
           display: r.display_name || "",
           lat: Number(r.lat),
           lng: Number(r.lon),
           addr: r.address || {},
+          source: "nominatim",
         }))
-        setLocationSuggestions(mapped)
+        setLocationSuggestions(mappedFallback)
       } catch (e) {
-        debugError("Nominatim search failed:", e)
+        debugError("Location prediction search failed:", e)
+        setLocationSuggestions([])
       } finally {
         setIsSearchingLocation(false)
       }
