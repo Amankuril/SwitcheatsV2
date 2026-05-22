@@ -258,6 +258,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
     const subscriptionHistoryPath = "/admin/food/restaurants/subscription-history"
     const deliveryCashLimitPath = "/admin/food/delivery-cash-limit"
     const cashLimitSettlementPath = "/admin/food/cash-limit-settlement"
+    const offlinePaymentsPath = "/admin/food/orders/offline-payments"
 
     const mapped = adminSidebarMenu.map((section) => {
       if (section.type === "link") {
@@ -292,6 +293,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                 .filter((sub) => {
                   if (!sub?.path) return false
                   if ((sub.path === subscriptionSettingsPath || sub.path === subscriptionHistoryPath) && !restaurantSubscriptionEnabled) return false
+                  if (sub.path === offlinePaymentsPath && !codControlEnabled) return false
                   const permissionSection = resolvePermissionSectionByPath(sub.path)
                   if (!permissionSection && !isSuperAdmin(adminUser)) return false
                   if (permissionSection && !canAdminAccess(adminUser, permissionSection, "view")) return false

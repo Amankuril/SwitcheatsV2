@@ -8,7 +8,46 @@ export default function EmployeeList() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+
+  const validateForm = (payload) => {
+    const nextErrors = {};
+    const name = String(payload?.name || "").trim();
+    const email = String(payload?.email || "").trim().toLowerCase();
+    const phone = String(payload?.phone || "").trim();
+    const password = String(payload?.password || "");
+
+    if (!name) {
+      nextErrors.name = "Name is required.";
+    } else if (name.length < 2) {
+      nextErrors.name = "Name must be at least 2 characters.";
+    } else if (!/^[a-zA-Z ]+$/.test(name)) {
+      nextErrors.name = "Name can contain only letters and spaces.";
+    }
+
+    if (!email) {
+      nextErrors.email = "Email is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      nextErrors.email = "Enter a valid email address.";
+    }
+
+    if (!phone) {
+      nextErrors.phone = "Phone is required.";
+    } else if (!/^\d{10}$/.test(phone)) {
+      nextErrors.phone = "Phone must be exactly 10 digits.";
+    }
+
+    if (!password) {
+      nextErrors.password = "Password is required.";
+    } else if (password.length < 8) {
+      nextErrors.password = "Password must be at least 8 characters.";
+    } else if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password) || !/[^\w\s]/.test(password)) {
+      nextErrors.password = "Use uppercase, lowercase, number, and special character.";
+    }
+
+    return nextErrors;
+  };
 
   const load = async () => {
     setLoading(true);
@@ -34,10 +73,21 @@ export default function EmployeeList() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    const normalizedForm = {
+      name: String(form.name || "").trim(),
+      email: String(form.email || "").trim().toLowerCase(),
+      phone: String(form.phone || "").trim(),
+      password: String(form.password || ""),
+    };
+    const validationErrors = validateForm(normalizedForm);
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
     setSaving(true);
     try {
-      await adminAPI.createSubAdmin(form);
+      await adminAPI.createSubAdmin(normalizedForm);
       setForm({ name: "", email: "", phone: "", password: "" });
+      setErrors({});
       await load();
     } finally {
       setSaving(false);
@@ -63,10 +113,56 @@ export default function EmployeeList() {
       </div>
 
       <form onSubmit={handleCreate} className="bg-white border border-slate-200 rounded-xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-        <input className="border rounded-lg px-3 py-2" placeholder="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-        <input required className="border rounded-lg px-3 py-2" placeholder="Email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
-        <input className="border rounded-lg px-3 py-2" placeholder="Phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-        <input required className="border rounded-lg px-3 py-2" placeholder="Password" type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} />
+        <div>
+          <input
+            className={`border rounded-lg px-3 py-2 w-full ${errors.name ? "border-red-400" : ""}`}
+            placeholder="Name"
+            value={form.name}
+            onChange={(e) => {
+              setForm((p) => ({ ...p, name: e.target.value }));
+              if (errors.name) setErrors((prev) => ({ ...prev, name: "" }));
+            }}
+          />
+          {errors.name ? <p className="mt-1 text-xs text-red-600">{errors.name}</p> : null}
+        </div>
+        <div>
+          <input
+            className={`border rounded-lg px-3 py-2 w-full ${errors.email ? "border-red-400" : ""}`}
+            placeholder="Email"
+            value={form.email}
+            onChange={(e) => {
+              setForm((p) => ({ ...p, email: e.target.value }));
+              if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
+            }}
+          />
+          {errors.email ? <p className="mt-1 text-xs text-red-600">{errors.email}</p> : null}
+        </div>
+        <div>
+          <input
+            className={`border rounded-lg px-3 py-2 w-full ${errors.phone ? "border-red-400" : ""}`}
+            placeholder="Phone"
+            value={form.phone}
+            onChange={(e) => {
+              const onlyDigits = e.target.value.replace(/\D/g, "").slice(0, 10);
+              setForm((p) => ({ ...p, phone: onlyDigits }));
+              if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+            }}
+          />
+          {errors.phone ? <p className="mt-1 text-xs text-red-600">{errors.phone}</p> : null}
+        </div>
+        <div>
+          <input
+            className={`border rounded-lg px-3 py-2 w-full ${errors.password ? "border-red-400" : ""}`}
+            placeholder="Password"
+            type="password"
+            value={form.password}
+            onChange={(e) => {
+              setForm((p) => ({ ...p, password: e.target.value }));
+              if (errors.password) setErrors((prev) => ({ ...prev, password: "" }));
+            }}
+          />
+          {errors.password ? <p className="mt-1 text-xs text-red-600">{errors.password}</p> : null}
+        </div>
         <div className="md:col-span-2">
           <button disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg">
             <Plus className="w-4 h-4" /> Create Sub Admin
