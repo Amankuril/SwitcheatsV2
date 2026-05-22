@@ -718,6 +718,37 @@ export default function OrdersPage({ statusKey = "all" }) {
     }
   }
 
+  const handleCancelOrder = async (order) => {
+    const orderIdToUse = order.id || order._id || order.orderId
+    if (!orderIdToUse) {
+      toast.error("Order ID not found")
+      return
+    }
+
+    const reason = prompt(
+      `Enter cancellation reason for order ${order.orderId}:`,
+      "Order cancelled by admin",
+    )
+
+    if (reason === null) return
+
+    try {
+      setProcessingActionOrderId(order.id || order.orderId)
+      const response = await adminAPI.rejectOrder(orderIdToUse, reason)
+      if (response.data?.success) {
+        toast.success(response.data?.message || `Order ${order.orderId} cancelled`)
+        await fetchOrders({ silent: true, withRingCheck: false })
+      } else {
+        toast.error(response.data?.message || "Failed to cancel order")
+      }
+    } catch (error) {
+      debugError("Error cancelling order:", error)
+      toast.error(error.response?.data?.message || "Failed to cancel order")
+    } finally {
+      setProcessingActionOrderId(null)
+    }
+  }
+
   const handleDeleteOrder = async (order) => {
     const orderIdToUse = order.id || order._id || order.orderId
     if (!orderIdToUse) {
@@ -944,10 +975,18 @@ export default function OrdersPage({ statusKey = "all" }) {
         onDeleteOrder={statusKey === "all" ? handleDeleteOrder : undefined}
         onAcceptOrder={statusKey === "all" || statusKey === "pending" ? handleAcceptOrder : undefined}
         onRejectOrder={statusKey === "all" || statusKey === "pending" ? handleRejectOrder : undefined}
+        onCancelOrder={
+          statusKey === "all" ||
+          statusKey === "pending" ||
+          statusKey === "accepted" ||
+          statusKey === "processing" ||
+          statusKey === "food-on-the-way"
+            ? handleCancelOrder
+            : undefined
+        }
         actionLoadingOrderId={processingActionOrderId}
         deletingOrderId={deletingOrderId}
       />
     </div>
   )
 }
-

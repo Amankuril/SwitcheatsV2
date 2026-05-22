@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, Search, History, Calendar, Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { deliveryAPI } from '@food/api';
+import { deliveryAPI, restaurantAPI } from '@food/api';
 import { toast } from 'sonner';
 import useDeliveryBackNavigation from '../hooks/useDeliveryBackNavigation';
 
@@ -20,6 +20,7 @@ export const HistoryV2 = () => {
   const [showBonusModal, setShowBonusModal] = useState(false);
   const [bonusTransactions, setBonusTransactions] = useState([]);
   const [bonusLoading, setBonusLoading] = useState(false);
+  const [codControlEnabled, setCodControlEnabled] = useState(true);
 
   const tripTypes = ["ALL TRIPS", "Completed", "Cancelled", "Pending"];
 
@@ -82,6 +83,23 @@ export const HistoryV2 = () => {
         fetchBonus();
      }
   }, [showBonusModal]);
+
+  // COD feature control
+  useEffect(() => {
+    const loadFeatureSettings = async () => {
+      try {
+        const res = await restaurantAPI.getFeatureSettingsPublic();
+        const rows = Array.isArray(res?.data?.data) ? res.data.data : [];
+        const codControl = rows.find((row) => row.key === "cod_control");
+        if (codControl) {
+          setCodControlEnabled(Boolean(codControl.isEnabled));
+        }
+      } catch (_error) {
+        // Keep default enabled if API fails.
+      }
+    };
+    loadFeatureSettings();
+  }, []);
 
   const formatDateDisplay = (date) => {
     const today = new Date();
@@ -231,15 +249,24 @@ export const HistoryV2 = () => {
           {/* Performance Summary Banner */}
           <div className="bg-white rounded-[28px] p-6 border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex justify-between items-center relative overflow-hidden">
              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-emerald-300" />
-             <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">COD Collected</p>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">₹{metrics.cod.toFixed(0)}</h3>
-             </div>
-             <div className="w-px h-12 bg-gray-100" />
-             <div className="text-right">
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1.5">Earnings</p>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">₹{metrics.earnings.toFixed(0)}</h3>
-             </div>
+             {codControlEnabled ? (
+               <>
+                 <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">COD Collected</p>
+                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">₹{metrics.cod.toFixed(0)}</h3>
+                 </div>
+                 <div className="w-px h-12 bg-gray-100" />
+                 <div className="text-right">
+                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1.5">Earnings</p>
+                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">₹{metrics.earnings.toFixed(0)}</h3>
+                 </div>
+               </>
+             ) : (
+               <div className="w-full text-center">
+                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1.5">Earnings</p>
+                  <h3 className="text-2xl font-black text-gray-900 tracking-tight">₹{metrics.earnings.toFixed(0)}</h3>
+               </div>
+             )}
           </div>
 
           {/* Trip List */}

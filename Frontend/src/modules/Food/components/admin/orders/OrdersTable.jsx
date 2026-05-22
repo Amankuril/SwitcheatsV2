@@ -36,6 +36,7 @@ export default function OrdersTable({
   onDeleteOrder,
   onAcceptOrder,
   onRejectOrder,
+  onCancelOrder,
   actionLoadingOrderId,
   deletingOrderId,
 }) {
@@ -57,6 +58,16 @@ export default function OrdersTable({
   const formatRestaurantName = (name) => {
     if (name === "Cafe Monarch") return "Café Monarch"
     return name
+  }
+
+  const canShowCancelAction = (order) => {
+    const currentStatus = String(order?.orderStatus || "").trim().toLowerCase()
+    return [
+      "pending",
+      "accepted",
+      "processing",
+      "food on the way",
+    ].includes(currentStatus)
   }
 
   if (orders.length === 0) {
@@ -167,6 +178,11 @@ export default function OrdersTable({
                     <span>Order Status</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400 cursor-pointer hover:text-slate-600" />
                   </div>
+                </th>
+              )}
+              {visibleColumns.actions && (
+                <th className="px-6 py-4 text-center text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                  &nbsp;
                 </th>
               )}
               {visibleColumns.actions && (
@@ -337,6 +353,32 @@ export default function OrdersTable({
                         </div>
                       )}
                     </div>
+                  </td>
+                )}
+                {visibleColumns.actions && (
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {onCancelOrder ? (
+                      <button
+                        onClick={() => canShowCancelAction(order) && onCancelOrder(order)}
+                        disabled={
+                          actionLoadingOrderId === (order.id || order.orderId) ||
+                          !canShowCancelAction(order)
+                        }
+                        className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          canShowCancelAction(order)
+                            ? "bg-red-600 text-white hover:bg-red-700"
+                            : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        } disabled:opacity-60 disabled:cursor-not-allowed`}
+                        title="Cancel Order"
+                      >
+                        {actionLoadingOrderId === (order.id || order.orderId) ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <X className="w-3.5 h-3.5" />
+                        )}
+                        <span>Cancel</span>
+                      </button>
+                    ) : null}
                   </td>
                 )}
                 {visibleColumns.actions && (
