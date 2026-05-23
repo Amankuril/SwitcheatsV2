@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import App from './app/App.jsx'
 import { isModuleAuthenticated } from './modules/Food/utils/auth.js'
 import './shared/styles/global.css'
+import { setupSmoothScroll } from './shared/utils/smoothScroll.js'
 
 const NATIVE_LAST_ROUTE_KEY = 'native_last_route'
 
@@ -73,6 +74,8 @@ function bootstrapNativeHashRoute() {
 }
 
 bootstrapNativeHashRoute()
+const cleanupSmoothScroll = setupSmoothScroll({ disabled: isNativeLikeShell() })
+window.addEventListener('beforeunload', cleanupSmoothScroll)
 
 // ─── Suppress known non-critical errors ──────────────────────────────────────
 
