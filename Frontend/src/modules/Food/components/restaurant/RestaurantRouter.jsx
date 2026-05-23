@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom"
 import ProtectedRoute from "@food/components/ProtectedRoute"
 import AuthRedirect from "@food/components/AuthRedirect"
 import Loader from "@food/components/Loader"
+import { applyModuleBranding, getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings"
 
 // Lazy Loading Components
 const AllOrdersPage = lazy(() => import("@food/pages/restaurant/AllOrdersPage"))
@@ -66,6 +67,23 @@ export default function RestaurantRouter() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const applyBranding = async () => {
+      const cached = getCachedSettings()
+      if (cached) {
+        applyModuleBranding("restaurant", cached)
+      } else {
+        const settings = await loadBusinessSettings()
+        applyModuleBranding("restaurant", settings)
+      }
+    }
+
+    applyBranding()
+    const handleSettingsUpdate = () => applyBranding()
+    window.addEventListener("businessSettingsUpdated", handleSettingsUpdate)
+    return () => window.removeEventListener("businessSettingsUpdated", handleSettingsUpdate)
+  }, [])
 
   return (
     <Suspense fallback={<Loader />}>

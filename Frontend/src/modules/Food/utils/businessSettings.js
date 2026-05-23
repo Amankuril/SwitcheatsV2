@@ -93,6 +93,30 @@ export const updateFavicon = (url) => {
   document.head.appendChild(link);
 };
 
+const resolveLogoByModule = (settings, moduleName = "user") => {
+  if (!settings || typeof settings !== "object") return "";
+  const moduleKey = String(moduleName || "").trim().toLowerCase();
+  if (moduleKey === "restaurant") {
+    return settings.restaurantLogo?.url || settings.logo?.url || "";
+  }
+  if (moduleKey === "delivery") {
+    return settings.deliveryLogo?.url || settings.logo?.url || "";
+  }
+  return settings.logo?.url || "";
+};
+
+const resolveFaviconByModule = (settings, moduleName = "user") => {
+  if (!settings || typeof settings !== "object") return "";
+  const moduleKey = String(moduleName || "").trim().toLowerCase();
+  if (moduleKey === "restaurant") {
+    return settings.restaurantFavicon?.url || settings.favicon?.url || "";
+  }
+  if (moduleKey === "delivery") {
+    return settings.deliveryFavicon?.url || settings.favicon?.url || "";
+  }
+  return settings.favicon?.url || "";
+};
+
 /**
  * Update page title
  */
@@ -115,6 +139,21 @@ export const setCachedSettings = (settings) => {
     updateFavicon(settings.favicon?.url);
     updateTitle(settings.companyName);
   }
+};
+
+export const getModuleLogoUrl = (moduleName = "user") => {
+  return resolveLogoByModule(cachedSettings, moduleName);
+};
+
+export const getModuleFaviconUrl = (moduleName = "user") => {
+  return resolveFaviconByModule(cachedSettings, moduleName);
+};
+
+export const applyModuleBranding = (moduleName = "user", settingsOverride = null) => {
+  const settings = settingsOverride || cachedSettings;
+  if (!settings) return;
+  updateFavicon(resolveFaviconByModule(settings, moduleName));
+  updateTitle(settings.companyName);
 };
 
 /**

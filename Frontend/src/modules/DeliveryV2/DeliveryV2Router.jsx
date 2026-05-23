@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthRedirect from "@food/components/AuthRedirect"
 import Loader from "@food/components/Loader";
+import { applyModuleBranding, getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings";
 
 // Auth Pages (Lazy loaded)
 const Welcome = lazy(() => import("./pages/auth/Welcome"))
@@ -42,6 +43,23 @@ const DeliveryV2Router = () => {
         document.documentElement.classList.add('dark');
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const applyBranding = async () => {
+      const cached = getCachedSettings();
+      if (cached) {
+        applyModuleBranding("delivery", cached);
+      } else {
+        const settings = await loadBusinessSettings();
+        applyModuleBranding("delivery", settings);
+      }
+    };
+
+    applyBranding();
+    const handleSettingsUpdate = () => applyBranding();
+    window.addEventListener("businessSettingsUpdated", handleSettingsUpdate);
+    return () => window.removeEventListener("businessSettingsUpdated", handleSettingsUpdate);
   }, []);
 
   return (

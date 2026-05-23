@@ -77,6 +77,34 @@ export async function updateBusinessSettings(req, res, next) {
                     publicId: faviconResult.public_id
                 };
             }
+            if (req.files.restaurantLogo) {
+                const restaurantLogoResult = await uploadImageBufferDetailed(req.files.restaurantLogo[0].buffer, 'business/restaurant/logos');
+                settings.restaurantLogo = {
+                    url: restaurantLogoResult.secure_url,
+                    publicId: restaurantLogoResult.public_id
+                };
+            }
+            if (req.files.restaurantFavicon) {
+                const restaurantFaviconResult = await uploadImageBufferDetailed(req.files.restaurantFavicon[0].buffer, 'business/restaurant/favicons');
+                settings.restaurantFavicon = {
+                    url: restaurantFaviconResult.secure_url,
+                    publicId: restaurantFaviconResult.public_id
+                };
+            }
+            if (req.files.deliveryLogo) {
+                const deliveryLogoResult = await uploadImageBufferDetailed(req.files.deliveryLogo[0].buffer, 'business/delivery/logos');
+                settings.deliveryLogo = {
+                    url: deliveryLogoResult.secure_url,
+                    publicId: deliveryLogoResult.public_id
+                };
+            }
+            if (req.files.deliveryFavicon) {
+                const deliveryFaviconResult = await uploadImageBufferDetailed(req.files.deliveryFavicon[0].buffer, 'business/delivery/favicons');
+                settings.deliveryFavicon = {
+                    url: deliveryFaviconResult.secure_url,
+                    publicId: deliveryFaviconResult.public_id
+                };
+            }
         }
 
         await settings.save();

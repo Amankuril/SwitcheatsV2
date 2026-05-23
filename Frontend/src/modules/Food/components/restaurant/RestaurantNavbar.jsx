@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Search, ChevronRight, MapPin, X, Bell } from "lucide-react"
 import { restaurantAPI } from "@food/api"
-import { getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings"
+import { getCachedSettings, getModuleLogoUrl, loadBusinessSettings } from "@food/utils/businessSettings"
 import useNotificationInbox from "@food/hooks/useNotificationInbox"
 
 const debugLog = (...args) => {}
@@ -41,12 +41,14 @@ export default function RestaurantNavbar({
       const cached = getCachedSettings()
       if (cached) {
         if (cached.companyName) setCompanyName(cached.companyName)
-        if (cached.logo?.url) setLogoUrl(cached.logo.url)
+        const resolvedLogo = getModuleLogoUrl("restaurant")
+        if (resolvedLogo) setLogoUrl(resolvedLogo)
       } else {
         const settings = await loadBusinessSettings()
         if (settings) {
           if (settings.companyName) setCompanyName(settings.companyName)
-          if (settings.logo?.url) setLogoUrl(settings.logo.url)
+          const resolvedLogo = getModuleLogoUrl("restaurant")
+          if (resolvedLogo) setLogoUrl(resolvedLogo)
         }
       }
     }
@@ -56,7 +58,8 @@ export default function RestaurantNavbar({
       const cached = getCachedSettings()
       if (cached) {
         if (cached.companyName) setCompanyName(cached.companyName)
-        if (cached.logo?.url) setLogoUrl(cached.logo.url)
+        const resolvedLogo = getModuleLogoUrl("restaurant")
+        if (resolvedLogo) setLogoUrl(resolvedLogo)
       }
     }
     window.addEventListener('businessSettingsUpdated', handleSettingsUpdate)
@@ -401,4 +404,3 @@ export default function RestaurantNavbar({
     </div>
   )
 }
-

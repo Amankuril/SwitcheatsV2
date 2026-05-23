@@ -6,7 +6,7 @@ import { HelpCircle, ArrowRight, Phone, Ambulance, AlertTriangle, Shield, Shield
 import { toast } from "sonner";
 import { deliveryAPI } from "@food/api";
 import { useCompanyName } from "@food/hooks/useCompanyName";
-import { getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings";
+import { getCachedSettings, getModuleLogoUrl, loadBusinessSettings } from "@food/utils/businessSettings";
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -67,22 +67,22 @@ export default function FeedNavbar({ className = "" }) {
   useEffect(() => {
     const loadLogo = async () => {
       const cached = getCachedSettings()
-      if (cached?.logo?.url) {
-        setLogoUrl(cached.logo.url)
+      const cachedLogo = getModuleLogoUrl("delivery")
+      if (cachedLogo) {
+        setLogoUrl(cachedLogo)
       } else {
-        const settings = await loadBusinessSettings()
-        if (settings?.logo?.url) {
-          setLogoUrl(settings.logo.url)
-        }
+        await loadBusinessSettings()
+        const resolvedLogo = getModuleLogoUrl("delivery")
+        if (resolvedLogo) setLogoUrl(resolvedLogo)
       }
     }
     loadLogo()
 
     const handleSettingsUpdate = () => {
       const cached = getCachedSettings()
-      if (cached?.logo?.url) {
-        setLogoUrl(cached.logo.url)
-      }
+      if (!cached) return
+      const resolvedLogo = getModuleLogoUrl("delivery")
+      if (resolvedLogo) setLogoUrl(resolvedLogo)
     }
     window.addEventListener('businessSettingsUpdated', handleSettingsUpdate)
     return () => window.removeEventListener('businessSettingsUpdated', handleSettingsUpdate)
@@ -582,4 +582,3 @@ export default function FeedNavbar({ className = "" }) {
     </>
   );
 }
-
