@@ -223,6 +223,7 @@ export const adminSidebarMenu = [
     label: "SUPER POWERS",
     items: [
       { type: "link", label: "Feature Settings", path: "/admin/food/feature-settings", icon: "Settings" },
+      { type: "link", label: "Power Scanning", path: "/admin/food/power-scanning", icon: "Zap" },
     ],
   },
   {

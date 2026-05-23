@@ -2,6 +2,46 @@ import { FoodBusinessSettings } from '../models/businessSettings.model.js';
 import { sendResponse } from '../../../../utils/response.js';
 import { uploadImageBufferDetailed } from '../../../../services/cloudinary.service.js';
 
+const POWER_SCANNING_DEFAULT = {
+    user: { themeColor: '#FA0272', fontFamily: 'Poppins' },
+    restaurant: { themeColor: '#2563EB', fontFamily: 'Poppins' },
+    delivery: { themeColor: '#00B761', fontFamily: 'Poppins' }
+};
+
+const POWER_SCANNING_FONT_OPTIONS = [
+    'Poppins', 'Outfit', 'Inter', 'Roboto', 'Montserrat',
+    'Nunito', 'Open Sans', 'Lato', 'Manrope', 'Raleway',
+    'Merriweather', 'Playfair Display', 'Ubuntu', 'Rubik', 'Work Sans'
+];
+
+const normalizeHexColor = (value, fallback) => {
+    const raw = String(value || '').trim();
+    if (!raw) return fallback;
+    const normalized = raw.startsWith('#') ? raw : `#${raw}`;
+    return /^#[0-9A-Fa-f]{6}$/.test(normalized) ? normalized.toUpperCase() : fallback;
+};
+
+const normalizeFontFamily = (value, fallback) => {
+    const raw = String(value || '').trim();
+    if (!raw) return fallback;
+    return POWER_SCANNING_FONT_OPTIONS.includes(raw) ? raw : fallback;
+};
+
+const buildPowerScanningPayload = (payload = {}, existing = POWER_SCANNING_DEFAULT) => ({
+    user: {
+        themeColor: normalizeHexColor(payload?.user?.themeColor, existing?.user?.themeColor || POWER_SCANNING_DEFAULT.user.themeColor),
+        fontFamily: normalizeFontFamily(payload?.user?.fontFamily, existing?.user?.fontFamily || POWER_SCANNING_DEFAULT.user.fontFamily)
+    },
+    restaurant: {
+        themeColor: normalizeHexColor(payload?.restaurant?.themeColor, existing?.restaurant?.themeColor || POWER_SCANNING_DEFAULT.restaurant.themeColor),
+        fontFamily: normalizeFontFamily(payload?.restaurant?.fontFamily, existing?.restaurant?.fontFamily || POWER_SCANNING_DEFAULT.restaurant.fontFamily)
+    },
+    delivery: {
+        themeColor: normalizeHexColor(payload?.delivery?.themeColor, existing?.delivery?.themeColor || POWER_SCANNING_DEFAULT.delivery.themeColor),
+        fontFamily: normalizeFontFamily(payload?.delivery?.fontFamily, existing?.delivery?.fontFamily || POWER_SCANNING_DEFAULT.delivery.fontFamily)
+    }
+});
+
 export async function getBusinessSettings(req, res, next) {
     try {
         let settings = await FoodBusinessSettings.findOne().lean();
@@ -13,6 +53,42 @@ export async function getBusinessSettings(req, res, next) {
             });
         }
         return sendResponse(res, 200, 'Business settings fetched successfully', settings);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function getPowerScanningSettings(req, res, next) {
+    try {
+        let settings = await FoodBusinessSettings.findOne().lean();
+        if (!settings) {
+            settings = await FoodBusinessSettings.create({
+                companyName: 'Switcheats',
+                email: 'admin@switcheats.com'
+            });
+        }
+        const payload = buildPowerScanningPayload(settings?.powerScanning || {}, settings?.powerScanning || POWER_SCANNING_DEFAULT);
+        return sendResponse(res, 200, 'Power scanning settings fetched successfully', payload);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function updatePowerScanningSettings(req, res, next) {
+    try {
+        const payload = req.body || {};
+        let settings = await FoodBusinessSettings.findOne();
+        if (!settings) {
+            settings = new FoodBusinessSettings({
+                companyName: 'Switcheats',
+                email: 'admin@switcheats.com'
+            });
+        }
+
+        settings.powerScanning = buildPowerScanningPayload(payload, settings.powerScanning || POWER_SCANNING_DEFAULT);
+        await settings.save();
+
+        return sendResponse(res, 200, 'Power scanning settings updated successfully', settings.powerScanning);
     } catch (error) {
         next(error);
     }

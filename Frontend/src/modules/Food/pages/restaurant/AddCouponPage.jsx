@@ -315,7 +315,11 @@ export default function AddCouponPage(props) {
         <button
           onClick={handleSubmit}
           disabled={isSubmitting}
-          className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-lg transition-colors text-sm"
+          className="w-full flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-lg transition-colors text-sm"
+          style={{
+            background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.9), var(--module-theme-color,#2563EB))",
+            boxShadow: "0 10px 22px rgba(var(--module-theme-rgb,37,99,235),0.28)",
+          }}
         >
           {isSubmitting ? (
             <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>

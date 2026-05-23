@@ -454,7 +454,10 @@ export default function AddToCartAnimation({
                 debugLog('View cart clicked, navigating to:', linkTo);
                 navigate(linkTo);
               }}
-              className={`bg-gradient-to-r from-[#D94F0C] via-[#EB590E] to-[#D94F0C] text-white rounded-full shadow-xl shadow-orange-900/30 px-3 py-2 flex items-center gap-2 hover:from-[#D94F0C] hover:via-[#EB590E] hover:to-[#D94F0C] transition-all duration-300 pointer-events-auto border border-orange-800/30 backdrop-blur-sm cursor-pointer ${pillClassName}`}
+              className={`text-white rounded-full shadow-[0_8px_18px_rgba(0,0,0,0.16)] px-3.5 py-2 flex items-center gap-2.5 transition-all duration-300 pointer-events-auto border border-white/20 cursor-pointer hover:shadow-[0_10px_22px_rgba(0,0,0,0.2)] ${pillClassName}`}
+              style={{
+                background: 'linear-gradient(135deg, rgba(var(--module-theme-rgb,250,2,114),0.94), rgba(var(--module-theme-rgb,250,2,114),0.78))',
+              }}
             >
               {/* Left: Product thumbnails */}
               <div className="flex items-center -space-x-4">
@@ -469,7 +472,7 @@ export default function AddToCartAnimation({
                       stiffness: 500,
                       damping: 25,
                     }}
-                    className="w-7 h-7 rounded-full border-2 border-white/90 overflow-hidden bg-white flex-shrink-0 shadow-md"
+                className="w-7 h-7 rounded-full border border-white/70 overflow-hidden bg-white/95 flex-shrink-0 shadow-sm"
                   >
                     {item?.product?.imageUrl ? (
                       <img
@@ -488,20 +491,20 @@ export default function AddToCartAnimation({
 
               {/* Middle: Text */}
               <motion.div
-                className="flex flex-col"
+                className="flex flex-col min-w-[64px]"
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1, duration: 0.3 }}
               >
-                <span className="text-xs font-bold leading-tight drop-shadow-sm">View cart</span>
-                <span className="text-[10px] opacity-95 leading-tight font-medium">
+                <span className="text-xs font-semibold leading-tight tracking-[0.01em]">View cart</span>
+                <span className="text-[10px] opacity-90 leading-tight font-medium">
                   {itemCount} {itemCount === 1 ? 'item' : 'items'}
                 </span>
               </motion.div>
 
               {/* Right: Arrow icon */}
               <motion.div
-                className="ml-auto bg-white/25 rounded-full p-1 backdrop-blur-sm"
+                className="ml-auto bg-white/20 rounded-full p-1.5"
                 initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.15, duration: 0.3 }}
@@ -531,4 +534,3 @@ export default function AddToCartAnimation({
     </>
   );
 }
-

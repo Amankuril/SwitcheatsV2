@@ -33,14 +33,15 @@ export default function BottomNavigation() {
   }
 
   const iconClass = "w-6 h-6"
+  const activeColor = "var(--module-theme-color, #00B761)"
 
   const TabIcon = (active, Outline, Solid) => {
     const Icon = active ? Solid : Outline
-    return <Icon className={iconClass} />
+    return <Icon className={iconClass} style={active ? { color: activeColor } : undefined} />
   }
 
   const TabLabel = (active, label) => (
-    <span className={`text-[10px] font-medium ${active ? "text-black" : "text-gray-500"}`}>
+    <span className={`text-[10px] font-medium ${active ? "" : "text-gray-500"}`} style={active ? { color: activeColor } : undefined}>
       {label}
     </span>
   )
@@ -124,17 +125,18 @@ export default function BottomNavigation() {
               src={profileImage}
               alt="Profile"
               className={`w-7 h-7 rounded-full border-2 object-cover ${
-                isActive("/delivery/profile") ? "border-black" : "border-gray-300"
+                isActive("/delivery/profile") ? "" : "border-gray-300"
               }`}
+              style={isActive("/delivery/profile") ? { borderColor: activeColor } : undefined}
               onError={() => {
                 setImageError(true)
               }}
             />
           ) : (
             <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center bg-gray-200 ${
-              isActive("/delivery/profile") ? "border-black" : "border-gray-300"
-            }`}>
-              <User className="w-4 h-4 text-gray-500" />
+              isActive("/delivery/profile") ? "" : "border-gray-300"
+            }`} style={isActive("/delivery/profile") ? { borderColor: activeColor } : undefined}>
+              <User className="w-4 h-4 text-gray-500" style={isActive("/delivery/profile") ? { color: activeColor } : undefined} />
             </div>
           )}
           {TabLabel(isActive("/delivery/profile"), "Profile")}
@@ -143,4 +145,3 @@ export default function BottomNavigation() {
     </div>
   )
 }
-

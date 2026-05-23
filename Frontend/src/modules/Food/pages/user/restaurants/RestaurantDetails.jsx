@@ -2100,7 +2100,13 @@ function RestaurantDetailsContent() {
               <Info className="h-5 w-5 text-gray-400" />
             </div>
             <div className="flex flex-col items-end">
-              <Badge className="bg-green-600 text-white mb-1 flex items-center gap-1 px-2 py-1">
+              <Badge
+                className="text-white mb-1 flex items-center gap-1 px-2 py-1 border-0"
+                style={{
+                  backgroundColor: "var(--module-theme-color, #FA0272)",
+                  boxShadow: "0 4px 10px rgba(var(--module-theme-rgb, 250,2,114), 0.28)",
+                }}
+              >
                 <Star className="h-3 w-3 fill-white" />
                 {restaurant?.rating || 4.5}
               </Badge>
@@ -2130,7 +2136,13 @@ function RestaurantDetailsContent() {
               <Clock className="h-4 w-4" />
               <span>{restaurant?.deliveryTime || "25-30 mins"}</span>
             </div>
-            <Badge className={`${isRestaurantOffline ? "bg-rose-600" : "bg-emerald-600"} text-white`}>
+            <Badge
+              className={`${isRestaurantOffline ? "bg-rose-600" : ""} text-white border-0`}
+              style={!isRestaurantOffline ? {
+                backgroundColor: "var(--module-theme-color, #FA0272)",
+                boxShadow: "0 4px 10px rgba(var(--module-theme-rgb, 250,2,114), 0.25)",
+              } : undefined}
+            >
               {isRestaurantOffline ? "Offline" : "Open now"}
             </Badge>
           </div>
@@ -2184,8 +2196,13 @@ function RestaurantDetailsContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`flex items-center gap-1.5 whitespace-nowrap border-gray-300 bg-white rounded-full ${filters.vegNonVeg === "veg" ? "border-green-600 bg-green-50 text-green-700 font-bold" : ""
+                  className={`flex items-center gap-1.5 whitespace-nowrap border-gray-300 bg-white rounded-full ${filters.vegNonVeg === "veg" ? "font-bold" : ""
                     }`}
+                  style={filters.vegNonVeg === "veg" ? {
+                    borderColor: "#16a34a",
+                    backgroundColor: "#f0fdf4",
+                    color: "#15803d",
+                  } : undefined}
                   onClick={() =>
                     setFilters((prev) => ({
                       ...prev,
@@ -2193,7 +2210,7 @@ function RestaurantDetailsContent() {
                     }))
                   }
                 >
-                  <div className="h-3 w-3 rounded-full bg-green-500" />
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: "#16a34a" }} />
                   Veg
                   {filters.vegNonVeg === "veg" && (
                     <X className="h-3 w-3 text-gray-600" />
@@ -2205,6 +2222,11 @@ function RestaurantDetailsContent() {
                     size="sm"
                     className={`flex items-center gap-1.5 whitespace-nowrap border-gray-300 bg-white rounded-full ${filters.vegNonVeg === "non-veg" ? "border-red-600 bg-red-50" : ""
                       }`}
+                    style={filters.vegNonVeg === "non-veg" ? {
+                      borderColor: "#dc2626",
+                      backgroundColor: "#fef2f2",
+                      color: "#b91c1c",
+                    } : undefined}
                     onClick={() =>
                       setFilters((prev) => ({
                         ...prev,
@@ -2212,7 +2234,7 @@ function RestaurantDetailsContent() {
                       }))
                     }
                   >
-                    <div className="h-3 w-3 rounded-full bg-red-600" />
+                    <div className="h-3 w-3 rounded-full bg-red-600" style={{ backgroundColor: "#dc2626" }} />
                     Non-veg
                     {filters.vegNonVeg === "non-veg" && (
                       <X className="h-3 w-3 text-gray-600" />
@@ -2419,12 +2441,12 @@ function RestaurantDetailsContent() {
                               {/* Veg Icon & Spicy Indicator */}
                               <div className="flex items-center gap-2 mb-1">
                                 {isVeg ? (
-                                  <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm flex-shrink-0">
-                                    <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                                  <div className="w-4 h-4 border-2 flex items-center justify-center rounded-sm flex-shrink-0" style={{ borderColor: "#16a34a" }}>
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#16a34a" }}></div>
                                   </div>
                                 ) : (
-                                  <div className="w-4 h-4 border-2 border-red-600 flex items-center justify-center rounded-sm flex-shrink-0">
-                                    <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                                  <div className="w-4 h-4 border-2 border-red-600 flex items-center justify-center rounded-sm flex-shrink-0" style={{ borderColor: "#dc2626" }}>
+                                    <div className="w-2 h-2 bg-red-600 rounded-full" style={{ backgroundColor: "#dc2626" }}></div>
                                   </div>
                                 )}
                                 {item.isSpicy && <span className="text-xs font-semibold text-red-500">Spicy</span>}
@@ -2650,12 +2672,12 @@ function RestaurantDetailsContent() {
                                         {/* Veg Icon & Spicy Indicator */}
                                         <div className="flex items-center gap-2 mb-1">
                                           {isVeg ? (
-                                            <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm flex-shrink-0">
-                                              <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                                            <div className="w-4 h-4 border-2 flex items-center justify-center rounded-sm flex-shrink-0" style={{ borderColor: "#16a34a" }}>
+                                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#16a34a" }}></div>
                                             </div>
                                           ) : (
-                                            <div className="w-4 h-4 border-2 border-red-600 flex items-center justify-center rounded-sm flex-shrink-0">
-                                              <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                                            <div className="w-4 h-4 border-2 border-red-600 flex items-center justify-center rounded-sm flex-shrink-0" style={{ borderColor: "#dc2626" }}>
+                                              <div className="w-2 h-2 bg-red-600 rounded-full" style={{ backgroundColor: "#dc2626" }}></div>
                                             </div>
                                           )}
                                           {item.isSpicy && <span className="text-xs font-semibold text-red-500">Spicy</span>}
@@ -3029,11 +3051,16 @@ function RestaurantDetailsContent() {
                             }))
                           }
                           className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all flex-1 ${filters.vegNonVeg === "veg"
-                            ? "border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                            ? ""
                             : "border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
                             }`}
+                          style={filters.vegNonVeg === "veg" ? {
+                            borderColor: "#16a34a",
+                            backgroundColor: "#f0fdf4",
+                            color: "#15803d",
+                          } : undefined}
                         >
-                          <div className="h-4 w-4 rounded-full bg-green-600 dark:bg-green-500" />
+                          <div className="h-4 w-4 rounded-full" style={{ backgroundColor: "#16a34a" }} />
                           <span className="font-medium">Veg</span>
                         </button>
                         {!vegMode && (
@@ -3048,8 +3075,13 @@ function RestaurantDetailsContent() {
                               ? "border-red-600 dark:border-red-500 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                               : "border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
                               }`}
+                            style={filters.vegNonVeg === "non-veg" ? {
+                              borderColor: "#dc2626",
+                              backgroundColor: "#fef2f2",
+                              color: "#b91c1c",
+                            } : undefined}
                           >
-                            <div className="h-4 w-4 rounded-full bg-red-600 dark:bg-red-500" />
+                            <div className="h-4 w-4 rounded-full bg-red-600 dark:bg-red-500" style={{ backgroundColor: "#dc2626" }} />
                             <span className="font-medium">Non-veg</span>
                           </button>
                         )}

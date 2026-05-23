@@ -198,9 +198,13 @@ export const PocketBalanceV2 = () => {
                      disabled={!walletState.canWithdraw || withdrawSubmitting}
                      className={`w-full py-4 rounded-[20px] font-black text-sm tracking-widest uppercase transition-all active:scale-[0.98] ${
                         walletState.canWithdraw 
-                        ? 'bg-gray-900 text-white shadow-[0_8px_20px_rgba(0,0,0,0.12)] hover:bg-black' 
+                        ? 'text-white' 
                         : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
                      } flex items-center justify-center gap-2`}
+                     style={walletState.canWithdraw ? {
+                       background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 0,183,97), 0.88), var(--module-theme-color, #00B761))",
+                       boxShadow: "0 8px 20px rgba(var(--module-theme-rgb, 0,183,97), 0.30)",
+                     } : undefined}
                    >
                       {withdrawSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                       {withdrawSubmitting ? 'PROCESSING...' : 'WITHDRAW'}

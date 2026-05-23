@@ -814,19 +814,19 @@ export default function HubFinance() {
               onClick={() => navigate("/restaurant/withdrawal-history")}
               title="Withdrawal History"
             >
-              <Wallet className="w-5 h-5 text-gray-700" />
+              <Wallet className="w-5 h-5" style={{ color: "var(--module-theme-color, #2563EB)" }} />
             </button>
             <button
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               onClick={() => navigate("/restaurant/notifications")}
             >
-              <Bell className="w-5 h-5 text-gray-700" />
+              <Bell className="w-5 h-5" style={{ color: "var(--module-theme-color, #2563EB)" }} />
             </button>
             <button
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               onClick={() => navigate("/restaurant/explore")}
             >
-              <Menu className="w-5 h-5 text-gray-700" />
+              <Menu className="w-5 h-5" style={{ color: "var(--module-theme-color, #2563EB)" }} />
             </button>
           </div>
         </div>
@@ -839,9 +839,14 @@ export default function HubFinance() {
             onClick={() => setActiveTab("payouts")}
             className={`flex-1 py-3 px-4 rounded-full font-medium text-sm transition-colors ${
               activeTab === "payouts"
-                ? "bg-black text-white"
+                ? ""
                 : "bg-white text-gray-600 border border-gray-300"
             }`}
+            style={activeTab === "payouts" ? {
+              backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.16)",
+              color: "var(--module-theme-color, #2563EB)",
+              border: "1px solid rgba(var(--module-theme-rgb, 37,99,235), 0.35)",
+            } : undefined}
           >
             Payouts
           </button>
@@ -849,9 +854,14 @@ export default function HubFinance() {
             onClick={() => setActiveTab("invoices")}
             className={`flex-1 py-3 px-4 rounded-full font-medium text-sm transition-colors ${
               activeTab === "invoices"
-                ? "bg-black text-white"
+                ? ""
                 : "bg-white text-gray-600 border border-gray-300"
             }`}
+            style={activeTab === "invoices" ? {
+              backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.16)",
+              color: "var(--module-theme-color, #2563EB)",
+              border: "1px solid rgba(var(--module-theme-rgb, 37,99,235), 0.35)",
+            } : undefined}
           >
             Invoices & Taxes
           </button>
@@ -910,9 +920,13 @@ export default function HubFinance() {
                       disabled={!(financeData?.currentCycle?.estimatedPayout > 0)}
                       className={`w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 mt-4 transition-colors ${
                         financeData?.currentCycle?.estimatedPayout > 0
-                          ? "bg-black text-white hover:bg-gray-800"
+                          ? "text-white"
                           : "bg-gray-200 text-gray-500 cursor-not-allowed"
                       }`}
+                      style={financeData?.currentCycle?.estimatedPayout > 0 ? {
+                        background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 37,99,235), 0.9), var(--module-theme-color, #2563EB))",
+                        boxShadow: "0 10px 20px rgba(var(--module-theme-rgb, 37,99,235), 0.28)",
+                      } : undefined}
                     >
                       <Wallet className="h-5 w-5" />
                       Withdraw
@@ -965,7 +979,8 @@ export default function HubFinance() {
                       <button
                         type="button"
                         onClick={() => navigate("/restaurant/withdrawal-history")}
-                        className="w-full text-sm font-medium text-black hover:underline pt-1"
+                        className="w-full text-sm font-medium hover:underline pt-1"
+                        style={{ color: "var(--module-theme-color, #2563EB)" }}
                       >
                         View all requests
                       </button>
@@ -1134,7 +1149,11 @@ export default function HubFinance() {
                   <div className="relative" ref={downloadMenuRef}>
                     <button 
                       onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                      className="bg-black text-white rounded-lg px-4 py-3 flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+                      className="text-white rounded-lg px-4 py-3 flex items-center justify-center gap-2 transition-colors"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 37,99,235), 0.9), var(--module-theme-color, #2563EB))",
+                        boxShadow: "0 10px 22px rgba(var(--module-theme-rgb, 37,99,235), 0.28)",
+                      }}
                     >
                       <Download className="w-4 h-4" />
                       <span className="text-sm font-medium">Get report</span>
@@ -1395,8 +1414,9 @@ export default function HubFinance() {
                       value={withdrawalAmount}
                       onChange={(e) => setWithdrawalAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none"
-                    />
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none"
+                    style={{ "--tw-ring-color": "rgba(var(--module-theme-rgb, 37,99,235), 0.25)" }}
+                  />
                     {withdrawalAmount && parseFloat(withdrawalAmount) > (financeData?.currentCycle?.netAvailable ?? (financeData?.currentCycle?.estimatedPayout || 0)) && (
                       <p className="text-sm text-red-600 mt-1">Amount exceeds your withdrawable limit</p>
                     )}
@@ -1461,7 +1481,10 @@ export default function HubFinance() {
                       }
                     }}
                     disabled={submittingWithdrawal || !withdrawalAmount || parseFloat(withdrawalAmount) <= 0 || parseFloat(withdrawalAmount) > (financeData?.currentCycle?.netAvailable ?? (financeData?.currentCycle?.estimatedPayout || 0))}
-                    className="flex-1 px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg"
+                    className="flex-1 px-4 py-3 text-white rounded-lg font-medium transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 37,99,235), 0.9), var(--module-theme-color, #2563EB))",
+                    }}
                   >
                     {submittingWithdrawal ? 'Submitting...' : 'Submit Request'}
                   </button>

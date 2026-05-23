@@ -1958,7 +1958,15 @@ export default function Cart() {
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-1">Your cart is empty</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 text-center">Add items from a restaurant to start a new order</p>
           <Link to="/user">
-            <Button className="bg-primary-orange hover:opacity-90 text-white">Browse Restaurants</Button>
+            <Button
+              className="text-white border-0"
+              style={{
+                background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,250,2,114),0.9), var(--module-theme-color,#FA0272))",
+                boxShadow: "0 8px 18px rgba(var(--module-theme-rgb,250,2,114),0.25)",
+              }}
+            >
+              Browse Restaurants
+            </Button>
           </Link>
         </div>
       </AnimatedPage>
@@ -2023,8 +2031,14 @@ export default function Cart() {
                   {cart.map((item) => (
                     <div key={item.id} className="flex items-start gap-3 md:gap-4">
                       {/* Veg/Non-veg indicator */}
-                      <div className={`w-4 h-4 md:w-5 md:h-5 border-2 ${item.foodType === 'Veg' || item.isVeg === true ? 'border-green-600' : 'border-red-600'} flex items-center justify-center mt-1 flex-shrink-0`}>
-                        <div className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full ${item.foodType === 'Veg' || item.isVeg === true ? 'bg-green-600' : 'bg-red-600'}`} />
+                      <div
+                        className="w-4 h-4 md:w-5 md:h-5 border-2 flex items-center justify-center mt-1 flex-shrink-0"
+                        style={{ borderColor: item.foodType === 'Veg' || item.isVeg === true ? "#16a34a" : "#dc2626" }}
+                      >
+                        <div
+                          className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full"
+                          style={{ backgroundColor: item.foodType === 'Veg' || item.isVeg === true ? "#16a34a" : "#dc2626" }}
+                        />
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -2151,8 +2165,14 @@ export default function Cart() {
                               }}
                             />
                             <div className="absolute top-1 md:top-2 left-1 md:left-2">
-                              <div className={`w-3.5 h-3.5 md:w-4 md:h-4 bg-white border ${addon.foodType === 'Veg' || addon.isVeg === true ? 'border-green-600' : 'border-red-600'} flex items-center justify-center rounded`}>
-                                <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${addon.foodType === 'Veg' || addon.isVeg === true ? 'bg-green-600' : 'bg-red-600'}`} />
+                              <div
+                                className="w-3.5 h-3.5 md:w-4 md:h-4 bg-white border flex items-center justify-center rounded"
+                                style={{ borderColor: addon.foodType === 'Veg' || addon.isVeg === true ? "#16a34a" : "#dc2626" }}
+                              >
+                                <div
+                                  className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full"
+                                  style={{ backgroundColor: addon.foodType === 'Veg' || addon.isVeg === true ? "#16a34a" : "#dc2626" }}
+                                />
                               </div>
                             </div>
                             <button
@@ -2637,7 +2657,11 @@ export default function Cart() {
             <button
               onClick={handlePlaceOrder}
               disabled={isPlacingOrder || (selectedPaymentMethod === "wallet" && walletBalance < total)}
-              className="w-full bg-gradient-to-r from-[#EB590E] to-[#E23744] hover:from-[#D94F0C] hover:to-[#CF2834] text-white px-6 h-12 md:h-14 rounded-2xl font-bold shadow-lg shadow-[#EB590E]/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between transition-transform active:scale-[0.98]"
+              className="w-full text-white px-6 h-12 md:h-14 rounded-2xl font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between transition-transform active:scale-[0.98]"
+              style={{
+                background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,250,2,114),0.92), var(--module-theme-color,#FA0272))",
+                boxShadow: "0 12px 24px rgba(var(--module-theme-rgb,250,2,114),0.28)",
+              }}
             >
               {(selectedPaymentMethod === "razorpay" || selectedPaymentMethod === "wallet" || selectedPaymentMethod === "cash") && (
                 <div className="text-left flex flex-col justify-center border-r-[1.5px] border-white/20 pr-4">

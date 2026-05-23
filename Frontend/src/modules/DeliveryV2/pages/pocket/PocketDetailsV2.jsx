@@ -132,7 +132,14 @@ export const PocketDetailsV2 = () => {
             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none">Trips & Earnings</p>
           </div>
         </div>
-        <div className="w-10 h-10 rounded-[16px] bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm">
+        <div
+          className="w-10 h-10 rounded-[16px] flex items-center justify-center border shadow-sm"
+          style={{
+            backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+            borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.25)",
+            color: "var(--module-theme-color, #00B761)",
+          }}
+        >
           <IndianRupee className="w-5 h-5" />
         </div>
       </div>
@@ -156,7 +163,7 @@ export const PocketDetailsV2 = () => {
                     <h2 className="text-4xl font-black text-white tracking-tight">{formatCurrency(summary.grandTotal)}</h2>
                  </div>
                  <div className="w-12 h-12 bg-white/10 rounded-[20px] flex items-center justify-center border border-white/5 backdrop-blur-md">
-                    <TrendingUp className="w-6 h-6 text-orange-400" />
+                    <TrendingUp className="w-6 h-6" style={{ color: "var(--module-theme-color, #00B761)" }} />
                  </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -166,7 +173,7 @@ export const PocketDetailsV2 = () => {
                  </div>
                  <div className="bg-white/5 p-4 rounded-[20px] border border-white/5">
                     <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Weekly Bonus</p>
-                    <p className="text-lg font-black text-emerald-400 tracking-tight">+{formatCurrency(summary.totalBonus)}</p>
+                    <p className="text-lg font-black tracking-tight" style={{ color: "var(--module-theme-color, #00B761)" }}>+{formatCurrency(summary.totalBonus)}</p>
                  </div>
               </div>
            </div>
@@ -215,7 +222,7 @@ export const PocketDetailsV2 = () => {
                     <div className="text-right">
                        <p className="text-xl font-black text-gray-900 tracking-tight mb-1.5">{formatCurrency(earning + bonus)}</p>
                        <div className="flex items-center justify-end gap-1.5">
-                          {bonus > 0 && <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">+{formatCurrency(bonus)} BP</span>}
+                          {bonus > 0 && <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: "var(--module-theme-color, #00B761)" }}>+{formatCurrency(bonus)} BP</span>}
                           <div className={`px-2 py-0.5 rounded-[8px] ${order.paymentMethod?.toLowerCase() === 'cod' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'} text-[8px] font-black uppercase tracking-widest`}>
                              {order.paymentMethod || 'Online'}
                           </div>

@@ -103,12 +103,19 @@ export const CashLimitInfoV2 = () => {
           <div className="space-y-4">
              <div className="bg-white rounded-[32px] shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-gray-100 overflow-hidden">
                 <div className="flex items-center gap-4 p-5 pb-2">
-                   <div className="w-12 h-12 bg-emerald-50 rounded-[18px] flex items-center justify-center text-emerald-600 border border-emerald-100">
+                   <div
+                     className="w-12 h-12 rounded-[18px] flex items-center justify-center border"
+                     style={{
+                       backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+                       borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.22)",
+                       color: "var(--module-theme-color, #00B761)",
+                     }}
+                   >
                       <ShieldCheck className="w-6 h-6" />
                    </div>
                    <div>
                       <h3 className="text-lg font-black tracking-tight leading-none mb-1 text-gray-900">Total cash limit</h3>
-                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{formatCurrency(walletState.totalCashLimit)}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--module-theme-color, #00B761)" }}>{formatCurrency(walletState.totalCashLimit)}</p>
                    </div>
                 </div>
 
@@ -140,7 +147,11 @@ export const CashLimitInfoV2 = () => {
              <div className="pt-2">
                 <button 
                   onClick={goBack}
-                  className="w-full py-4 bg-gray-900 text-white rounded-[20px] font-black text-sm uppercase tracking-widest shadow-[0_8px_20px_rgba(0,0,0,0.12)] hover:bg-black active:scale-[0.98] transition-all"
+                  className="w-full py-4 text-white rounded-[20px] font-black text-sm uppercase tracking-widest active:scale-[0.98] transition-all"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 0,183,97), 0.88), var(--module-theme-color, #00B761))",
+                    boxShadow: "0 8px 20px rgba(var(--module-theme-rgb, 0,183,97), 0.30)",
+                  }}
                 >
                    Okay
                 </button>

@@ -50,9 +50,9 @@ export default function BottomNavOrders() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[60] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <div className="fixed bottom-0 left-0 right-0 z-[60] px-3 pb-[max(0.85rem,env(safe-area-inset-bottom))]">
       <div className="mx-auto w-full max-w-md">
-        <div className="relative overflow-hidden rounded-[24px] bg-gray-900/95 backdrop-blur-xl py-2 px-2 shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10">
+        <div className="relative overflow-hidden rounded-full bg-gray-900/96 backdrop-blur-xl py-2.5 px-2.5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] border border-white/10">
           <div className="relative flex items-center justify-around gap-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -63,24 +63,27 @@ export default function BottomNavOrders() {
                   key={tab.id}
                   onClick={() => handleTabClick(tab)}
                   aria-current={isActive ? "page" : undefined}
-                  className="relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 py-2.5 rounded-2xl transition-colors duration-200"
+                  className="relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 py-2.5 rounded-full transition-colors duration-200"
                   whileTap={{ scale: 0.95 }}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="bottomNavActive"
-                      className="absolute inset-x-1 inset-y-1 bg-white/10 rounded-xl"
+                      className="absolute inset-x-1 inset-y-1 rounded-full"
+                      style={{ backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.16)" }}
                       initial={false}
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
                   )}
                   <Icon
-                    className={`relative z-10 h-[19px] w-[19px] transition-all duration-300 ${isActive ? "text-white scale-110" : "text-white/40"
+                    className={`relative z-10 h-[19px] w-[19px] transition-all duration-300 ${isActive ? "scale-110" : "text-white/40"
                       }`}
+                    style={isActive ? { color: "var(--module-theme-color, #2563EB)" } : undefined}
                   />
                   <span
-                    className={`relative z-10 whitespace-nowrap text-[10px] font-bold tracking-tight transition-colors duration-300 ${isActive ? "text-white" : "text-white/40"
+                    className={`relative z-10 whitespace-nowrap text-[10px] font-bold tracking-tight transition-colors duration-300 ${isActive ? "" : "text-white/40"
                       }`}
+                    style={isActive ? { color: "var(--module-theme-color, #2563EB)" } : undefined}
                   >
                     {tab.label}
                   </span>

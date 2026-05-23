@@ -84,7 +84,7 @@ export const DeductionStatementV2 = () => {
                    {[...Array(3)].map((_, i) => (
                       <div key={i} className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 w-[260px]">
                          <div className="flex items-center gap-4">
-                            <div className={`w-3 h-3 rounded-full ${i === 0 ? 'bg-emerald-400' : i === 1 ? 'bg-orange-400' : 'bg-blue-400'}`}></div>
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "var(--module-theme-color, #00B761)" }}></div>
                             <div className="flex-1 space-y-2.5">
                                <div className="h-2 bg-gray-100 rounded-full w-3/4"></div>
                                <div className="h-2 bg-gray-100 rounded-full w-1/2"></div>
@@ -107,10 +107,7 @@ export const DeductionStatementV2 = () => {
                    >
                       <div className="flex items-center justify-between">
                          <div className="flex items-center gap-4">
-                            <div className={`w-2.5 h-2.5 rounded-full ${ 
-                               index % 3 === 0 ? 'bg-emerald-400' : 
-                               index % 3 === 1 ? 'bg-orange-400' : 'bg-blue-400'
-                            }`}></div>
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "var(--module-theme-color, #00B761)" }}></div>
                             <div>
                                <p className="text-gray-900 text-sm font-black leading-none tracking-tight mb-2">{item.description || 'System Deduction'}</p>
                                <p className="text-gray-400 text-[9px] font-bold uppercase tracking-widest leading-none">

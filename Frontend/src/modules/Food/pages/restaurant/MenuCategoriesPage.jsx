@@ -32,7 +32,7 @@ const defaultFormData = {
 
 const approvalBadgeClass = (status) => {
   const value = String(status || "pending").toLowerCase()
-  if (value === "approved") return "bg-emerald-50 text-emerald-700 border-emerald-200"
+  if (value === "approved") return "border-[color:rgba(var(--module-theme-rgb,37,99,235),0.35)] bg-[rgba(var(--module-theme-rgb,37,99,235),0.10)] text-[color:var(--module-theme-color,#2563EB)]"
   if (value === "rejected") return "bg-rose-50 text-rose-700 border-rose-200"
   return "bg-amber-50 text-amber-700 border-amber-200"
 }
@@ -262,7 +262,11 @@ export default function MenuCategoriesPage() {
 
         <button
           onClick={openCreateModal}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white"
+          className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold text-white"
+          style={{
+            background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.9), var(--module-theme-color,#2563EB))",
+            boxShadow: "0 10px 22px rgba(var(--module-theme-rgb,37,99,235),0.28)",
+          }}
         >
           <Plus className="h-5 w-5" />
           Add Category
@@ -348,7 +352,11 @@ export default function MenuCategoriesPage() {
                     </button>
                     <button
                       onClick={() => openEditModal(category)}
-                      className="rounded-xl bg-blue-50 p-2 text-blue-700 disabled:opacity-50"
+                      className="rounded-xl p-2 disabled:opacity-50"
+                      style={{
+                        backgroundColor: "rgba(var(--module-theme-rgb,37,99,235),0.10)",
+                        color: "var(--module-theme-color,#2563EB)",
+                      }}
                       disabled={!isEditable}
                     >
                       <Edit2 className="h-4 w-4" />
@@ -478,7 +486,10 @@ export default function MenuCategoriesPage() {
                 <button
                   onClick={handleSaveCategory}
                   disabled={uploadingImage}
-                  className="flex-1 rounded-xl bg-slate-900 py-3 font-medium text-white disabled:opacity-60"
+                  className="flex-1 rounded-xl py-3 font-medium text-white disabled:opacity-60"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.9), var(--module-theme-color,#2563EB))",
+                  }}
                 >
                   {uploadingImage ? "Uploading..." : editingCategory ? "Save & Resubmit" : "Create"}
                 </button>

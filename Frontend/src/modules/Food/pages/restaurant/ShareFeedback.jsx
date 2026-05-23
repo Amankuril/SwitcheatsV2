@@ -148,8 +148,12 @@ export default function ShareFeedback() {
           className={`w-full py-3 rounded-full text-sm font-medium transition-colors ${
             rating === null
               ? "bg-gray-200 text-gray-500"
-              : "bg-black text-white hover:bg-gray-900"
+              : "text-white"
           }`}
+          style={rating !== null ? {
+            background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.9), var(--module-theme-color,#2563EB))",
+            boxShadow: "0 8px 18px rgba(var(--module-theme-rgb,37,99,235),0.25)",
+          } : undefined}
           whileTap={rating !== null ? { scale: 0.98 } : undefined}
         >
           Continue
@@ -189,7 +193,10 @@ export default function ShareFeedback() {
                 </p>
                 <button
                   type="button"
-                  className="w-full py-2.5 rounded-full bg-black text-white text-sm font-medium"
+                  className="w-full py-2.5 rounded-full text-white text-sm font-medium"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.9), var(--module-theme-color,#2563EB))",
+                  }}
                   onClick={() => {
                     setShowThanks(false)
                     goBack()
@@ -205,4 +212,3 @@ export default function ShareFeedback() {
     </div>
   )
 }
-

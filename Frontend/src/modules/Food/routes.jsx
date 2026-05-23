@@ -7,6 +7,7 @@ import PushSoundEnableButton from "@food/components/PushSoundEnableButton"
 import { registerWebPushForCurrentModule } from "@food/utils/firebaseMessaging"
 import { isModuleAuthenticated } from "@food/utils/auth"
 import { useRestaurantNotifications } from "@food/hooks/useRestaurantNotifications"
+import { applyModulePowerScanning, getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings"
 
 // Lazy Loading Components
 const UserRouter = lazy(() => import("@food/components/user/UserRouter"))
@@ -81,6 +82,29 @@ export default function App() {
 
   useEffect(() => {
     registerWebPushForCurrentModule(location.pathname)
+  }, [location.pathname])
+
+  useEffect(() => {
+    const resolveModule = () => {
+      if (location.pathname.startsWith("/food/restaurant")) return "restaurant"
+      if (location.pathname.startsWith("/food/delivery")) return "delivery"
+      return "user"
+    }
+
+    const applyPowerScanning = async () => {
+      const cached = getCachedSettings()
+      if (cached) {
+        applyModulePowerScanning(resolveModule(), cached)
+      } else {
+        const settings = await loadBusinessSettings()
+        applyModulePowerScanning(resolveModule(), settings)
+      }
+    }
+
+    applyPowerScanning()
+    const handleSettingsUpdate = () => applyPowerScanning()
+    window.addEventListener("businessSettingsUpdated", handleSettingsUpdate)
+    return () => window.removeEventListener("businessSettingsUpdated", handleSettingsUpdate)
   }, [location.pathname])
 
   return (

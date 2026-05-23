@@ -21,6 +21,10 @@ export default function BottomNavigation() {
         !pathname.includes("/under-250") &&
         !pathname.includes("/profile")))
 
+  const activeColor = "var(--module-theme-color, #FA0272)"
+  const activeBg = "rgba(var(--module-theme-rgb, 250,2,114), 0.12)"
+  const activeFill = "rgba(var(--module-theme-rgb, 250,2,114), 0.2)"
+
   return (
     <div
       className="md:hidden fixed bottom-6 left-5 right-5 z-50 pointer-events-none"
@@ -31,14 +35,15 @@ export default function BottomNavigation() {
         <Link
           to="/food/user"
           className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-all duration-300 relative rounded-full ${isDelivery
-              ? "text-[#FA0272] bg-[#FA0272]/10"
+              ? ""
               : "text-gray-500 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
             }`}
+          style={isDelivery ? { color: activeColor, backgroundColor: activeBg } : undefined}
         >
           <div className="relative">
-            <Truck className={`h-5 w-5 transition-transform duration-300 ${isDelivery ? "text-[#FA0272] fill-[#FA0272]/20 scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isDelivery ? 2.5 : 2} />
+            <Truck className={`h-5 w-5 transition-transform duration-300 ${isDelivery ? "scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isDelivery ? 2.5 : 2} style={isDelivery ? { color: activeColor, fill: activeFill } : undefined} />
           </div>
-          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isDelivery ? "text-[#FA0272]" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
+          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isDelivery ? "" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
             Delivery
           </span>
         </Link>
@@ -47,14 +52,15 @@ export default function BottomNavigation() {
         <Link
           to="/food/user/cart"
           className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-all duration-300 relative rounded-full ${isCart
-              ? "text-[#FA0272] bg-[#FA0272]/10"
+              ? ""
               : "text-gray-500 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
             }`}
+          style={isCart ? { color: activeColor, backgroundColor: activeBg } : undefined}
         >
           <div className="relative">
-            <ShoppingCart className={`h-5 w-5 transition-transform duration-300 ${isCart ? "text-[#FA0272] scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isCart ? 2.5 : 2} />
+            <ShoppingCart className={`h-5 w-5 transition-transform duration-300 ${isCart ? "scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isCart ? 2.5 : 2} style={isCart ? { color: activeColor } : undefined} />
           </div>
-          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isCart ? "text-[#FA0272]" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
+          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isCart ? "" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
             Cart
           </span>
         </Link>
@@ -63,14 +69,15 @@ export default function BottomNavigation() {
         <Link
           to="/food/user/under-250"
           className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-all duration-300 relative rounded-full ${isUnder250
-              ? "text-[#FA0272] bg-[#FA0272]/10"
+              ? ""
               : "text-gray-500 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
             }`}
+          style={isUnder250 ? { color: activeColor, backgroundColor: activeBg } : undefined}
         >
           <div className="relative">
-            <Tag className={`h-5 w-5 transition-transform duration-300 ${isUnder250 ? "text-[#FA0272] fill-[#FA0272]/20 scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isUnder250 ? 2.5 : 2} />
+            <Tag className={`h-5 w-5 transition-transform duration-300 ${isUnder250 ? "scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isUnder250 ? 2.5 : 2} style={isUnder250 ? { color: activeColor, fill: activeFill } : undefined} />
           </div>
-          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isUnder250 ? "text-[#FA0272]" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
+          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isUnder250 ? "" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
             Switch 99
           </span>
         </Link>
@@ -79,14 +86,15 @@ export default function BottomNavigation() {
         <Link
           to="/food/user/profile"
           className={`flex flex-1 flex-col items-center justify-center gap-1 px-1 py-1.5 transition-all duration-300 relative rounded-full ${isProfile
-              ? "text-[#FA0272] bg-[#FA0272]/10"
+              ? ""
               : "text-gray-500 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
             }`}
+          style={isProfile ? { color: activeColor, backgroundColor: activeBg } : undefined}
         >
           <div className="relative">
-            <User className={`h-5 w-5 transition-transform duration-300 ${isProfile ? "text-[#FA0272] fill-[#FA0272]/20 scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isProfile ? 2.5 : 2} />
+            <User className={`h-5 w-5 transition-transform duration-300 ${isProfile ? "scale-110" : "text-gray-500 dark:text-gray-400"}`} strokeWidth={isProfile ? 2.5 : 2} style={isProfile ? { color: activeColor, fill: activeFill } : undefined} />
           </div>
-          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isProfile ? "text-[#FA0272]" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
+          <span className={`text-[10px] sm:text-xs font-semibold tracking-wide transition-all ${isProfile ? "" : "text-gray-500 dark:text-gray-400 opacity-80"}`}>
             Profile
           </span>
         </Link>

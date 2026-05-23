@@ -204,7 +204,11 @@ export default function OutletTimings() {
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
+              className="px-4 py-2 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
+              style={{
+                background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.9), var(--module-theme-color,#2563EB))",
+                boxShadow: "0 8px 20px rgba(var(--module-theme-rgb,37,99,235),0.28)",
+              }}
             >
               {isSaving ? (
                 <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
@@ -218,9 +222,9 @@ export default function OutletTimings() {
           {/* SwitchEats delivery Section Header */}
           <div className="mb-6">
             <div className="text-center mb-2">
-              <h2 className="text-base font-semibold text-blue-600">{companyName} delivery</h2>
+              <h2 className="text-base font-semibold" style={{ color: "var(--module-theme-color, #2563EB)" }}>{companyName} delivery</h2>
             </div>
-            <div className="h-0.5 bg-blue-600"></div>
+            <div className="h-0.5" style={{ backgroundColor: "var(--module-theme-color, #2563EB)" }}></div>
           </div>
 
           {/* Day-wise Accordion */}
@@ -258,7 +262,7 @@ export default function OutletTimings() {
                         <Switch
                           checked={dayData.isOpen}
                           onCheckedChange={() => toggleDayOpen(day)}
-                          className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-gray-300"
+                          className="data-[state=checked]:bg-[color:var(--module-theme-color)] data-[state=unchecked]:bg-gray-300"
                         />
                       </div>
                     </div>
@@ -420,4 +424,3 @@ export default function OutletTimings() {
     </LocalizationProvider>
   )
 }
-

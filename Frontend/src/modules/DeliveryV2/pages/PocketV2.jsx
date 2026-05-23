@@ -378,7 +378,14 @@ export const PocketV2 = () => {
                 className="w-full p-5 border-b border-gray-50 flex items-center justify-between active:bg-gray-50 transition-colors"
              >
                 <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500 border border-blue-100">
+                   <div
+                     className="w-12 h-12 rounded-2xl flex items-center justify-center border"
+                     style={{
+                       backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+                       color: "var(--module-theme-color, #00B761)",
+                       borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.22)",
+                     }}
+                   >
                       <Wallet className="w-6 h-6" />
                    </div>
                    <div className="text-left">
@@ -398,7 +405,14 @@ export const PocketV2 = () => {
                   className="w-full p-5 border-b border-gray-50 flex items-center justify-between active:bg-gray-50 transition-colors"
                >
                   <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-500 border border-purple-100">
+                     <div
+                       className="w-12 h-12 rounded-2xl flex items-center justify-center border"
+                       style={{
+                         backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+                         color: "var(--module-theme-color, #00B761)",
+                         borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.22)",
+                       }}
+                     >
                         <ShieldCheck className="w-6 h-6" />
                      </div>
                      <div className="text-left">
@@ -417,7 +431,11 @@ export const PocketV2 = () => {
                <div className="p-4">
                   <button 
                      onClick={() => setShowDepositPopup(true)}
-                     className="w-full py-4 bg-gradient-to-br from-orange-400 to-orange-500 text-white rounded-[24px] font-black text-sm uppercase tracking-widest shadow-[0_8px_20px_rgba(249,115,22,0.3)] active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                     className="w-full py-4 text-white rounded-[24px] font-black text-sm uppercase tracking-widest active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                     style={{
+                       background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 0,183,97), 0.9), var(--module-theme-color, #00B761))",
+                       boxShadow: "0 8px 20px rgba(var(--module-theme-rgb, 0,183,97), 0.32)",
+                     }}
                   >
                      <IndianRupee className="w-4 h-4" /> Deposit Cash
                   </button>
@@ -428,7 +446,14 @@ export const PocketV2 = () => {
           {/* 5. MORE SERVICES - Grid */}
           <div className="grid grid-cols-2 gap-4 pb-8">
              <div onClick={() => navigate('/food/delivery/pocket/payout')} className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:bg-gray-50 transition-colors group">
-                <div className="w-10 h-10 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 mb-4 border border-emerald-100 group-active:scale-95 transition-transform">
+                <div
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center mb-4 border group-active:scale-95 transition-transform"
+                  style={{
+                    backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+                    color: "var(--module-theme-color, #00B761)",
+                    borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.22)",
+                  }}
+                >
                    <IndianRupee className="w-5 h-5" />
                 </div>
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Last Payout</p>
@@ -438,7 +463,14 @@ export const PocketV2 = () => {
 
              {codControlEnabled && (
                <div onClick={() => navigate('/food/delivery/pocket/limit-settlement')} className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:bg-gray-50 transition-colors flex flex-col justify-between group">
-                  <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 mb-4 border border-orange-100 group-active:scale-95 transition-transform">
+                  <div
+                    className="w-10 h-10 rounded-2xl flex items-center justify-center mb-4 border group-active:scale-95 transition-transform"
+                    style={{
+                      backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+                      color: "var(--module-theme-color, #00B761)",
+                      borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.22)",
+                    }}
+                  >
                      <Receipt className="w-5 h-5" />
                   </div>
                   <p className="text-sm font-bold text-gray-700 leading-tight">Limit<br/>Settlement</p>
@@ -446,14 +478,28 @@ export const PocketV2 = () => {
              )}
 
              <div onClick={() => navigate('/food/delivery/pocket/deductions')} className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:bg-gray-50 transition-colors flex flex-col justify-between group">
-                <div className="w-10 h-10 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 mb-4 border border-red-100 group-active:scale-95 transition-transform">
+                <div
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center mb-4 border group-active:scale-95 transition-transform"
+                  style={{
+                    backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+                    color: "var(--module-theme-color, #00B761)",
+                    borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.22)",
+                  }}
+                >
                    <FileText className="w-5 h-5" />
                 </div>
                 <p className="text-sm font-bold text-gray-700 leading-tight">Deduction<br/>List</p>
              </div>
 
              <div onClick={() => navigate('/food/delivery/pocket/details')} className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:bg-gray-50 transition-colors flex flex-col justify-between group">
-                <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-500 mb-4 border border-indigo-100 group-active:scale-95 transition-transform">
+                <div
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center mb-4 border group-active:scale-95 transition-transform"
+                  style={{
+                    backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+                    color: "var(--module-theme-color, #00B761)",
+                    borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.22)",
+                  }}
+                >
                    <LayoutGrid className="w-5 h-5" />
                 </div>
                 <p className="text-sm font-bold text-gray-700 leading-tight">Pocket<br/>Statement</p>

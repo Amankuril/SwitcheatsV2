@@ -5,7 +5,7 @@ import AuthRedirect from "@food/components/AuthRedirect";
 import AdminLayout from "./AdminLayout";
 import Loader from "@food/components/Loader";
 import { getCurrentUser } from "@food/utils/auth";
-import { canAccessFeatureSettings } from "@food/utils/adminPermissions";
+import { canAccessFeatureSettings, canAccessSuperPowers } from "@food/utils/adminPermissions";
 import { adminAPI } from "@/services/api";
 
 const AdminHome = lazy(() => import("@food/pages/admin/AdminHome"));
@@ -99,6 +99,7 @@ const EmployeeList = lazy(() => import("@food/pages/admin/employees/EmployeeList
 // Business Settings
 const BusinessSetup = lazy(() => import("@food/pages/admin/settings/BusinessSetup"));
 const FeatureSettings = lazy(() => import("@food/pages/admin/settings/FeatureSettings"));
+const PowerScanning = lazy(() => import("@food/pages/admin/settings/PowerScanning"));
 const EmailTemplate = lazy(() => import("@food/pages/admin/settings/EmailTemplate"));
 const ThemeSettings = lazy(() => import("@food/pages/admin/settings/ThemeSettings"));
 const Gallery = lazy(() => import("@food/pages/admin/settings/Gallery"));
@@ -142,6 +143,14 @@ function FeatureSettingsRouteGuard() {
     return <Navigate to="/admin/food" replace />;
   }
   return <FeatureSettings />;
+}
+
+function SuperPowersRouteGuard({ children }) {
+  const adminUser = getCurrentUser("admin");
+  if (!canAccessSuperPowers(adminUser)) {
+    return <Navigate to="/admin/food" replace />;
+  }
+  return children;
 }
 
 function UnregisteredRestaurantsRouteGuard() {
@@ -328,6 +337,7 @@ export default function AdminRouter() {
             {/* SYSTEM & BUSINESS SETTINGS */}
             <Route path="business-setup" element={<BusinessSetup />} />
             <Route path="feature-settings" element={<FeatureSettingsRouteGuard />} />
+            <Route path="power-scanning" element={<SuperPowersRouteGuard><PowerScanning /></SuperPowersRouteGuard>} />
             <Route path="email-template" element={<EmailTemplate />} />
             <Route path="theme-settings" element={<ThemeSettings />} />
             <Route path="gallery" element={<Gallery />} />

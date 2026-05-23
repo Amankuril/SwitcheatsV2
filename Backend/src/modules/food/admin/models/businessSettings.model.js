@@ -35,6 +35,20 @@ const businessSettingsSchema = new mongoose.Schema(
         deliveryFavicon: {
             url: { type: String, default: '' },
             publicId: { type: String, default: '' }
+        },
+        powerScanning: {
+            user: {
+                themeColor: { type: String, default: '#FA0272' },
+                fontFamily: { type: String, default: 'Poppins' }
+            },
+            restaurant: {
+                themeColor: { type: String, default: '#2563EB' },
+                fontFamily: { type: String, default: 'Poppins' }
+            },
+            delivery: {
+                themeColor: { type: String, default: '#00B761' },
+                fontFamily: { type: String, default: 'Poppins' }
+            }
         }
     },
     { timestamps: true }

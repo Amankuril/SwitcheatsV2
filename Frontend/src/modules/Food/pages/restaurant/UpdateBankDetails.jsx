@@ -331,7 +331,13 @@ export default function UpdateBankDetails() {
             <button
               type="submit"
               disabled={saving || uploadingQr}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg text-base transition-colors"
+              className="w-full disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg text-base transition-colors"
+              style={{
+                background: saving || uploadingQr
+                  ? "rgb(96 165 250)"
+                  : "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.9), var(--module-theme-color,#2563EB))",
+                boxShadow: saving || uploadingQr ? "none" : "0 10px 22px rgba(var(--module-theme-rgb,37,99,235),0.28)",
+              }}
             >
               {saving ? "Saving..." : "Submit"}
             </button>

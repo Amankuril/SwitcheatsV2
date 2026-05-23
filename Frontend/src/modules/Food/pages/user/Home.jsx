@@ -571,7 +571,13 @@ const RestaurantCard = React.memo(({
                     </h3>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span
-                        className={`inline-flex rounded-full px-3 py-1 text-[10px] font-medium uppercase tracking-widest shadow-sm ${availability.isOpen ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
+                        className={`inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-widest shadow-sm ${availability.isOpen ? "" : "bg-gray-400 text-white"}`}
+                        style={availability.isOpen ? {
+                          backgroundColor: "var(--module-theme-color, #FA0272)",
+                          color: "#ffffff",
+                          boxShadow: "0 4px 10px rgba(var(--module-theme-rgb, 250,2,114), 0.25)",
+                        } : undefined}
+                      >
                         {availability.isOpen
                           ? "Open now"
                           : "Offline"}
@@ -592,7 +598,13 @@ const RestaurantCard = React.memo(({
                         )}
                     </div>
                   </div>
-                  <div className={`flex-shrink-0 ${Number(restaurant.rating) > 0 ? "bg-[#259539]" : "bg-gray-400"} text-white px-3 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-md transform transition-transform duration-300 group-hover:scale-110`}>
+                  <div
+                    className={`flex-shrink-0 ${Number(restaurant.rating) > 0 ? "" : "bg-gray-400"} text-white px-3 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-md transform transition-transform duration-300 group-hover:scale-110`}
+                    style={Number(restaurant.rating) > 0 ? {
+                      backgroundColor: "var(--module-theme-color, #FA0272)",
+                      boxShadow: "0 6px 14px rgba(var(--module-theme-rgb, 250,2,114), 0.30)",
+                    } : undefined}
+                  >
                     <span className="text-sm lg:text-lg font-medium tracking-tight">
                       {Number(restaurant.rating) > 0 ? Number(restaurant.rating).toFixed(1) : "NEW"}
                     </span>
@@ -2892,7 +2904,13 @@ export default function Home() {
                             className="h-24 sm:h-28 md:h-32"
                             roundedClass="rounded-t-[20px]"
                           />
-                          <div className={`absolute bottom-2 left-2 px-2 py-0.5 rounded-lg ${Number(restaurant.rating) > 0 ? "bg-black/80 backdrop-blur-md text-white font-medium" : "bg-gray-200/90 text-gray-600 font-medium"} text-[10px] shadow-lg border border-white/10`}>
+                          <div
+                            className={`absolute bottom-2 left-2 px-2 py-0.5 rounded-lg ${Number(restaurant.rating) > 0 ? "text-white font-medium" : "bg-gray-200/90 text-gray-600 font-medium"} text-[10px] shadow-lg border border-white/10`}
+                            style={Number(restaurant.rating) > 0 ? {
+                              backgroundColor: "var(--module-theme-color, #FA0272)",
+                              boxShadow: "0 4px 10px rgba(var(--module-theme-rgb, 250,2,114), 0.25)",
+                            } : undefined}
+                          >
                             {Number(restaurant.rating) > 0 ? Number(restaurant.rating).toFixed(1) : "NEW"}
                           </div>
                         </div>

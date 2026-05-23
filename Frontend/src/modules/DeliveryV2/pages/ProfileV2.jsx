@@ -117,7 +117,7 @@ export const ProfileV2 = () => {
               <h2 className="text-3xl font-black tracking-tight text-gray-900">{profile?.name || "Partner"}</h2>
               <ChevronRight className="w-5 h-5 text-gray-300 group-active:translate-x-1 transition-transform" />
             </div>
-            <p className="text-[11px] font-black uppercase tracking-widest text-emerald-500">{profile?.deliveryId || "ID NOT FOUND"}</p>
+            <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: "var(--module-theme-color, #00B761)" }}>{profile?.deliveryId || "ID NOT FOUND"}</p>
           </div>
           <div className="relative shrink-0">
             {profile?.profileImage?.url ? (
@@ -142,7 +142,14 @@ export const ProfileV2 = () => {
             onClick={() => navigate("/food/delivery/history")}
             className="bg-white rounded-[28px] p-5 flex items-center gap-4 border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:scale-[0.98] transition-all group"
           >
-            <div className="w-14 h-14 rounded-[20px] bg-gray-50 flex items-center justify-center border border-gray-100 text-gray-600 group-hover:bg-gray-100 transition-colors">
+            <div
+              className="w-14 h-14 rounded-[20px] flex items-center justify-center border transition-colors"
+              style={{
+                backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+                borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.22)",
+                color: "var(--module-theme-color, #00B761)",
+              }}
+            >
               <History className="w-6 h-6" />
             </div>
             <div className="flex-1 text-left">
@@ -155,7 +162,10 @@ export const ProfileV2 = () => {
 
         {/* Share & Earn Card */}
         <div className="bg-white rounded-[28px] p-6 border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col gap-5 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+          <div
+            className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"
+            style={{ backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.12)" }}
+          />
           <div className="relative z-10 flex items-start justify-between gap-4">
              <div>
                <h3 className="text-lg font-black text-gray-900 mb-1">
@@ -165,13 +175,24 @@ export const ProfileV2 = () => {
                  Invite friends to join the delivery partner fleet{referralReward > 0 ? ` and get ₹${referralReward}` : ""}.
                </p>
              </div>
-             <div className="w-12 h-12 rounded-[20px] bg-emerald-50 flex items-center justify-center text-emerald-500 border border-emerald-100 shrink-0">
+             <div
+               className="w-12 h-12 rounded-[20px] flex items-center justify-center border shrink-0"
+               style={{
+                 backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+                 borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.22)",
+                 color: "var(--module-theme-color, #00B761)",
+               }}
+             >
                 <Share2 className="w-5 h-5" />
              </div>
           </div>
           <button
             onClick={handleShareReferral}
-            className="relative z-10 w-full bg-gray-900 text-white py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest active:scale-[0.98] transition-transform shadow-md"
+            className="relative z-10 w-full text-white py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest active:scale-[0.98] transition-transform"
+            style={{
+              background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 0,183,97), 0.88), var(--module-theme-color, #00B761))",
+              boxShadow: "0 8px 20px rgba(var(--module-theme-rgb, 0,183,97), 0.30)",
+            }}
           >
             Share Link
           </button>
@@ -186,7 +207,14 @@ export const ProfileV2 = () => {
             className="bg-white rounded-[24px] p-5 flex items-center justify-between cursor-pointer border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] active:scale-[0.98] transition-all"
           >
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center border"
+                style={{
+                  backgroundColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.10)",
+                  borderColor: "rgba(var(--module-theme-rgb, 0,183,97), 0.22)",
+                  color: "var(--module-theme-color, #00B761)",
+                }}
+              >
                  <HelpCircle className="w-5 h-5" />
               </div>
               <span className="text-sm font-bold text-gray-900">Support Tickets</span>

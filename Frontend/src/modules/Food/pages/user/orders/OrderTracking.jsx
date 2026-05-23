@@ -315,7 +315,14 @@ const transformOrderForTracking = (apiOrder, previousOrder = null, explicitResta
       variantName: item.variantName || '',
       quantity: item.quantity,
       price: item.price,
-      isVeg: item.isVeg !== undefined ? item.isVeg : (item.category === 'veg' || item.type === 'veg' || item.foodType === 'Veg'),
+      isVeg: (() => {
+        if (typeof item.isVeg === "boolean") return item.isVeg;
+        const foodType = String(item.foodType || "").toLowerCase().trim();
+        const category = String(item.category || "").toLowerCase().trim();
+        const type = String(item.type || "").toLowerCase().trim();
+        if (foodType) return foodType === "veg" || foodType === "vegetarian";
+        return category === "veg" || type === "veg";
+      })(),
     })) || previousOrder?.items || [],
     total: apiOrder?.pricing?.total || previousOrder?.total || 0,
     // Backend canonical field is orderStatus; keep legacy `status` for UI compatibility.
@@ -1169,7 +1176,7 @@ export default function OrderTracking() {
           <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-4 dark:text-white">Order Not Found</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">{error || 'The order you\'re looking for doesn\'t exist.'}</p>
           <Link to="/user/orders">
-            <Button className="bg-[#EB590E] hover:bg-[#D44D0D] text-white">Back to Orders</Button>
+            <Button className="text-white border-0" style={{ backgroundColor: "var(--module-theme-color, #EB590E)" }}>Back to Orders</Button>
           </Link>
         </div>
       </AnimatedPage>
@@ -1266,6 +1273,8 @@ export default function OrderTracking() {
   const complaintOrderId = encodeURIComponent(
     String(order?.orderId || order?.id || orderId || "")
   )
+  const themeColor = "var(--module-theme-color, #EB590E)"
+  const themeRgb = "var(--module-theme-rgb, 235,89,14)"
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-[#0a0a0a]">
@@ -1307,7 +1316,10 @@ export default function OrderTracking() {
                 transition={{ delay: 1.5 }}
                 className="mt-8"
               >
-                <div className="w-8 h-8 border-2 border-[#EB590E] border-t-transparent rounded-full animate-spin mx-auto" />
+                <div
+                  className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto"
+                  style={{ borderColor: themeColor, borderTopColor: "transparent" }}
+                />
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">Loading order details...</p>
               </motion.div>
             </motion.div>
@@ -1317,7 +1329,8 @@ export default function OrderTracking() {
 
       {/* Green Header */}
       <motion.div
-        className={`${currentStatus.color} text-white sticky top-0 z-40`}
+        className="text-white sticky top-0 z-40"
+        style={{ backgroundColor: isCancelledOrder ? "#dc2626" : themeColor }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
@@ -1358,7 +1371,10 @@ export default function OrderTracking() {
         <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-zinc-800 relative overflow-hidden">
           <div className="flex items-start justify-between relative z-10">
             <div>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-50 dark:bg-orange-950/30 text-[#EB590E] mb-3">
+              <span
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-3"
+                style={{ backgroundColor: `rgba(${themeRgb}, 0.12)`, color: themeColor }}
+              >
                 {currentStatus.title}
               </span>
               <h2 className="text-2xl font-black text-gray-900 dark:text-white leading-tight">
@@ -1510,21 +1526,30 @@ export default function OrderTracking() {
               <button
                 type="button"
                 onClick={handleCallRestaurant}
-                className="w-10 h-10 rounded-full bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 flex items-center justify-center shrink-0"
+                className="w-10 h-10 rounded-full border flex items-center justify-center shrink-0"
+                style={{
+                  backgroundColor: `rgba(${themeRgb}, 0.12)`,
+                  borderColor: `rgba(${themeRgb}, 0.35)`,
+                }}
                 aria-label="Call restaurant"
               >
-                <Phone className="w-4 h-4 text-[#EB590E]" />
+                <Phone className="w-4 h-4" style={{ color: themeColor }} />
               </button>
             )}
           </div>
           <div className="space-y-3">
-            {order?.items?.map((item, i) => (
+            {order?.items?.map((item, i) => {
+              const resolvedIsVeg = typeof item?.isVeg === "boolean"
+                ? item.isVeg
+                : ["veg", "vegetarian"].includes(String(item?.foodType || item?.category || item?.type || "").toLowerCase().trim());
+
+              return (
               <div key={i} className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-2 min-w-0">
                   <div
-                    className={`w-3.5 h-3.5 mt-0.5 border ${item?.isVeg ? "border-green-600" : "border-red-600"} flex items-center justify-center p-[1px] shrink-0`}
+                    className={`w-3.5 h-3.5 mt-0.5 border flex items-center justify-center p-[1px] shrink-0 ${resolvedIsVeg ? "border-[#16a34a] bg-green-50/40 dark:bg-green-900/25" : "border-[#dc2626] bg-red-50/40 dark:bg-red-900/25"}`}
                   >
-                    <div className={`w-full h-full rounded-full ${item?.isVeg ? "bg-green-600" : "bg-red-600"}`} />
+                    <div className={`w-full h-full rounded-full ${resolvedIsVeg ? "bg-[#16a34a]" : "bg-[#dc2626]"}`} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate">
@@ -1539,7 +1564,7 @@ export default function OrderTracking() {
                   {"\u20B9"}{((item?.price || 0) * (item?.quantity || 1)).toFixed(0)}
                 </span>
               </div>
-            ))}
+            )})}
           </div>
           
           {!isDeliveredOrder && (
@@ -1612,7 +1637,10 @@ export default function OrderTracking() {
       <Dialog open={isInstructionsModalOpen} onOpenChange={setIsInstructionsModalOpen}>
         <DialogContent className="sm:max-w-md w-[95vw] rounded-3xl p-6 border-0 shadow-2xl bg-white dark:bg-zinc-900 max-h-[90vh] overflow-y-auto z-[200]">
           <DialogHeader className="mb-2">
-            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">
+            <DialogTitle
+              className="text-xl font-bold bg-clip-text text-transparent"
+              style={{ backgroundImage: `linear-gradient(to right, ${themeColor}, rgba(${themeRgb}, 0.72))` }}
+            >
               Delivery Instructions
             </DialogTitle>
           </DialogHeader>
@@ -1624,12 +1652,14 @@ export default function OrderTracking() {
               value={deliveryInstructions}
               onChange={(e) => setDeliveryInstructions(e.target.value)}
               placeholder="E.g. Ring the doorbell, leave at the front desk..."
-              className="min-h-[120px] resize-none border-gray-200 dark:border-zinc-700 focus:ring-orange-500 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-800 dark:text-gray-200 text-base"
+              className="min-h-[120px] resize-none border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-800 dark:text-gray-200 text-base"
+              style={{ "--tw-ring-color": `rgba(${themeRgb}, 0.45)` }}
             />
             <Button
               onClick={handleUpdateInstructions}
               disabled={isUpdatingInstructions}
-              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold h-12 rounded-xl border-none"
+              className="w-full text-white font-bold h-12 rounded-xl border-none"
+              style={{ backgroundImage: `linear-gradient(to right, ${themeColor}, rgba(${themeRgb}, 0.78))` }}
             >
               {isUpdatingInstructions ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Save Instructions"}
             </Button>
@@ -1639,4 +1669,3 @@ export default function OrderTracking() {
     </div>
   )
 }
-

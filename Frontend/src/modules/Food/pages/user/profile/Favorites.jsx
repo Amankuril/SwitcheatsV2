@@ -51,10 +51,19 @@ export default function Favorites() {
       </ScrollReveal>
       <Card>
           <CardContent className="py-12 text-center">
-            <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <Heart
+              className="h-16 w-16 mx-auto mb-4"
+              style={{ color: "var(--module-theme-color, #FA0272)" }}
+            />
             <p className="text-muted-foreground text-lg mb-4">You haven't added any favorites yet</p>
             <Link to="/user">
-              <Button className="bg-gradient-to-r bg-primary-orange hover:opacity-90 text-white">
+              <Button
+                className="text-white border-0"
+                style={{
+                  background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,250,2,114),0.92), var(--module-theme-color,#FA0272))",
+                  boxShadow: "0 8px 18px rgba(var(--module-theme-rgb,250,2,114),0.25)",
+                }}
+              >
                 Explore Restaurants
               </Button>
             </Link>
@@ -118,7 +127,13 @@ export default function Favorites() {
                 <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground text-lg mb-4">No restaurants saved yet</p>
                 <Link to="/user">
-                  <Button className="bg-gradient-to-r bg-primary-orange hover:opacity-90 text-white">
+                  <Button
+                    className="text-white border-0"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,250,2,114),0.92), var(--module-theme-color,#FA0272))",
+                      boxShadow: "0 8px 18px rgba(var(--module-theme-rgb,250,2,114),0.25)",
+                    }}
+                  >
                     Explore Restaurants
                   </Button>
                 </Link>
@@ -196,7 +211,13 @@ export default function Favorites() {
                 <Bookmark className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground text-lg mb-4">No dishes saved yet</p>
                 <Link to="/user">
-                  <Button className="bg-gradient-to-r bg-primary-orange hover:opacity-90 text-white">
+                  <Button
+                    className="text-white border-0"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,250,2,114),0.92), var(--module-theme-color,#FA0272))",
+                      boxShadow: "0 8px 18px rgba(var(--module-theme-rgb,250,2,114),0.25)",
+                    }}
+                  >
                     Explore Dishes
                   </Button>
                 </Link>
@@ -273,4 +294,3 @@ export default function Favorites() {
     </AnimatedPage>
   )
 }
-

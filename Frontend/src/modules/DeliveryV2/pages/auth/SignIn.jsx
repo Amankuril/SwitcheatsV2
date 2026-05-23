@@ -145,7 +145,7 @@ export default function DeliverySignIn() {
                 Linked Identity
               </label>
 
-              <div className="flex items-center gap-0 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl focus-within:border-[#00B761]/50 focus-within:ring-4 focus-within:ring-[#00B761]/5 transition-all overflow-hidden h-16">
+              <div className="flex items-center gap-0 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl focus-within:border-[color:var(--module-theme-color)] focus-within:ring-4 focus-within:ring-[rgba(var(--module-theme-rgb),0.12)] transition-all overflow-hidden h-16">
                 <div className="px-5 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-white font-black text-lg h-full flex items-center">
                   +91
                 </div>

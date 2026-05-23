@@ -1008,7 +1008,10 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
                 onClick={() => navigate(`/food/delivery/${item.id}`)}
                 className={`relative flex items-center justify-center h-12 transition-all duration-500 ease-out rounded-full ${isActive ? 'bg-[#222222] px-5 shadow-inner border border-white/5' : 'w-12 px-0 text-gray-500 hover:text-gray-300'}`}
               >
-                <Icon className={`w-5 h-5 shrink-0 transition-all duration-500 ${isActive ? 'text-[#10b981]' : ''}`} />
+                <Icon
+                  className="w-5 h-5 shrink-0 transition-all duration-500"
+                  style={isActive ? { color: "var(--module-theme-color, #00B761)" } : undefined}
+                />
                 <AnimatePresence>
                   {isActive && (
                     <motion.div

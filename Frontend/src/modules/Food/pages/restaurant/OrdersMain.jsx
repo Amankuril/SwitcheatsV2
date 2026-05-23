@@ -1916,11 +1916,16 @@ export default function OrdersMain() {
                 }}
                 className={`shrink-0 px-4 py-2 rounded-xl font-semibold text-[13px] whitespace-nowrap relative transition-all duration-300 ${isActive ? "text-white" : "text-gray-500 hover:text-gray-900 bg-gray-50"
                   }`}
+                style={isActive ? { color: "var(--module-theme-color, #2563EB)" } : undefined}
                 whileTap={{ scale: 0.96 }}>
                 {isActive && (
                   <motion.div
                     layoutId="activeFilterBackground"
-                    className="absolute inset-0 bg-gray-900 rounded-xl -z-10 shadow-lg shadow-gray-200"
+                    className="absolute inset-0 rounded-xl -z-10"
+                    style={{
+                      backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.16)",
+                      boxShadow: "0 2px 8px rgba(var(--module-theme-rgb, 37,99,235), 0.10)",
+                    }}
                     initial={false}
                     transition={{
                       type: "spring",

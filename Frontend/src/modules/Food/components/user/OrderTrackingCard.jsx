@@ -333,6 +333,10 @@ function OrderTrackingCardInner({ hasBottomNav = true }) {
     return "Preparing your order";
   })();
 
+  const themeColor = "var(--module-theme-color, #EB590E)";
+  const themeRgb = "var(--module-theme-rgb, 235,89,14)";
+  const cardShadow = "0 8px 30px rgba(var(--module-theme-rgb, 235,89,14), 0.18)";
+
   return (
     <AnimatePresence>
       <motion.div
@@ -348,14 +352,27 @@ function OrderTrackingCardInner({ hasBottomNav = true }) {
               `/food/user/orders/${activeOrder.id || activeOrder._id || activeOrder.orderId}`,
             )
           }
-          className="relative bg-white/95 backdrop-blur-xl rounded-[20px] p-4 shadow-[0_8px_30px_rgba(235,89,14,0.15)] border border-orange-100/60 overflow-visible cursor-pointer group"
+          className="relative bg-white/95 backdrop-blur-xl rounded-[20px] p-4 border overflow-visible cursor-pointer group"
+          style={{
+            boxShadow: cardShadow,
+            borderColor: "rgba(var(--module-theme-rgb, 235,89,14), 0.22)",
+          }}
         >
           {/* Subtle gradient background mesh */}
-          <div className="absolute inset-0 bg-gradient-to-r from-orange-50/50 via-white/40 to-white/80 opacity-60 pointer-events-none rounded-[20px]" />
+          <div
+            className="absolute inset-0 opacity-60 pointer-events-none rounded-[20px]"
+            style={{
+              background: "linear-gradient(to right, rgba(var(--module-theme-rgb, 235,89,14), 0.12), rgba(255,255,255,0.40), rgba(255,255,255,0.85))",
+            }}
+          />
           
           <button 
              onClick={(e) => { e.stopPropagation(); setDismissedKey(currentOrderKey); }}
-             className="absolute top-2 right-2 p-1.5 rounded-full bg-orange-50/80 text-orange-400 hover:text-orange-600 hover:bg-orange-100/80 transition-colors z-20 shadow-sm"
+             className="absolute top-2 right-2 p-1.5 rounded-full transition-colors z-20 shadow-sm"
+             style={{
+               backgroundColor: "rgba(var(--module-theme-rgb, 235,89,14), 0.10)",
+               color: "rgba(var(--module-theme-rgb, 235,89,14), 0.78)",
+             }}
           >
             <X className="w-3.5 h-3.5 pointer-events-none" />
           </button>
@@ -367,11 +384,18 @@ function OrderTrackingCardInner({ hasBottomNav = true }) {
               <p className="text-gray-900 font-bold text-base md:text-lg truncate tracking-tight">{restaurantName}</p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <p className="text-gray-500 font-medium text-xs md:text-sm truncate">{statusText}</p>
-                <ChevronRight className="w-3.5 h-3.5 text-orange-500 shrink-0 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight className="w-3.5 h-3.5 shrink-0 group-hover:translate-x-1 transition-transform" style={{ color: themeColor }} />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-[#EB590E] to-[#D94E0A] shadow-lg shadow-orange-500/20 rounded-xl px-4 py-2 shrink-0 flex flex-col items-center justify-center border border-orange-200">
+            <div
+              className="shadow-lg rounded-xl px-4 py-2 shrink-0 flex flex-col items-center justify-center border"
+              style={{
+                background: `linear-gradient(135deg, ${themeColor}, rgba(${themeRgb}, 0.84))`,
+                boxShadow: "0 10px 18px rgba(var(--module-theme-rgb, 235,89,14), 0.25)",
+                borderColor: "rgba(var(--module-theme-rgb, 235,89,14), 0.35)",
+              }}
+            >
               <p className="text-orange-50 text-[10px] font-bold uppercase tracking-wider opacity-95 leading-tight mb-[2px]">
                 arriving in
               </p>

@@ -1201,9 +1201,18 @@ export default function Under250() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    <div className="flex items-center gap-1 bg-green-800 text-white px-1 py-1 md:px-2 md:py-1.5 lg:px-3 lg:py-2 rounded-full">
-                      <div className="bg-white text-green-700 px-1 py-1 md:px-1.5 md:py-1.5 lg:px-2 lg:py-2 rounded-full">
-                        <Star className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 fill-green-800 text-green-800" />
+                    <div
+                      className="flex items-center gap-1 text-white px-1 py-1 md:px-2 md:py-1.5 lg:px-3 lg:py-2 rounded-full"
+                      style={{
+                        backgroundColor: "var(--module-theme-color, #FA0272)",
+                        boxShadow: "0 6px 14px rgba(var(--module-theme-rgb, 250,2,114), 0.30)",
+                      }}
+                    >
+                      <div
+                        className="bg-white px-1 py-1 md:px-1.5 md:py-1.5 lg:px-2 lg:py-2 rounded-full"
+                        style={{ color: "var(--module-theme-color, #FA0272)" }}
+                      >
+                        <Star className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 fill-current text-current" />
                       </div>
                       <span className="text-xs md:text-sm lg:text-base font-bold">{restaurant.rating}</span>
                     </div>

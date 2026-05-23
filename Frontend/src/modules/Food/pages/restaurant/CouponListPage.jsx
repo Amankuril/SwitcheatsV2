@@ -87,7 +87,11 @@ export default function CouponListPage() {
           </div>
           <button
             onClick={() => navigate("/restaurant/coupon/new")}
-            className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors"
+            style={{
+              background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.9), var(--module-theme-color,#2563EB))",
+              boxShadow: "0 8px 18px rgba(var(--module-theme-rgb,37,99,235),0.26)",
+            }}
           >
             <Plus className="w-4 h-4" />
             Add New
@@ -116,7 +120,10 @@ export default function CouponListPage() {
               </div>
               <button
                 onClick={() => navigate("/restaurant/coupon/new")}
-                className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                className="flex items-center gap-2 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                style={{
+                  background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.9), var(--module-theme-color,#2563EB))",
+                }}
               >
                 <Plus className="w-4 h-4" />
                 Create Coupon
@@ -138,13 +145,22 @@ export default function CouponListPage() {
                   className="bg-white border border-gray-200 rounded-lg overflow-hidden"
                 >
                   {/* Top accent bar */}
-                  <div className={`h-1 ${active ? "bg-green-500" : "bg-gray-300"}`} />
+                  <div
+                    className="h-1"
+                    style={{ backgroundColor: active ? "var(--module-theme-color, #2563EB)" : "#d1d5db" }}
+                  />
 
                   <div className="p-4">
                     {/* Header row */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2.5 py-1 rounded text-xs font-bold ${active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                        <span
+                          className={`px-2.5 py-1 rounded text-xs font-bold ${active ? "" : "bg-gray-100 text-gray-500"}`}
+                          style={active ? {
+                            backgroundColor: "rgba(var(--module-theme-rgb,37,99,235),0.10)",
+                            color: "var(--module-theme-color,#2563EB)",
+                          } : undefined}
+                        >
                           {active ? "ACTIVE" : "INACTIVE"}
                         </span>
                         <span className="px-2.5 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">
@@ -194,7 +210,7 @@ export default function CouponListPage() {
                         {coupon.couponCode}
                       </span>
                       <button onClick={() => handleCopyCode(coupon.couponCode)} className="p-1 hover:bg-gray-100 rounded transition-colors">
-                        <Copy className="w-4 h-4 text-gray-400" />
+                        <Copy className="w-4 h-4" style={{ color: "var(--module-theme-color, #2563EB)" }} />
                       </button>
                     </div>
 

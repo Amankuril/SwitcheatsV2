@@ -1808,9 +1808,14 @@ export default function Inventory() {
             onClick={() => setActiveTab("all-items")}
             className={`relative overflow-hidden rounded-[24px] border px-5 py-4 text-sm font-semibold whitespace-nowrap ${
               activeTab === "all-items"
-                ? "border-slate-950 text-white shadow-[0_18px_32px_-24px_rgba(15,23,42,0.8)]"
+                ? "text-white"
                 : "border-white/80 bg-white/80 text-slate-700 shadow-[0_16px_40px_-34px_rgba(15,23,42,0.4)]"
             }`}
+            style={activeTab === "all-items" ? {
+              borderColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.45)",
+              color: "var(--module-theme-color, #2563EB)",
+              boxShadow: "0 18px 32px -24px rgba(var(--module-theme-rgb, 37,99,235), 0.65)",
+            } : undefined}
             animate={{
               scale: activeTab === "all-items" ? 1.02 : 1,
             }}
@@ -1819,7 +1824,8 @@ export default function Inventory() {
             {activeTab === "all-items" && (
               <motion.div
                 layoutId="activeTabBackground"
-                className="absolute inset-0 rounded-[24px] bg-slate-950 -z-10"
+                className="absolute inset-0 rounded-[24px] -z-10"
+                style={{ backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.16)" }}
                 initial={false}
                 transition={{
                   type: "spring",
@@ -1831,8 +1837,11 @@ export default function Inventory() {
             <span className="relative z-10 flex items-center justify-center gap-2">
               <span>All items</span>
               <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                activeTab === "all-items" ? "bg-white text-slate-950" : "bg-slate-100 text-slate-600"
-              }`}>
+                activeTab === "all-items" ? "" : "bg-slate-100 text-slate-600"
+              }`} style={activeTab === "all-items" ? {
+                backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.14)",
+                color: "var(--module-theme-color, #2563EB)",
+              } : undefined}>
                 {totalItems}
               </span>
             </span>
@@ -1842,9 +1851,14 @@ export default function Inventory() {
             onClick={() => setActiveTab("add-ons")}
             className={`relative overflow-hidden rounded-[24px] border px-5 py-4 text-sm font-semibold whitespace-nowrap ${
               activeTab === "add-ons"
-                ? "border-slate-950 text-white shadow-[0_18px_32px_-24px_rgba(15,23,42,0.8)]"
+                ? "text-white"
                 : "border-white/80 bg-white/80 text-slate-700 shadow-[0_16px_40px_-34px_rgba(15,23,42,0.4)]"
             }`}
+            style={activeTab === "add-ons" ? {
+              borderColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.45)",
+              color: "var(--module-theme-color, #2563EB)",
+              boxShadow: "0 18px 32px -24px rgba(var(--module-theme-rgb, 37,99,235), 0.65)",
+            } : undefined}
             animate={{
               scale: activeTab === "add-ons" ? 1.02 : 1,
             }}
@@ -1853,7 +1867,8 @@ export default function Inventory() {
             {activeTab === "add-ons" && (
               <motion.div
                 layoutId="activeTabBackground"
-                className="absolute inset-0 rounded-[24px] bg-slate-950 -z-10"
+                className="absolute inset-0 rounded-[24px] -z-10"
+                style={{ backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.16)" }}
                 initial={false}
                 transition={{
                   type: "spring",
@@ -1865,8 +1880,11 @@ export default function Inventory() {
             <span className="relative z-10 flex items-center justify-center gap-2">
               <span>Add ons</span>
               <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                activeTab === "add-ons" ? "bg-white text-slate-950" : "bg-slate-100 text-slate-600"
-              }`}>
+                activeTab === "add-ons" ? "" : "bg-slate-100 text-slate-600"
+              }`} style={activeTab === "add-ons" ? {
+                backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.14)",
+                color: "var(--module-theme-color, #2563EB)",
+              } : undefined}>
                 {addons.length}
               </span>
             </span>
@@ -1996,15 +2014,19 @@ export default function Inventory() {
                 <SlidersHorizontal className="w-4 h-4 text-slate-700" />
                 <span>Filters</span>
                 {selectedFilter !== "all" && (
-                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-slate-950" />
+                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: "var(--module-theme-color, #2563EB)" }} />
                 )}
               </button>
 
               {activeTab === "add-ons" && (
                 <button
                   onClick={() => setIsAddAddonOpen((v) => !v)}
-                  className="h-12 rounded-[20px] bg-slate-950 px-4 text-sm font-semibold text-white shadow-[0_18px_32px_-24px_rgba(15,23,42,0.85)] transition-colors hover:bg-slate-800"
-                  style={{ minWidth: "128px" }}
+                  className="h-12 rounded-[20px] px-4 text-sm font-semibold text-white transition-colors"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 37,99,235), 0.88), var(--module-theme-color, #2563EB))",
+                    boxShadow: "0 18px 32px -24px rgba(var(--module-theme-rgb, 37,99,235), 0.70)",
+                    minWidth: "128px",
+                  }}
                 >
                   {isAddAddonOpen ? "Close" : "Add Add-on"}
                 </button>
@@ -2025,14 +2047,23 @@ export default function Inventory() {
                     onClick={() => setSelectedFilter(option.value)}
                     className={`shrink-0 rounded-full border px-3.5 py-2 text-xs font-semibold transition-colors ${
                       isActive
-                        ? "border-slate-950 bg-slate-950 text-white shadow-[0_14px_28px_-24px_rgba(15,23,42,0.9)]"
+                        ? ""
                         : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white"
                     }`}
+                    style={isActive ? {
+                      borderColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.5)",
+                      color: "var(--module-theme-color, #2563EB)",
+                      backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.16)",
+                      boxShadow: "0 14px 28px -24px rgba(var(--module-theme-rgb, 37,99,235), 0.65)",
+                    } : undefined}
                   >
                     <span>{option.label}</span>
                     <span className={`ml-2 inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] ${
-                      isActive ? "bg-white/15 text-white" : "bg-white text-slate-500"
-                    }`}>
+                      isActive ? "" : "bg-white text-slate-500"
+                    }`} style={isActive ? {
+                      backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.12)",
+                      color: "var(--module-theme-color, #2563EB)",
+                    } : undefined}>
                       {count}
                     </span>
                   </button>
@@ -2308,7 +2339,7 @@ export default function Inventory() {
                           onCheckedChange={(checked) =>
                             handleToggleChange("category", category.id, null, checked)
                           }
-                          className="data-[state=checked]:bg-green-600"
+                          className="data-[state=checked]:bg-[color:var(--module-theme-color)]"
                         />
                       </div>
 
@@ -2756,9 +2787,16 @@ export default function Inventory() {
                     })
                   }}
                   className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all group"
+                  style={{ borderColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.18)" }}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                    <Plus className="w-6 h-6 text-emerald-600" />
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform"
+                    style={{
+                      backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.10)",
+                      color: "var(--module-theme-color, #2563EB)",
+                    }}
+                  >
+                    <Plus className="w-6 h-6" />
                   </div>
                   <div className="text-left">
                     <span className="block text-base font-bold text-gray-900">Add Item</span>
@@ -2772,9 +2810,16 @@ export default function Inventory() {
                     setIsBulkUploadModalOpen(true)
                   }}
                   className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all group"
+                  style={{ borderColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.18)" }}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                    <FileUp className="w-6 h-6 text-blue-600" />
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform"
+                    style={{
+                      backgroundColor: "rgba(var(--module-theme-rgb, 37,99,235), 0.10)",
+                      color: "var(--module-theme-color, #2563EB)",
+                    }}
+                  >
+                    <FileUp className="w-6 h-6" />
                   </div>
                   <div className="text-left">
                     <span className="block text-base font-bold text-gray-900">Bulk Upload</span>
@@ -2793,7 +2838,11 @@ export default function Inventory() {
           <motion.button
             whileTap={{ scale: 0.96 }}
             onClick={() => setIsAddPopupOpen(true)}
-            className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_22px_40px_-24px_rgba(15,23,42,0.85)]"
+            className="rounded-full px-5 py-3 text-sm font-semibold text-white"
+            style={{
+              background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 37,99,235), 0.88), var(--module-theme-color, #2563EB))",
+              boxShadow: "0 22px 40px -24px rgba(var(--module-theme-rgb, 37,99,235), 0.75)",
+            }}
           >
             + Add item
           </motion.button>

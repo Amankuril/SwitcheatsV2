@@ -934,6 +934,16 @@ export const adminAPI = {
     apiClient.get(API_ENDPOINTS.ADMIN.BUSINESS_SETTINGS, {
       contextModule: "admin",
     }),
+  getPowerScanningSettings: () =>
+    apiClient.get("/food/admin/power-scanning", {
+      contextModule: "admin",
+    }),
+  getPublicPowerScanningSettings: () =>
+    apiClient.get("/food/admin/power-scanning/public"),
+  updatePowerScanningSettings: (body = {}) =>
+    apiClient.patch("/food/admin/power-scanning", body ?? {}, {
+      contextModule: "admin",
+    }),
   updateBusinessSettings: (data, files = {}) => {
     const formData = new FormData();
     // Add JSON data
