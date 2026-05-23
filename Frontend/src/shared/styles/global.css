@@ -122,7 +122,6 @@
   }
   body {
     @apply bg-background text-foreground m-0 min-h-screen;
-    overscroll-behavior-y: none;
   }
 }
 
