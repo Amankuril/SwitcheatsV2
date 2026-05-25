@@ -252,7 +252,9 @@ export const adminAPI = {
       contextModule: "admin",
     }),
   getPublicFeatureSettings: () =>
-    apiClient.get("/food/admin/feature-settings/public"),
+    apiClient.get("/food/admin/feature-settings/public", {
+      contextModule: "user",
+    }),
   updateFeatureSetting: (key, body) =>
     apiClient.patch(`/food/admin/feature-settings/${String(key)}`, body ?? {}, {
       contextModule: "admin",
@@ -1172,9 +1174,13 @@ export const restaurantAPI = {
   getPendingPhone: (phone) =>
     apiClient.get(`/food/restaurant/auth/pending-phone?phone=${phone}`),
   getSubscriptionSettings: () =>
-    apiClient.get("/food/admin/restaurant-subscription-settings/public"),
+    apiClient.get("/food/admin/restaurant-subscription-settings/public", {
+      contextModule: "restaurant",
+    }),
   getFeatureSettingsPublic: () =>
-    apiClient.get("/food/admin/feature-settings/public"),
+    apiClient.get("/food/admin/feature-settings/public", {
+      contextModule: "restaurant",
+    }),
   getOrderById: (orderId) =>
     apiClient.get(`/food/restaurant/orders/${String(orderId)}`, {
       contextModule: "restaurant",

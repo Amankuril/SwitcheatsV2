@@ -9,6 +9,7 @@ import { getModuleToken, getModuleRefreshToken, setAuthData as setModuleAuthData
 import { toast } from "sonner"
 
 const GST_RATE = 0.18
+const STATIC_SUBSCRIPTION_COLOR = "#FA0272"
 
 export default function PostApprovalPayment() {
   const navigate = useNavigate()
@@ -316,7 +317,7 @@ export default function PostApprovalPayment() {
     <div className="min-h-screen bg-gradient-to-b from-[#eef3ff] via-[#f7f9ff] to-[#f4f5f7] flex flex-col">
       <header className="bg-white/90 backdrop-blur border-b border-[#dbe2f2] px-4 py-4">
         <h1 className="text-base font-semibold text-[#0f172a]">Complete activation payment</h1>
-        <p className="text-[11px] text-[#5b6780] mt-1">Your account is approved. Finish payment to unlock dashboard access.</p>
+        <p className="text-[11px] mt-1" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Your account is approved. Finish payment to unlock dashboard access.</p>
       </header>
 
       <main className="flex-1 p-4 space-y-4 max-w-2xl w-full mx-auto">
@@ -344,27 +345,27 @@ export default function PostApprovalPayment() {
               </div>
             </div>
           ) : (
-            <p className="text-[13px] leading-6 text-gray-600">
+            <p className="text-[13px] leading-6" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>
               Complete the setup with payment to activate your restaurant. The onboarding fee is mandatory.
             </p>
           )}
 
           {mode === "onboarding" ? (
-            <div className="rounded-2xl border border-[#ffc0de] bg-gradient-to-r from-[#fff2f8] to-[#ffe8f3] px-4 py-4 text-[#FA0272]">
-              <p className="text-lg font-semibold leading-none mb-2">Onboarding fee</p>
-              <p className="text-xl leading-tight font-semibold mb-2">₹{calc.onboardingFeeBase} + ₹{calc.onboardingGST} (18% GST)</p>
-              <p className="text-2xl font-bold leading-none mb-2">Total: ₹{calc.onboardingFeeTotal}</p>
-              <p className="text-xs">Mandatory to activate account</p>
+            <div className="rounded-2xl border border-[#ffc0de] bg-gradient-to-r from-[#fff2f8] to-[#ffe8f3] px-4 py-4">
+              <p className="text-lg font-semibold leading-none mb-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Onboarding fee</p>
+              <p className="text-xl leading-tight font-semibold mb-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>₹{calc.onboardingFeeBase} + ₹{calc.onboardingGST} (18% GST)</p>
+              <p className="text-2xl font-bold leading-none mb-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Total: ₹{calc.onboardingFeeTotal}</p>
+              <p className="text-xs" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Mandatory to activate account</p>
             </div>
           ) : null}
           {mode === "onboarding" ? (
-            <p className="text-xs text-gray-500">Last 30 days GMV: ₹{Number(gmvLast30Days || 0).toFixed(2)}</p>
+            <p className="text-xs" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Last 30 days GMV: ₹{Number(gmvLast30Days || 0).toFixed(2)}</p>
           ) : null}
         </section>
 
         <section className="rounded-3xl bg-white border border-[#dbe2f2] p-4 space-y-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
           <h2 className="text-xl leading-tight font-semibold text-gray-900">Select subscription plan</h2>
-          <p className="text-[13px] leading-6 text-gray-600">All plans are visible, but your eligible plan is auto-selected and locked by GMV slab.</p>
+          <p className="text-[13px] leading-6" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>All plans are visible, but your eligible plan is auto-selected and locked by GMV slab.</p>
 
           {planCatalog.map((catalogPlan) => {
             const total = Number(catalogPlan?.basePrice || 0) + Math.round(Number(catalogPlan?.basePrice || 0) * GST_RATE)
@@ -397,11 +398,11 @@ export default function PostApprovalPayment() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-lg leading-tight font-semibold text-gray-900">{p.title}</p>
-                    <p className="text-xs text-indigo-700 mt-1 font-medium">{gmvLabel}</p>
-                    <p className="text-lg font-semibold leading-none text-[#2f4564] mt-2">Total: ₹{p.total}</p>
+                    <p className="text-xs mt-1 font-medium" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>{gmvLabel}</p>
+                    <p className="text-lg font-semibold leading-none mt-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Total: ₹{p.total}</p>
                     <div className="mt-3 space-y-1">
                       {p.features.map((f) => (
-                        <p key={f} className="text-xs text-gray-600">• {f}</p>
+                        <p key={f} className="text-xs" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>• {f}</p>
                       ))}
                     </div>
                   </div>
@@ -436,8 +437,8 @@ export default function PostApprovalPayment() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-lg leading-none font-semibold text-gray-900">{opt.title}</p>
-                      <p className="text-xs leading-5 text-gray-600 mt-2">{opt.desc}</p>
-                      <p className="text-[11px] leading-4 text-indigo-700 mt-2">{paymentInfoContent[opt.id]}</p>
+                      <p className="text-xs leading-5 mt-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>{opt.desc}</p>
+                      <p className="text-[11px] leading-4 mt-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>{paymentInfoContent[opt.id]}</p>
                     </div>
                     <span className={`mt-1 h-8 w-8 min-h-8 min-w-8 aspect-square shrink-0 rounded-full border-[3px] ${selected ? "border-[#111827] bg-[#111827]" : "border-[#c6cbd4] bg-transparent"}`} />
                   </div>
@@ -462,29 +463,29 @@ export default function PostApprovalPayment() {
         {isPlanSelected && (
           <section className="rounded-3xl bg-white border border-[#dbe2f2] p-4 space-y-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
             <h2 className="text-xl leading-tight font-semibold text-gray-900">Payment summary</h2>
-            <div className="space-y-2 text-sm text-gray-600">
+            <div className="space-y-2 text-sm" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>
               {mode === "onboarding" ? (
                 <>
                   <div className="flex justify-between"><span>Onboarding fee (Base)</span><span className="font-semibold text-black">₹{calc.onboardingFeeBase}</span></div>
                   <div className="flex justify-between"><span>Onboarding GST (18%)</span><span className="font-semibold text-black">₹{calc.onboardingGST}</span></div>
-                  <div className="flex justify-between border-b border-[#d5d8de] pb-2"><span className="font-semibold text-[#2d405f]">Onboarding Total</span><span className="font-semibold text-black">₹{calc.onboardingFeeTotal}</span></div>
+                  <div className="flex justify-between border-b border-[#d5d8de] pb-2"><span className="font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Onboarding Total</span><span className="font-semibold text-black">₹{calc.onboardingFeeTotal}</span></div>
                 </>
               ) : null}
 
               <div className="flex justify-between"><span>Subscription ({String(plan || "starter").toUpperCase()} Plan) Base</span><span className="font-semibold text-black">₹{calc.selectedPlanBase}</span></div>
               <div className="flex justify-between"><span>Subscription GST (18%)</span><span className="font-semibold text-black">₹{calc.selectedPlanGST}</span></div>
-              <div className="flex justify-between border-b border-[#d5d8de] pb-2"><span className="font-semibold text-[#2d405f]">Subscription Total</span><span className="font-semibold text-black">₹{calc.subscriptionPlanTotal}</span></div>
+              <div className="flex justify-between border-b border-[#d5d8de] pb-2"><span className="font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Subscription Total</span><span className="font-semibold text-black">₹{calc.subscriptionPlanTotal}</span></div>
 
-              <p className="text-xs font-semibold text-[#6a7487] tracking-wide pt-1">BREAKDOWN OF PAY NOW</p>
+              <p className="text-xs font-semibold tracking-wide pt-1" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>BREAKDOWN OF PAY NOW</p>
               {mode === "onboarding" ? (
                 <div className="flex justify-between"><span>Onboarding (Total)</span><span className="font-semibold text-black">₹{calc.onboardingFeeTotal}</span></div>
               ) : null}
               <div className="flex justify-between"><span>Subscription (Pay now) Base</span><span className="font-semibold text-black">₹{calc.subscriptionPaidNowBase}</span></div>
               <div className="flex justify-between"><span>Subscription (Pay now) GST</span><span className="font-semibold text-black">₹{calc.subscriptionPaidNowGST}</span></div>
-              <div className="flex justify-between border-t border-[#fac0df] pt-2"><span className="text-base font-semibold text-[#2d405f]">Total to pay now</span><span className="text-base font-semibold text-[#FA0272]">₹{calc.payableNow}</span></div>
+              <div className="flex justify-between border-t border-[#fac0df] pt-2"><span className="text-base font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Total to pay now</span><span className="text-base font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>₹{calc.payableNow}</span></div>
               <div className="flex justify-between pt-1">
-                <span className="text-xs text-[#6a7487]">Remaining due later (inc. GST)</span>
-                <span className="text-xs font-semibold text-[#6a7487]">₹{calc.subscriptionDueLaterTotal}</span>
+                <span className="text-xs" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Remaining due later (inc. GST)</span>
+                <span className="text-xs font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>₹{calc.subscriptionDueLaterTotal}</span>
               </div>
             </div>
           </section>

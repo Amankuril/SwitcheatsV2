@@ -692,6 +692,7 @@ export default function Home() {
   const [loadingBanners, setLoadingBanners] = useState(true);
   const [hasScrolledPastBanner, setHasScrolledPastBanner] = useState(false);
   const [isCategoryStuck, setIsCategoryStuck] = useState(false);
+  const isCategoryStuckRef = useRef(false);
   const [landingCategories, setLandingCategories] = useState([]);
   const [landingExploreMore, setLandingExploreMore] = useState([]);
   const [exploreMoreHeading, setExploreMoreHeading] = useState("Explore More");
@@ -946,15 +947,28 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // Fire when sentinel hits 72px from top (matches sticky top value)
-        setIsCategoryStuck(!entry.isIntersecting);
-      },
-      { threshold: 0, rootMargin: '-72px 0px 0px 0px' }
-    );
-    if (categoryAnchorRef.current) observer.observe(categoryAnchorRef.current);
-    return () => observer.disconnect();
+    const commitStuckState = (nextValue) => {
+      if (isCategoryStuckRef.current === nextValue) return;
+      isCategoryStuckRef.current = nextValue;
+      setIsCategoryStuck(nextValue);
+    };
+
+    const syncStuckState = () => {
+      const anchor = categoryAnchorRef.current;
+      if (!anchor) return;
+      // Use sentinel directly so blur and sticky release on the same scroll tick.
+      const shouldStick = anchor.getBoundingClientRect().top <= 72;
+      commitStuckState(shouldStick);
+    };
+
+    syncStuckState();
+    window.addEventListener("scroll", syncStuckState, { passive: true, capture: true });
+    window.addEventListener("resize", syncStuckState);
+
+    return () => {
+      window.removeEventListener("scroll", syncStuckState, { capture: true });
+      window.removeEventListener("resize", syncStuckState);
+    };
   }, []);
 
 
@@ -2852,15 +2866,22 @@ export default function Home() {
         {/* Category sticky anchor sentinel — must be immediately before the category rail */}
         <div ref={categoryAnchorRef} aria-hidden="true" />
 
-        {/* Single unified glassmorphism backdrop behind BOTH search bar + categories.
-            One blur context = no seam between the two sticky bars. */}
-        {isCategoryStuck && (
-          <div
-            className="fixed top-0 left-0 right-0 z-[48] bg-white/75 dark:bg-[#0a0a0a]/75 backdrop-blur-xl border-b border-white/20 dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.07)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.35)]"
-            style={{ height: '170px' }}
-            aria-hidden="true"
-          />
-        )}
+        {/* Single unified backdrop behind BOTH search bar + categories.
+            Keep mounted and toggle blur/background in-place to avoid delayed repaint
+            artifacts on fast release. */}
+        <div
+          className="fixed top-0 left-0 right-0 z-[48] pointer-events-none"
+          style={{
+            height: "170px",
+            opacity: isCategoryStuck ? 1 : 0,
+            backgroundColor: isCategoryStuck ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0)",
+            borderBottom: isCategoryStuck ? "1px solid rgba(255,255,255,0.2)" : "1px solid transparent",
+            boxShadow: isCategoryStuck ? "0 4px 24px rgba(0,0,0,0.07)" : "none",
+            backdropFilter: isCategoryStuck ? "blur(20px)" : "blur(0px)",
+            WebkitBackdropFilter: isCategoryStuck ? "blur(20px)" : "blur(0px)",
+          }}
+          aria-hidden="true"
+        />
 
         {/* Category Rail — permanently sticky using native CSS for 0 latency. */}
         <div className="sticky top-[72px] z-[50]">

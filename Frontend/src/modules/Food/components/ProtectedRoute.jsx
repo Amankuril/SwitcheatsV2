@@ -44,18 +44,35 @@ export default function ProtectedRoute({ children, requiredRole, loginPath = "/f
     setIsSubscriptionCheckDone(false);
     const syncRestaurantSubscription = async () => {
       try {
-        const response = await restaurantAPI.getCurrentRestaurant();
+        const [restaurantResult, featureResult] = await Promise.allSettled([
+          restaurantAPI.getCurrentRestaurant(),
+          restaurantAPI.getFeatureSettingsPublic(),
+        ]);
+        const response =
+          restaurantResult.status === "fulfilled" ? restaurantResult.value : null;
+        const featureRes =
+          featureResult.status === "fulfilled" ? featureResult.value : null;
+
         const restaurant =
           response?.data?.data?.restaurant ||
           response?.data?.restaurant ||
           null;
+
+        // If restaurant payload is not available, keep access blocked until next successful sync.
+        if (!restaurant) {
+          if (active) {
+            setServerRequiresPayment(true);
+          }
+          return;
+        }
         if (restaurant) {
           localStorage.setItem("restaurant_user", JSON.stringify(restaurant));
         }
 
-        const subscriptionFeatureRaw = localStorage.getItem("restaurant_subscription_feature_enabled");
-        const subscriptionFeatureEnabled =
-          subscriptionFeatureRaw == null ? false : subscriptionFeatureRaw === "true";
+        const rows = Array.isArray(featureRes?.data?.data) ? featureRes.data.data : [];
+        const feature = rows.find((row) => row.key === "restaurant_subscription");
+        const subscriptionFeatureEnabled = feature ? Boolean(feature.isEnabled) : true;
+        localStorage.setItem("restaurant_subscription_feature_enabled", String(subscriptionFeatureEnabled));
 
         const onboardingFeePaid = Boolean(restaurant?.onboardingFeePaid);
         const expiryRaw = restaurant?.subscriptionValidTill;
@@ -68,7 +85,7 @@ export default function ProtectedRoute({ children, requiredRole, loginPath = "/f
         }
       } catch {
         if (active) {
-          setServerRequiresPayment(false);
+          setServerRequiresPayment(true);
         }
       } finally {
         if (active) {
@@ -84,28 +101,6 @@ export default function ProtectedRoute({ children, requiredRole, loginPath = "/f
   }, [isRestaurantRoute, isAuthenticated, location.pathname]);
 
   if (isRestaurantRoute) {
-    try {
-      const raw = localStorage.getItem("restaurant_user")
-      const user = raw ? JSON.parse(raw) : null
-      const onboardingFeePaid = Boolean(user?.onboardingFeePaid)
-      const subscriptionValidTillRaw = user?.subscriptionValidTill
-      const subscriptionValidTillMs = subscriptionValidTillRaw ? new Date(subscriptionValidTillRaw).getTime() : NaN
-      const isSubscriptionExpired = Number.isFinite(subscriptionValidTillMs) && subscriptionValidTillMs < Date.now()
-      const subscriptionFeatureRaw = localStorage.getItem("restaurant_subscription_feature_enabled")
-      const subscriptionFeatureEnabled =
-        subscriptionFeatureRaw == null ? false : subscriptionFeatureRaw === "true"
-      const allowedPaths = ["/food/restaurant/onboarding-payment", "/food/restaurant/onboarding", "/food/restaurant/pending-verification"]
-      if (
-        subscriptionFeatureEnabled &&
-        (!onboardingFeePaid || isSubscriptionExpired) &&
-        !allowedPaths.includes(location.pathname)
-      ) {
-        return <Navigate to="/food/restaurant/onboarding-payment" replace />
-      }
-    } catch {
-      // ignore parse issues
-    }
-
     if (!isSubscriptionCheckDone) {
       return null;
     }
