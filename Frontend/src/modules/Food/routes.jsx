@@ -92,12 +92,17 @@ export default function App() {
     }
 
     const applyPowerScanning = async () => {
+      const moduleName = resolveModule()
       const cached = getCachedSettings()
       if (cached) {
-        applyModulePowerScanning(resolveModule(), cached)
-      } else {
-        const settings = await loadBusinessSettings()
-        applyModulePowerScanning(resolveModule(), settings)
+        applyModulePowerScanning(moduleName, cached)
+      }
+
+      // Always revalidate from server so theme updates propagate across browsers/devices
+      // even when an older localStorage cache exists.
+      const settings = await loadBusinessSettings()
+      if (settings) {
+        applyModulePowerScanning(moduleName, settings)
       }
     }
 

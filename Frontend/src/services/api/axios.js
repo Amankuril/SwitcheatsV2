@@ -51,6 +51,7 @@ const ADMIN_PERMISSION_PATH_MAP = [
   { prefix: "/food/admin/safety-emergency-reports", section: "support_management" },
   { prefix: "/food/admin/feature-settings", section: "system_settings" },
   { prefix: "/food/admin/business-settings", section: "system_settings" },
+  { prefix: "/food/admin/power-scanning", section: "system_settings" },
   { prefix: "/food/admin/notifications", section: "system_settings" },
   { prefix: "/food/admin/pages-social-media", section: "pages_social_media" },
 ];
@@ -229,15 +230,18 @@ apiClient.interceptors.request.use(
     // Client-side RBAC safety net for sub-admins across all admin APIs.
     if (config.contextModule === "admin") {
       const path = normalizePath(config?.url);
+      const normalizedPath = String(path || "").toLowerCase();
+      const isPublicAdminEndpoint =
+        normalizedPath.startsWith("/food/admin/") &&
+        normalizedPath.endsWith("/public");
       const isAuthEndpoint =
         path.includes("/food/auth/admin/login") ||
         path.includes("/food/auth/me") ||
         path.includes("/food/auth/refresh-token") ||
         path.includes("/food/auth/logout");
 
-      if (!isAuthEndpoint) {
+      if (!isAuthEndpoint && !isPublicAdminEndpoint) {
         const action = resolveActionByMethod(config?.method);
-        const normalizedPath = String(path || "").toLowerCase();
         const isRestaurantListRead = normalizedPath === "/food/admin/restaurants" && action === "view";
         const isRestaurantDetailRead =
           /^\/food\/admin\/restaurants\/[^/]+$/.test(normalizedPath) && action === "view";
