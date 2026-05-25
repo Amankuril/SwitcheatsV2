@@ -265,48 +265,34 @@ export default function PostApprovalPayment() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f4f5f7] flex flex-col">
-        <header className="bg-white border-b border-gray-200 px-4 py-4">
-          <Skeleton className="h-4 w-44" />
-          <Skeleton className="h-3 w-64 mt-2" />
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <header className="bg-white border-b border-slate-200 px-5 py-4">
+          <Skeleton className="h-6 w-44 rounded-lg" />
+          <Skeleton className="h-4 w-64 mt-2 rounded-lg" />
         </header>
-        <main className="flex-1 p-4 space-y-4 max-w-2xl w-full mx-auto">
-          <section className="rounded-2xl bg-white border border-gray-200 p-4 space-y-3 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-5/6" />
-            <Skeleton className="h-24 w-full rounded-2xl" />
-            <Skeleton className="h-3 w-36" />
-          </section>
-
-          <section className="rounded-2xl bg-white border border-gray-200 p-4 space-y-3 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
-            <Skeleton className="h-6 w-44" />
-            <Skeleton className="h-4 w-5/6" />
-            <Skeleton className="h-24 w-full rounded-2xl" />
-            <Skeleton className="h-24 w-full rounded-2xl" />
+        <main className="flex-1 p-4 space-y-6 max-w-lg w-full mx-auto">
+          <section className="rounded-3xl bg-white border border-slate-100 p-6 shadow-sm">
+            <Skeleton className="h-8 w-40 mb-4 rounded-lg" />
             <Skeleton className="h-24 w-full rounded-2xl" />
           </section>
 
-          <section className="rounded-2xl bg-white border border-gray-200 p-4 space-y-3 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-20 w-full rounded-2xl" />
-            <Skeleton className="h-20 w-full rounded-2xl" />
-            <Skeleton className="h-20 w-full rounded-2xl" />
+          <section className="space-y-4">
+            <Skeleton className="h-6 w-44 rounded-lg" />
+            <Skeleton className="h-32 w-full rounded-3xl" />
+            <Skeleton className="h-32 w-full rounded-3xl" />
           </section>
         </main>
-
-        <footer className="bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between max-w-2xl w-full mx-auto">
-          <Skeleton className="h-10 w-20 rounded-xl" />
-          <Skeleton className="h-10 w-32 rounded-xl" />
-        </footer>
       </div>
     )
   }
 
   if (!calc) {
     return (
-      <div className="min-h-screen bg-[#E6E6E9] flex items-center justify-center px-4">
-        <div className="bg-white rounded-xl border border-red-200 px-5 py-4 text-sm text-red-600">Failed to load payment details. Please refresh and try again.</div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl border border-red-200 p-5 text-sm text-red-600 font-medium shadow-sm flex items-center gap-3">
+          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          Failed to load payment details. Please refresh and try again.
+        </div>
       </div>
     )
   }
@@ -314,193 +300,295 @@ export default function PostApprovalPayment() {
   const isPlanSelected = Boolean(plan)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#eef3ff] via-[#f7f9ff] to-[#f4f5f7] flex flex-col">
-      <header className="bg-white/90 backdrop-blur border-b border-[#dbe2f2] px-4 py-4">
-        <h1 className="text-base font-semibold text-[#0f172a]">Complete activation payment</h1>
-        <p className="text-[11px] mt-1" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Your account is approved. Finish payment to unlock dashboard access.</p>
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+      <header className="bg-white px-5 py-4 border-b border-slate-200 sticky top-0 z-20">
+        <div className="max-w-lg mx-auto">
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Activate Account</h1>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Finish payment to unlock your dashboard</p>
+        </div>
       </header>
 
-      <main className="flex-1 p-4 space-y-4 max-w-2xl w-full mx-auto">
-        {loadError ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
-            {loadError}
+      <main className="flex-1 p-4 space-y-6 max-w-lg w-full mx-auto pb-6">
+        {loadError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 flex items-start gap-3 text-red-700 shadow-sm animate-in fade-in slide-in-from-top-2">
+            <svg className="w-5 h-5 shrink-0 text-red-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span className="text-sm font-medium leading-tight">{loadError}</span>
           </div>
-        ) : null}
+        )}
 
-        <section className={`rounded-3xl p-5 space-y-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] ${mode === "renewal" ? "bg-gradient-to-br from-[#fff1f2] via-[#fff7ed] to-[#fffbeb] border-2 border-[#fb7185]" : "bg-white border border-[#dbe2f2]"}`}>
-          <h2 className="text-xl leading-tight tracking-tight font-semibold text-gray-900">{mode === "onboarding" ? "Onboarding setup" : "Subscription renewal"}</h2>
+        {/* 1. Onboarding / Renewal Card */}
+        <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 relative overflow-hidden">
+          <div className="flex items-center gap-4 mb-5 relative z-10">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${STATIC_SUBSCRIPTION_COLOR}15`, color: STATIC_SUBSCRIPTION_COLOR }}>
+              {mode === "renewal" ? (
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              )}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">{mode === "onboarding" ? "Onboarding Setup" : "Subscription Renewal"}</h2>
+              <p className="text-sm text-slate-500 mt-0.5 font-medium">{mode === "onboarding" ? "Mandatory setup & activation" : "Action required to continue"}</p>
+            </div>
+          </div>
+
           {mode === "renewal" ? (
-            <div className="rounded-2xl border-2 border-[#fb7185] bg-gradient-to-r from-white to-[#fff7ed] px-4 py-4 min-h-[165px] flex flex-col justify-between shadow-[0_8px_22px_rgba(244,63,94,0.18)]">
-              <div>
-                <div className="inline-flex items-center rounded-full border border-[#fb7185] bg-[#ffe4e6] px-2.5 py-1">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#be123c]">Action Required</p>
-                </div>
-                <p className="text-[14px] leading-6 text-[#881337] mt-3 font-medium">
-                  Your subscription has expired. Complete renewal now to restore dashboard access and continue operations.
-                </p>
-              </div>
-              <div className="flex items-center justify-between mt-4 rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2">
-                <span className="text-[11px] text-[#be123c] font-semibold">Last 30 days GMV</span>
-                <span className="text-[12px] text-[#881337] font-bold">₹{Number(gmvLast30Days || 0).toFixed(2)}</span>
+            <div className="rounded-2xl bg-red-50 p-4 border border-red-100 relative z-10">
+              <p className="text-sm text-red-800 font-medium leading-relaxed mb-3">
+                Your subscription has expired. Please renew now to restore full access to your dashboard.
+              </p>
+              <div className="flex justify-between items-center bg-white rounded-xl px-3 py-2 border border-red-100 shadow-sm">
+                <span className="text-xs font-semibold text-red-600 uppercase tracking-wider">30-day GMV</span>
+                <span className="font-bold text-red-700">₹{Number(gmvLast30Days || 0).toFixed(2)}</span>
               </div>
             </div>
           ) : (
-            <p className="text-[13px] leading-6" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>
-              Complete the setup with payment to activate your restaurant. The onboarding fee is mandatory.
-            </p>
-          )}
-
-          {mode === "onboarding" ? (
-            <div className="rounded-2xl border border-[#ffc0de] bg-gradient-to-r from-[#fff2f8] to-[#ffe8f3] px-4 py-4">
-              <p className="text-lg font-semibold leading-none mb-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Onboarding fee</p>
-              <p className="text-xl leading-tight font-semibold mb-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>₹{calc.onboardingFeeBase} + ₹{calc.onboardingGST} (18% GST)</p>
-              <p className="text-2xl font-bold leading-none mb-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Total: ₹{calc.onboardingFeeTotal}</p>
-              <p className="text-xs" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Mandatory to activate account</p>
+            <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 relative z-10">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-slate-600 font-medium text-sm">Setup Fee (Base)</span>
+                <span className="text-slate-900 font-bold text-sm">₹{calc.onboardingFeeBase}</span>
+              </div>
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-slate-500 text-sm">GST (18%)</span>
+                <span className="text-slate-500 text-sm font-medium">₹{calc.onboardingGST}</span>
+              </div>
+              <div className="flex justify-between items-center pt-3 border-t border-slate-200 border-dashed">
+                <span className="font-bold text-slate-900">Onboarding Total</span>
+                <span className="font-bold text-lg" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>₹{calc.onboardingFeeTotal}</span>
+              </div>
             </div>
-          ) : null}
-          {mode === "onboarding" ? (
-            <p className="text-xs" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Last 30 days GMV: ₹{Number(gmvLast30Days || 0).toFixed(2)}</p>
-          ) : null}
+          )}
         </section>
 
-        <section className="rounded-3xl bg-white border border-[#dbe2f2] p-4 space-y-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-          <h2 className="text-xl leading-tight font-semibold text-gray-900">Select subscription plan</h2>
-          <p className="text-[13px] leading-6" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>All plans are visible, but your eligible plan is auto-selected and locked by GMV slab.</p>
-
-          {planCatalog.map((catalogPlan) => {
-            const total = Number(catalogPlan?.basePrice || 0) + Math.round(Number(catalogPlan?.basePrice || 0) * GST_RATE)
-            const title = `${String(catalogPlan?.label || catalogPlan?.id || "").trim()} Plan (₹${Number(catalogPlan?.basePrice || 0)}/mo + 18% GST)`
-            const gmvMin = Number(catalogPlan?.gmvMin || 0)
-            const gmvMaxRaw = catalogPlan?.gmvMax
-            const hasMax = Number.isFinite(Number(gmvMaxRaw))
-            const gmvLabel = hasMax
-              ? `GMV: ₹${gmvMin.toFixed(2)} - ₹${Number(gmvMaxRaw).toFixed(2)}`
-              : `GMV: ₹${gmvMin.toFixed(2)}+`
-            const features = [`${String(catalogPlan?.label || catalogPlan?.id || "").trim()} Plan`, "Platform features", "Support included"]
-            const p = { id: catalogPlan?.id, title, total, features }
-            const selected = plan === p.id
-            const attempted = attemptedPlanId === p.id && !selected
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  if (selected) {
-                    setAttemptedPlanId("")
-                    setPlanSelectionWarning("")
-                    return
-                  }
-                  setAttemptedPlanId(p.id)
-                  setPlanSelectionWarning(`You are eligible for the ${String(plan || "starter").toUpperCase()} plan based on current GMV. Other plans are locked.`)
-                }}
-                className={`w-full rounded-2xl border-2 px-4 py-4 text-left transition-all duration-200 ${selected ? "border-[#111827] bg-gradient-to-r from-[#f9fbff] to-[#f2f7ff] shadow-[0_8px_24px_rgba(17,24,39,0.10)]" : attempted ? "border-[#ef4444] bg-[#fff5f5] shadow-[0_8px_20px_rgba(239,68,68,0.18)]" : "border-[#d5d8de] bg-white hover:border-[#9aa8c2] hover:shadow-[0_6px_18px_rgba(15,23,42,0.08)]"}`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-lg leading-tight font-semibold text-gray-900">{p.title}</p>
-                    <p className="text-xs mt-1 font-medium" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>{gmvLabel}</p>
-                    <p className="text-lg font-semibold leading-none mt-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Total: ₹{p.total}</p>
-                    <div className="mt-3 space-y-1">
-                      {p.features.map((f) => (
-                        <p key={f} className="text-xs" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>• {f}</p>
-                      ))}
-                    </div>
-                  </div>
-                  <span className={`mt-1 h-9 w-9 min-h-9 min-w-9 aspect-square shrink-0 rounded-full border-[3px] ${selected ? "border-[#111827] bg-[#111827]" : "border-[#c6cbd4] bg-transparent"}`} />
-                </div>
-              </button>
-            )
-          })}
-          {planSelectionWarning ? (
-            <p className="text-xs text-[#dc2626] font-semibold bg-[#fff1f2] border border-[#fecdd3] rounded-xl px-3 py-2">
-              {planSelectionWarning}
+        {/* 2. Subscription Plan */}
+        <section className="space-y-4">
+          <div className="px-1">
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">Subscription Plan</h3>
+            <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+              Based on your 30-day GMV <span className="font-semibold text-slate-700">(₹{Number(gmvLast30Days || 0).toFixed(2)})</span>. Other plans are locked.
             </p>
-          ) : null}
-        </section>
+          </div>
 
-        {isPlanSelected && (
-          <section className="rounded-3xl bg-white border border-[#dbe2f2] p-4 space-y-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-            <h2 className="text-xl leading-tight font-semibold text-gray-900">Payment option</h2>
-
-            {[{ id: "full", title: "Pay now", desc: mode === "onboarding" ? `Pay onboarding fee (₹${calc.onboardingFeeTotal}) plus the selected subscription plan (₹${calc.subscriptionPlanTotal}) in full now.` : `Pay the selected subscription plan (₹${calc.subscriptionPlanTotal}) in full now.` }, { id: "partial", title: "Pay partial", desc: mode === "onboarding" ? "Pay part of the subscription now. Onboarding fee is always collected." : "Pay part of the subscription now and keep the rest as due." }, { id: "later", title: "Pay later", desc: mode === "onboarding" ? `Pay subscription later. Only onboarding fee (₹${calc.onboardingFeeTotal} with GST) will be collected now.` : "Pay the subscription later. No amount will be collected now." }].map((opt) => {
-              const selected = paymentType === opt.id
+          <div className="grid gap-3">
+            {planCatalog.map((catalogPlan) => {
+              const total = Number(catalogPlan?.basePrice || 0) + Math.round(Number(catalogPlan?.basePrice || 0) * GST_RATE)
+              const title = `${String(catalogPlan?.label || catalogPlan?.id || "").trim()}`
+              const gmvMin = Number(catalogPlan?.gmvMin || 0)
+              const gmvMaxRaw = catalogPlan?.gmvMax
+              const hasMax = Number.isFinite(Number(gmvMaxRaw))
+              const gmvLabel = hasMax
+                ? `GMV: ₹${gmvMin.toFixed(2)} - ₹${Number(gmvMaxRaw).toFixed(2)}`
+                : `GMV: ₹${gmvMin.toFixed(2)}+`
+              
+              const isPremium = catalogPlan?.id === "premium"
+              const p = { id: catalogPlan?.id, title, total, features: ["Platform features", "Support included", isPremium ? "Priority delivery" : "Standard tools"].filter(Boolean) }
+              const selected = plan === p.id
+              const attempted = attemptedPlanId === p.id && !selected
+              
               return (
                 <button
-                  key={opt.id}
+                  key={p.id}
                   type="button"
                   onClick={() => {
-                    setPaymentType(opt.id)
-                    if (opt.id !== "partial") setPartialAmount("")
+                    if (selected) {
+                      setAttemptedPlanId("")
+                      setPlanSelectionWarning("")
+                      return
+                    }
+                    setAttemptedPlanId(p.id)
+                    setPlanSelectionWarning(`Eligible for ${String(plan || "starter").toUpperCase()} based on GMV.`)
                   }}
-                  className={`w-full rounded-2xl border-2 px-4 py-4 text-left transition-all duration-200 ${selected ? "border-[#111827] bg-gradient-to-r from-[#f9fbff] to-[#f2f7ff] shadow-[0_8px_24px_rgba(17,24,39,0.10)]" : "border-[#d5d8de] bg-white hover:border-[#9aa8c2] hover:shadow-[0_6px_18px_rgba(15,23,42,0.08)]"}`}
+                  className={`w-full relative overflow-hidden rounded-3xl p-5 text-left transition-all duration-300 border-2 group ${
+                    selected 
+                      ? "bg-white shadow-md z-10 scale-[1.01]" 
+                      : attempted
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm"
+                  }`}
+                  style={{ borderColor: selected ? STATIC_SUBSCRIPTION_COLOR : undefined }}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-lg leading-none font-semibold text-gray-900">{opt.title}</p>
-                      <p className="text-xs leading-5 mt-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>{opt.desc}</p>
-                      <p className="text-[11px] leading-4 mt-2" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>{paymentInfoContent[opt.id]}</p>
+                  {selected && (
+                    <div className="absolute top-0 right-0 w-32 h-32 opacity-[0.03] pointer-events-none rounded-bl-full transition-transform duration-500 scale-110" style={{ backgroundColor: STATIC_SUBSCRIPTION_COLOR }} />
+                  )}
+                  
+                  <div className="flex items-start justify-between gap-4 relative z-10">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-xl font-extrabold tracking-tight text-slate-900">{p.title}</p>
+                        {selected && <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md" style={{ backgroundColor: `${STATIC_SUBSCRIPTION_COLOR}15`, color: STATIC_SUBSCRIPTION_COLOR }}>Selected</span>}
+                      </div>
+                      
+                      <div className="flex items-baseline gap-1 mb-3">
+                        <span className="text-2xl font-black text-slate-900">₹{p.total}</span>
+                        <span className="text-sm font-medium text-slate-500">/mo</span>
+                      </div>
+                      
+                      <p className="text-xs font-semibold text-slate-600 bg-slate-100 inline-block px-2.5 py-1 rounded-lg border border-slate-200 mb-4">{gmvLabel}</p>
+                      
+                      <ul className="space-y-2.5">
+                        {p.features.map((f) => (
+                          <li key={f} className="flex items-center text-sm font-medium text-slate-600">
+                            <svg className="w-4 h-4 mr-2 shrink-0" style={{ color: selected ? STATIC_SUBSCRIPTION_COLOR : '#94a3b8' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    <span className={`mt-1 h-8 w-8 min-h-8 min-w-8 aspect-square shrink-0 rounded-full border-[3px] ${selected ? "border-[#111827] bg-[#111827]" : "border-[#c6cbd4] bg-transparent"}`} />
+                    
+                    <div className={`mt-1 flex items-center justify-center w-7 h-7 rounded-full border-2 transition-all duration-300 shrink-0 shadow-sm ${selected ? 'scale-110' : 'border-slate-300 bg-slate-50 group-hover:border-slate-400'}`} style={{ borderColor: selected ? STATIC_SUBSCRIPTION_COLOR : undefined, backgroundColor: selected ? STATIC_SUBSCRIPTION_COLOR : undefined }}>
+                      {selected && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    </div>
                   </div>
                 </button>
               )
             })}
+          </div>
+
+          {planSelectionWarning && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 flex items-start gap-3 shadow-sm animate-in fade-in slide-in-from-top-1">
+              <svg className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <p className="text-sm font-medium text-amber-800 leading-tight">{planSelectionWarning}</p>
+            </div>
+          )}
+        </section>
+
+        {/* 3. Payment Option */}
+        {isPlanSelected && (
+          <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="px-1">
+              <h3 className="text-lg font-bold text-slate-900 tracking-tight">Payment Options</h3>
+            </div>
+
+            <div className="grid gap-3">
+              {[
+                { id: "full", title: "Pay Full Now", desc: "Pay the complete amount and clear all dues instantly." },
+                { id: "partial", title: "Pay Partial", desc: "Pay a custom amount now, rest will be auto-deducted later." },
+                { id: "later", title: "Pay Later", desc: mode === "onboarding" ? "Pay only onboarding fee now." : "Pay nothing now, auto-deduct later." }
+              ].map((opt) => {
+                const selected = paymentType === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      setPaymentType(opt.id)
+                      if (opt.id !== "partial") setPartialAmount("")
+                    }}
+                    className={`w-full flex items-center gap-4 rounded-2xl p-4 text-left transition-all duration-200 border-2 group ${
+                      selected ? "bg-white shadow-md z-10" : "border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm"
+                    }`}
+                    style={{ borderColor: selected ? STATIC_SUBSCRIPTION_COLOR : undefined }}
+                  >
+                    <div className={`shrink-0 flex items-center justify-center w-6 h-6 rounded-full border-2 transition-colors ${selected ? '' : 'border-slate-300 group-hover:border-slate-400'}`} style={{ borderColor: selected ? STATIC_SUBSCRIPTION_COLOR : undefined }}>
+                      {selected && <div className="w-3 h-3 rounded-full animate-in zoom-in" style={{ backgroundColor: STATIC_SUBSCRIPTION_COLOR }} />}
+                    </div>
+                    <div>
+                      <p className="text-base font-bold text-slate-900">{opt.title}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed font-medium">{opt.desc}</p>
+                      <p className="text-[11px] leading-4 mt-2 font-medium text-slate-900">{paymentInfoContent[opt.id]}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
 
             {paymentType === "partial" && (
-              <div>
-                <Label className="text-xs text-gray-700 mb-1 block">Enter subscription partial amount</Label>
-                <Input
-                  value={partialAmount}
-                  onChange={(e) => setPartialAmount(e.target.value.replace(/[^0-9]/g, ""))}
-                  className="bg-white"
-                  placeholder={`Enter partial plan base payment (₹1 - ₹${calc.selectedPlanBase})`}
-                />
+              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm transition-all animate-in fade-in slide-in-from-top-2">
+                <Label className="text-sm font-bold text-slate-900 block mb-2">Partial Amount (Base)</Label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="text-slate-500 font-bold text-lg">₹</span>
+                  </div>
+                  <Input
+                    value={partialAmount}
+                    onChange={(e) => setPartialAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                    className="h-14 pl-10 text-lg font-bold bg-slate-50 border-slate-200 focus-visible:ring-2 rounded-xl transition-all"
+                    style={{ '--tw-ring-color': STATIC_SUBSCRIPTION_COLOR }}
+                    placeholder={`Max ₹${calc.selectedPlanBase}`}
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-2 font-medium">+ 18% GST will be added</p>
               </div>
             )}
           </section>
         )}
 
+        {/* 4. Payment Summary */}
         {isPlanSelected && (
-          <section className="rounded-3xl bg-white border border-[#dbe2f2] p-4 space-y-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-            <h2 className="text-xl leading-tight font-semibold text-gray-900">Payment summary</h2>
-            <div className="space-y-2 text-sm" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>
-              {mode === "onboarding" ? (
+          <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <h3 className="text-lg font-bold text-slate-900 mb-5 flex items-center gap-2">
+              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              Payment Summary
+            </h3>
+            
+            <div className="space-y-2 text-sm text-slate-600">
+              {mode === "onboarding" && (
                 <>
-                  <div className="flex justify-between"><span>Onboarding fee (Base)</span><span className="font-semibold text-black">₹{calc.onboardingFeeBase}</span></div>
-                  <div className="flex justify-between"><span>Onboarding GST (18%)</span><span className="font-semibold text-black">₹{calc.onboardingGST}</span></div>
-                  <div className="flex justify-between border-b border-[#d5d8de] pb-2"><span className="font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Onboarding Total</span><span className="font-semibold text-black">₹{calc.onboardingFeeTotal}</span></div>
+                  <div className="flex justify-between items-center"><span>Onboarding fee (Base)</span><span className="font-bold text-slate-900">₹{calc.onboardingFeeBase}</span></div>
+                  <div className="flex justify-between items-center"><span>Onboarding GST (18%)</span><span className="font-bold text-slate-900">₹{calc.onboardingGST}</span></div>
+                  <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-3">
+                    <span className="font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Onboarding Total</span>
+                    <span className="font-bold text-slate-900">₹{calc.onboardingFeeTotal}</span>
+                  </div>
                 </>
-              ) : null}
+              )}
+              
+              <div className="flex justify-between items-center"><span>Subscription ({String(plan || "starter").toUpperCase()} Plan) Base</span><span className="font-bold text-slate-900">₹{calc.selectedPlanBase}</span></div>
+              <div className="flex justify-between items-center"><span>Subscription GST (18%)</span><span className="font-bold text-slate-900">₹{calc.selectedPlanGST}</span></div>
+              <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-3">
+                <span className="font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Subscription Total</span>
+                <span className="font-bold text-slate-900">₹{calc.subscriptionPlanTotal}</span>
+              </div>
 
-              <div className="flex justify-between"><span>Subscription ({String(plan || "starter").toUpperCase()} Plan) Base</span><span className="font-semibold text-black">₹{calc.selectedPlanBase}</span></div>
-              <div className="flex justify-between"><span>Subscription GST (18%)</span><span className="font-semibold text-black">₹{calc.selectedPlanGST}</span></div>
-              <div className="flex justify-between border-b border-[#d5d8de] pb-2"><span className="font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Subscription Total</span><span className="font-semibold text-black">₹{calc.subscriptionPlanTotal}</span></div>
-
-              <p className="text-xs font-semibold tracking-wide pt-1" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>BREAKDOWN OF PAY NOW</p>
-              {mode === "onboarding" ? (
-                <div className="flex justify-between"><span>Onboarding (Total)</span><span className="font-semibold text-black">₹{calc.onboardingFeeTotal}</span></div>
-              ) : null}
-              <div className="flex justify-between"><span>Subscription (Pay now) Base</span><span className="font-semibold text-black">₹{calc.subscriptionPaidNowBase}</span></div>
-              <div className="flex justify-between"><span>Subscription (Pay now) GST</span><span className="font-semibold text-black">₹{calc.subscriptionPaidNowGST}</span></div>
-              <div className="flex justify-between border-t border-[#fac0df] pt-2"><span className="text-base font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Total to pay now</span><span className="text-base font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>₹{calc.payableNow}</span></div>
-              <div className="flex justify-between pt-1">
-                <span className="text-xs" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Remaining due later (inc. GST)</span>
-                <span className="text-xs font-semibold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>₹{calc.subscriptionDueLaterTotal}</span>
+              <p className="text-xs font-bold tracking-wider pt-2 mb-2 uppercase" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>BREAKDOWN OF PAY NOW</p>
+              
+              {mode === "onboarding" && (
+                <div className="flex justify-between items-center"><span>Onboarding (Total)</span><span className="font-bold text-slate-900">₹{calc.onboardingFeeTotal}</span></div>
+              )}
+              <div className="flex justify-between items-center"><span>Subscription (Pay now) Base</span><span className="font-bold text-slate-900">₹{calc.subscriptionPaidNowBase}</span></div>
+              <div className="flex justify-between items-center"><span>Subscription (Pay now) GST</span><span className="font-bold text-slate-900">₹{calc.subscriptionPaidNowGST}</span></div>
+              
+              <div className="pt-3 mt-3 border-t border-slate-200 border-dashed flex justify-between items-end">
+                <span className="text-base font-bold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Total to pay now</span>
+                <span className="text-xl font-black tracking-tight" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>₹{calc.payableNow}</span>
+              </div>
+              
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-xs font-medium" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>Remaining due later (inc. GST)</span>
+                <span className="text-xs font-bold" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>₹{calc.subscriptionDueLaterTotal}</span>
               </div>
             </div>
           </section>
         )}
       </main>
 
-      <footer className="bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between max-w-2xl w-full mx-auto">
-        <Button variant="ghost" className="text-base text-gray-600" onClick={() => navigate("/food/restaurant/login", { replace: true })}>Back</Button>
-        <Button
-          onClick={handleCreateOrder}
-          disabled={processing}
-          className="bg-black text-white hover:bg-black/90 rounded-xl px-6 py-5 text-base"
-        >
-          {processing ? "Processing..." : "Finish & Pay"}
-        </Button>
+      {/* 5. Footer */}
+      <footer className="bg-white border-t border-slate-200 p-4 pb-6 mt-auto">
+        <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
+          <Button 
+            variant="ghost" 
+            className="h-14 px-4 sm:px-6 rounded-2xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all text-xs sm:text-sm shrink-0" 
+            onClick={() => navigate("/food/restaurant/login", { replace: true })}
+          >
+            Back to login screen
+          </Button>
+          <Button
+            onClick={handleCreateOrder}
+            disabled={processing || !calc}
+            className="h-14 px-8 rounded-2xl font-bold text-white text-base transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 bg-black hover:bg-black/90 shadow-lg"
+          >
+            {processing ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Processing...
+              </span>
+            ) : (
+              "Finish & Pay"
+            )}
+          </Button>
+        </div>
       </footer>
     </div>
   )
