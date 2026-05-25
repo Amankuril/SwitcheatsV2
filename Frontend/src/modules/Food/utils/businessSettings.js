@@ -350,18 +350,25 @@ export const loadBusinessSettings = async () => {
     inFlightSettingsPromise = (async () => {
       // Use public endpoint that doesn't require authentication
       // Use noCache to ensure we get fresh data from server this time
-      const response = await publicGetOnce(endpoint, { noCache: true });
-      const settings = response?.data?.data || response?.data;
+      const [settingsResponse, powerScanningResponse] = await Promise.all([
+        publicGetOnce(endpoint, { noCache: true }),
+        publicGetOnce("/food/admin/power-scanning/public", { noCache: true }).catch(() => null),
+      ]);
+      const settings = settingsResponse?.data?.data || settingsResponse?.data;
+      const publicPowerScanning = powerScanningResponse?.data?.data || powerScanningResponse?.data || null;
 
       if (settings) {
-        cachedSettings = settings;
+        const mergedSettings = publicPowerScanning
+          ? { ...settings, powerScanning: publicPowerScanning }
+          : settings;
+        cachedSettings = mergedSettings;
         try {
-          localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings));
         } catch (e) {}
         
-        updateFavicon(settings.favicon?.url);
-        updateTitle(settings.companyName);
-        return settings;
+        updateFavicon(mergedSettings.favicon?.url);
+        updateTitle(mergedSettings.companyName);
+        return mergedSettings;
       }
       return cachedSettings;
     })();
