@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { ChevronLeft, ChevronRight, Plus, MapPin, MoreHorizontal, Navigation, Home, Building2, Briefcase, Phone, X, Crosshair, Search } from "lucide-react"
 import { Button } from "@food/components/ui/button"
 import { Input } from "@food/components/ui/input"
@@ -12,6 +12,7 @@ import { locationAPI, userAPI } from "@food/api"
 import { Loader } from '@googlemaps/js-api-loader'
 import AnimatedPage from "@food/components/user/AnimatedPage"
 import useAppBackNavigation from "@food/hooks/useAppBackNavigation"
+import { isModuleAuthenticated } from "@food/utils/auth"
 
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
@@ -47,11 +48,15 @@ const getAddressIcon = (address) => {
 
 export default function AddressSelectorPage() {
   const navigate = useNavigate()
+  const routerLocation = useLocation()
   const goBack = useAppBackNavigation()
   const { location, loading, requestLocation } = useGeoLocation()
   const { addresses = [], addAddress, updateAddress, setDefaultAddress, userProfile } = useProfile()
   const [showAddressForm, setShowAddressForm] = useState(false)
-  const [mapPosition, setMapPosition] = useState([22.7196, 75.8577]) // Default Indore coordinates [lat, lng]
+  const [mapPosition, setMapPosition] = useState([
+    Number.isFinite(location?.latitude) ? location.latitude : 20.5937,
+    Number.isFinite(location?.longitude) ? location.longitude : 78.9629,
+  ])
   const [addressFormData, setAddressFormData] = useState({
     street: "",
     city: "",
@@ -209,6 +214,13 @@ export default function AddressSelectorPage() {
     return () => clearTimeout(t)
   }, [addressAutocompleteValue, showAddressForm, location, ENABLE_NOMINATIM_SEARCH])
 
+  // Keep map anchored to resolved live location when available (avoids default-city bias on first open).
+  useEffect(() => {
+    if (Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude)) {
+      setMapPosition([location.latitude, location.longitude])
+    }
+  }, [location?.latitude, location?.longitude])
+
   // Map Initialization logic
   useEffect(() => {
     if (!MAPS_ENABLED || !showAddressForm || !mapContainerRef.current || !GOOGLE_MAPS_API_KEY) return
@@ -363,6 +375,10 @@ export default function AddressSelectorPage() {
   }
 
   const handleAddAddressClick = () => {
+    if (!isModuleAuthenticated("user")) {
+      navigate("/food/user/auth/login", { state: { from: routerLocation.pathname } })
+      return
+    }
     setShowAddressForm(true)
   }
 

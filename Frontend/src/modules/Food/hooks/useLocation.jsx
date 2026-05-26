@@ -5,13 +5,13 @@ const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 const DEFAULT_LOCATION = {
-  latitude: 22.7196,
-  longitude: 75.8577,
-  city: "Indore",
-  state: "MP",
-  area: "Indore",
-  address: "Indore, MP",
-  formattedAddress: "Indore, MP"
+  latitude: null,
+  longitude: null,
+  city: "Select location",
+  state: "",
+  area: "",
+  address: "Select location",
+  formattedAddress: "Select location"
 }
 
 
@@ -261,11 +261,63 @@ export function useLocation() {
     }
   }
 
-  // Google Places API removed - using OLA Maps only
+  // Prefer Google Maps Geocoding API for address accuracy, fallback to existing reverse-geocode.
+  let cachedGoogleMapsApiKey = null
+  const getGoogleMapsApiKeySafe = async () => {
+    if (cachedGoogleMapsApiKey) return cachedGoogleMapsApiKey
+    try {
+      const { getGoogleMapsApiKey } = await import("@food/utils/googleMapsApiKey.js")
+      const key = await getGoogleMapsApiKey()
+      if (key && typeof key === "string") {
+        cachedGoogleMapsApiKey = key
+        return key
+      }
+    } catch {
+      // Ignore key lookup errors; caller will fallback.
+    }
+    return null
+  }
 
-  /* Removed Google Geocoding/Places (maps.googleapis.com). Uses BigDataCloud reverse-geocode only. */
-  const reverseGeocodeWithGoogleMaps = async (latitude, longitude, _options = {}) =>
-    reverseGeocodeDirect(latitude, longitude)
+  const reverseGeocodeWithGoogleMaps = async (latitude, longitude, _options = {}) => {
+    try {
+      const apiKey = await getGoogleMapsApiKeySafe()
+      if (!apiKey) {
+        return reverseGeocodeDirect(latitude, longitude)
+      }
+
+      const controller = new AbortController()
+      setTimeout(() => controller.abort(), 6000)
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${encodeURIComponent(latitude)},${encodeURIComponent(longitude)}&key=${encodeURIComponent(apiKey)}`
+      const res = await fetch(url, { signal: controller.signal })
+      const data = await res.json()
+      const result = Array.isArray(data?.results) ? data.results[0] : null
+      if (!result) {
+        return reverseGeocodeDirect(latitude, longitude)
+      }
+
+      const components = Array.isArray(result.address_components) ? result.address_components : []
+      const pick = (...types) =>
+        components.find((c) => types.some((t) => c.types?.includes(t)))?.long_name || ""
+
+      const area =
+        pick("sublocality_level_1", "sublocality", "neighborhood") ||
+        pick("locality")
+      const city = pick("locality") || pick("administrative_area_level_2") || "Unknown City"
+      const state = pick("administrative_area_level_1")
+      const country = pick("country")
+
+      return {
+        city,
+        state,
+        country,
+        area,
+        address: result.formatted_address || `${city}, ${state}`.trim(),
+        formattedAddress: result.formatted_address || `${city}, ${state}`.trim(),
+      }
+    } catch {
+      return reverseGeocodeDirect(latitude, longitude)
+    }
+  }
 
 
   /* ===================== OLA MAPS REVERSE GEOCODE (DEPRECATED - KEPT FOR FALLBACK) ===================== */
@@ -1004,15 +1056,13 @@ export function useLocation() {
                 if (showLoading) setLoading(false)
                 resolve(fallback)
               } else {
-                // No fallback available - set a default location so UI doesn't hang
-                debugWarn("?? No fallback location available, setting default")
-                const defaultLocation = DEFAULT_LOCATION
-
-                setLocation(defaultLocation)
+                // No fallback available: keep location unset instead of forcing an inaccurate city.
+                debugWarn("?? No fallback location available, keeping location unset")
+                setLocation(null)
                 setError(err.code === 3 ? "Location request timed out. Please try again." : err.message)
                 setPermissionGranted(false)
                 if (showLoading) setLoading(false)
-                resolve(defaultLocation) // Always resolve with something
+                resolve(null)
               }
             } catch (fallbackErr) {
               debugWarn("?? Fallback retrieval failed:", fallbackErr)
@@ -1277,7 +1327,7 @@ export function useLocation() {
         }
 
         if (!hasInitialLocation) {
-          setLocation(DEFAULT_LOCATION)
+          setLocation(null)
           setLoading(false)
         }
 
