@@ -50,9 +50,9 @@ function BottomNavOrders() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[60] px-3 pb-[max(0.85rem,env(safe-area-inset-bottom))]">
+    <div className="fixed bottom-0 left-0 right-0 z-[60] px-3 pb-[max(0.55rem,env(safe-area-inset-bottom))]">
       <div className="mx-auto w-full max-w-md">
-        <div className="relative overflow-hidden rounded-full bg-gray-900/96 backdrop-blur-xl py-2.5 px-2.5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] border border-white/10">
+        <div className="relative overflow-hidden rounded-full bg-gray-900/96 backdrop-blur-xl py-1.5 px-2 shadow-[0_24px_60px_rgba(0,0,0,0.35)] border border-white/10">
           <div className="relative flex items-center justify-around gap-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
@@ -64,7 +64,7 @@ function BottomNavOrders() {
                   type="button"
                   onClick={() => handleTabClick(tab)}
                   aria-current={isActive ? "page" : undefined}
-                  className="relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 py-2.5 rounded-full transition-colors duration-200"
+                  className="relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 rounded-full transition-colors duration-200"
                   whileTap={{ scale: 0.95 }}
                 >
                   {isActive && (
@@ -77,12 +77,12 @@ function BottomNavOrders() {
                     />
                   )}
                   <Icon
-                    className={`relative z-10 h-[19px] w-[19px] transition-all duration-300 ${isActive ? "scale-110" : "text-white/40"
+                    className={`relative z-10 h-[18px] w-[18px] transition-all duration-300 ${isActive ? "scale-110" : "text-white/40"
                       }`}
                     style={isActive ? { color: "var(--module-theme-color, #2563EB)" } : undefined}
                   />
                   <span
-                    className={`relative z-10 whitespace-nowrap text-[10px] font-bold tracking-tight transition-colors duration-300 ${isActive ? "" : "text-white/40"
+                    className={`relative z-10 whitespace-nowrap text-[9px] font-bold tracking-tight transition-colors duration-300 ${isActive ? "" : "text-white/40"
                       }`}
                     style={isActive ? { color: "var(--module-theme-color, #2563EB)" } : undefined}
                   >
