@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom"
-import { useMemo } from "react"
+import { memo, useMemo } from "react"
 import { motion } from "framer-motion"
 import {
   FileText,
@@ -21,7 +21,7 @@ const findActiveTab = (tabs, pathname) =>
     .sort((a, b) => b.route.length - a.route.length)
     .find((tab) => pathname === tab.route || pathname.startsWith(tab.route + "/"))
 
-export default function BottomNavOrders() {
+function BottomNavOrders() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
@@ -61,6 +61,7 @@ export default function BottomNavOrders() {
               return (
                 <motion.button
                   key={tab.id}
+                  type="button"
                   onClick={() => handleTabClick(tab)}
                   aria-current={isActive ? "page" : undefined}
                   className="relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 py-2.5 rounded-full transition-colors duration-200"
@@ -96,3 +97,5 @@ export default function BottomNavOrders() {
     </div>
   )
 }
+
+export default memo(BottomNavOrders)

@@ -41,7 +41,8 @@ export default function ProtectedRoute({ children, requiredRole, loginPath = "/f
       };
     }
 
-    setIsSubscriptionCheckDone(false);
+    // Keep current UI mounted during route-to-route checks to avoid white flashes
+    // when switching tabs inside restaurant module.
     const syncRestaurantSubscription = async () => {
       try {
         const [restaurantResult, featureResult] = await Promise.allSettled([

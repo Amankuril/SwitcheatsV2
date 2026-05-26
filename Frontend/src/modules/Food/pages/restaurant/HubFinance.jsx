@@ -1495,18 +1495,7 @@ export default function HubFinance() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {!showRestrictionModal && !showWithdrawalModal && (
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 20, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <BottomNavOrders />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {!showRestrictionModal && !showWithdrawalModal && <BottomNavOrders />}
     </div>
   )
 }

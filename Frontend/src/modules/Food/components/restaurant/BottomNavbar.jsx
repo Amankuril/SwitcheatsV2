@@ -16,6 +16,7 @@ export default function BottomNavbar({ onMenuClick }) {
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
       <div className="flex items-center justify-around py-2 px-4">
         <button
+          type="button"
           onClick={() => navigate("/restaurant")}
           className={`flex flex-col items-center gap-1 p-2 transition-colors ${
             isActive("/restaurant") ? "text-[#ff8100]" : "text-gray-600"
@@ -24,6 +25,7 @@ export default function BottomNavbar({ onMenuClick }) {
           <Home className="w-6 h-6" />
         </button>
         <button
+          type="button"
           onClick={() => navigate("/restaurant/orders")}
           className={`flex flex-col items-center gap-1 p-2 transition-colors ${
             isActive("/restaurant/orders") ? "text-[#ff8100]" : "text-gray-600"
@@ -32,6 +34,7 @@ export default function BottomNavbar({ onMenuClick }) {
           <ShoppingBag className="w-6 h-6" />
         </button>
         <button
+          type="button"
           onClick={() => navigate("/restaurant/details")}
           className={`flex flex-col items-center gap-1 p-2 -mt-8 transition-colors ${
             isActive("/restaurant/details") ? "text-[#ff8100]" : "text-gray-600"
@@ -52,6 +55,7 @@ export default function BottomNavbar({ onMenuClick }) {
           </div>
         </button>
         <button
+          type="button"
           onClick={() => navigate("/restaurant/wallet")}
           className={`flex flex-col items-center gap-1 p-2 transition-colors ${
             isActive("/restaurant/wallet") ? "text-[#ff8100]" : "text-gray-600"
@@ -82,4 +86,3 @@ export default function BottomNavbar({ onMenuClick }) {
     </div>
   )
 }
-
