@@ -639,6 +639,7 @@ export default function RestaurantOnboarding() {
   const placesAutocompleteServiceRef = useRef(null)
   const placesDetailsServiceRef = useRef(null)
   const placesSessionTokenRef = useRef(null)
+  const suppressSuggestionFetchRef = useRef(false)
   const mapsScriptLoadedRef = useRef(false)
   const menuImagesInputRef = useRef(null)
   const profileImageInputRef = useRef(null)
@@ -657,7 +658,68 @@ export default function RestaurantOnboarding() {
   const [locationSearchValue, setLocationSearchValue] = useState("")
   const [locationSuggestions, setLocationSuggestions] = useState([])
   const [isSearchingLocation, setIsSearchingLocation] = useState(false)
+  const [isAutoFilledLocationLocked, setIsAutoFilledLocationLocked] = useState(false)
+  const [zoneDetectionState, setZoneDetectionState] = useState({
+    status: "idle", // idle | detecting | matched | out_of_zone | failed
+    message: "",
+    zoneName: "",
+  })
   const normalizeLocationQuery = (value) => String(value || "").replace(/\s+/g, " ").trim()
+
+  const detectAndSetZoneForLocation = async (lat, lng) => {
+    const latitude = Number(lat)
+    const longitude = Number(lng)
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setZoneDetectionState({
+        status: "failed",
+        message: "Unable to detect zone because location coordinates are missing.",
+        zoneName: "",
+      })
+      return
+    }
+
+    try {
+      setZoneDetectionState({
+        status: "detecting",
+        message: "Detecting service zone for this location...",
+        zoneName: "",
+      })
+      const res = await zoneAPI.detectZone(latitude, longitude)
+      const payload = res?.data?.data
+      const isInService = payload?.status === "IN_SERVICE" && !!payload?.zoneId
+      const detectedZoneId = String(payload?.zoneId || "")
+      const detectedZone =
+        zones.find((z) => String(z?._id || z?.id || "") === detectedZoneId) || payload?.zone
+      const detectedZoneName =
+        detectedZone?.name || detectedZone?.zoneName || detectedZone?.serviceLocation || ""
+
+      if (isInService) {
+        setStep1((prev) => ({ ...prev, zoneId: detectedZoneId }))
+        setZoneDetectionState({
+          status: "matched",
+          message: detectedZoneName
+            ? `Zone auto-detected: ${detectedZoneName}`
+            : "Zone auto-detected for this location.",
+          zoneName: detectedZoneName,
+        })
+        return
+      }
+
+      setStep1((prev) => ({ ...prev, zoneId: "" }))
+      setZoneDetectionState({
+        status: "out_of_zone",
+        message: "No active zone found at this location.",
+        zoneName: "",
+      })
+    } catch (err) {
+      debugError("Failed to detect zone for onboarding location:", err)
+      setZoneDetectionState({
+        status: "failed",
+        message: "Could not verify zone right now. Please reselect the location.",
+        zoneName: "",
+      })
+    }
+  }
 
   const getPreviewImageUrl = (value) => {
     if (!value) return null
@@ -1297,6 +1359,9 @@ export default function RestaurantOnboarding() {
     if (!step1.zoneId?.trim()) {
       errors.push("Service zone is required")
     }
+    if (zoneDetectionState.status === "out_of_zone") {
+      errors.push("No active zone found at this location")
+    }
     if (!step1.location?.area?.trim()) {
       errors.push("Area/Sector/Locality is required")
     }
@@ -1768,36 +1833,21 @@ export default function RestaurantOnboarding() {
           <p className="text-sm text-gray-700">
             Add your restaurant's location for order pick-up.
           </p>
-          <div>
-            <Label className="text-xs text-gray-700">Service zone*</Label>
-            <select
-              value={step1.zoneId || ""}
-              onChange={(e) => setStep1({ ...step1, zoneId: e.target.value })}
-              className="mt-1 w-full h-9 rounded-md border border-input bg-white px-3 text-sm"
-              disabled={zonesLoading || !isEditing}
-            >
-              <option value="">{zonesLoading ? "Loading zones..." : "Select a zone"}</option>
-              {zones.map((z) => {
-                const id = String(z?._id || z?.id || "")
-                const label = z?.name || z?.zoneName || z?.serviceLocation || id
-                return (
-                  <option key={id} value={id}>
-                    {label}
-                  </option>
-                )
-              })}
-            </select>
-            <p className="text-[11px] text-gray-500 mt-1">
-              Choose the service zone where your restaurant will be available.
-            </p>
-          </div>
           <div className="relative">
             <Label className="text-xs text-gray-700">Search location</Label>
+            <p className="text-[12px] text-gray-600 mt-1">
+              Zone will be auto detected according to the selected location.
+            </p>
             <div className="relative">
               <Input
                 ref={locationSearchInputRef}
                 value={locationSearchValue}
-                onChange={(e) => setLocationSearchValue(e.target.value)}
+                onChange={(e) => {
+                  setLocationSearchValue(e.target.value)
+                  setZoneDetectionState((prev) =>
+                    prev.status === "idle" ? prev : { status: "idle", message: "", zoneName: "" }
+                  )
+                }}
                 className="mt-1 bg-white text-sm text-black! dark:text-white! placeholder:text-gray-500 dark:placeholder:text-gray-400 caret-black dark:caret-white"
                 style={{ color: "#000", WebkitTextFillColor: "#000" }}
                 placeholder="Start typing your restaurant address..."
@@ -1860,11 +1910,15 @@ export default function RestaurantOnboarding() {
                               longitude: typeof lng === "number" ? Number(lng.toFixed(6)) : prev.location.longitude,
                             },
                           }))
+                          setIsAutoFilledLocationLocked(true)
+                          suppressSuggestionFetchRef.current = true
                           setLocationSearchValue(formattedAddress)
                           setLocationSuggestions([])
+                          locationSearchInputRef.current?.blur()
                           if (window.google?.maps?.places?.AutocompleteSessionToken) {
                             placesSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
                           }
+                          await detectAndSetZoneForLocation(lat, lng)
                           return
                         } catch (err) {
                           debugWarn("Google place details failed, falling back to manual suggestion mapping:", err)
@@ -1891,8 +1945,12 @@ export default function RestaurantOnboarding() {
                           longitude: Number.isFinite(lng) ? lng : prev.location.longitude,
                         },
                       }))
+                      setIsAutoFilledLocationLocked(true)
+                      suppressSuggestionFetchRef.current = true
                       setLocationSearchValue(display)
                       setLocationSuggestions([])
+                      locationSearchInputRef.current?.blur()
+                      await detectAndSetZoneForLocation(lat, lng)
                     }}
                     className="w-full px-4 py-2 text-left text-[13px] hover:bg-orange-50 border-b border-gray-100 last:border-none font-medium text-gray-700"
                   >
@@ -1908,6 +1966,26 @@ export default function RestaurantOnboarding() {
             <p className="text-[11px] text-gray-500 mt-1">
               Select a suggestion to auto-fill area/city/state/pincode and coordinates.
             </p>
+            {zoneDetectionState.status === "detecting" && (
+              <p className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
+                Detecting service zone...
+              </p>
+            )}
+            {zoneDetectionState.status === "matched" && (
+              <p className="mt-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700">
+                {zoneDetectionState.message}
+              </p>
+            )}
+            {zoneDetectionState.status === "out_of_zone" && (
+              <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                No active zone found at this location.
+              </p>
+            )}
+            {zoneDetectionState.status === "failed" && (
+              <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                {zoneDetectionState.message}
+              </p>
+            )}
           </div>
           <Input
             value={step1.location?.addressLine1 || ""}
@@ -1917,6 +1995,7 @@ export default function RestaurantOnboarding() {
                 location: { ...step1.location, addressLine1: e.target.value },
               })
             }
+            readOnly={isAutoFilledLocationLocked}
             className="bg-white text-sm"
             placeholder="Shop no. / building no. (optional)"
           />
@@ -1950,6 +2029,7 @@ export default function RestaurantOnboarding() {
                 location: { ...step1.location, area: e.target.value },
               })
             }
+            readOnly={isAutoFilledLocationLocked}
             className="bg-white text-sm"
             placeholder="Area / Sector / Locality*"
           />
@@ -1961,6 +2041,7 @@ export default function RestaurantOnboarding() {
                 location: { ...step1.location, city: e.target.value },
               })
             }
+            readOnly={isAutoFilledLocationLocked}
             className="bg-white text-sm"
             placeholder="City"
           />
@@ -1973,6 +2054,7 @@ export default function RestaurantOnboarding() {
                   location: { ...step1.location, state: e.target.value },
                 })
               }
+              readOnly={isAutoFilledLocationLocked}
               className="bg-white text-sm"
               placeholder="State"
             />
@@ -1984,6 +2066,7 @@ export default function RestaurantOnboarding() {
                   location: { ...step1.location, pincode: e.target.value },
                 })
               }
+              readOnly={isAutoFilledLocationLocked}
               className="bg-white text-sm"
               placeholder="Pincode"
             />
@@ -2139,9 +2222,11 @@ export default function RestaurantOnboarding() {
               longitude: parsed.longitude !== "" ? parsed.longitude : prev.location.longitude,
             },
           }))
+          setIsAutoFilledLocationLocked(true)
           
           setLocationSearchValue(parsed.formattedAddress)
           inputElement.blur()
+          void detectAndSetZoneForLocation(parsed.latitude, parsed.longitude)
         })
 
         const pacContainerFix = () => {
@@ -2185,6 +2270,10 @@ export default function RestaurantOnboarding() {
   // Hybrid Search: Google predictions first, Nominatim fallback
   useEffect(() => {
     if (step !== 1) return
+    if (suppressSuggestionFetchRef.current) {
+      suppressSuggestionFetchRef.current = false
+      return
+    }
     const q = normalizeLocationQuery(locationSearchValue)
     if (q.length < 3) {
       setLocationSuggestions([])
