@@ -2323,19 +2323,22 @@ export default function Inventory() {
                             <div className="flex items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50/80 px-4 py-3">
                               <div className="flex flex-1 items-center gap-3 min-w-0">
                                 {/* Veg/Non-veg Icon */}
-                                <div className={`h-4 w-4 rounded-sm border-2 flex items-center justify-center ${item.isVeg ? 'border-green-600' : 'border-red-500'
-                                  }`}>
-                                  <div className={`h-2 w-2 rounded-full ${item.isVeg ? 'bg-green-600' : 'bg-red-500'
-                                    }`} />
+                                <div
+                                  className={`h-4 w-4 rounded-sm border-2 flex items-center justify-center ${item.isVeg ? '' : 'border-red-500'}`}
+                                  style={item.isVeg ? { borderColor: "#16A34A", backgroundColor: "#F0FDF4" } : undefined}
+                                >
+                                  <div
+                                    className={`h-2 w-2 rounded-full ${item.isVeg ? '' : 'bg-red-500'}`}
+                                    style={item.isVeg ? { backgroundColor: "#16A34A" } : undefined}
+                                  />
                                 </div>
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
-                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                      item.isVeg
-                                        ? "bg-emerald-50 text-emerald-700"
-                                        : "bg-rose-50 text-rose-700"
-                                    }`}>
+                                    <span
+                                      className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${item.isVeg ? "" : "bg-rose-50 text-rose-700"}`}
+                                      style={item.isVeg ? { backgroundColor: "#ECFDF3", color: "#15803D" } : undefined}
+                                    >
                                       {item.isVeg ? "Veg" : "Non-veg"}
                                     </span>
                                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${approvalMeta.className}`}>

@@ -961,11 +961,12 @@ export default function ItemDetailsPage() {
               <button
                 onClick={() => setFoodType("Veg")}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${foodType === "Veg"
-                  ? "border-green-600 border-2 text-green-600"
+                  ? "border-2"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
+                style={foodType === "Veg" ? { borderColor: "#16A34A", color: "#16A34A", backgroundColor: "#F0FDF4" } : undefined}
               >
-                {foodType === "Veg" && <Check className="w-4 h-4" />}
+                {foodType === "Veg" && <Check className="w-4 h-4" style={{ color: "#16A34A" }} />}
                 <span>Veg</span>
               </button>
               <button
@@ -1338,4 +1339,3 @@ export default function ItemDetailsPage() {
     </div>
   )
 }
-

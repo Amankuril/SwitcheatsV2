@@ -113,7 +113,13 @@ export default function SignIn() {
   return (
     <AnimatedPage className="min-h-[100dvh] bg-white dark:bg-[#0A0A0B] flex flex-col font-sans overflow-hidden">
       {/* Top Branding Section - 40% height */}
-      <div className="relative h-[40dvh] w-full bg-gradient-to-br from-[#FA0272] via-[#FD2B8B] to-[#FF4B9E] overflow-hidden flex flex-col items-center justify-center">
+      <div
+        className="relative h-[40dvh] w-full overflow-hidden flex flex-col items-center justify-center"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(var(--module-theme-rgb, 250,2,114), 0.94) 0%, var(--module-theme-color, #FA0272) 55%, rgba(var(--module-theme-rgb, 250,2,114), 0.82) 100%)",
+        }}
+      >
         {/* Subtle Decorative Elements (No Blur) */}
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-0 right-0 w-64 h-64 border-word border-white/20 rounded-full -mr-20 -mt-20" />
@@ -217,4 +223,3 @@ export default function SignIn() {
     </AnimatedPage>
   )
 }
-

@@ -1442,15 +1442,16 @@ export default function HubMenu() {
                               <div
                                 className={`w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center ${
                                   item.foodType === "Veg"
-                                    ? "bg-green-50 border-green-600"
+                                    ? ""
                                     : "bg-red-50 border-red-600"
                                 }`}
+                                style={item.foodType === "Veg" ? { backgroundColor: "#F0FDF4", borderColor: "#16A34A" } : undefined}
                               >
                                 <div className={`w-2 h-2 rounded-full ${
                                   item.foodType === "Veg"
-                                    ? "bg-green-600"
+                                    ? ""
                                     : "bg-red-600"
-                                }`} />
+                                }`} style={item.foodType === "Veg" ? { backgroundColor: "#16A34A" } : undefined} />
                               </div>
                             </div>
                             <div className="flex items-center gap-2 mb-1">
@@ -2232,15 +2233,16 @@ export default function HubMenu() {
                                     <div
                                       className={`w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center ${
                                         item.foodType === "Veg"
-                                          ? "bg-green-50 border-green-600"
+                                          ? ""
                                           : "bg-red-50 border-red-600"
                                       }`}
+                                      style={item.foodType === "Veg" ? { backgroundColor: "#F0FDF4", borderColor: "#16A34A" } : undefined}
                                     >
                                       <div className={`w-2 h-2 rounded-full ${
                                         item.foodType === "Veg"
-                                          ? "bg-green-600"
+                                          ? ""
                                           : "bg-red-600"
-                                      }`} />
+                                      }`} style={item.foodType === "Veg" ? { backgroundColor: "#16A34A" } : undefined} />
                                     </div>
                                     <h4 className="text-sm font-bold text-gray-900 truncate">
                                       {item.name}
