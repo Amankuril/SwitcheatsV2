@@ -3398,7 +3398,7 @@ export async function approveRestaurant(id) {
             await notifyOwnersSafely(
                 [{ ownerType: 'RESTAURANT', ownerId: updated._id }],
                 {
-                    title: 'Congratulations! ðŸŽ‰',
+                    title: 'Congratulations! ',
                     body: `Your restaurant "${updated.restaurantName}" has been approved.`,
                     image: updated.profileImage || 'https://i.ibb.co/5GzXz7r/Switcheats-Brand-Image.png',
                     data: {
