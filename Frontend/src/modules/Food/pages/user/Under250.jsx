@@ -29,6 +29,7 @@ const debugWarn = (...args) => { }
 const debugError = (...args) => { }
 const RUPEE_SYMBOL = "\u20B9"
 const UNDER_250_FILTERS_STORAGE_KEY = "food-under-250-filters"
+const MENU_FETCH_CONCURRENCY = 6
 
 const readUnder250Filters = () => {
   if (typeof window === "undefined") {
@@ -179,6 +180,44 @@ export default function Under250() {
   const touchEndXRef = useRef(0)
   const touchEndYRef = useRef(0)
   const isBannerSwipingRef = useRef(false)
+  const fetchGenerationRef = useRef(0)
+
+  const isSwitch99EligibleItem = useCallback((item = {}) => {
+    if (!item || item?.isAvailable === false) return false
+    const rawPrice = String(item?.price || "")
+    return rawPrice.includes("99")
+  }, [])
+
+  const filterCandidateRestaurants = useCallback((restaurants = []) => {
+    return restaurants.filter((restaurant) => {
+      const availability = getRestaurantAvailabilityStatus(restaurant, new Date())
+      if (!availability.isOpen) return false
+
+      // Keep candidate set broad; final eligibility is menu-item based (price contains "99").
+      return true
+    })
+  }, [])
+
+  const mapWithConcurrency = useCallback(async (list, mapper, concurrency = MENU_FETCH_CONCURRENCY) => {
+    const output = new Array(list.length)
+    let cursor = 0
+
+    const worker = async () => {
+      while (true) {
+        const index = cursor
+        cursor += 1
+        if (index >= list.length) return
+        output[index] = await mapper(list[index], index)
+      }
+    }
+
+    const workers = Array.from(
+      { length: Math.max(1, Math.min(concurrency, list.length)) },
+      () => worker(),
+    )
+    await Promise.all(workers)
+    return output
+  }, [])
 
   const sortOptions = [
     { id: null, label: 'Relevance' },
@@ -461,6 +500,7 @@ export default function Under250() {
 
   useEffect(() => {
     const fetchRestaurantsUnder250 = async () => {
+      const fetchGeneration = ++fetchGenerationRef.current
       try {
         setLoadingRestaurants(true)
         // Strict zone-only listing: do not fetch global restaurants when zone is unavailable.
@@ -468,30 +508,26 @@ export default function Under250() {
           setUnder250Restaurants([])
           return
         }
-        const response = await restaurantAPI.getRestaurants({ zoneId })
+        const response = await restaurantAPI.getRestaurants({ zoneId, limit: 1000 })
         const restaurantsRaw = Array.isArray(response?.data?.data?.restaurants)
           ? response.data.data.restaurants
           : []
+        const candidateRestaurants = filterCandidateRestaurants(restaurantsRaw)
         const userLat = Number(effectiveLocation?.latitude)
         const userLng = Number(effectiveLocation?.longitude)
 
-        const restaurantsWithUnder250Dishes = await Promise.all(
-          restaurantsRaw.map(async (restaurant, index) => {
+        const restaurantsWithUnder250Dishes = await mapWithConcurrency(
+          candidateRestaurants,
+          async (restaurant, index) => {
+            if (fetchGeneration !== fetchGenerationRef.current) return null
             const restaurantId = restaurant?.restaurantId || restaurant?._id
             if (!restaurantId) return null
-
-            // Initial filter to avoid menu fetch for closed restaurants
-            const availability = getRestaurantAvailabilityStatus(restaurant, new Date());
-            if (!availability.isOpen) return null;
 
             try {
               const menuResponse = await restaurantAPI.getMenuByRestaurantId(restaurantId)
               const menu = getMenuFromResponse(menuResponse)
               const menuItems = flattenMenuItems(menu)
-                .filter((item) => {
-                  const priceStr = String(item?.price || "");
-                  return priceStr.includes("99") && item?.isAvailable !== false;
-                })
+                .filter(isSwitch99EligibleItem)
                 .map((item) => {
                   const foodType = String(item?.foodType || "").toLowerCase()
                   const isVeg = foodType.includes("veg") && !foodType.includes("non")
@@ -569,20 +605,26 @@ export default function Under250() {
             } catch {
               return null
             }
-          })
+          },
+          MENU_FETCH_CONCURRENCY,
         )
 
+        if (fetchGeneration !== fetchGenerationRef.current) return
         setUnder250Restaurants(restaurantsWithUnder250Dishes.filter(Boolean))
       } catch (error) {
         debugError('Error fetching restaurants under 250:', error)
-        setUnder250Restaurants([])
+        if (fetchGeneration === fetchGenerationRef.current) {
+          setUnder250Restaurants([])
+        }
       } finally {
-        setLoadingRestaurants(false)
+        if (fetchGeneration === fetchGenerationRef.current) {
+          setLoadingRestaurants(false)
+        }
       }
     }
 
     fetchRestaurantsUnder250()
-  }, [zoneId, isOutOfService, effectiveLocation?.latitude, effectiveLocation?.longitude])
+  }, [zoneId, filterCandidateRestaurants, mapWithConcurrency, isSwitch99EligibleItem])
 
   // Fetch categories from backend (no static fallback list)
   useEffect(() => {
