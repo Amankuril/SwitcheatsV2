@@ -131,6 +131,7 @@ export default function EditProfile() {
   const [imagePreview, setImagePreview] = useState(initialProfile?.profileImage || "")
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({
+    name: "",
     mobile: "",
     email: "",
     dateOfBirth: "",
@@ -177,20 +178,63 @@ export default function EditProfile() {
     setHasChanges(currentData !== savedData)
   }, [formData, initialData])
 
+  const validateName = (value) => {
+    const trimmedName = String(value || "").trim()
+    if (!trimmedName) return "Name is required"
+    if (trimmedName.length < 2) return "Name must be at least 2 characters"
+    if (trimmedName.length > 50) return "Name must be at most 50 characters"
+    if (!/^[A-Za-z\s'.-]+$/.test(trimmedName)) {
+      return "Name can only contain letters, spaces, apostrophes, dots and hyphens"
+    }
+    return ""
+  }
+
   const validateEmail = (value) => {
     if (!value) return ""
-    const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,6}$/;
     if (!EMAIL_REGEX.test(value)) {
       return "Please enter a valid email address";
     }
     
     const parts = value.split('@');
     if (parts.length === 2) {
-      const domainParts = parts[1].split('.');
+      const domain = parts[1].toLowerCase()
+      const commonDomainTypos = new Set([
+        "gmaill.com",
+        "gmailll.com",
+        "gmail.comm",
+        "gmail.commm",
+        "gmaill.comm",
+        "gmial.com",
+        "gamil.com",
+        "gmail.co",
+        "yaho.com",
+        "yahooo.com",
+        "outlok.com",
+        "hotnail.com",
+      ])
+      if (commonDomainTypos.has(domain)) {
+        return "Invalid email domain. Please check spelling (e.g., gmail.com)";
+      }
+      if (/^gmaill+\.com+$/i.test(domain) || /^gmail\.comm+$/i.test(domain)) {
+        return "Invalid email domain. Please check spelling (e.g., gmail.com)";
+      }
+
+      const domainParts = domain.split('.');
       for (let i = 0; i < domainParts.length - 1; i++) {
         if (domainParts[i] === domainParts[i + 1] && domainParts[i].length > 0) {
           return "Invalid email domain (e.g., .com.com)";
         }
+      }
+      if (domainParts.some((part) => !part || part.startsWith("-") || part.endsWith("-"))) {
+        return "Invalid email domain format";
+      }
+      if (domainParts.some((part) => /(.)\1{2,}/i.test(part))) {
+        return "Invalid email domain format";
+      }
+      const tld = domainParts[domainParts.length - 1] || ""
+      if (/^(.)\1{2,}$/i.test(tld)) {
+        return "Invalid email domain";
       }
     }
     
@@ -217,7 +261,10 @@ export default function EditProfile() {
     let normalizedValue = value
     let errorMessage = ""
 
-    if (field === "mobile") {
+    if (field === "name") {
+      normalizedValue = String(value || "")
+      errorMessage = validateName(normalizedValue)
+    } else if (field === "mobile") {
       normalizedValue = String(value || "").replace(/\D/g, "").slice(0, 10)
       errorMessage = validateMobile(normalizedValue)
     } else if (field === "email") {
@@ -232,7 +279,7 @@ export default function EditProfile() {
       [field]: normalizedValue
     }))
 
-    if (field === "mobile" || field === "email" || field === "dateOfBirth") {
+    if (field === "name" || field === "mobile" || field === "email" || field === "dateOfBirth") {
       setFieldErrors((prev) => ({
         ...prev,
         [field]: errorMessage
@@ -285,7 +332,7 @@ export default function EditProfile() {
           name: formData.name,
           phone: formData.mobile,
           mobile: formData.mobile,
-          email: formData.email,
+          email: getSafeEmailForLocalProfile(formData.email),
           dateOfBirth: formData.dateOfBirth || null,
           anniversary: formData.anniversary || null,
           gender: formData.gender || "",
@@ -342,7 +389,7 @@ export default function EditProfile() {
         name: formData.name,
         phone: formData.mobile,
         mobile: formData.mobile,
-        email: formData.email,
+        email: getSafeEmailForLocalProfile(formData.email),
         dateOfBirth: formData.dateOfBirth || null,
         anniversary: formData.anniversary || null,
         gender: formData.gender || "",
@@ -364,6 +411,7 @@ export default function EditProfile() {
 
   const validateForm = () => {
     const nextErrors = {
+      name: validateName(formData.name),
       mobile: validateMobile(formData.mobile),
       email: validateEmail(formData.email),
       dateOfBirth: validateDateOfBirth(formData.dateOfBirth),
@@ -371,6 +419,17 @@ export default function EditProfile() {
     setFieldErrors(nextErrors)
     return !Object.values(nextErrors).some(Boolean)
   }
+
+  const hasValidationErrors = Boolean(
+    validateName(formData.name) ||
+    validateMobile(formData.mobile) ||
+    validateEmail(formData.email) ||
+    validateDateOfBirth(formData.dateOfBirth)
+  )
+
+  const getSafeEmailForLocalProfile = (emailValue) => (
+    validateEmail(emailValue) ? "" : String(emailValue || "").trim()
+  )
 
   const handleUpdate = async () => {
     if (isSaving) return
@@ -384,7 +443,7 @@ export default function EditProfile() {
 
       // Prepare data for API
       const updateData = {
-        name: formData.name,
+        name: formData.name.trim(),
         email: formData.email || undefined,
         phone: formData.mobile || undefined,
         dateOfBirth: formData.dateOfBirth || undefined,
@@ -410,7 +469,7 @@ export default function EditProfile() {
           name: updatedUser.name || formData.name,
           phone: updatedUser.phone || formData.mobile,
           mobile: updatedUser.phone || formData.mobile,
-          email: updatedUser.email || formData.email,
+          email: updatedUser.email || getSafeEmailForLocalProfile(formData.email),
           profileImage: updatedUser.profileImage || profileImage,
           dateOfBirth: updatedUser.dateOfBirth || formData.dateOfBirth,
           anniversary: updatedUser.anniversary || formData.anniversary,
@@ -534,6 +593,9 @@ export default function EditProfile() {
                   </button>
                 )}
               </div>
+              {fieldErrors.name && (
+                <p className="text-xs text-red-600">{fieldErrors.name}</p>
+              )}
             </div>
 
             {/* Mobile Field */}
@@ -640,8 +702,8 @@ export default function EditProfile() {
         {/* Update Profile Button */}
         <Button
           onClick={handleUpdate}
-          disabled={!hasChanges || isSaving || isUploadingImage}
-          className={`w-full h-14 rounded-xl font-semibold text-base transition-all mb-2 ${hasChanges && !isSaving && !isUploadingImage
+          disabled={!hasChanges || isSaving || isUploadingImage || hasValidationErrors}
+          className={`w-full h-14 rounded-xl font-semibold text-base transition-all mb-2 ${hasChanges && !isSaving && !isUploadingImage && !hasValidationErrors
               ? 'bg-[#EB590E] hover:bg-[#D94F0C] text-white'
               : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}

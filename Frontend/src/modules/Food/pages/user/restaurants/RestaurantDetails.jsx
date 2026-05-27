@@ -15,7 +15,6 @@ import {
   Clock,
   Tag,
   ChevronDown,
-  Info,
   Star,
   SlidersHorizontal,
   Utensils,
@@ -140,6 +139,13 @@ function RestaurantDetailsContent() {
     const variant = getVariantForDish(item, preferredVariantId)
     const lineItemId = getLineItemIdForDish(item, variant)
     return quantities[lineItemId] || 0
+  }
+
+  const isVegDish = (item) => {
+    if (!item || typeof item !== "object") return false
+    if (item.isVeg === true) return true
+    const foodType = String(item.foodType || "").trim().toLowerCase()
+    return foodType === "veg" || foodType === "vegetarian"
   }
 
   // Initialize filters from localStorage if available
@@ -2097,7 +2103,6 @@ function RestaurantDetailsContent() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{restaurant?.name || "Unknown Restaurant"}</h1>
-              <Info className="h-5 w-5 text-gray-400" />
             </div>
             <div className="flex flex-col items-end">
               <Badge
@@ -2121,13 +2126,9 @@ function RestaurantDetailsContent() {
           </div>
 
           {/* Location */}
-          <div
-            className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
-            onClick={() => setShowLocationSheet(true)}
-          >
+          <div className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
             <MapPin className="h-4 w-4" />
             <span>{restaurant?.distance || "1.2 km"} • {restaurant?.location || "Location"}</span>
-            <ChevronDown className="h-4 w-4 text-gray-500" />
           </div>
 
           {/* Delivery Time */}
@@ -2514,7 +2515,7 @@ function RestaurantDetailsContent() {
                             </div>
 
                             {/* Right Side - Image and Add Button */}
-                            <div className="relative w-32 h-32 flex-shrink-0">
+                            <div className={`relative w-32 flex-shrink-0 ${item.image ? "h-32" : "h-auto flex items-end justify-center"}`}>
                               {item.image ? (
                                 <img
                                   src={item.image}
@@ -2526,16 +2527,12 @@ function RestaurantDetailsContent() {
                                     }
                                   }}
                                 />
-                              ) : (
-                                <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
-                                  <span className="text-xs text-gray-400">No image</span>
-                                </div>
-                              )}
+                              ) : null}
                               {quantity > 0 ? (
                                 <motion.div
                                   initial={{ opacity: 0, scale: 0.8 }}
                                   animate={{ opacity: 1, scale: 1 }}
-                                  className={`absolute -bottom-2 left-1/2 -translate-x-1/2 bg-white border font-bold px-4 py-1.5 rounded-lg shadow-md flex items-center gap-1 ${shouldShowGrayscale
+                                  className={`${item.image ? "absolute -bottom-2 left-1/2 -translate-x-1/2" : "relative"} bg-white border font-bold px-4 py-1.5 rounded-lg shadow-md flex items-center gap-1 ${shouldShowGrayscale
                                     ? 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
                                     : 'border-[#EB590E] text-[#EB590E] hover:bg-orange-50'
                                     }`}
@@ -2579,7 +2576,7 @@ function RestaurantDetailsContent() {
                                     }
                                   }}
                                   disabled={shouldShowGrayscale}
-                                  className={`absolute -bottom-2 left-1/2 -translate-x-1/2 bg-white border font-bold px-6 py-1.5 rounded-lg shadow-md flex items-center gap-1 transition-colors ${shouldShowGrayscale
+                                  className={`${item.image ? "absolute -bottom-2 left-1/2 -translate-x-1/2" : "relative"} bg-white border font-bold px-6 py-1.5 rounded-lg shadow-md flex items-center gap-1 transition-colors ${shouldShowGrayscale
                                     ? 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
                                     : 'border-[#EB590E] text-[#EB590E] hover:bg-orange-50'
                                     }`}
@@ -2745,7 +2742,7 @@ function RestaurantDetailsContent() {
                                       </div>
 
                                       {/* Right Side - Image and Add Button */}
-                                      <div className="relative w-32 h-32 flex-shrink-0">
+                                      <div className={`relative w-32 flex-shrink-0 ${item.image ? "h-32" : "h-auto flex items-end justify-center"}`}>
                                         {item.image ? (
                                           <img
                                             src={item.image}
@@ -2757,16 +2754,12 @@ function RestaurantDetailsContent() {
                                               }
                                             }}
                                           />
-                                        ) : (
-                                          <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
-                                            <span className="text-xs text-gray-400">No image</span>
-                                          </div>
-                                        )}
+                                        ) : null}
                                         {quantity > 0 ? (
                                           <motion.div
                                             initial={{ opacity: 0, scale: 0.8 }}
                                             animate={{ opacity: 1, scale: 1 }}
-                                            className={`absolute -bottom-2 left-1/2 -translate-x-1/2 bg-white border font-bold px-4 py-1.5 rounded-lg shadow-md flex items-center gap-1 ${shouldShowGrayscale
+                                            className={`${item.image ? "absolute -bottom-2 left-1/2 -translate-x-1/2" : "relative"} bg-white border font-bold px-4 py-1.5 rounded-lg shadow-md flex items-center gap-1 ${shouldShowGrayscale
                                               ? 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
                                               : 'border-[#EB590E] text-[#EB590E] hover:bg-orange-50'
                                               }`}
@@ -2810,7 +2803,7 @@ function RestaurantDetailsContent() {
                                               }
                                             }}
                                             disabled={shouldShowGrayscale}
-                                            className={`absolute -bottom-2 left-1/2 -translate-x-1/2 bg-white border font-bold px-6 py-1.5 rounded-lg shadow-md flex items-center gap-1 transition-colors ${shouldShowGrayscale
+                                            className={`${item.image ? "absolute -bottom-2 left-1/2 -translate-x-1/2" : "relative"} bg-white border font-bold px-6 py-1.5 rounded-lg shadow-md flex items-center gap-1 transition-colors ${shouldShowGrayscale
                                               ? 'border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
                                               : 'border-[#EB590E] text-[#EB590E] hover:bg-orange-50'
                                               }`}
@@ -3426,8 +3419,8 @@ function RestaurantDetailsContent() {
                         <span className="text-sm text-gray-400">No image available</span>
                       </div>
                     )}
-                    {/* Bookmark and Share Icons Overlay */}
-                    <div className="absolute bottom-4 right-4 flex items-center gap-3">
+                    {/* Bookmark Icon Overlay */}
+                    <div className="absolute bottom-4 right-4 flex items-center">
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -3443,9 +3436,6 @@ function RestaurantDetailsContent() {
                             }`}
                         />
                       </button>
-                      <button className="h-10 w-10 rounded-full border border-white dark:border-gray-800 bg-white/90 dark:bg-[#1a1a1a]/90 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-[#2a2a2a] flex items-center justify-center transition-colors">
-                        <Share2 className="h-5 w-5" />
-                      </button>
                     </div>
                   </div>
 
@@ -3454,9 +3444,15 @@ function RestaurantDetailsContent() {
                     {/* Item Name and Indicator */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2 flex-1">
-                        <div className="h-5 w-5 rounded border-2 border-amber-700 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
-                          <div className="h-2.5 w-2.5 rounded-full bg-amber-700 dark:bg-amber-600" />
-                        </div>
+                        {isVegDish(selectedItem) ? (
+                          <div className="h-5 w-5 rounded border-2 border-green-600 bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                            <div className="h-2.5 w-2.5 rounded-full bg-green-600" />
+                          </div>
+                        ) : (
+                          <div className="h-5 w-5 rounded border-2 border-red-600 bg-red-50 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                            <div className="h-2.5 w-2.5 rounded-full bg-red-600" />
+                          </div>
+                        )}
                         <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                           {selectedItem.name}
                         </h2>

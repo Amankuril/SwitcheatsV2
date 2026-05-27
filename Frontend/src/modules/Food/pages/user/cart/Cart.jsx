@@ -2395,30 +2395,6 @@ export default function Cart() {
                             Select a delivery location to continue
                           </p>
                         )}
-                        {/* Address Selection Buttons */}
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          {["Home", "Work", "Other"].map((label) => {
-                            const normalizedLabel = normalizeAddressLabel(label)
-                            const addressExists = addresses.some(addr => normalizeAddressLabel(addr.label) === normalizedLabel)
-                            return (
-                              <button
-                                key={label}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  handleSelectAddressByLabel(label)
-                                }}
-                                disabled={!addressExists}
-                                className={`text-xs px-4 py-1.5 rounded-full font-semibold transition-all ${addressExists
-                                  ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-gray-800 dark:text-gray-300'
-                                  : 'bg-gray-50 text-gray-400 border border-gray-100 cursor-not-allowed dark:bg-gray-900'
-                                  }`}
-                              >
-                                {label}
-                              </button>
-                            )
-                          })}
-                        </div>
                         {addresses.length > 0 && (
                           <div className="mt-4 space-y-3">
                             {addresses.map((address) => {
