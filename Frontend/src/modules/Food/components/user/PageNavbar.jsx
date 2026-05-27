@@ -39,15 +39,17 @@ export default function PageNavbar({
   useEffect(() => {
     if (autoLocationAttemptedRef.current || loading || !requestLocationRef.current) return
 
-    // If we already have stored coordinates, do not auto-geocode again.
-    // We only update location when the user changes it manually.
+    // Preserve saved location for logged-in users.
+    // For guests, allow auto-fetch on app open.
     try {
+      const token = localStorage.getItem("user_accessToken") || localStorage.getItem("accessToken")
+      const isAuthenticated = Boolean(token && token !== "null" && token !== "undefined")
       const storedRaw = localStorage.getItem("userLocation")
       const stored = storedRaw ? JSON.parse(storedRaw) : null
       const lat = Number(stored?.latitude)
       const lng = Number(stored?.longitude)
       const hasStoredCoords = Number.isFinite(lat) && Number.isFinite(lng)
-      if (hasStoredCoords) return
+      if (isAuthenticated && hasStoredCoords) return
     } catch {
       // ignore parsing errors and continue to auto-fetch as fallback for first open
     }
@@ -64,13 +66,16 @@ export default function PageNavbar({
     let cancelled = false
     const timeoutId = setTimeout(async () => {
       try {
-        let isGranted = false
+        let shouldRequest = false
         if (navigator.permissions?.query) {
           const result = await navigator.permissions.query({ name: 'geolocation' })
-          isGranted = result.state === 'granted'
+          shouldRequest = result.state === 'granted' || result.state === 'prompt'
+        } else {
+          // Fallback for webviews/browsers without Permissions API support.
+          shouldRequest = true
         }
 
-        if (!isGranted) {
+        if (!shouldRequest) {
           debugLog("?? Geolocation permission not granted; waiting for user action")
           return
         }
@@ -1101,6 +1106,4 @@ export default function PageNavbar({
     </nav>
   )
 }
-
-
 

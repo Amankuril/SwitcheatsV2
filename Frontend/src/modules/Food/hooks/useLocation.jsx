@@ -1292,6 +1292,22 @@ export function useLocation() {
   useEffect(() => {
     let hasInitialLocation = false
     let shouldForceRefresh = false
+    let initialResolvedLocation = null
+    const isAuthenticatedUser = () => {
+      const token = localStorage.getItem("user_accessToken") || localStorage.getItem("accessToken")
+      return Boolean(token && token !== "null" && token !== "undefined")
+    }
+    const hasUsableSavedLocation = (loc) => {
+      if (!loc || typeof loc !== "object") return false
+      const lat = Number(loc.latitude)
+      const lng = Number(loc.longitude)
+      const hasCoords = Number.isFinite(lat) && Number.isFinite(lng)
+      const hasAddress =
+        (loc.formattedAddress && loc.formattedAddress !== "Select location") ||
+        (loc.address && loc.address !== "Select location") ||
+        (loc.city && loc.city !== "Current Location")
+      return hasCoords && Boolean(hasAddress)
+    }
 
     const loadingTimeout = setTimeout(() => {
       setLoading(false)
@@ -1305,6 +1321,7 @@ export function useLocation() {
             const loc = JSON.parse(stored)
             if (loc?.latitude && loc?.longitude) {
               setLocation(loc)
+              initialResolvedLocation = loc
               hasInitialLocation = true
               setLoading(false)
               setPermissionGranted(true)
@@ -1321,6 +1338,7 @@ export function useLocation() {
         const dbLoc = await fetchLocationFromDB()
         if (dbLoc) {
           setLocation(dbLoc)
+          initialResolvedLocation = dbLoc
           hasInitialLocation = true
           setLoading(false)
           setPermissionGranted(true)
@@ -1331,15 +1349,35 @@ export function useLocation() {
           setLoading(false)
         }
 
-        if (navigator.permissions && navigator.permissions.query) {
-          const result = await navigator.permissions.query({ name: 'geolocation' })
-          if (result.state === 'granted') {
+        const currentKnownLocation = initialResolvedLocation || lastDbLocationRef.current || location
+        const hasUsableInitialLocation = hasUsableSavedLocation(currentKnownLocation)
+        const shouldPreserveSavedForLoggedIn =
+          isAuthenticatedUser() && hasUsableInitialLocation
+
+        const tryAutoResolveLocation = async () => {
+          // Requirement:
+          // - Guest/open app: auto-fetch current location
+          // - Logged-in user with existing saved location: keep existing location
+          if (!shouldPreserveSavedForLoggedIn) {
             const freshLoc = await getLocation(true, shouldForceRefresh)
             if (freshLoc) {
               setLocation(freshLoc)
               if (AUTO_START_LIVE_WATCH) startWatchingLocation()
             }
+          } else if (AUTO_START_LIVE_WATCH) {
+            startWatchingLocation()
           }
+        }
+
+        if (navigator.permissions && navigator.permissions.query) {
+          const result = await navigator.permissions.query({ name: 'geolocation' })
+          // `prompt` should also attempt geolocation so browser can ask permission.
+          if (result.state === 'granted' || (!hasUsableInitialLocation && result.state === 'prompt')) {
+            await tryAutoResolveLocation()
+          }
+        } else if (!hasUsableInitialLocation) {
+          // Fallback for browsers/webviews that do not support Permissions API.
+          await tryAutoResolveLocation()
         }
       } catch (err) {
         debugError("Initialization error", err)
