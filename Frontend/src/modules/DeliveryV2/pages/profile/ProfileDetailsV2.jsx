@@ -12,6 +12,7 @@ import { openCamera, isFlutterBridgeAvailable } from "@food/utils/imageUploadUti
 import { deliveryAPI } from "@food/api"
 import { motion, AnimatePresence } from "framer-motion"
 import useDeliveryBackNavigation from "../../hooks/useDeliveryBackNavigation"
+import useCloseOnBrowserBack from "../../hooks/useCloseOnBrowserBack"
 
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
@@ -58,6 +59,10 @@ export const ProfileDetailsV2 = () => {
   const [activePicker, setActivePicker] = useState(null) // { target: 'profilePhoto' | 'upiQrCode', ref: any, title: string }
   const drivingLicenseInputRef = useRef(null)
   const upiQrCameraInputRef = useRef(null)
+
+  useCloseOnBrowserBack(showVehiclePopup, () => setShowVehiclePopup(false), "vehicle-popup")
+  useCloseOnBrowserBack(showBankDetailsPopup, () => setShowBankDetailsPopup(false), "bank-details-popup")
+  useCloseOnBrowserBack(showDocumentModal, () => setShowDocumentModal(false), "document-viewer")
 
   // Fetch profile data
   useEffect(() => {

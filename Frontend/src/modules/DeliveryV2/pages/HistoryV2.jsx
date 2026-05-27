@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  ArrowLeft, ChevronDown, Loader2, Gift, X, 
+  ArrowLeft, ChevronDown, Loader2, Gift, 
   CheckCircle2, Clock, Search, History, Calendar, Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { deliveryAPI, restaurantAPI } from '@food/api';
 import { toast } from 'sonner';
 import useDeliveryBackNavigation from '../hooks/useDeliveryBackNavigation';
+import useCloseOnBrowserBack from '../hooks/useCloseOnBrowserBack';
 
 export const HistoryV2 = () => {
   const goBack = useDeliveryBackNavigation();
@@ -21,6 +22,7 @@ export const HistoryV2 = () => {
   const [bonusTransactions, setBonusTransactions] = useState([]);
   const [bonusLoading, setBonusLoading] = useState(false);
   const [codControlEnabled, setCodControlEnabled] = useState(true);
+  useCloseOnBrowserBack(showBonusModal, () => setShowBonusModal(false), "history-bonus-modal");
 
   const tripTypes = ["ALL TRIPS", "Completed", "Cancelled", "Pending"];
 
@@ -341,12 +343,16 @@ export const HistoryV2 = () => {
              <div className="fixed inset-0 z-[1000] flex items-end">
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowBonusModal(false)} className="absolute inset-0 bg-gray-900/40 backdrop-blur-md" />
                 <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="relative w-full bg-white border-t border-gray-100 rounded-t-[40px] p-8 pb-12 shadow-[0_-20px_50px_rgba(0,0,0,0.1)] flex flex-col max-h-[85vh]">
-                   <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-8 shrink-0" />
+                   <button
+                      type="button"
+                      onClick={() => setShowBonusModal(false)}
+                      className="mx-auto mb-6 shrink-0 block px-6 py-3"
+                      aria-label="Close incentives popup"
+                   >
+                      <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
+                   </button>
                    
                    <div className="text-center mb-8 shrink-0 relative">
-                      <button onClick={() => setShowBonusModal(false)} className="absolute right-0 top-0 w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
-                         <X className="w-4 h-4" />
-                      </button>
                       <div className="w-16 h-16 bg-emerald-50 rounded-[24px] flex items-center justify-center mx-auto mb-4 border border-emerald-100 text-emerald-500 shadow-inner">
                          <Gift className="w-8 h-8" />
                       </div>

@@ -5,6 +5,7 @@ import { deliveryAPI } from '@food/api';
 import { toast } from 'sonner';
 import { openCamera } from "@food/utils/imageUploadUtils";
 import useDeliveryBackNavigation from '../../hooks/useDeliveryBackNavigation';
+import useCloseOnBrowserBack from '../../hooks/useCloseOnBrowserBack';
 
 /**
  * ProfileDocsV2 - Restored Old UI for Registration Documents & Vehicle Info.
@@ -17,6 +18,7 @@ export const ProfileDocsV2 = () => {
   const [showViewer, setShowViewer] = useState(null); // { title: string, url: string }
   const [uploadField, setUploadField] = useState(null)
   const fileInputRef = useRef(null);
+  useCloseOnBrowserBack(Boolean(showViewer), () => setShowViewer(null), "profile-doc-viewer");
 
   useEffect(() => {
     const fetchProfile = async () => {
