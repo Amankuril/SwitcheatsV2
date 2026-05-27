@@ -22,12 +22,6 @@ const OWNER_TOKEN_FIELDS = {
     web: 'fcmTokens',
     mobile: 'fcmTokenMobile'
 };
-const OWNER_APP_PREFIXES = {
-    USER: '👤 [User]',
-    RESTAURANT: '🏪 [Shop]',
-    DELIVERY_PARTNER: '🛵 [Rider]',
-    ADMIN: '🛡️ [Admin]'
-};
 
 let cachedAccessToken = null;
 let cachedAccessTokenExpiryMs = 0;
@@ -351,26 +345,8 @@ export const sendPushNotification = async (tokens, payload = {}) => {
 };
 
 export const sendNotificationToOwner = async ({ ownerType, ownerId, payload, platform } = {}) => {
-    // 💡 Clone the payload to avoid side-effects (e.g. adding multiple prefixes to the same object during broadcasting)
+    // Clone payload to avoid side-effects across batched sends.
     const enrichedPayload = { ...payload };
-
-    // 🏷️ Add Highlighter Prefix to the Title
-    if (enrichedPayload && !enrichedPayload.skipHighlighter) {
-        const typeKey = String(ownerType || '').toUpperCase();
-        const prefix = OWNER_APP_PREFIXES[typeKey] || '';
-        
-        if (prefix) {
-            // Get original title from any potential field
-            let originalTitle = enrichedPayload.title || enrichedPayload.notification?.title || 'New notification';
-            
-            // Safety: Ensure we don't ADD the prefix if it's already there (defensive check)
-            if (!originalTitle.includes(prefix)) {
-                enrichedPayload.title = `${prefix} ${originalTitle}`.trim();
-            } else {
-                enrichedPayload.title = originalTitle;
-            }
-        }
-    }
 
     const tokens = await listOwnerTokens({ ownerType, ownerId, platform });
     if (!tokens.length) {
