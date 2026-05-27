@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import {
   User, ArrowRight, Bike, Ticket, ChevronRight, 
-  Share2, LogOut, X, Loader2, Briefcase, Trash2, HelpCircle, History
+  Share2, LogOut, X, Loader2, Briefcase, Trash2, HelpCircle, History, ArrowLeft
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { deliveryAPI } from "@food/api"
 import DeleteAccountModal from "@food/components/DeleteAccountModal";
 import { toast } from "sonner"
 import { clearModuleAuth } from "@food/utils/auth"
+import useDeliveryBackNavigation from "../hooks/useDeliveryBackNavigation";
 
 export const ProfileV2 = () => {
   const navigate = useNavigate()
-  const location = useLocation()
+  const goBack = useDeliveryBackNavigation()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [referralReward, setReferralReward] = useState(0)
@@ -106,6 +107,20 @@ export const ProfileV2 = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-gray-900 font-poppins pb-32">
+      <div className="sticky top-0 z-[100] bg-[#f8f9fa]/90 backdrop-blur-xl border-b border-gray-100 px-4 py-4 pt-8 mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={goBack} className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-900 border border-gray-200 shadow-sm active:scale-95 transition-all">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-xl font-black text-gray-900 tracking-tighter">PROFILE</h1>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Your Milestones</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Profile Header Block (Clean White Edge-to-Edge) */}
       <div className="bg-white px-6 py-6 pb-8 border-b border-gray-100 rounded-b-[40px] shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
         <div 

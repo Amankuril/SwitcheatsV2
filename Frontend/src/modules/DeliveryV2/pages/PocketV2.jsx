@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Wallet, IndianRupee, ArrowRight,
+  Wallet, IndianRupee, ArrowRight, ArrowLeft,
   ShieldCheck, AlertTriangle, HelpCircle,
   Receipt, FileText, LayoutGrid, X, ChevronRight,
   Sparkles, Loader2
@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { formatCurrency } from '@food/utils/currency';
 import { initRazorpayPayment } from "@food/utils/razorpay";
 import { getCompanyNameAsync } from "@food/utils/businessSettings";
+import useDeliveryBackNavigation from '../hooks/useDeliveryBackNavigation';
 
 const toNum = (value) => {
   const parsed = Number(value);
@@ -40,6 +41,7 @@ const derivePocketBalanceFromTransactions = (transactions = []) => {
 
 export const PocketV2 = () => {
   const navigate = useNavigate();
+  const goBack = useDeliveryBackNavigation();
   const [loading, setLoading] = useState(true);
   const [walletState, setWalletState] = useState({
     totalBalance: 0,
@@ -256,8 +258,19 @@ export const PocketV2 = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] pb-32 font-poppins relative overflow-hidden">
-       {/* Top Spacing to account for Dynamic Island */}
-       <div className="h-28" />
+       <div className="sticky top-0 z-[100] bg-[#f8f9fa]/90 backdrop-blur-xl border-b border-gray-100 px-4 py-4 pt-8 mb-4">
+         <div className="flex items-center justify-between">
+           <div className="flex items-center gap-4">
+             <button onClick={goBack} className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-900 border border-gray-200 shadow-sm active:scale-95 transition-all">
+               <ArrowLeft className="w-5 h-5" />
+             </button>
+             <div>
+               <h1 className="text-xl font-black text-gray-900 tracking-tighter">POCKET</h1>
+               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Your Milestones</p>
+             </div>
+           </div>
+         </div>
+       </div>
 
        {/* 1. BANK DETAILS BANNER */}
        {!walletState.bankDetailsFilled && (
