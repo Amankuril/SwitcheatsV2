@@ -61,6 +61,25 @@ export default function OrdersPage({ statusKey = "all" }) {
   const alertLoopStartedAtRef = useRef(0)
   const ALERT_LOOP_INTERVAL_MS = 4500
   const ALERT_LOOP_MAX_MS = 120000
+  const sanitizeNotificationText = useCallback((value) => {
+    const raw = String(value || "")
+    if (!raw) return ""
+    const repaired = (() => {
+      if (!/[ðÃÂâ]/.test(raw)) return raw
+      try {
+        const bytes = Uint8Array.from(raw, (char) => char.charCodeAt(0) & 0xff)
+        return new TextDecoder("utf-8", { fatal: false }).decode(bytes) || raw
+      } catch {
+        return raw
+      }
+    })()
+    return repaired
+      .replace(/^\s*(?:[\uD800-\uDBFF][\uDC00-\uDFFF]\s*)*\[(user|shop|restaurant|delivery|admin)\]\s*/i, "")
+      .replace(/[ÂÃâð][^\s]{0,3}/g, " ")
+      .replace(/[^\x20-\x7E\n\r\t]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  }, [])
 
   const resolveAudioSource = useCallback((source, cacheKey = "admin-alert") => {
     if (!source) return source
@@ -197,8 +216,10 @@ export default function OrdersPage({ statusKey = "all" }) {
     if (Notification.permission !== "granted") return
 
     try {
+      const cleanTitle = sanitizeNotificationText(title) || "New update"
+      const cleanBody = sanitizeNotificationText(body)
       const options = {
-        body,
+        body: cleanBody,
         tag: tag || undefined,
         renotify: true,
         requireInteraction: true,
@@ -211,18 +232,18 @@ export default function OrdersPage({ statusKey = "all" }) {
       if ("serviceWorker" in navigator) {
         const registration = await navigator.serviceWorker.getRegistration()
         if (registration) {
-          await registration.showNotification(title, options)
+          await registration.showNotification(cleanTitle, options)
           return
         }
       }
 
-      const notification = new Notification(title, options)
+      const notification = new Notification(cleanTitle, options)
       notification.onclick = () => {
         window.focus()
         notification.close()
       }
     } catch (_) {}
-  }, [])
+  }, [sanitizeNotificationText])
 
   // Unlock audio on first user gesture so rings can play reliably later
   useEffect(() => {

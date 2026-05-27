@@ -3445,8 +3445,8 @@ function RestaurantDetailsContent() {
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2 flex-1">
                         {isVegDish(selectedItem) ? (
-                          <div className="h-5 w-5 rounded border-2 border-green-600 bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-                            <div className="h-2.5 w-2.5 rounded-full bg-green-600" />
+                          <div className="h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: "#16A34A", backgroundColor: "#F0FDF4" }}>
+                            <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#16A34A" }} />
                           </div>
                         ) : (
                           <div className="h-5 w-5 rounded border-2 border-red-600 bg-red-50 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">

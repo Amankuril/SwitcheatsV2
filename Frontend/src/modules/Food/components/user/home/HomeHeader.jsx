@@ -317,13 +317,25 @@ export default function HomeHeader({
               onClick={() => handleVegModeChange && handleVegModeChange(!isVegMode)}
               ref={vegModeToggleRef}
             >
-              <div className={`flex items-center justify-center p-[2px] rounded-sm border ${isVegMode ? 'border-green-600' : 'border-gray-500'} bg-white flex-shrink-0`}>
-                <div className={`w-[6px] h-[6px] rounded-full ${isVegMode ? 'bg-green-600' : 'bg-gray-500'}`} />
+              <div
+                className={`flex items-center justify-center p-[2px] rounded-sm border ${isVegMode ? '' : 'border-gray-500'} bg-white flex-shrink-0`}
+                style={isVegMode ? { borderColor: "#16A34A" } : undefined}
+              >
+                <div
+                  className={`w-[6px] h-[6px] rounded-full ${isVegMode ? '' : 'bg-gray-500'}`}
+                  style={isVegMode ? { backgroundColor: "#16A34A" } : undefined}
+                />
               </div>
-              <span className={`text-[9px] font-black uppercase tracking-tight ${isVegMode ? 'text-green-800 dark:text-green-400' : 'text-gray-800 dark:text-gray-200'} hidden xs:inline`}>
+              <span
+                className={`text-[9px] font-black uppercase tracking-tight ${isVegMode ? '' : 'text-gray-800 dark:text-gray-200'} hidden xs:inline`}
+                style={isVegMode ? { color: "#166534" } : undefined}
+              >
                 Veg
               </span>
-              <div className={`w-6 h-3.5 rounded-full relative transition-colors ml-0.5 flex-shrink-0 ${isVegMode ? 'bg-green-500' : 'bg-gray-400/80 dark:bg-gray-600'}`}>
+              <div
+                className={`w-6 h-3.5 rounded-full relative transition-colors ml-0.5 flex-shrink-0 ${isVegMode ? '' : 'bg-gray-400/80 dark:bg-gray-600'}`}
+                style={isVegMode ? { backgroundColor: "#22C55E" } : undefined}
+              >
                 <div className={`absolute top-[1.5px] w-2.5 h-2.5 rounded-full bg-white transition-transform ${isVegMode ? 'translate-x-[11px]' : 'translate-x-[1.5px]'}`} />
               </div>
             </div>

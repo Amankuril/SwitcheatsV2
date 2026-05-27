@@ -6,9 +6,24 @@ const sanitize = (value) => String(value || "").trim().replace(/^['"]|['"]$/g, "
 const normalizeNotificationText = (value = "") => {
   const raw = String(value || "");
   if (!raw) return "";
+  const repairMojibake = (input) => {
+    const text = String(input || "");
+    if (!text) return "";
+    if (!/[ðÃÂâ]/.test(text)) return text;
+    try {
+      const bytes = Uint8Array.from(text, (char) => char.charCodeAt(0) & 0xff);
+      const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      if (decoded && !/�/.test(decoded)) return decoded;
+      return decoded || text;
+    } catch {
+      return text;
+    }
+  };
 
-  const withoutModulePrefix = raw
-    .replace(/^\s*\[(user|shop|restaurant|delivery|admin)\]\s*/i, "")
+  const repaired = repairMojibake(raw);
+
+  const withoutModulePrefix = repaired
+    .replace(/^\s*(?:[\uD800-\uDBFF][\uDC00-\uDFFF]\s*)*\[(user|shop|restaurant|delivery|admin)\]\s*/i, "")
     .trim();
 
   const cleaned = withoutModulePrefix
@@ -82,6 +97,15 @@ const getNotificationKey = (payload) =>
     payload?.data?.orderId || "",
     payload?.data?.targetUrl || payload?.data?.link || "",
   ].join("::");
+
+function buildSanitizedNotificationPayload(payload = {}) {
+  const titleCandidate = normalizeNotificationText(payload?.data?.title || payload?.notification?.title || "");
+  const bodyCandidate = normalizeNotificationText(payload?.data?.body || payload?.notification?.body || "");
+  const inferredBody = normalizeNotificationText(inferNotificationBodyFromEvent(payload));
+  const title = titleCandidate || bodyCandidate || "New update";
+  const body = titleCandidate ? (bodyCandidate || inferredBody) : "";
+  return { title, body };
+}
 
 function hasSdkNotificationPayload(payload = {}) {
   return Boolean(
@@ -225,11 +249,7 @@ async function loadFirebaseWebConfig() {
 
     // Extract notification content from data.data first, then notification object
     // This fixes content not showing issue when backend sends in different formats
-    const titleCandidate = normalizeNotificationText(payload?.data?.title || payload?.notification?.title || "");
-    const bodyCandidate = normalizeNotificationText(payload?.data?.body || payload?.notification?.body || "");
-    const inferredBody = normalizeNotificationText(inferNotificationBodyFromEvent(payload));
-    const title = titleCandidate || bodyCandidate || "New update";
-    const body = titleCandidate ? (bodyCandidate || inferredBody) : "";
+    const { title, body } = buildSanitizedNotificationPayload(payload);
     const image =
       payload?.data?.image ||
       payload?.data?.imageUrl ||
@@ -286,6 +306,28 @@ self.addEventListener("push", (event) => {
   try {
     const payload = event.data.json();
     pushDebugLog(PUSH_DEBUG_PREFIX, "Received raw push event", { payload });
+    const { title, body } = buildSanitizedNotificationPayload(payload);
+    const isDirtyRawPayload = shouldUseManualSanitizedNotification(payload, title, body);
+
+    // Some notification-only messages may be auto-rendered by SDK with raw text.
+    // For dirty raw payloads, short-circuit and render sanitized notification ourselves.
+    if (isDirtyRawPayload && (title || body)) {
+      event.stopImmediatePropagation();
+      event.waitUntil(
+        self.registration.showNotification(title || "New update", {
+          body: body || "",
+          icon: "/favicon.ico",
+          tag: getNotificationKey(payload),
+          renotify: true,
+          silent: false,
+          requireInteraction: false,
+          vibrate: [200, 100, 200, 100, 300],
+          data: payload?.data || {},
+        }),
+      );
+      return;
+    }
+
     // No client relay here. onBackgroundMessage handles delivery, and relaying in both
     // places can produce duplicate notifications in web clients.
     event.waitUntil(Promise.resolve());

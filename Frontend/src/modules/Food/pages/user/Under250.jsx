@@ -1317,11 +1317,12 @@ export default function Under250() {
                               {/* Veg Indicator */}
                               {item.isVeg && (
                                 <motion.div
-                                  className="absolute top-2 left-2 md:top-3 md:left-3 h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 rounded border-2 border-green-600 bg-white flex items-center justify-center z-10"
+                                  className="absolute top-2 left-2 md:top-3 md:left-3 h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 rounded border-2 bg-white flex items-center justify-center z-10"
+                                  style={{ borderColor: "#16A34A", backgroundColor: "#FFFFFF" }}
                                   whileHover={{ scale: 1.2, rotate: 5 }}
                                   transition={{ duration: 0.2 }}
                                 >
-                                  <div className="h-2 w-2 md:h-2.5 md:w-2.5 lg:h-3 lg:w-3 rounded-full bg-green-600" />
+                                  <div className="h-2 w-2 md:h-2.5 md:w-2.5 lg:h-3 lg:w-3 rounded-full" style={{ backgroundColor: "#16A34A" }} />
                                 </motion.div>
                               )}
                             </div>
@@ -1330,8 +1331,8 @@ export default function Under250() {
                             <div className="p-3 md:p-4 lg:p-5">
                               <div className="flex items-center gap-1 md:gap-2 mb-1 md:mb-2 lg:mb-3">
                                 {item.isVeg && (
-                                  <div className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5 rounded border border-green-600 bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
-                                    <div className="h-1.5 w-1.5 md:h-2 md:w-2 lg:h-2.5 lg:w-2.5 rounded-full bg-green-600" />
+                                  <div className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5 rounded border flex items-center justify-center" style={{ borderColor: "#16A34A", backgroundColor: "#F0FDF4" }}>
+                                    <div className="h-1.5 w-1.5 md:h-2 md:w-2 lg:h-2.5 lg:w-2.5 rounded-full" style={{ backgroundColor: "#16A34A" }} />
                                   </div>
                                 )}
                                 <span className="text-sm md:text-base lg:text-lg font-semibold text-gray-900 dark:text-white">
@@ -1570,8 +1571,8 @@ export default function Under250() {
                 <div className="flex items-start justify-between mb-3 md:mb-4 lg:mb-6">
                   <div className="flex items-center gap-2 md:gap-3 flex-1">
                     {selectedItem.isVeg && (
-                      <div className="h-5 w-5 md:h-6 md:w-6 lg:h-7 lg:w-7 rounded border-2 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20 flex items-center justify-center flex-shrink-0">
-                        <div className="h-2.5 w-2.5 md:h-3 md:w-3 lg:h-3.5 lg:w-3.5 rounded-full bg-green-600 dark:bg-green-500" />
+                      <div className="h-5 w-5 md:h-6 md:w-6 lg:h-7 lg:w-7 rounded border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: "#16A34A", backgroundColor: "#F0FDF4" }}>
+                        <div className="h-2.5 w-2.5 md:h-3 md:w-3 lg:h-3.5 lg:w-3.5 rounded-full" style={{ backgroundColor: "#16A34A" }} />
                       </div>
                     )}
                     <h2 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 dark:text-white">

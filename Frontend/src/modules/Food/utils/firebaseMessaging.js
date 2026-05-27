@@ -150,12 +150,26 @@ function normalizeNotificationText(value = "") {
   const raw = String(value || "");
   if (!raw) return "";
 
-  const withoutModulePrefix = raw
-    .replace(/^\s*\[(user|shop|restaurant|delivery|admin)\]\s*/i, "")
+  const repairMojibake = (input) => {
+    const text = String(input || "");
+    if (!text) return "";
+    if (!/[ðÃÂâ]/.test(text)) return text;
+    try {
+      const bytes = Uint8Array.from(text, (char) => char.charCodeAt(0) & 0xff);
+      const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      if (decoded && !/�/.test(decoded)) return decoded;
+      return decoded || text;
+    } catch {
+      return text;
+    }
+  };
+
+  const repaired = repairMojibake(raw);
+  const withoutModulePrefix = repaired
+    .replace(/^\s*(?:[\uD800-\uDBFF][\uDC00-\uDFFF]\s*)*\[(user|shop|restaurant|delivery|admin)\]\s*/i, "")
     .trim();
 
   const cleaned = withoutModulePrefix
-    // Remove mojibake artifacts like ðŸŽ‰ or Â etc.
     .replace(/[ÂÃâð][^\s]{0,3}/g, " ")
     .replace(/[^\x20-\x7E\n\r\t]+/g, " ")
     .replace(/\s+/g, " ")
