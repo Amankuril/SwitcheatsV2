@@ -1,41 +1,30 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import useRestaurantBackNavigation from "@food/hooks/useRestaurantBackNavigation"
-import { motion, AnimatePresence } from "framer-motion"
 import Lenis from "lenis"
 import {
   ArrowLeft,
-  Edit,
-  Pencil,
   Plus,
-  MapPin,
-  Clock,
   Star,
   ChevronRight,
-  X,
   Trash2,
 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@food/components/ui/dialog"
 import { Button } from "@food/components/ui/button"
 import { Input } from "@food/components/ui/input"
-import { restaurantAPI } from "@food/api"
+import { restaurantAPI, uploadAPI } from "@food/api"
 import { toast } from "sonner"
 import { ImageSourcePicker } from "@food/components/ImageSourcePicker"
-import { isFlutterBridgeAvailable, convertBase64ToFile } from "@food/utils/imageUploadUtils"
+import { isFlutterBridgeAvailable } from "@food/utils/imageUploadUtils"
 
 const debugLog = (...args) => {}
-const debugWarn = (...args) => {}
 const debugError = (...args) => {}
-
-
-const CUISINES_STORAGE_KEY = "restaurant_cuisines"
 
 
 
@@ -54,15 +43,49 @@ export default function OutletInfo() {
   const [coverImages, setCoverImages] = useState([]) // Array of cover images (separate from menu images)
   const [showEditNameDialog, setShowEditNameDialog] = useState(false)
   const [editNameValue, setEditNameValue] = useState("")
+  const [showEditBasicDialog, setShowEditBasicDialog] = useState(false)
+  const [basicForm, setBasicForm] = useState({
+    ownerName: "",
+    primaryContactNumber: "",
+    ownerEmail: "",
+  })
+  const [savingBasic, setSavingBasic] = useState(false)
+  const [showEditBankDialog, setShowEditBankDialog] = useState(false)
+  const [bankForm, setBankForm] = useState({
+    accountHolderName: "",
+    accountNumber: "",
+    confirmAccountNumber: "",
+    ifscCode: "",
+    upiId: "",
+    upiQrImage: "",
+  })
+  const [savingBank, setSavingBank] = useState(false)
+  const [uploadingBankQr, setUploadingBankQr] = useState(false)
+  const [showEditComplianceDialog, setShowEditComplianceDialog] = useState(false)
+  const [complianceForm, setComplianceForm] = useState({
+    panNumber: "",
+    gstRegistered: false,
+    gstNumber: "",
+    gstLegalName: "",
+    gstAddress: "",
+    fssaiNumber: "",
+    fssaiExpiry: "",
+  })
+  const [savingCompliance, setSavingCompliance] = useState(false)
   const [restaurantId, setRestaurantId] = useState("")
   const [restaurantMongoId, setRestaurantMongoId] = useState("")
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageType, setImageType] = useState(null) // 'profile' or 'menu'
   const [uploadingCount, setUploadingCount] = useState(0) // Track how many images are being uploaded
+  const [uploadingDocType, setUploadingDocType] = useState(null)
   
   const profileImageInputRef = useRef(null)
   const menuImageInputRef = useRef(null)
-  const [activePicker, setActivePicker] = useState(null) // { type: 'profile' | 'cover', ref: any, title: string, multiple: boolean }
+  const panDocInputRef = useRef(null)
+  const gstDocInputRef = useRef(null)
+  const fssaiDocInputRef = useRef(null)
+  const [activePicker, setActivePicker] = useState(null) // { type: string, ref: any, title: string, multiple: boolean, onFileSelect?: fn, description?: string, fileNamePrefix?: string }
+  const bankQrInputRef = useRef(null)
 
   // Format address from location object
   const formatAddress = (location) => {
@@ -160,6 +183,42 @@ export default function OutletInfo() {
       window.removeEventListener("addressUpdated", handleAddressUpdate)
     }
   }, [])
+
+  useEffect(() => {
+    setComplianceForm({
+      panNumber: String(restaurantData?.panNumber || ""),
+      gstRegistered: restaurantData?.gstRegistered === true,
+      gstNumber: String(restaurantData?.gstNumber || ""),
+      gstLegalName: String(restaurantData?.gstLegalName || ""),
+      gstAddress: String(restaurantData?.gstAddress || ""),
+      fssaiNumber: String(restaurantData?.fssaiNumber || ""),
+      fssaiExpiry: restaurantData?.fssaiExpiry ? new Date(restaurantData.fssaiExpiry).toISOString().slice(0, 10) : "",
+    })
+  }, [restaurantData])
+
+  useEffect(() => {
+    setBasicForm({
+      ownerName: String(restaurantData?.ownerName || ""),
+      primaryContactNumber: String(restaurantData?.primaryContactNumber || ""),
+      ownerEmail: String(restaurantData?.ownerEmail || ""),
+    })
+  }, [restaurantData])
+
+  useEffect(() => {
+    const accountNumber = String(restaurantData?.accountNumber || "")
+    const upiQrImage =
+      typeof restaurantData?.upiQrImage === "string"
+        ? restaurantData?.upiQrImage
+        : String(restaurantData?.upiQrImage?.url || "")
+    setBankForm({
+      accountHolderName: String(restaurantData?.accountHolderName || ""),
+      accountNumber,
+      confirmAccountNumber: accountNumber,
+      ifscCode: String(restaurantData?.ifscCode || "").toUpperCase(),
+      upiId: String(restaurantData?.upiId || ""),
+      upiQrImage,
+    })
+  }, [restaurantData])
 
   // Lenis smooth scrolling
   useEffect(() => {
@@ -290,6 +349,45 @@ export default function OutletInfo() {
     }
   }
 
+  const handleDocImageClick = (docType, ref, title) => {
+    if (isFlutterBridgeAvailable()) {
+      setActivePicker({
+        type: `${docType}-doc`,
+        ref,
+        title,
+        multiple: false,
+        onFileSelect: (file) => handleComplianceDocUpload(docType, file),
+        description: `Choose how to upload your ${docType.toUpperCase()} document`,
+        fileNamePrefix: `outlet-${docType}-doc`,
+      })
+    } else {
+      ref.current?.click()
+    }
+  }
+
+  const handleComplianceDocUpload = async (type, file) => {
+    if (!file) return
+    try {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image size too large. Max 5MB allowed.")
+        return
+      }
+      setUploadingDocType(type)
+      const uploadRes = await uploadAPI.uploadMedia(file, { folder: `food/restaurants/compliance/${type}` })
+      const url = uploadRes?.data?.data?.url || uploadRes?.data?.url || ""
+      if (!url) throw new Error("Upload failed")
+      const fieldMap = { pan: "panImage", gst: "gstImage", fssai: "fssaiImage" }
+      const field = fieldMap[type]
+      await restaurantAPI.updateProfile({ [field]: url })
+      setRestaurantData((prev) => (prev ? { ...prev, [field]: url } : prev))
+      toast.success("Document uploaded successfully")
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to upload document")
+    } finally {
+      setUploadingDocType(null)
+    }
+  }
+
   // Handle cover image deletion
   const handleCoverImageDelete = async (indexToDelete) => {
     if (!window.confirm("Are you sure you want to delete this cover image?")) return
@@ -320,10 +418,120 @@ export default function OutletInfo() {
     }
   }
 
+  const handleProfileImageDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete outlet image?")) return
+    try {
+      setUploadingImage(true)
+      setImageType('profile')
+      await restaurantAPI.updateProfile({ profileImage: "" })
+      setThumbnailImage("https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200&h=200&fit=crop")
+      const response = await restaurantAPI.getCurrentRestaurant()
+      const data = response?.data?.data?.restaurant || response?.data?.restaurant
+      if (data) {
+        setRestaurantData(data)
+        if (data.profileImage?.url) {
+          setThumbnailImage(data.profileImage.url)
+        }
+      }
+      toast.success("Outlet image deleted successfully")
+    } catch (error) {
+      toast.error("Failed to delete outlet image.")
+    } finally {
+      setUploadingImage(false)
+      setImageType(null)
+    }
+  }
+
   // Handle edit name dialog
   const handleOpenEditDialog = () => {
     setEditNameValue(restaurantName)
     setShowEditNameDialog(true)
+  }
+
+  const handleSaveCompliance = async () => {
+    try {
+      setSavingCompliance(true)
+      const payload = {
+        panNumber: complianceForm.panNumber.trim(),
+        gstRegistered: complianceForm.gstRegistered === true,
+        gstNumber: complianceForm.gstRegistered ? complianceForm.gstNumber.trim() : "",
+        gstLegalName: complianceForm.gstRegistered ? complianceForm.gstLegalName.trim() : "",
+        gstAddress: complianceForm.gstRegistered ? complianceForm.gstAddress.trim() : "",
+        fssaiNumber: complianceForm.fssaiNumber.trim(),
+        fssaiExpiry: complianceForm.fssaiExpiry || null,
+      }
+      await restaurantAPI.updateProfile(payload)
+      setRestaurantData((prev) => (prev ? { ...prev, ...payload } : prev))
+      setShowEditComplianceDialog(false)
+      toast.success("Compliance details updated successfully")
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update compliance details")
+    } finally {
+      setSavingCompliance(false)
+    }
+  }
+
+  const handleBankQrUpload = async (file) => {
+    if (!file) return
+    try {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image size too large. Max 5MB allowed.")
+        return
+      }
+      setUploadingBankQr(true)
+      const response = await uploadAPI.uploadMedia(file, { folder: "food/restaurants/upi-qr" })
+      const url = response?.data?.data?.url || response?.data?.url || ""
+      if (!url) throw new Error("Upload failed")
+      setBankForm((prev) => ({ ...prev, upiQrImage: url }))
+      toast.success("UPI QR uploaded")
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to upload UPI QR")
+    } finally {
+      setUploadingBankQr(false)
+    }
+  }
+
+  const handleSaveBankDetails = async () => {
+    const accountNumber = String(bankForm.accountNumber || "").replace(/\s|-/g, "")
+    const confirmAccountNumber = String(bankForm.confirmAccountNumber || "").replace(/\s|-/g, "")
+    const ifscCode = String(bankForm.ifscCode || "").trim().toUpperCase()
+    const upiId = String(bankForm.upiId || "").trim()
+    const accountHolderName = String(bankForm.accountHolderName || "").trim()
+    if ((accountNumber || ifscCode || accountHolderName) && !/^\d{9,18}$/.test(accountNumber)) {
+      toast.error("Account number must be 9 to 18 digits")
+      return
+    }
+    if (confirmAccountNumber !== accountNumber) {
+      toast.error("Account numbers do not match")
+      return
+    }
+    if ((accountNumber || ifscCode || accountHolderName) && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+      toast.error("Invalid IFSC format (e.g. SBIN0018764)")
+      return
+    }
+    if (upiId && !/^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/.test(upiId)) {
+      toast.error("Invalid UPI ID format (e.g. name@bank)")
+      return
+    }
+
+    try {
+      setSavingBank(true)
+      const payload = {
+        accountHolderName,
+        accountNumber,
+        ifscCode,
+        upiId,
+        upiQrImage: String(bankForm.upiQrImage || "").trim(),
+      }
+      await restaurantAPI.updateProfile(payload)
+      setRestaurantData((prev) => (prev ? { ...prev, ...payload } : prev))
+      setShowEditBankDialog(false)
+      toast.success("Bank details updated successfully")
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update bank details")
+    } finally {
+      setSavingBank(false)
+    }
   }
 
   const handleSaveName = async () => {
@@ -339,6 +547,24 @@ export default function OutletInfo() {
     }
   }
 
+  const handleSaveBasicDetails = async () => {
+    try {
+      setSavingBasic(true)
+      const payload = {
+        ownerName: basicForm.ownerName.trim(),
+        ownerEmail: basicForm.ownerEmail.trim(),
+      }
+      await restaurantAPI.updateProfile(payload)
+      setRestaurantData((prev) => (prev ? { ...prev, ...payload } : prev))
+      setShowEditBasicDialog(false)
+      toast.success("Basic details updated successfully")
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update basic details")
+    } finally {
+      setSavingBasic(false)
+    }
+  }
+
   const currentPlanLabel = String(restaurantData?.subscriptionPlan || "").trim()
     ? String(restaurantData?.subscriptionPlan || "").trim().toUpperCase()
     : "N/A"
@@ -350,11 +576,65 @@ export default function OutletInfo() {
       })
     : "N/A"
 
+  const direct = (value) => (value === null || value === undefined ? "" : String(value))
+
+  const maskAccountNumber = (value) => {
+    const digits = String(value || "").replace(/\D/g, "")
+    if (!digits) return ""
+    if (digits.length <= 4) return digits
+    return `•••• •••• ${digits.slice(-4)}`
+  }
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return ""
+    const d = new Date(dateValue)
+    if (Number.isNaN(d.getTime())) return direct(dateValue)
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
+  }
+
+  const isGstRegistered = restaurantData?.gstRegistered === true
+  const onboardingStep3 = restaurantData?.onboarding?.step3 || {}
+  const panOnboarding = onboardingStep3?.pan || {}
+  const gstOnboarding = onboardingStep3?.gst || {}
+  const fssaiOnboarding = onboardingStep3?.fssai || {}
+
+  const readDocUrl = (value) => {
+    if (!value) return ""
+    if (typeof value === "string") return value.trim()
+    if (typeof value === "object") {
+      return String(value.url || value.secure_url || value.location || "").trim()
+    }
+    return ""
+  }
+
+  const panDocUrl =
+    readDocUrl(restaurantData?.panImage) ||
+    readDocUrl(panOnboarding?.image)
+  const gstDocUrl =
+    readDocUrl(restaurantData?.gstImage) ||
+    readDocUrl(gstOnboarding?.image)
+  const fssaiDocUrl =
+    readDocUrl(restaurantData?.fssaiImage) ||
+    readDocUrl(fssaiOnboarding?.image)
+
+  const getViewLabel = (url) => {
+    if (!url) return ""
+    const cleanUrl = String(url).split("?")[0].toLowerCase()
+    return cleanUrl.endsWith(".pdf") ? "View pdf" : "View image"
+  }
+
+  const locationData = restaurantData?.location || {}
+  const fullAddress = locationData.formattedAddress || locationData.address || address || ""
+
   return (
     <>
-      <div className="min-h-screen bg-white overflow-x-hidden">
+      <div className="min-h-screen bg-slate-50 overflow-x-hidden pb-8">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-50">
+        <div className="bg-white/95 backdrop-blur border-b border-gray-200 px-4 py-3 sticky top-0 z-50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 flex-1">
               <button onClick={goBack} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
@@ -370,18 +650,9 @@ export default function OutletInfo() {
           </div>
         </div>
 
-        {/* Main Image Section */}
-        <div className="relative w-full h-[200px] overflow-visible">
-          <img src={mainImage} alt="Restaurant banner" className="w-full h-full object-cover" />
-          
-          <button
-            onClick={() => handleImageClick('cover', menuImageInputRef, "Add Cover Image", true)}
-            disabled={uploadingImage}
-            className="absolute bottom-4 right-4 bg-black/90 hover:bg-black px-3.5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium text-white transition-colors shadow-lg z-20 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{uploadingImage && imageType === 'menu' ? `Uploading ${uploadingCount}...` : 'Add image'}</span>
-          </button>
+        {/* Outlet Image Section */}
+        <div className="relative w-full h-[200px] overflow-hidden">
+          <img src={thumbnailImage} alt="Outlet" className="w-full h-full object-cover" />
           <input
             ref={menuImageInputRef}
             type="file"
@@ -391,64 +662,76 @@ export default function OutletInfo() {
             onChange={(e) => handleCoverImageAdd(Array.from(e.target.files || []))}
           />
           
-          {/* Cover Images Gallery */}
-          {coverImages.length > 0 && (
-            <div className="absolute bottom-16 right-4 flex gap-2.5 z-10">
-              {coverImages.slice(0, 4).map((img, index) => (
-                <div
-                  key={index}
-                  className={`relative w-14 h-14 rounded-xl border-2 overflow-hidden bg-gray-200 shadow-md transition-all ${
-                    mainImage === img.url ? "border-black scale-105" : "border-white"
-                  }`}
-                >
+          <input
+            ref={profileImageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleProfileImageReplace(e.target.files?.[0])}
+          />
+
+          <div className="absolute right-4 bottom-4 z-20 flex items-center gap-2">
+            <button
+              onClick={() => handleImageClick('profile', profileImageInputRef, "Add Outlet Image")}
+              disabled={uploadingImage}
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white min-w-[90px] disabled:opacity-50"
+            >
+              {uploadingImage && imageType === 'profile' ? 'Uploading...' : 'Add image'}
+            </button>
+            <button
+              onClick={handleProfileImageDelete}
+              disabled={uploadingImage}
+              className="inline-flex items-center justify-center rounded-lg bg-red-500 px-3 py-2 text-xs font-semibold text-white min-w-[90px] disabled:opacity-50"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+
+        <div className="px-4 pt-4 pb-3 bg-white border-b border-slate-200">
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 gap-3">
+            <div className="flex gap-2 overflow-x-auto pb-1 flex-1">
+              {coverImages.length > 0 ? (
+                coverImages.map((img, index) => (
                   <button
+                    key={`${img.url}-${index}`}
                     type="button"
                     onClick={() => setMainImage(img.url)}
-                    className="w-full h-full"
+                    className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border ${
+                      mainImage === img.url ? "border-slate-900" : "border-slate-200"
+                    }`}
                   >
-                    <img src={img.url} alt={`Cover ${index + 1}`} className="w-full h-full object-cover" />
+                    <img src={img.url} alt={`Menu ${index + 1}`} className="h-full w-full object-cover" />
                   </button>
-                  <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCoverImageDelete(index); }}
-                    disabled={uploadingImage}
-                    className="absolute top-1 right-1 bg-red-500/95 hover:bg-red-600 p-1 rounded-full transition-colors z-10"
-                  >
-                    <Trash2 className="w-3 h-3 text-white" />
-                  </button>
-                </div>
-              ))}
-              {coverImages.length > 4 && (
-                <div className="w-14 h-14 rounded-xl border-2 border-white bg-black/70 flex items-center justify-center shadow-md">
-                  <span className="text-white text-sm font-bold">+{coverImages.length - 4}</span>
-                </div>
+                ))
+              ) : (
+                <p className="text-xs text-slate-500 self-center">No images</p>
               )}
             </div>
-          )}
-
-          {/* Thumbnail Section */}
-          <div className="absolute bottom-0 left-4 -mb-[45px] flex flex-col gap-2 shrink-0 z-10">
-            <div className="relative w-[70px] h-[70px] rounded overflow-hidden">
-              <img src={thumbnailImage} alt="Restaurant thumbnail" className="w-full h-full rounded-xl object-cover" />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleImageClick('cover', menuImageInputRef, "Add Cover Image", true)}
+                disabled={uploadingImage}
+                className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white min-w-[86px] disabled:opacity-50"
+              >
+                {uploadingImage && imageType === 'menu' ? `Uploading ${uploadingCount}...` : 'Add image'}
+              </button>
+              <button
+                onClick={() => {
+                  const selectedIndex = coverImages.findIndex((img) => img.url === mainImage)
+                  if (selectedIndex >= 0) handleCoverImageDelete(selectedIndex)
+                }}
+                disabled={uploadingImage || !coverImages.find((img) => img.url === mainImage)}
+                className="inline-flex items-center justify-center rounded-lg bg-red-500 px-3 py-2 text-xs font-semibold text-white min-w-[86px] disabled:opacity-50"
+              >
+                Delete
+              </button>
             </div>
-            <button
-              onClick={() => handleImageClick('profile', profileImageInputRef, "Update Profile Photo")}
-              disabled={uploadingImage}
-              className="text-blue-600 text-sm font-semibold hover:text-blue-700 transition-colors text-left"
-            >
-              {uploadingImage && imageType === 'profile' ? 'Uploading...' : 'Edit photo'}
-            </button>
-            <input
-              ref={profileImageInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleProfileImageReplace(e.target.files?.[0])}
-            />
           </div>
         </div>
 
         {/* Info Section */}
-        <div className="px-4 pt-[50px] pb-4 bg-white">
+        <div className="px-4 pt-4 pb-4 bg-white">
           <div className="flex items-start gap-4">
             <div className="flex flex-col gap-2">
               <button onClick={() => navigate("/restaurant/ratings-reviews")} className="flex items-center gap-2 text-left w-full">
@@ -463,33 +746,174 @@ export default function OutletInfo() {
           </div>
         </div>
 
-        <div className="px-4 py-4"><h2 className="text-base font-bold text-gray-900 text-center">Restaurant Information</h2></div>
+        <div className="px-4 py-4">
+          <h2 className="text-base font-bold text-gray-900">Restaurant Information</h2>
+          <p className="text-sm text-gray-500 mt-1">All onboarding and profile details at one place.</p>
+        </div>
 
         <div className="px-4 pb-6 space-y-3">
-          <div className="bg-blue-100/50 rounded-lg p-4 border border-blue-300">
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-500 font-normal mb-1">Restaurant's name</p>
-                <p className="text-base font-semibold text-gray-900">{loading ? "Loading..." : (restaurantName || "N/A")}</p>
+                <p className="text-xs text-slate-500 font-medium mb-1">Restaurant name</p>
+                <p className="text-base font-semibold text-slate-900">{loading ? "Loading..." : direct(restaurantName)}</p>
               </div>
-              <button onClick={handleOpenEditDialog} className="text-blue-600 text-sm font-normal">Edit</button>
+              <button onClick={handleOpenEditDialog} className="text-blue-600 text-sm font-medium">Edit</button>
             </div>
           </div>
 
-          <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-amber-700 font-medium mb-1">Subscription</p>
-                <p className="text-sm text-gray-900">
-                  <span className="font-semibold">Current Plan:</span> {loading ? "Loading..." : currentPlanLabel}
-                </p>
-                <p className="text-sm text-gray-900 mt-1">
-                  <span className="font-semibold">Valid Till:</span> {loading ? "Loading..." : subscriptionValidTillLabel}
-                </p>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-900">Basic details</h3>
+              <button onClick={() => setShowEditBasicDialog(true)} className="text-blue-600 text-sm font-medium">Edit</button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><p className="text-xs text-slate-500">Owner name</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.ownerName)}</p></div>
+              <div><p className="text-xs text-slate-500">Primary contact</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.primaryContactNumber)}</p></div>
+              <div><p className="text-xs text-slate-500">Email</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.ownerEmail)}</p></div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900 mb-3">Address and location</h3>
+            <div className="space-y-2">
+              <div><p className="text-xs text-slate-500">Full address</p><p className="text-sm font-medium text-slate-900">{direct(fullAddress)}</p></div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-900">Compliance details</h3>
+              <button onClick={() => setShowEditComplianceDialog(true)} className="text-blue-600 text-sm font-medium">Edit</button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><p className="text-xs text-slate-500">PAN number</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.panNumber)}</p></div>
+              <div><p className="text-xs text-slate-500">GST registered</p><p className="text-sm font-medium text-slate-900">{isGstRegistered ? "Yes" : "No"}</p></div>
+              {isGstRegistered ? (
+                <>
+                  <div><p className="text-xs text-slate-500">GST number</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.gstNumber)}</p></div>
+                  <div><p className="text-xs text-slate-500">GST legal name</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.gstLegalName)}</p></div>
+                  <div className="sm:col-span-2"><p className="text-xs text-slate-500">GST address</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.gstAddress)}</p></div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs text-slate-500">GST document</p>
+                    <div className="mt-1 flex items-center gap-3">
+                      {gstDocUrl ? (
+                        <a href={gstDocUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                          {getViewLabel(gstDocUrl)}
+                        </a>
+                      ) : (
+                        <p className="text-sm font-medium text-slate-900">Not uploaded</p>
+                      )}
+                      <input
+                        ref={gstDocInputRef}
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={(e) => handleComplianceDocUpload("gst", e.target.files?.[0])}
+                      />
+                      <button
+                        onClick={() => handleDocImageClick("gst", gstDocInputRef, "Upload GST Document")}
+                        className="text-xs font-semibold text-blue-600"
+                        disabled={uploadingDocType === "gst"}
+                      >
+                        {uploadingDocType === "gst" ? "Uploading..." : "Upload"}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+              <div><p className="text-xs text-slate-500">FSSAI number</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.fssaiNumber)}</p></div>
+              <div><p className="text-xs text-slate-500">FSSAI expiry</p><p className="text-sm font-medium text-slate-900">{formatDate(restaurantData?.fssaiExpiry)}</p></div>
+              <div className="sm:col-span-2">
+                <p className="text-xs text-slate-500">FSSAI document</p>
+                <div className="mt-1 flex items-center gap-3">
+                  {fssaiDocUrl ? (
+                    <a href={fssaiDocUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                      {getViewLabel(fssaiDocUrl)}
+                    </a>
+                  ) : (
+                    <p className="text-sm font-medium text-slate-900">Not uploaded</p>
+                  )}
+                  <input
+                    ref={fssaiDocInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={(e) => handleComplianceDocUpload("fssai", e.target.files?.[0])}
+                  />
+                  <button
+                    onClick={() => handleDocImageClick("fssai", fssaiDocInputRef, "Upload FSSAI Document")}
+                    className="text-xs font-semibold text-blue-600"
+                    disabled={uploadingDocType === "fssai"}
+                  >
+                    {uploadingDocType === "fssai" ? "Uploading..." : "Upload"}
+                  </button>
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <p className="text-xs text-slate-500">PAN document</p>
+                <div className="mt-1 flex items-center gap-3">
+                  {panDocUrl ? (
+                    <a href={panDocUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                      {getViewLabel(panDocUrl)}
+                    </a>
+                  ) : (
+                    <p className="text-sm font-medium text-slate-900">Not uploaded</p>
+                  )}
+                  <input
+                    ref={panDocInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={(e) => handleComplianceDocUpload("pan", e.target.files?.[0])}
+                  />
+                  <button
+                    onClick={() => handleDocImageClick("pan", panDocInputRef, "Upload PAN Document")}
+                    className="text-xs font-semibold text-blue-600"
+                    disabled={uploadingDocType === "pan"}
+                  >
+                    {uploadingDocType === "pan" ? "Uploading..." : "Upload"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-          {/* ... other info cards ... */}
+
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-900">Bank and UPI details</h3>
+              <button onClick={() => setShowEditBankDialog(true)} className="text-blue-600 text-sm font-medium">Edit</button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><p className="text-xs text-slate-500">Account holder</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.accountHolderName)}</p></div>
+              <div><p className="text-xs text-slate-500">Account number</p><p className="text-sm font-medium text-slate-900">{maskAccountNumber(restaurantData?.accountNumber)}</p></div>
+              <div><p className="text-xs text-slate-500">IFSC code</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.ifscCode)}</p></div>
+              <div><p className="text-xs text-slate-500">UPI ID</p><p className="text-sm font-medium text-slate-900">{direct(restaurantData?.upiId)}</p></div>
+              <div className="sm:col-span-2">
+                <p className="text-xs text-slate-500">UPI QR image</p>
+                {String(restaurantData?.upiQrImage?.url || restaurantData?.upiQrImage || "").trim() ? (
+                  <a
+                    href={String(restaurantData?.upiQrImage?.url || restaurantData?.upiQrImage || "").trim()}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                  >
+                    View
+                  </a>
+                ) : (
+                  <p className="text-sm font-medium text-slate-900">Not uploaded</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-4 border border-amber-200 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900 mb-3">Subscription</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><p className="text-xs text-slate-500">Current plan</p><p className="text-sm font-semibold text-slate-900">{loading ? "Loading..." : currentPlanLabel}</p></div>
+              <div><p className="text-xs text-slate-500">Valid till</p><p className="text-sm font-semibold text-slate-900">{loading ? "Loading..." : subscriptionValidTillLabel}</p></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -503,21 +927,239 @@ export default function OutletInfo() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showEditBasicDialog} onOpenChange={setShowEditBasicDialog}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-xl w-[90%]">
+          <DialogHeader className="p-4 border-b border-gray-100">
+            <DialogTitle className="text-lg font-bold">Edit basic details</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 space-y-3">
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Owner name</p>
+              <Input
+                value={basicForm.ownerName}
+                onChange={(e) => setBasicForm((prev) => ({ ...prev, ownerName: e.target.value }))}
+                placeholder="Enter owner name"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Primary contact</p>
+              <Input
+                value={basicForm.primaryContactNumber}
+                readOnly
+                disabled
+                placeholder="Enter primary contact"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Email</p>
+              <Input
+                value={basicForm.ownerEmail}
+                onChange={(e) => setBasicForm((prev) => ({ ...prev, ownerEmail: e.target.value }))}
+                placeholder="Enter email"
+              />
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-gray-50 flex flex-row gap-3">
+            <Button variant="outline" onClick={() => setShowEditBasicDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveBasicDetails} disabled={savingBasic} className="bg-blue-600 text-white">
+              {savingBasic ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditComplianceDialog} onOpenChange={setShowEditComplianceDialog}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden rounded-xl w-[92%]">
+          <DialogHeader className="p-4 border-b border-gray-100">
+            <DialogTitle className="text-lg font-bold">Edit compliance details</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+            <div>
+              <p className="text-xs text-slate-500 mb-1">PAN number</p>
+              <Input
+                value={complianceForm.panNumber}
+                onChange={(e) => setComplianceForm((prev) => ({ ...prev, panNumber: e.target.value }))}
+                placeholder="Enter PAN number"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">GST registered</p>
+              <select
+                value={complianceForm.gstRegistered ? "yes" : "no"}
+                onChange={(e) => setComplianceForm((prev) => ({ ...prev, gstRegistered: e.target.value === "yes" }))}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              >
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+            {complianceForm.gstRegistered ? (
+              <>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">GST number</p>
+                  <Input
+                    value={complianceForm.gstNumber}
+                    onChange={(e) => setComplianceForm((prev) => ({ ...prev, gstNumber: e.target.value }))}
+                    placeholder="Enter GST number"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">GST legal name</p>
+                  <Input
+                    value={complianceForm.gstLegalName}
+                    onChange={(e) => setComplianceForm((prev) => ({ ...prev, gstLegalName: e.target.value }))}
+                    placeholder="Enter GST legal name"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">GST address</p>
+                  <Input
+                    value={complianceForm.gstAddress}
+                    onChange={(e) => setComplianceForm((prev) => ({ ...prev, gstAddress: e.target.value }))}
+                    placeholder="Enter GST address"
+                  />
+                </div>
+              </>
+            ) : null}
+            <div>
+              <p className="text-xs text-slate-500 mb-1">FSSAI number</p>
+              <Input
+                value={complianceForm.fssaiNumber}
+                onChange={(e) => setComplianceForm((prev) => ({ ...prev, fssaiNumber: e.target.value }))}
+                placeholder="Enter FSSAI number"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">FSSAI expiry</p>
+              <Input
+                type="date"
+                value={complianceForm.fssaiExpiry}
+                onChange={(e) => setComplianceForm((prev) => ({ ...prev, fssaiExpiry: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-gray-50 flex flex-row gap-3">
+            <Button variant="outline" onClick={() => setShowEditComplianceDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveCompliance} disabled={savingCompliance} className="bg-blue-600 text-white">
+              {savingCompliance ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditBankDialog} onOpenChange={setShowEditBankDialog}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden rounded-xl w-[92%]">
+          <DialogHeader className="p-4 border-b border-gray-100">
+            <DialogTitle className="text-lg font-bold">Edit bank & UPI details</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Account holder name</p>
+              <Input
+                value={bankForm.accountHolderName}
+                onChange={(e) => setBankForm((prev) => ({ ...prev, accountHolderName: e.target.value }))}
+                placeholder="Enter account holder name"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Account number</p>
+              <Input
+                value={bankForm.accountNumber}
+                onChange={(e) => setBankForm((prev) => ({ ...prev, accountNumber: e.target.value.replace(/[^\d\s-]/g, "") }))}
+                placeholder="Enter account number"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Confirm account number</p>
+              <Input
+                value={bankForm.confirmAccountNumber}
+                onChange={(e) => setBankForm((prev) => ({ ...prev, confirmAccountNumber: e.target.value.replace(/[^\d\s-]/g, "") }))}
+                placeholder="Re-enter account number"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">IFSC code</p>
+              <Input
+                value={bankForm.ifscCode}
+                onChange={(e) => setBankForm((prev) => ({ ...prev, ifscCode: e.target.value.toUpperCase() }))}
+                placeholder="e.g. SBIN0018764"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">UPI ID</p>
+              <Input
+                value={bankForm.upiId}
+                onChange={(e) => setBankForm((prev) => ({ ...prev, upiId: e.target.value }))}
+                placeholder="e.g. merchant@okaxis"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 mb-1">UPI QR image</p>
+              <div className="flex items-center gap-3">
+                {bankForm.upiQrImage ? (
+                  <a href={bankForm.upiQrImage} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                    View image
+                  </a>
+                ) : (
+                  <p className="text-sm text-slate-600">Not uploaded</p>
+                )}
+                <input
+                  ref={bankQrInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleBankQrUpload(e.target.files?.[0])}
+                />
+                <button
+                  onClick={() => {
+                    if (isFlutterBridgeAvailable()) {
+                      setActivePicker({
+                        type: "upi-qr",
+                        ref: bankQrInputRef,
+                        title: "Upload UPI QR",
+                        multiple: false,
+                        onFileSelect: (file) => handleBankQrUpload(file),
+                        description: "Choose how to upload your UPI QR image",
+                        fileNamePrefix: "outlet-upi-qr",
+                      })
+                    } else {
+                      bankQrInputRef.current?.click()
+                    }
+                  }}
+                  className="text-xs font-semibold text-blue-600"
+                  disabled={uploadingBankQr}
+                >
+                  {uploadingBankQr ? "Uploading..." : "Upload"}
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-gray-50 flex flex-row gap-3">
+            <Button variant="outline" onClick={() => setShowEditBankDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveBankDetails} disabled={savingBank || uploadingBankQr} className="bg-blue-600 text-white">
+              {savingBank ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
  
 
       <ImageSourcePicker
         isOpen={!!activePicker}
         onClose={() => setActivePicker(null)}
         onFileSelect={(file) => {
-          if (activePicker?.type === 'profile') {
+          if (activePicker?.onFileSelect) {
+            activePicker.onFileSelect(file)
+          } else if (activePicker?.type === 'profile') {
             handleProfileImageReplace(file)
           } else {
             handleCoverImageAdd(file)
           }
         }}
         title={activePicker?.title}
-        description={`Choose how to upload your ${activePicker?.type} photo`}
-        fileNamePrefix={`outlet-${activePicker?.type}`}
+        description={activePicker?.description || `Choose how to upload your ${activePicker?.type} photo`}
+        fileNamePrefix={activePicker?.fileNamePrefix || `outlet-${activePicker?.type}`}
         galleryInputRef={activePicker?.ref}
       />
     </>
