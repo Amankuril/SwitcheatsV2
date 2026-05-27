@@ -987,6 +987,13 @@ export async function updateOrderStatusRestaurant(
     order.note = String(note).trim();
   }
 
+  const normalizedPaymentMethod = String(order.payment?.method || "cash").toLowerCase();
+  const prevPaymentStatus = String(order.payment?.status || "cod_pending").toLowerCase();
+  if (String(orderStatus) === "delivered" && normalizedPaymentMethod === "cash" && prevPaymentStatus === "cod_pending") {
+    // COD should become paid once delivery is completed, even in restaurant-managed status updates.
+    order.payment.status = "paid";
+  }
+
   pushStatusHistory(order, {
     byRole: "RESTAURANT",
     byId: restaurantId,
@@ -995,6 +1002,23 @@ export async function updateOrderStatusRestaurant(
     note: note || "",
   });
   await order.save();
+
+  if (String(orderStatus) === "delivered") {
+    try {
+      const ledgerKind =
+        normalizedPaymentMethod === "cash" && prevPaymentStatus === "cod_pending"
+          ? "cod_marked_paid_on_delivery"
+          : "payment_snapshot_sync";
+      await foodTransactionService.updateTransactionStatus(order._id, ledgerKind, {
+        status: "captured",
+        recordedByRole: "RESTAURANT",
+        recordedById: restaurantId,
+        note: `Delivery completed from restaurant flow. Prev payment status: ${prevPaymentStatus}`,
+      });
+    } catch (err) {
+      logger.warn(`updateOrderStatusRestaurant delivered transaction sync failed: ${err?.message || err}`);
+    }
+  }
 
   // Custom messages / titles for status updates
   let title = `Order ${order._id.toString()} updated`;
@@ -1527,6 +1551,13 @@ export async function updateOrderStatusAdmin(orderId, orderStatus, note = "", ad
         order.note = String(note).trim();
     }
 
+    const normalizedPaymentMethod = String(order.payment?.method || "cash").toLowerCase();
+    const prevPaymentStatus = String(order.payment?.status || "cod_pending").toLowerCase();
+    if (String(orderStatus) === "delivered" && normalizedPaymentMethod === "cash" && prevPaymentStatus === "cod_pending") {
+        // Keep payment state consistent for COD if delivery is completed by admin override.
+        order.payment.status = "paid";
+    }
+
     pushStatusHistory(order, {
         byRole: "ADMIN",
         byId: adminId,
@@ -1536,6 +1567,23 @@ export async function updateOrderStatusAdmin(orderId, orderStatus, note = "", ad
     });
 
     await order.save();
+
+    if (String(orderStatus) === "delivered") {
+        try {
+            const ledgerKind =
+                normalizedPaymentMethod === "cash" && prevPaymentStatus === "cod_pending"
+                    ? "cod_marked_paid_on_delivery"
+                    : "payment_snapshot_sync";
+            await foodTransactionService.updateTransactionStatus(order._id, ledgerKind, {
+                status: "captured",
+                recordedByRole: "ADMIN",
+                recordedById: adminId,
+                note: `Delivery completed from admin flow. Prev payment status: ${prevPaymentStatus}`,
+            });
+        } catch (err) {
+            logger.warn(`updateOrderStatusAdmin delivered transaction sync failed: ${err?.message || err}`);
+        }
+    }
 
     // Notify all relevant parties
     const notifyList = [
