@@ -8,6 +8,21 @@ const OutOfZoneScreen = ({ location }) => {
 
   const routerLocation = useLocation();
 
+  React.useEffect(() => {
+    const state = window.history.state || {};
+    window.history.pushState({ ...state, __outOfZoneExitGuard: true }, "");
+
+    const handlePopState = () => {
+      // Exit away from the website when back is pressed on this screen.
+      window.location.replace("about:blank");
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
   return (
     <div className="flex flex-col h-[100dvh] bg-[#2a1c3d] overflow-hidden fixed inset-0 z-[200]">
       <div className="absolute top-0 left-0 right-0 pt-6 pb-4 px-4 z-50 bg-transparent">
