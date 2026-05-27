@@ -3399,7 +3399,7 @@ export async function approveRestaurant(id) {
                 [{ ownerType: 'RESTAURANT', ownerId: updated._id }],
                 {
                     title: 'Congratulations! ðŸŽ‰',
-                    body: `Your restaurant "${updated.restaurantName}" has been approved. Please complete onboarding fee payment on first login to activate dashboard access.`,
+                    body: `Your restaurant "${updated.restaurantName}" has been approved.`,
                     image: updated.profileImage || 'https://i.ibb.co/5GzXz7r/Switcheats-Brand-Image.png',
                     data: {
                         type: 'restaurant_approved',

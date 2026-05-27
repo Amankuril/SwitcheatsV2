@@ -170,6 +170,7 @@ function normalizeNotificationText(value = "") {
     .trim();
 
   const cleaned = withoutModulePrefix
+    .replace(/�[A-Za-z0-9{}[\]\\/_.:-]*/g, " ")
     .replace(/[ÂÃâð][^\s]{0,3}/g, " ")
     .replace(/[^\x20-\x7E\n\r\t]+/g, " ")
     .replace(/\s+/g, " ")

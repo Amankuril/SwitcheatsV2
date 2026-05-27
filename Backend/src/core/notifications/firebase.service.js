@@ -47,8 +47,12 @@ const normalizeNotificationText = (value) => {
     return repaired
         // Remove leading module prefix if any sender still adds it.
         .replace(/^\s*(?:\p{Extended_Pictographic}\s*)?\[(user|shop|restaurant|delivery|admin|rider)\]\s*/iu, '')
+        // Remove replacement-char mojibake tails like "�x}0".
+        .replace(/�[A-Za-z0-9{}[\]\\/_.:-]*/g, ' ')
         // Remove remaining control chars and collapse spaces.
         .replace(/[\u0000-\u001F\u007F]/g, ' ')
+        // Force plain text for notifications.
+        .replace(/[^\x20-\x7E]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 };
