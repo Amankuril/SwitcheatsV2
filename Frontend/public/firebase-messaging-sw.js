@@ -3,6 +3,73 @@ importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js
 importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js");
 
 const sanitize = (value) => String(value || "").trim().replace(/^['"]|['"]$/g, "");
+const normalizeNotificationText = (value = "") => {
+  const raw = String(value || "");
+  if (!raw) return "";
+
+  const withoutModulePrefix = raw
+    .replace(/^\s*\[(user|shop|restaurant|delivery|admin)\]\s*/i, "")
+    .trim();
+
+  const cleaned = withoutModulePrefix
+    .replace(/[ÂÃâð][^\s]{0,3}/g, " ")
+    .replace(/[^\x20-\x7E\n\r\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (/^(notification|new notification|on notification)$/i.test(cleaned)) {
+    return "";
+  }
+
+  return cleaned;
+};
+const toReadableStatus = (value = "") =>
+  String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+const inferNotificationBodyFromEvent = (payload = {}) => {
+  const data = payload?.data && typeof payload.data === "object" ? payload.data : {};
+  const eventType = String(
+    data.eventType ||
+      data.event ||
+      data.type ||
+      data.action ||
+      data.category ||
+      "",
+  ).toLowerCase();
+  const orderId = String(data.orderId || data.order_id || data.orderMongoId || "").trim();
+  const status = toReadableStatus(data.orderStatus || data.status || data.deliveryStatus || "");
+  const amount = String(data.amount || data.total || data.walletAmount || "").trim();
+
+  if (eventType.includes("order")) {
+    if (status && orderId) return `Order #${orderId} is now ${status}.`;
+    if (status) return `Your order is now ${status}.`;
+    if (orderId) return `Order #${orderId} has a new update.`;
+    return "Your order has a new update.";
+  }
+  if (eventType.includes("delivery")) {
+    if (status) return `Delivery status updated to ${status}.`;
+    return "Delivery update available.";
+  }
+  if (
+    eventType.includes("wallet") ||
+    eventType.includes("payment") ||
+    eventType.includes("refund")
+  ) {
+    if (amount) return `Wallet/payment update for ₹${amount}.`;
+    return "Wallet/payment update available.";
+  }
+  if (eventType.includes("approve") || eventType.includes("reject")) {
+    if (status) return `Approval status updated: ${status}.`;
+    return "Approval status has been updated.";
+  }
+
+  if (status && orderId) return `Order #${orderId} is now ${status}.`;
+  if (status) return `Status updated to ${status}.`;
+  if (orderId) return `Order #${orderId} has a new update.`;
+  return "";
+};
 const PUSH_DEBUG_PREFIX = "[push-sw]";
 const pushDebugLog = () => {};
 const getNotificationKey = (payload) =>
@@ -10,8 +77,8 @@ const getNotificationKey = (payload) =>
   payload?.data?.messageId ||
   payload?.messageId ||
   [
-    payload?.notification?.title || payload?.data?.title || "",
-    payload?.notification?.body || payload?.data?.body || "",
+    normalizeNotificationText(payload?.data?.title || payload?.notification?.title || ""),
+    normalizeNotificationText(payload?.data?.body || payload?.notification?.body || ""),
     payload?.data?.orderId || "",
     payload?.data?.targetUrl || payload?.data?.link || "",
   ].join("::");
@@ -22,6 +89,18 @@ function hasSdkNotificationPayload(payload = {}) {
       payload?.notification?.body ||
       payload?.notification?.image,
   );
+}
+
+function shouldUseManualSanitizedNotification(payload = {}, normalizedTitle = "", normalizedBody = "") {
+  const rawTitle = String(payload?.data?.title || payload?.notification?.title || "");
+  const rawBody = String(payload?.data?.body || payload?.notification?.body || "");
+
+  // Force manual rendering when raw values differ from normalized output.
+  // This catches mojibake/prefix garbage like "ðŸŽ‰" or "[Shop]".
+  if (rawTitle.trim() !== String(normalizedTitle || "").trim()) return true;
+  if (rawBody.trim() !== String(normalizedBody || "").trim()) return true;
+
+  return false;
 }
 
 function getTargetPathFromPayload(payload = {}) {
@@ -146,8 +225,11 @@ async function loadFirebaseWebConfig() {
 
     // Extract notification content from data.data first, then notification object
     // This fixes content not showing issue when backend sends in different formats
-    const title = payload?.data?.title || payload?.notification?.title || "New Notification";
-    const body = payload?.data?.body || payload?.notification?.body || "";
+    const titleCandidate = normalizeNotificationText(payload?.data?.title || payload?.notification?.title || "");
+    const bodyCandidate = normalizeNotificationText(payload?.data?.body || payload?.notification?.body || "");
+    const inferredBody = normalizeNotificationText(inferNotificationBodyFromEvent(payload));
+    const title = titleCandidate || bodyCandidate || "New update";
+    const body = titleCandidate ? (bodyCandidate || inferredBody) : "";
     const image =
       payload?.data?.image ||
       payload?.data?.imageUrl ||
@@ -164,7 +246,8 @@ async function loadFirebaseWebConfig() {
     } else {
       // FCM auto-displays notifications when payload contains the "notification" block.
       // Avoid manual showNotification in that case to prevent duplicate system pushes.
-      if (hasSdkNotificationPayload(payload)) {
+      const forceManualSanitized = shouldUseManualSanitizedNotification(payload, title, body);
+      if (hasSdkNotificationPayload(payload) && !forceManualSanitized) {
         pushDebugLog(PUSH_DEBUG_PREFIX, "Skipping manual showNotification to avoid duplicate SDK notification", {
           title,
           body,
@@ -181,6 +264,7 @@ async function loadFirebaseWebConfig() {
         notificationKey,
       });
 
+      if (!title && !body) return;
       self.registration.showNotification(title, {
         body,
         icon: "/favicon.ico",

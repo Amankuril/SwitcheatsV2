@@ -131,17 +131,97 @@ function sanitize(value) {
 }
 
 function getNotificationKey(payload = {}) {
+  const normalizedTitle = normalizeNotificationText(payload?.data?.title || payload?.notification?.title || "");
+  const normalizedBody = normalizeNotificationText(payload?.data?.body || payload?.notification?.body || "");
   return (
     payload?.data?.notificationId ||
     payload?.data?.messageId ||
     payload?.messageId ||
     [
-      payload?.notification?.title || "",
-      payload?.notification?.body || "",
+      normalizedTitle,
+      normalizedBody,
       payload?.data?.orderId || "",
-      payload?.data?.targetUrl || "",
+      payload?.data?.targetUrl || payload?.data?.link || "",
     ].join("::")
   );
+}
+
+function normalizeNotificationText(value = "") {
+  const raw = String(value || "");
+  if (!raw) return "";
+
+  const withoutModulePrefix = raw
+    .replace(/^\s*\[(user|shop|restaurant|delivery|admin)\]\s*/i, "")
+    .trim();
+
+  const cleaned = withoutModulePrefix
+    // Remove mojibake artifacts like ðŸŽ‰ or Â etc.
+    .replace(/[ÂÃâð][^\s]{0,3}/g, " ")
+    .replace(/[^\x20-\x7E\n\r\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return "";
+
+  // Ignore generic placeholder titles.
+  if (/^(notification|new notification|on notification)$/i.test(cleaned)) {
+    return "";
+  }
+
+  return cleaned;
+}
+
+function toReadableStatus(value = "") {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function inferNotificationBodyFromEvent(payload = {}) {
+  const data = isRecord(payload?.data) ? payload.data : {};
+  const eventType = String(
+    data.eventType ||
+      data.event ||
+      data.type ||
+      data.action ||
+      data.category ||
+      "",
+  ).toLowerCase();
+  const orderId = String(data.orderId || data.order_id || data.orderMongoId || "").trim();
+  const status = toReadableStatus(data.orderStatus || data.status || data.deliveryStatus || "");
+  const amount = String(data.amount || data.total || data.walletAmount || "").trim();
+
+  if (eventType.includes("order")) {
+    if (status && orderId) return `Order #${orderId} is now ${status}.`;
+    if (status) return `Your order is now ${status}.`;
+    if (orderId) return `Order #${orderId} has a new update.`;
+    return "Your order has a new update.";
+  }
+
+  if (eventType.includes("delivery")) {
+    if (status) return `Delivery status updated to ${status}.`;
+    return "Delivery update available.";
+  }
+
+  if (
+    eventType.includes("wallet") ||
+    eventType.includes("payment") ||
+    eventType.includes("refund")
+  ) {
+    if (amount) return `Wallet/payment update for ₹${amount}.`;
+    return "Wallet/payment update available.";
+  }
+
+  if (eventType.includes("approve") || eventType.includes("reject")) {
+    if (status) return `Approval status updated: ${status}.`;
+    return "Approval status has been updated.";
+  }
+
+  if (status && orderId) return `Order #${orderId} is now ${status}.`;
+  if (status) return `Status updated to ${status}.`;
+  if (orderId) return `Order #${orderId} has a new update.`;
+  return "";
 }
 
 function wasRecentlyHandled(notificationKey) {
@@ -558,14 +638,15 @@ function showForegroundNotification(payload = {}) {
   }
 
   // Extract content from data first (backend often sends here), then notification object
-  const title =
-    payload?.data?.title ||
-    payload?.notification?.title ||
-    "New notification";
-  const body =
-    payload?.data?.body ||
-    payload?.notification?.body ||
-    "";
+  const titleCandidate = normalizeNotificationText(
+    payload?.data?.title || payload?.notification?.title || "",
+  );
+  const bodyCandidate = normalizeNotificationText(
+    payload?.data?.body || payload?.notification?.body || "",
+  );
+  const inferredBody = normalizeNotificationText(inferNotificationBodyFromEvent(payload));
+  const title = titleCandidate || bodyCandidate || "New update";
+  const body = titleCandidate ? (bodyCandidate || inferredBody) : "";
 
   // Play sound only when app is in foreground
   playPushSound(payload);
@@ -573,6 +654,10 @@ function showForegroundNotification(payload = {}) {
   // App is in foreground - just show in-app toast, NOT system notification
   // System notification will be handled by service worker only when app is closed/background
   if (typeof document !== "undefined" && document.visibilityState === "visible") {
+    if (!title && !body) {
+      pushDebugLog(PUSH_DEBUG_PREFIX, "Skipping blank foreground notification after sanitize");
+      return;
+    }
     if (body) {
       toast.success(`${title}: ${body}`);
     } else {
