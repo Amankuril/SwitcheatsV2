@@ -4682,12 +4682,14 @@ export async function approveDeliveryPartner(id) {
         await notifyOwnerSafely(
             { ownerType: 'DELIVERY_PARTNER', ownerId: partner._id },
             {
-                title: 'Welcome Aboard! ðŸš²',
+                title: 'Welcome Aboard!',
                 body: `Your delivery partner application has been approved. You can now go online and start earning!`,
                 image: 'https://i.ibb.co/5GzXz7r/Switcheats-Brand-Image.png',
                 data: {
-                    type: 'onboarding_approved',
-                    partnerId: String(partner._id)
+                    type: 'delivery_partner_approved',
+                    eventType: 'delivery_partner_approved',
+                    partnerId: String(partner._id),
+                    targetUrl: '/delivery'
                 }
             }
         );
