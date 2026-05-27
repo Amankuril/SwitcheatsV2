@@ -25,6 +25,7 @@ import { isFlutterBridgeAvailable } from "@food/utils/imageUploadUtils"
 
 const debugLog = (...args) => {}
 const debugError = (...args) => {}
+const OUTLET_APPROVAL_STATUS_KEY = "restaurant_outlet_update_approval_status"
 
 
 
@@ -78,6 +79,7 @@ export default function OutletInfo() {
   const [imageType, setImageType] = useState(null) // 'profile' or 'menu'
   const [uploadingCount, setUploadingCount] = useState(0) // Track how many images are being uploaded
   const [uploadingDocType, setUploadingDocType] = useState(null)
+  const [localApprovalStatus, setLocalApprovalStatus] = useState({})
   
   const profileImageInputRef = useRef(null)
   const menuImageInputRef = useRef(null)
@@ -86,6 +88,63 @@ export default function OutletInfo() {
   const fssaiDocInputRef = useRef(null)
   const [activePicker, setActivePicker] = useState(null) // { type: string, ref: any, title: string, multiple: boolean, onFileSelect?: fn, description?: string, fileNamePrefix?: string }
   const bankQrInputRef = useRef(null)
+
+  const normalizeApprovalStatus = (value) => {
+    const raw = String(value || "").trim().toLowerCase()
+    if (raw === "pending" || raw === "approved" || raw === "rejected") return raw
+    if (raw === "active") return "approved"
+    return ""
+  }
+
+  const getApprovalLabel = (status) => {
+    if (status === "pending") return "Pending"
+    if (status === "rejected") return "Rejected"
+    return "Approved"
+  }
+
+  const getApprovalBadgeClass = (status) => {
+    if (status === "pending") return "bg-amber-100 text-amber-700"
+    if (status === "rejected") return "bg-rose-100 text-rose-700"
+    return "bg-emerald-100 text-emerald-700"
+  }
+
+  const readSectionStatusFromBackend = (section) => {
+    const statusMap = restaurantData?.profileUpdateApprovalStatus || restaurantData?.updateApprovalStatus || restaurantData?.approvalStatuses || {}
+    const sectionStatus = normalizeApprovalStatus(statusMap?.[section])
+    if (sectionStatus) return sectionStatus
+
+    const globalCandidates = [
+      restaurantData?.profileUpdateStatus,
+      restaurantData?.updateRequestStatus,
+    ]
+    for (const candidate of globalCandidates) {
+      const normalized = normalizeApprovalStatus(candidate)
+      if (normalized) return normalized
+    }
+
+    if (
+      restaurantData?.pendingApproval === true ||
+      restaurantData?.hasPendingProfileUpdate === true ||
+      restaurantData?.hasPendingUpdateRequest === true
+    ) {
+      return "pending"
+    }
+    return ""
+  }
+
+  const markSectionPending = (section) => {
+    setLocalApprovalStatus((prev) => ({ ...prev, [section]: "pending" }))
+    try {
+      const raw = localStorage.getItem(OUTLET_APPROVAL_STATUS_KEY)
+      const parsed = raw ? JSON.parse(raw) : {}
+      const rid = String(restaurantData?._id || restaurantData?.id || restaurantMongoId || restaurantId || "default")
+      const current = parsed?.[rid] || {}
+      parsed[rid] = { ...current, [section]: "pending" }
+      localStorage.setItem(OUTLET_APPROVAL_STATUS_KEY, JSON.stringify(parsed))
+    } catch (error) {
+      debugError("Failed to persist local approval status:", error)
+    }
+  }
 
   // Format address from location object
   const formatAddress = (location) => {
@@ -219,6 +278,49 @@ export default function OutletInfo() {
       upiQrImage,
     })
   }, [restaurantData])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(OUTLET_APPROVAL_STATUS_KEY)
+      const parsed = raw ? JSON.parse(raw) : {}
+      const rid = String(restaurantData?._id || restaurantData?.id || restaurantMongoId || restaurantId || "default")
+      setLocalApprovalStatus(parsed?.[rid] || {})
+    } catch (error) {
+      debugError("Failed to read local approval status:", error)
+    }
+  }, [restaurantData?._id, restaurantData?.id, restaurantMongoId, restaurantId])
+
+  useEffect(() => {
+    if (!restaurantData) return
+    const sections = ["name", "basic", "compliance", "bank"]
+    const next = { ...localApprovalStatus }
+    let changed = false
+    sections.forEach((section) => {
+      const backendStatus = readSectionStatusFromBackend(section)
+      if (backendStatus === "approved" && next[section] && next[section] !== "approved") {
+        next[section] = "approved"
+        changed = true
+      }
+    })
+    if (!changed) return
+    setLocalApprovalStatus(next)
+    try {
+      const raw = localStorage.getItem(OUTLET_APPROVAL_STATUS_KEY)
+      const parsed = raw ? JSON.parse(raw) : {}
+      const rid = String(restaurantData?._id || restaurantData?.id || restaurantMongoId || restaurantId || "default")
+      parsed[rid] = next
+      localStorage.setItem(OUTLET_APPROVAL_STATUS_KEY, JSON.stringify(parsed))
+    } catch (error) {
+      debugError("Failed to sync local approval status:", error)
+    }
+  }, [restaurantData])
+
+  const getSectionStatus = (section) => {
+    const backendStatus = readSectionStatusFromBackend(section)
+    if (backendStatus) return backendStatus
+    const local = normalizeApprovalStatus(localApprovalStatus?.[section])
+    return local || "approved"
+  }
 
   // Lenis smooth scrolling
   useEffect(() => {
@@ -380,6 +482,7 @@ export default function OutletInfo() {
       const field = fieldMap[type]
       await restaurantAPI.updateProfile({ [field]: url })
       setRestaurantData((prev) => (prev ? { ...prev, [field]: url } : prev))
+      markSectionPending("compliance")
       toast.success("Document uploaded successfully")
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to upload document")
@@ -462,6 +565,7 @@ export default function OutletInfo() {
       }
       await restaurantAPI.updateProfile(payload)
       setRestaurantData((prev) => (prev ? { ...prev, ...payload } : prev))
+      markSectionPending("compliance")
       setShowEditComplianceDialog(false)
       toast.success("Compliance details updated successfully")
     } catch (error) {
@@ -525,6 +629,7 @@ export default function OutletInfo() {
       }
       await restaurantAPI.updateProfile(payload)
       setRestaurantData((prev) => (prev ? { ...prev, ...payload } : prev))
+      markSectionPending("bank")
       setShowEditBankDialog(false)
       toast.success("Bank details updated successfully")
     } catch (error) {
@@ -540,6 +645,7 @@ export default function OutletInfo() {
     try {
       await restaurantAPI.updateProfile({ name: newName })
       setRestaurantName(newName)
+      markSectionPending("name")
       setShowEditNameDialog(false)
       toast.success("Name updated successfully")
     } catch (error) {
@@ -556,6 +662,7 @@ export default function OutletInfo() {
       }
       await restaurantAPI.updateProfile(payload)
       setRestaurantData((prev) => (prev ? { ...prev, ...payload } : prev))
+      markSectionPending("basic")
       setShowEditBasicDialog(false)
       toast.success("Basic details updated successfully")
     } catch (error) {
@@ -758,13 +865,21 @@ export default function OutletInfo() {
                 <p className="text-xs text-slate-500 font-medium mb-1">Restaurant name</p>
                 <p className="text-base font-semibold text-slate-900">{loading ? "Loading..." : direct(restaurantName)}</p>
               </div>
+              <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold mr-2 ${getApprovalBadgeClass(getSectionStatus("name"))}`}>
+                {getApprovalLabel(getSectionStatus("name"))}
+              </span>
               <button onClick={handleOpenEditDialog} className="text-blue-600 text-sm font-medium">Edit</button>
             </div>
           </div>
 
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
             <div className="flex items-start justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Basic details</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-900">Basic details</h3>
+                <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold ${getApprovalBadgeClass(getSectionStatus("basic"))}`}>
+                  {getApprovalLabel(getSectionStatus("basic"))}
+                </span>
+              </div>
               <button onClick={() => setShowEditBasicDialog(true)} className="text-blue-600 text-sm font-medium">Edit</button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -783,7 +898,12 @@ export default function OutletInfo() {
 
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
             <div className="flex items-start justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Compliance details</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-900">Compliance details</h3>
+                <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold ${getApprovalBadgeClass(getSectionStatus("compliance"))}`}>
+                  {getApprovalLabel(getSectionStatus("compliance"))}
+                </span>
+              </div>
               <button onClick={() => setShowEditComplianceDialog(true)} className="text-blue-600 text-sm font-medium">Edit</button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -881,7 +1001,12 @@ export default function OutletInfo() {
 
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
             <div className="flex items-start justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Bank and UPI details</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-900">Bank and UPI details</h3>
+                <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold ${getApprovalBadgeClass(getSectionStatus("bank"))}`}>
+                  {getApprovalLabel(getSectionStatus("bank"))}
+                </span>
+              </div>
               <button onClick={() => setShowEditBankDialog(true)} className="text-blue-600 text-sm font-medium">Edit</button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
