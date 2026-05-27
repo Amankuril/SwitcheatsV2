@@ -98,6 +98,7 @@ import HomeHeader from "@food/components/user/home/HomeHeader";
 import QuickSection from "@food/components/user/home/QuickSection";
 import PromoRow from "@food/components/user/home/PromoRow";
 import PromotionBannerCarousel from "@food/components/user/home/PromotionBannerCarousel";
+import OutOfZoneScreen from "@food/components/user/OutOfZoneScreen";
 
 
 // Explore More Icons
@@ -2544,6 +2545,13 @@ export default function Home() {
     setHeroSearch("");
   }, [closeSearch]);
 
+  const shouldShowOutOfZoneScreen = useMemo(() => {
+    const hasCoords =
+      Number.isFinite(Number(effectiveLocation?.latitude)) &&
+      Number.isFinite(Number(effectiveLocation?.longitude));
+    return hasCoords && zoneStatus === "OUT_OF_SERVICE" && !zoneLoading;
+  }, [effectiveLocation?.latitude, effectiveLocation?.longitude, zoneStatus, zoneLoading]);
+
   // Removed GSAP animations - using CSS and ScrollReveal components instead for better performance
   // Auto-scroll removed - manual scroll only
 
@@ -2720,6 +2728,10 @@ export default function Home() {
         </div>
     );
   }, [displayCategories, showCategorySkeleton, navigate, isCategoryStuck]);
+
+  if (shouldShowOutOfZoneScreen) {
+    return <OutOfZoneScreen location={effectiveLocation} />;
+  }
 
   return (
 
