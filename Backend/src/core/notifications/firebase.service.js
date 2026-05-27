@@ -28,6 +28,30 @@ let cachedAccessTokenExpiryMs = 0;
 let cachedServiceAccount = null;
 
 const sanitizeString = (value) => String(value ?? '').trim();
+const normalizeNotificationText = (value) => {
+    const raw = sanitizeString(value);
+    if (!raw) return '';
+
+    const repaired = (() => {
+        // Typical mojibake markers when UTF-8 is decoded as latin1/cp1252.
+        if (!/[ðÃÂâ]/.test(raw)) return raw;
+        try {
+            const decoded = Buffer.from(raw, 'latin1').toString('utf8');
+            if (decoded && !decoded.includes('�')) return decoded;
+            return decoded || raw;
+        } catch {
+            return raw;
+        }
+    })();
+
+    return repaired
+        // Remove leading module prefix if any sender still adds it.
+        .replace(/^\s*(?:\p{Extended_Pictographic}\s*)?\[(user|shop|restaurant|delivery|admin|rider)\]\s*/iu, '')
+        // Remove remaining control chars and collapse spaces.
+        .replace(/[\u0000-\u001F\u007F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+};
 
 const toBase64Url = (input) =>
     Buffer.from(JSON.stringify(input))
@@ -136,10 +160,12 @@ const normalizeDataMap = (data = {}) => {
 
 const buildMessagePayload = (payload = {}, token) => {
     const notification = {
-        title: sanitizeString(payload.title || payload.notification?.title || 'New notification'),
-        body: sanitizeString(payload.body || payload.notification?.body || '')
+        title: normalizeNotificationText(payload.title || payload.notification?.title || 'New notification'),
+        body: normalizeNotificationText(payload.body || payload.notification?.body || '')
     };
     const data = normalizeDataMap(payload.data || {});
+    if (data.title) data.title = normalizeNotificationText(data.title);
+    if (data.body) data.body = normalizeNotificationText(data.body);
     const image =
         sanitizeString(payload.icon || payload.notification?.image || payload.notification?.icon || data.image || data.imageUrl);
 
