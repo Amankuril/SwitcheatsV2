@@ -493,15 +493,6 @@ export const ProfileDetailsV2 = () => {
                 <ImageIcon className="w-5 h-5" />
               </button>
 
-              {profileImageUrl && (
-                <button 
-                  onClick={() => setShowDeletePopup(true)}
-                  className="w-12 h-12 bg-red-50 text-red-500 rounded-[20px] shadow-sm hover:bg-red-100 transition-all active:scale-95 border border-red-100 flex items-center justify-center"
-                  title="Remove"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
            </div>
         </div>
 

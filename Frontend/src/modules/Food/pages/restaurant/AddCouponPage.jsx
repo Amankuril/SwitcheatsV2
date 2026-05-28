@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom"
 import useRestaurantBackNavigation from "@food/hooks/useRestaurantBackNavigation"
 import { 
   ArrowLeft,
-  Calendar,
   ChevronDown,
   Wand2,
   Percent,
@@ -38,6 +37,8 @@ export default function AddCouponPage(props) {
   })
 
   const [errors, setErrors] = useState({})
+  const today = new Date()
+  const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
 
   useEffect(() => {
     const handle = (e) => {
@@ -68,6 +69,8 @@ export default function AddCouponPage(props) {
       e.discountValue = "Percentage cannot exceed 100"
     if (!formData.startDate) e.startDate = "Start date is required"
     if (!formData.endDate) e.endDate = "End date is required"
+    if (formData.startDate && formData.startDate < todayDateString)
+      e.startDate = "Start date cannot be in the past"
     if (formData.startDate && formData.endDate && new Date(formData.startDate) > new Date(formData.endDate))
       e.endDate = "End date must be after start date"
     setErrors(e)
@@ -285,10 +288,10 @@ export default function AddCouponPage(props) {
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => set("startDate", e.target.value)}
-                className={`${inputCls("startDate")} pr-10 appearance-none`}
+                min={todayDateString}
+                className={`${inputCls("startDate")} appearance-none`}
                 style={{ colorScheme: "light" }}
               />
-              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
             <ErrorMsg field="startDate" />
           </div>
@@ -301,11 +304,10 @@ export default function AddCouponPage(props) {
                 type="date"
                 value={formData.endDate}
                 onChange={(e) => set("endDate", e.target.value)}
-                min={formData.startDate || undefined}
-                className={`${inputCls("endDate")} pr-10 appearance-none`}
+                min={formData.startDate || todayDateString}
+                className={`${inputCls("endDate")} appearance-none`}
                 style={{ colorScheme: "light" }}
               />
-              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
             <ErrorMsg field="endDate" />
           </div>

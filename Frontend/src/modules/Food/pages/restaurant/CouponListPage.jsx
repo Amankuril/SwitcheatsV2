@@ -7,7 +7,6 @@ import {
   Plus,
   Tag,
   Trash2,
-  Edit,
   MoreVertical,
   Calendar,
   Percent,
@@ -185,13 +184,6 @@ export default function CouponListPage() {
                               className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50 min-w-[160px]"
                               data-menu-id={coupon.id}
                             >
-                              <button
-                                onClick={(e) => { e.stopPropagation(); toast.info("Edit not implemented yet"); setOpenMenuId(null) }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                              >
-                                <Edit className="w-4 h-4" /> Edit
-                              </button>
-                              <div className="border-t border-gray-100 my-1" />
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleDelete(coupon.id); setOpenMenuId(null) }}
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"

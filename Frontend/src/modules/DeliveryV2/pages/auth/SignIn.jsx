@@ -92,9 +92,9 @@ export default function DeliverySignIn() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-white dark:bg-[#0A0A0B] flex flex-col font-sans overflow-hidden">
+    <div className="min-h-[100dvh] bg-white dark:bg-[#0A0A0B] flex flex-col font-sans overflow-x-hidden overflow-y-auto">
       {/* Top Branding Section - 40% height */}
-      <div className="relative h-[40dvh] w-full bg-[#00B761] overflow-hidden flex flex-col items-center justify-center">
+      <div className={`relative w-full bg-[#00B761] overflow-hidden flex flex-col items-center justify-center transition-all duration-200 ${keyboardInset > 0 ? "h-[22dvh] min-h-[130px]" : "h-[40dvh] min-h-[260px]"}`}>
         {/* Subtle Decorative Elements (No Blur) */}
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-0 right-0 w-64 h-64 border-word border-white/20 rounded-full -mr-20 -mt-20" />
@@ -126,8 +126,8 @@ export default function DeliverySignIn() {
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        className="flex-1 bg-white dark:bg-[#0A0A0B] rounded-t-[40px] -mt-10 relative z-20 shadow-[0_-20px_40px_rgba(0,0,0,0.05)] px-6 pt-10 pb-6 flex flex-col"
-        style={{ marginBottom: keyboardInset ? `${keyboardInset}px` : 0 }}
+        className={`flex-1 bg-white dark:bg-[#0A0A0B] relative z-20 shadow-[0_-20px_40px_rgba(0,0,0,0.05)] px-6 pt-10 pb-6 flex flex-col transition-all duration-200 ${keyboardInset > 0 ? "rounded-t-3xl mt-0" : "rounded-t-[40px] -mt-10"}`}
+        style={{ paddingBottom: keyboardInset ? `calc(1.5rem + ${keyboardInset}px)` : undefined }}
       >
         <div className="max-w-md mx-auto w-full flex flex-col h-full">
           <div className="space-y-2 mb-10">

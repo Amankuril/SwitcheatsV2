@@ -35,6 +35,34 @@ const sanitizeUploadedDocValue = (value) => {
   return null
 }
 
+const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ""))
+    reader.onerror = () => reject(new Error("Failed to read file"))
+    reader.readAsDataURL(file)
+  })
+
+const dataUrlToFile = (dataUrl, fileName, mimeType) => {
+  try {
+    const parts = String(dataUrl || "").split(",")
+    if (parts.length < 2) return null
+    const metadata = parts[0] || ""
+    const base64 = parts[1] || ""
+    const parsedMime =
+      mimeType ||
+      (metadata.match(/data:([^;]+);base64/i)?.[1] || "image/jpeg")
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    return new File([bytes], fileName || "document.jpg", { type: parsedMime })
+  } catch (e) {
+    return null
+  }
+}
+
 const sanitizeUploadedDocs = (docs) => ({
   profilePhoto: sanitizeUploadedDocValue(docs?.profilePhoto),
   aadharPhoto: sanitizeUploadedDocValue(docs?.aadharPhoto),
@@ -70,6 +98,49 @@ const getFriendlyRegistrationError = (error) => {
   }
 
   return rawMessage || "Failed to register. Please try again."
+}
+
+const DELIVERY_ONBOARDING_DB_CANDIDATES = [
+  "deliveryOnboardingFiles",
+  "delivery-onboarding-files",
+  "deliverySignupFiles",
+  "delivery-signup-files",
+  "delivery_signup_files"
+]
+
+const deleteIndexedDbByName = (dbName) =>
+  new Promise((resolve) => {
+    if (!dbName || typeof indexedDB === "undefined") {
+      resolve(false)
+      return
+    }
+    try {
+      const request = indexedDB.deleteDatabase(dbName)
+      request.onsuccess = () => resolve(true)
+      request.onerror = () => resolve(false)
+      request.onblocked = () => resolve(false)
+    } catch {
+      resolve(false)
+    }
+  })
+
+const cleanupDeliveryOnboardingIndexedDb = async () => {
+  if (typeof window === "undefined" || typeof indexedDB === "undefined") return
+
+  const candidateNames = new Set(DELIVERY_ONBOARDING_DB_CANDIDATES)
+  try {
+    if (typeof indexedDB.databases === "function") {
+      const dbs = await indexedDB.databases()
+      dbs
+        .map((db) => String(db?.name || "").trim())
+        .filter((name) => name && /delivery/i.test(name) && /onboard|signup|upload|doc/i.test(name))
+        .forEach((name) => candidateNames.add(name))
+    }
+  } catch {
+    // Ignore discovery failure and fallback to static allow-list only.
+  }
+
+  await Promise.all(Array.from(candidateNames).map((name) => deleteIndexedDbByName(name)))
 }
 
 
@@ -116,6 +187,24 @@ export default function SignupStep2() {
   useEffect(() => {
     sessionStorage.setItem("deliverySignupDocs", JSON.stringify(uploadedDocs))
   }, [uploadedDocs])
+
+  useEffect(() => {
+    const docTypes = ["profilePhoto", "aadharPhoto", "panPhoto", "drivingLicensePhoto"]
+    docTypes.forEach((docType) => {
+      if (documents[docType] instanceof File) return
+      const saved = uploadedDocs[docType]
+      if (!saved || typeof saved !== "object" || !saved.dataUrl) return
+      const restoredFile = dataUrlToFile(
+        saved.dataUrl,
+        saved.name || `${docType}.jpg`,
+        saved.type || "image/jpeg"
+      )
+      if (restoredFile) {
+        restoredFile._previewUrl = saved.dataUrl
+        setDocument(docType, restoredFile)
+      }
+    })
+  }, [documents, setDocument, uploadedDocs])
 
   const documentsRef = useRef(documents)
   useEffect(() => {
@@ -165,15 +254,24 @@ export default function SignupStep2() {
 
     // Revoke old URL if replacing a file
     const oldFile = documents[docType]
-    if (oldFile instanceof File && oldFile._previewUrl) {
+    if (oldFile instanceof File && oldFile._previewUrl && String(oldFile._previewUrl).startsWith("blob:")) {
       URL.revokeObjectURL(oldFile._previewUrl)
     }
 
-    // Create new preview URL
-    file._previewUrl = URL.createObjectURL(file)
+    // Persist preview so refresh can restore and submit without re-uploading.
+    const dataUrl = await fileToDataUrl(file)
+    file._previewUrl = dataUrl
 
     setDocument(docType, file)
-    setUploadedDocs((prev) => ({ ...prev, [docType]: { file: true } }))
+    setUploadedDocs((prev) => ({
+      ...prev,
+      [docType]: {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl
+      }
+    }))
     toast.success(`${docType.replace(/([A-Z])/g, " $1").trim()} selected`)
   }
 
@@ -190,7 +288,7 @@ export default function SignupStep2() {
 
   const handleRemove = (docType) => {
     const file = documents[docType]
-    if (file instanceof File && file._previewUrl) {
+    if (file instanceof File && file._previewUrl && String(file._previewUrl).startsWith("blob:")) {
       URL.revokeObjectURL(file._previewUrl)
     }
     removeDocument(docType)
@@ -291,6 +389,7 @@ export default function SignupStep2() {
       if (response?.data?.success) {
         sessionStorage.removeItem("deliverySignupDetails")
         sessionStorage.removeItem("deliverySignupDocs")
+        await cleanupDeliveryOnboardingIndexedDb()
         clearOnboardingState()
         if (isCompleteProfile) {
           sessionStorage.removeItem("deliveryNeedsRegistration")
@@ -313,6 +412,8 @@ export default function SignupStep2() {
   const DocumentUpload = ({ docType, label, required = true }) => {
     const uploaded = uploadedDocs[docType]
     const isUploading = uploading[docType]
+    const previewSrc = getPreviewSrc(docType)
+    const hasPreview = Boolean(previewSrc)
 
     return (
       <div className="bg-white rounded-lg p-4 border border-gray-200">
@@ -320,10 +421,10 @@ export default function SignupStep2() {
           {label} {required && <span className="text-red-500">*</span>}
         </label>
 
-        {uploaded ? (
+        {uploaded && hasPreview ? (
           <div className="relative">
             <img
-              src={getPreviewSrc(docType)}
+              src={previewSrc}
               alt={label}
               className="w-full h-48 object-cover rounded-lg"
             />
@@ -431,8 +532,8 @@ export default function SignupStep2() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting || !uploadedDocs.profilePhoto || !uploadedDocs.aadharPhoto || !uploadedDocs.panPhoto || !uploadedDocs.drivingLicensePhoto}
-            className={`w-full py-4 rounded-lg font-bold text-white text-base transition-colors mt-6 ${isSubmitting || !uploadedDocs.profilePhoto || !uploadedDocs.aadharPhoto || !uploadedDocs.panPhoto || !uploadedDocs.drivingLicensePhoto
+            disabled={isSubmitting || !documents.profilePhoto || !documents.aadharPhoto || !documents.panPhoto || !documents.drivingLicensePhoto}
+            className={`w-full py-4 rounded-lg font-bold text-white text-base transition-colors mt-6 ${isSubmitting || !documents.profilePhoto || !documents.aadharPhoto || !documents.panPhoto || !documents.drivingLicensePhoto
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-[#00B761] hover:bg-[#00A055]"
               }`}

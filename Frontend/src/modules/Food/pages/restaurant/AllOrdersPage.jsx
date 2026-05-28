@@ -421,18 +421,25 @@ export default function AllOrdersPage() {
     switch (status) {
       case "REJECTED":
       case "CANCELLED":
-        return "bg-red-700 text-white"
+        return { backgroundColor: "#B91C1C", color: "#FFFFFF" }
       case "DELIVERED":
-        return "bg-green-600 text-white"
+        return { backgroundColor: "#16A34A", color: "#FFFFFF" }
       case "PREPARING":
-        return "bg-yellow-600 text-white"
+        return { backgroundColor: "#CA8A04", color: "#FFFFFF" }
       case "READY":
-        return "bg-blue-600 text-white"
+        return { backgroundColor: "#2563EB", color: "#FFFFFF" }
       case "OUT FOR DELIVERY":
-        return "bg-purple-600 text-white"
+        return { backgroundColor: "#7C3AED", color: "#FFFFFF" }
       default:
-        return "bg-gray-600 text-white"
+        return { backgroundColor: "#4B5563", color: "#FFFFFF" }
     }
+  }
+
+  const getTagStyle = (tag) => {
+    if (tag === "VEG ONLY") return { backgroundColor: "#16A34A", color: "#FFFFFF" }
+    if (tag === "HOME DELIVERY") return { backgroundColor: "#2563EB", color: "#FFFFFF" }
+    if (tag === "CUTLERY") return { backgroundColor: "#7C3AED", color: "#FFFFFF" }
+    return { backgroundColor: "#374151", color: "#FFFFFF" }
   }
 
   const filteredOrders = orders.filter(order => {
@@ -620,18 +627,18 @@ export default function AllOrdersPage() {
             {/* Status and Order ID Row */}
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className={`px-2.5 py-1 rounded text-xs font-bold ${getStatusColor(order.status)}`}>
+                <span className="px-2.5 py-1 rounded text-xs font-bold" style={getStatusColor(order.status)}>
                   {order.status}
                 </span>
                 {order.tags && order.tags.map((tag, idx) => (
-                  <span key={idx} className="px-2.5 py-1 rounded text-xs font-bold bg-green-600 text-white">
+                  <span key={idx} className="px-2.5 py-1 rounded text-xs font-bold" style={getTagStyle(tag)}>
                     {tag}
                   </span>
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">{order.date}, {order.time}</span>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <span className="text-xs text-gray-600">{order.date}, {order.time}</span>
+                <ChevronRight className="w-4 h-4 text-gray-700" />
               </div>
             </div>
 
@@ -640,10 +647,10 @@ export default function AllOrdersPage() {
               <span className="text-base font-bold text-gray-900">ID: {order.id}</span>
               <button
                 onClick={(e) => handleCopyOrderId(order.id, e)}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                className="p-1.5 rounded-md transition-colors bg-slate-100 hover:bg-slate-200"
                 aria-label="Copy order ID"
               >
-                <Copy className="w-4 h-4 text-gray-500" />
+                <Copy className="w-4 h-4" style={{ color: "var(--module-theme-color, #2563EB)" }} />
               </button>
             </div>
 
