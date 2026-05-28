@@ -814,6 +814,20 @@ export default function Inventory() {
   const [loadingAddons, setLoadingAddons] = useState(false)
   const [isAddAddonOpen, setIsAddAddonOpen] = useState(false)
 
+  useEffect(() => {
+    if (!filterOpen) return undefined
+
+    window.history.pushState({ ...(window.history.state || {}), inventoryFilterOpen: true }, "")
+    const handlePopState = () => {
+      setFilterOpen(false)
+    }
+
+    window.addEventListener("popstate", handlePopState)
+    return () => {
+      window.removeEventListener("popstate", handlePopState)
+    }
+  }, [filterOpen])
+
   // Bulk Upload Handlers
   const handleDownloadTemplate = async () => {
     try {
@@ -1958,19 +1972,6 @@ export default function Inventory() {
                 )}
               </button>
 
-              {activeTab === "add-ons" && (
-                <button
-                  onClick={() => setIsAddAddonOpen((v) => !v)}
-                  className="h-12 rounded-[20px] px-4 text-sm font-semibold text-white transition-colors"
-                  style={{
-                    background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 37,99,235), 0.88), var(--module-theme-color, #2563EB))",
-                    boxShadow: "0 18px 32px -24px rgba(var(--module-theme-rgb, 37,99,235), 0.70)",
-                    minWidth: "128px",
-                  }}
-                >
-                  {isAddAddonOpen ? "Close" : "Add Add-on"}
-                </button>
-              )}
             </div>
 
             <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-hide pb-1">
@@ -2775,20 +2776,26 @@ export default function Inventory() {
         )}
       </AnimatePresence>
 
-      {/* Floating Menu Button & Popup (hidden on Add-ons tab) */}
-      {activeTab !== "add-ons" && (
-        <div className="fixed right-4 bottom-24 z-30 flex flex-col items-end gap-2">
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setIsAddPopupOpen(true)}
-            className="rounded-full px-5 py-3 text-sm font-semibold text-white"
-            style={{
-              background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 37,99,235), 0.88), var(--module-theme-color, #2563EB))",
-              boxShadow: "0 22px 40px -24px rgba(var(--module-theme-rgb, 37,99,235), 0.75)",
-            }}
-          >
-            + Add item
-          </motion.button>
+      {/* Floating Menu Button & Popup */}
+      <div className="fixed right-4 bottom-24 z-30 flex flex-col items-end gap-2">
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => {
+            if (activeTab === "add-ons") {
+              setIsAddAddonOpen((v) => !v)
+            } else {
+              setIsAddPopupOpen(true)
+            }
+          }}
+          className="rounded-full px-5 py-3 text-sm font-semibold text-white"
+          style={{
+            background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 37,99,235), 0.88), var(--module-theme-color, #2563EB))",
+            boxShadow: "0 22px 40px -24px rgba(var(--module-theme-rgb, 37,99,235), 0.75)",
+          }}
+        >
+          {activeTab === "add-ons" ? (isAddAddonOpen ? "Close" : "+ Add add-on") : "+ Add item"}
+        </motion.button>
+        {activeTab !== "add-ons" && (
           <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}
@@ -2804,7 +2811,9 @@ export default function Inventory() {
             </span>
             <span>{isMenuOpen ? "Close" : "Menu"}</span>
           </motion.button>
+        )}
 
+        {activeTab !== "add-ons" && (
           <AnimatePresence>
             {isMenuOpen && (
               <>
@@ -2866,8 +2875,8 @@ export default function Inventory() {
               </>
             )}
           </AnimatePresence>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Bulk Upload Modal */}
       <AnimatePresence>

@@ -69,9 +69,7 @@ const dateRangeOptions = [
 const filterCategories = [
   { id: "Order status", label: "Order status" },
   { id: "Ratings", label: "Ratings" },
-  { id: "KPT delay", label: "KPT delay" },
-  { id: "Complaints", label: "Complaints" },
-  { id: "Order type", label: "Order type" }
+  { id: "Complaints", label: "Complaints" }
 ]
 
 const filterOptions = {
@@ -90,12 +88,6 @@ const filterOptions = {
     { id: "2-star", label: "2★ or less", key: "ratings", value: 2 },
     { id: "1-star", label: "1★", key: "ratings", value: 1 }
   ],
-  "KPT delay": [
-    { id: "0-10", label: "0-10 mins", key: "kptDelay" },
-    { id: "10-20", label: "10-20 mins", key: "kptDelay" },
-    { id: "20-30", label: "20-30 mins", key: "kptDelay" },
-    { id: "30-plus", label: "30+ mins", key: "kptDelay" }
-  ],
   "Complaints": [
     { id: "order-delayed", label: "Order delayed", key: "complaints" },
     { id: "wrong-items", label: "Wrong item(s) delivered", key: "complaints" },
@@ -104,15 +96,6 @@ const filterOptions = {
     { id: "poor-packaging", label: "Poor packaging or spillage", key: "complaints" },
     { id: "out-of-stock", label: "Item(s) out of stock", key: "complaints" },
     { id: "not-delivered", label: "Order not delivered", key: "complaints" }
-  ],
-  "Order type": [
-    { id: "self-delivery", label: "Self delivery", key: "orderType" },
-    { id: "food-rescue", label: "Food rescue", key: "orderType" },
-    { id: "large-order", label: "Large order", key: "orderType" },
-    { id: "veg-only", label: "Veg only", key: "orderType" },
-    { id: "irctc", label: "IRCTC", key: "orderType" },
-    { id: "replacement", label: "Replacement", key: "orderType" },
-    { id: "hospital", label: "Hospital", key: "orderType" }
   ]
 }
 

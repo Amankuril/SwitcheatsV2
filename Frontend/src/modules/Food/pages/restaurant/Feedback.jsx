@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { HelpCircle, Search, SlidersHorizontal, Calendar, X, Loader2, Star } from "lucide-react"
+import { HelpCircle, Search, SlidersHorizontal, X, Loader2, Star } from "lucide-react"
 import BottomNavOrders from "@food/components/restaurant/BottomNavOrders"
 import { restaurantAPI } from "@food/api"
 
@@ -57,6 +57,17 @@ const COMPLAINT_ISSUE_OPTIONS = [
   { label: "Wrong Item", value: "Wrong Item" },
   { label: "Payment Issue", value: "Payment Issue" },
   { label: "Other", value: "Other" },
+]
+
+const DATE_RANGE_OPTIONS = [
+  { id: "today", label: "Today" },
+  { id: "yesterday", label: "Yesterday" },
+  { id: "last5days", label: "Last 5 days" },
+  { id: "thisWeek", label: "This week" },
+  { id: "lastWeek", label: "Last week" },
+  { id: "thisMonth", label: "This month" },
+  { id: "lastMonth", label: "Last month" },
+  { id: "custom", label: "Custom date range" },
 ]
 
 const normalizeIssueType = (value) =>
@@ -413,6 +424,11 @@ export default function Feedback() {
     setTimeout(() => setIsComplaintsLoading(false), 200)
   }
 
+  const getDateRangeLabel = (range) => {
+    const option = DATE_RANGE_OPTIONS.find((item) => item.id === range)
+    return option?.label || "Last 5 days"
+  }
+
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; touchStartY.current = e.touches[0].clientY; isSwiping.current = false }
   const handleTouchMove = (e) => {
     const deltaX = Math.abs(e.touches[0].clientX - touchStartX.current)
@@ -475,10 +491,9 @@ export default function Feedback() {
             <div className="flex gap-2">
               <button onClick={() => setIsDateSelectorOpen(true)} className="flex-1 bg-white p-3 rounded-xl border border-gray-200 flex justify-between items-center">
                 <div className="text-left">
-                  <p className="text-xs font-bold text-gray-900">{selectedDateRange}</p>
+                  <p className="text-xs font-bold text-gray-900">{getDateRangeLabel(selectedDateRange)}</p>
                   <p className="text-[10px] text-gray-500">Select date range</p>
                 </div>
-                <Calendar className="w-4 h-4 text-gray-400" />
               </button>
               <button onClick={() => setIsComplaintsFilterOpen(true)} className="bg-white p-3 rounded-xl border border-gray-200">
                 <SlidersHorizontal className="w-4 h-4 text-gray-900" />
@@ -579,7 +594,7 @@ export default function Feedback() {
         {isFilterOpen && (
           <>
             <motion.div className="fixed inset-0 bg-black/40 z-[65]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsFilterOpen(false)} />
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-[70] p-4 space-y-4 max-h-[calc(100vh-5.5rem)] overflow-y-auto pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-[70] p-4 space-y-4 max-h-[calc(100vh-5.5rem)] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-gray-900">Review Filters</h3>
                 <button onClick={() => setIsFilterOpen(false)} className="p-1 rounded-md hover:bg-gray-100"><X className="w-4 h-4" /></button>
@@ -618,7 +633,7 @@ export default function Feedback() {
                       onClick={() =>
                         setFilterValues((prev) => ({
                           ...prev,
-                          reviewType: selected ? prev.reviewType.filter((v) => v !== opt.id) : [...prev.reviewType, opt.id]
+                          reviewType: selected ? [] : [opt.id]
                         }))
                       }
                       className={`w-full text-left px-3 py-2 rounded-lg border ${selected ? "bg-gray-50" : "border-gray-200"}`}
@@ -649,7 +664,7 @@ export default function Feedback() {
         {isComplaintsFilterOpen && (
           <>
             <motion.div className="fixed inset-0 bg-black/40 z-[65]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsComplaintsFilterOpen(false)} />
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-[70] p-4 space-y-4 max-h-[calc(100vh-5.5rem)] overflow-y-auto pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-[70] p-4 space-y-4 max-h-[calc(100vh-5.5rem)] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-gray-900">Complaints Filters</h3>
                 <button onClick={() => setIsComplaintsFilterOpen(false)} className="p-1 rounded-md hover:bg-gray-100"><X className="w-4 h-4" /></button>
@@ -672,16 +687,19 @@ export default function Feedback() {
                 })}
               </div>
 
-              <div className="bg-gray-50 rounded-lg px-3 py-2 flex items-center gap-2 border border-gray-200">
-                <Search className="w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={complaintsSearchQuery}
-                  onChange={(e) => setComplaintsSearchQuery(e.target.value)}
-                  placeholder="Search complaints"
-                  className="flex-1 text-sm bg-transparent focus:outline-none"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsComplaintsFilterOpen(false)
+                  setIsDateSelectorOpen(true)
+                }}
+                className="w-full bg-white p-3 rounded-xl border border-gray-200 flex justify-between items-center"
+              >
+                <div className="text-left">
+                  <p className="text-xs font-bold text-gray-900">{getDateRangeLabel(selectedDateRange)}</p>
+                  <p className="text-[10px] text-gray-500">Select date range</p>
+                </div>
+              </button>
 
               <div className="flex gap-2 pt-1">
                 <button onClick={handleComplaintsFilterReset} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-sm font-medium">Reset</button>
@@ -692,6 +710,50 @@ export default function Feedback() {
                 >
                   Apply
                 </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isDateSelectorOpen && (
+          <>
+            <motion.div
+              className="fixed inset-0 bg-black/40 z-[65]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsDateSelectorOpen(false)}
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-[70] p-4 space-y-3 max-h-[calc(100vh-5.5rem)] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-gray-900">Select Date Range</h3>
+                <button onClick={() => setIsDateSelectorOpen(false)} className="p-1 rounded-md hover:bg-gray-100">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {DATE_RANGE_OPTIONS.map((opt) => {
+                  const active = selectedDateRange === opt.id
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => handleDateRangeSelect(opt.id)}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg border ${active ? "bg-gray-50" : "border-gray-200"}`}
+                      style={active ? { borderColor: "var(--module-theme-color,#2563EB)" } : undefined}
+                    >
+                      <span className="text-sm font-medium text-gray-900">{opt.label}</span>
+                    </button>
+                  )
+                })}
               </div>
             </motion.div>
           </>
