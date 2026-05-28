@@ -80,6 +80,7 @@ export default function OutletInfo() {
   const [uploadingCount, setUploadingCount] = useState(0) // Track how many images are being uploaded
   const [uploadingDocType, setUploadingDocType] = useState(null)
   const [localApprovalStatus, setLocalApprovalStatus] = useState({})
+  const [ratingSnapshot, setRatingSnapshot] = useState({ average: null, total: null })
   
   const profileImageInputRef = useRef(null)
   const menuImageInputRef = useRef(null)
@@ -734,6 +735,83 @@ export default function OutletInfo() {
     return cleanUrl.endsWith(".pdf") ? "View pdf" : "View image"
   }
 
+  const normalizeRating = (value) => {
+    if (value === null || value === undefined || value === "") return null
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed <= 0) return null
+    return Math.min(5, Math.round(parsed * 10) / 10)
+  }
+
+  const extractOrderRating = (order) =>
+    normalizeRating(
+      order?.review?.rating ??
+      order?.ratings?.restaurant?.rating ??
+      order?.feedback?.rating ??
+      order?.rating
+    )
+
+  const getRestaurantRatingFallback = (data) =>
+    normalizeRating(
+      data?.rating ??
+      data?.averageRating ??
+      data?.ratings?.average ??
+      data?.metrics?.rating ??
+      data?.stats?.averageRating ??
+      data?.analytics?.averageRating
+    ) || 0
+
+  const getRestaurantReviewCountFallback = (data) =>
+    Number(
+      data?.totalRatings ??
+      data?.ratings?.count ??
+      data?.reviewCount ??
+      data?.reviewsCount ??
+      data?.stats?.totalRatings ??
+      data?.analytics?.totalRatings ??
+      0
+    ) || 0
+
+  useEffect(() => {
+    const fetchLiveRatingSnapshot = async () => {
+      try {
+        const limit = 200
+        const maxPages = 20
+        let page = 1
+        let hasMore = true
+        const allOrders = []
+
+        while (hasMore && page <= maxPages) {
+          const response = await restaurantAPI.getOrders({ page, limit, status: "delivered" })
+          const orders = response?.data?.data?.orders || []
+          allOrders.push(...orders)
+
+          const totalPages = response?.data?.data?.pagination?.totalPages || response?.data?.data?.totalPages || 1
+          if (orders.length < limit || (totalPages > 0 && page >= totalPages)) {
+            hasMore = false
+          } else {
+            page += 1
+          }
+        }
+
+        const ratings = allOrders.map(extractOrderRating).filter((value) => value !== null)
+        if (ratings.length === 0) {
+          setRatingSnapshot({ average: 0, total: 0 })
+          return
+        }
+
+        const avg = ratings.reduce((sum, value) => sum + value, 0) / ratings.length
+        setRatingSnapshot({ average: Math.round(avg * 10) / 10, total: ratings.length })
+      } catch (error) {
+        // Keep fallback values from restaurant profile if live pull fails.
+      }
+    }
+
+    fetchLiveRatingSnapshot()
+  }, [restaurantData?._id, restaurantData?.id])
+
+  const displayRating = ratingSnapshot.average ?? getRestaurantRatingFallback(restaurantData)
+  const displayTotalRatings = ratingSnapshot.total ?? getRestaurantReviewCountFallback(restaurantData)
+
   const locationData = restaurantData?.location || {}
   const fullAddress = locationData.formattedAddress || locationData.address || address || ""
 
@@ -842,11 +920,19 @@ export default function OutletInfo() {
           <div className="flex items-start gap-4">
             <div className="flex flex-col gap-2">
               <button onClick={() => navigate("/restaurant/ratings-reviews")} className="flex items-center gap-2 text-left w-full">
-                <div className="bg-green-700 px-2.5 py-1.5 rounded flex items-center gap-1 shrink-0">
-                  <span className="text-white text-sm font-bold">{restaurantData?.rating?.toFixed(1) || "0.0"}</span>
+                <div
+                  className="px-2.5 py-1.5 rounded flex items-center gap-1 shrink-0"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.90), var(--module-theme-color,#2563EB))",
+                  }}
+                >
+                  <span className="text-white text-sm font-bold">{Number(displayRating || 0).toFixed(1)}</span>
                   <Star className="w-3.5 h-3.5 text-white fill-white" />
                 </div>
-                <span className="text-gray-800 text-sm font-normal">{restaurantData?.totalRatings || 0} DELIVERY REVIEWS</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--module-theme-color, #2563EB)" }}>
+                  {displayTotalRatings || 0} DELIVERY REVIEWS
+                </span>
                 <ChevronRight className="w-4 h-4 text-gray-400 shrink-0 ml-auto" />
               </button>
             </div>

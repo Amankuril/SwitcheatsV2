@@ -147,6 +147,45 @@ export async function processBulkMenuUpload(restaurantId, fileBuffer) {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(fileBuffer);
     const sheet = workbook.getWorksheet(1);
+    if (!sheet) throw new ValidationError('Invalid Excel file: worksheet missing');
+
+    const normalizeHeader = (value) =>
+        String(value || '')
+            .trim()
+            .replace(/\s+/g, ' ')
+            .toLowerCase();
+
+    const requiredHeaders = [
+        'Category*',
+        'Item Name*',
+        'Description',
+        'Base Price*',
+        'Food Type (Veg/Non-Veg)*',
+        'Recommended (Yes/No)',
+        'Preparation Time*',
+        'Image URL',
+        'Variant 1 Name',
+        'Variant 1 Price',
+        'Variant 2 Name',
+        'Variant 2 Price',
+        'Variant 3 Name',
+        'Variant 3 Price',
+    ];
+
+    const headerRow = sheet.getRow(1);
+    const uploadedHeaders = new Set(
+        (headerRow.values || [])
+            .slice(1)
+            .map((value) => normalizeHeader(value)),
+    );
+    const missingHeaders = requiredHeaders.filter(
+        (header) => !uploadedHeaders.has(normalizeHeader(header)),
+    );
+    if (missingHeaders.length > 0) {
+        throw new ValidationError(
+            `Uploaded Excel is missing required column(s): ${missingHeaders.join(', ')}`,
+        );
+    }
 
     const restaurant = await FoodRestaurant.findById(restaurantId).lean();
     if (!restaurant) throw new ValidationError('Restaurant not found');

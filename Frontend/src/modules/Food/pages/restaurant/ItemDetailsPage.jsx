@@ -512,6 +512,10 @@ export default function ItemDetailsPage() {
       toast.error("Please enter an item name")
       return
     }
+    if (isNewItem && images.length === 0) {
+      toast.error("Please add at least one image")
+      return
+    }
 
     try {
       setUploadingImages(true)
@@ -577,6 +581,12 @@ export default function ItemDetailsPage() {
         url.trim() !== '' &&
         self.indexOf(url) === index
       ).slice(0, 1)
+
+      if (isNewItem && allImageUrls.length === 0) {
+        toast.error("Please add at least one image")
+        setUploadingImages(false)
+        return
+      }
 
       // Debug: Log image URLs
       debugLog('=== IMAGE UPLOAD SUMMARY ===')
