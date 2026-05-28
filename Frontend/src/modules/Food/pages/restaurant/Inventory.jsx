@@ -1171,7 +1171,7 @@ export default function Inventory() {
       toast.success("Add-on submitted to admin for approval")
       resetAddonForm()
       setIsAddAddonOpen(false)
-      fetchAddons(true)
+      void fetchMenuAndAddons()
     } catch (error) {
       debugError("Error saving add-on:", error)
       toast.error(error?.response?.data?.message || "Failed to save add-on")
