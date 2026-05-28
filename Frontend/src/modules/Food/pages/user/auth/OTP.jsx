@@ -9,6 +9,8 @@ import { setAuthData as setUserAuthData } from "@food/utils/auth"
 import { motion, AnimatePresence } from "framer-motion"
 import loginBanner from "@food/assets/loginbanner.png"
 
+const FULL_NAME_REGEX = /^[A-Za-z ]+$/
+
 export default function OTP() {
   const navigate = useNavigate()
   const [otp, setOtp] = useState(["", "", "", ""]) // exactly 4 digits
@@ -214,9 +216,13 @@ export default function OTP() {
   }
 
   const handleSubmitName = async () => {
-    const trimmedName = name.trim()
-    if (!trimmedName || trimmedName.length < 2) {
+    const normalizedName = String(name || "").replace(/\s+/g, " ").trim()
+    if (!normalizedName || normalizedName.length < 2) {
       setNameError("Please enter a valid name")
+      return
+    }
+    if (!FULL_NAME_REGEX.test(normalizedName)) {
+      setNameError("Name can contain only letters and spaces")
       return
     }
 
@@ -230,7 +236,7 @@ export default function OTP() {
       // Update name via profile API
       try {
         await apiClient.patch("/food/user/profile", 
-          { name: trimmedName },
+          { name: normalizedName },
           { headers: { Authorization: `Bearer ${accessToken}` } }
         )
       } catch (e) {
@@ -238,7 +244,7 @@ export default function OTP() {
       }
 
       sessionStorage.removeItem("userAuthData")
-      setUserAuthData("user", accessToken, { ...user, name: trimmedName }, refreshToken)
+      setUserAuthData("user", accessToken, { ...user, name: normalizedName }, refreshToken)
       window.dispatchEvent(new Event("userAuthChanged"))
       setSuccess(true)
       setTimeout(() => navigate("/food/user"), 600)
@@ -396,7 +402,8 @@ export default function OTP() {
                         type="text"
                         value={name}
                         onChange={(e) => {
-                          setName(e.target.value)
+                          const sanitized = e.target.value.replace(/[^A-Za-z ]/g, "")
+                          setName(sanitized)
                           if (nameError) setNameError("")
                         }}
                         disabled={isLoading}
@@ -444,4 +451,3 @@ export default function OTP() {
     </AnimatedPage>
   )
 }
-

@@ -8,6 +8,7 @@ import {
   Star,
   ChevronRight,
   Trash2,
+  X,
 } from "lucide-react"
 import {
   Dialog,
@@ -26,7 +27,24 @@ import { isFlutterBridgeAvailable } from "@food/utils/imageUploadUtils"
 const debugLog = (...args) => {}
 const debugError = (...args) => {}
 const OUTLET_APPROVAL_STATUS_KEY = "restaurant_outlet_update_approval_status"
+const OWNER_NAME_REGEX = /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/
+const EMAIL_REGEX = /^(?!.*\.\.)([A-Za-z0-9]+[._%+-]?)*[A-Za-z0-9]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}$/
+const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/
+const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
+const FSSAI_REGEX = /^\d{14}$/
+const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/
+const ACCOUNT_NUMBER_REGEX = /^\d{9,18}$/
 
+const hasSuspiciousEmailTld = (emailValue) => {
+  const email = String(emailValue || "").trim().toLowerCase()
+  const domain = email.split("@")[1] || ""
+  const tld = domain.split(".").pop() || ""
+  if (!tld) return true
+  if (/^com+$/i.test(tld) && tld !== "com") return true
+  if (/(.)\1{2,}/.test(tld)) return true
+  return false
+}
 
 
 export default function OutletInfo() {
@@ -81,6 +99,7 @@ export default function OutletInfo() {
   const [uploadingDocType, setUploadingDocType] = useState(null)
   const [localApprovalStatus, setLocalApprovalStatus] = useState({})
   const [ratingSnapshot, setRatingSnapshot] = useState({ average: null, total: null })
+  const [previewImageUrl, setPreviewImageUrl] = useState("")
   
   const profileImageInputRef = useRef(null)
   const menuImageInputRef = useRef(null)
@@ -133,18 +152,55 @@ export default function OutletInfo() {
     return ""
   }
 
+  const hasAnyPendingFromBackend = () => {
+    const statusMap = restaurantData?.profileUpdateApprovalStatus || restaurantData?.updateApprovalStatus || restaurantData?.approvalStatuses || {}
+    const sectionKeys = ["name", "basic", "compliance", "bank"]
+    const hasSectionPending = sectionKeys.some((key) => normalizeApprovalStatus(statusMap?.[key]) === "pending")
+    if (hasSectionPending) return true
+
+    const globalCandidates = [
+      restaurantData?.profileUpdateStatus,
+      restaurantData?.updateRequestStatus,
+    ]
+    const hasGlobalPending = globalCandidates.some((candidate) => normalizeApprovalStatus(candidate) === "pending")
+    if (hasGlobalPending) return true
+
+    return (
+      restaurantData?.pendingApproval === true ||
+      restaurantData?.hasPendingProfileUpdate === true ||
+      restaurantData?.hasPendingUpdateRequest === true
+    )
+  }
+
   const markSectionPending = (section) => {
-    setLocalApprovalStatus((prev) => ({ ...prev, [section]: "pending" }))
+    const pendingEntry = { status: "pending", markedAt: Date.now() }
+    setLocalApprovalStatus((prev) => ({ ...prev, [section]: pendingEntry }))
     try {
       const raw = localStorage.getItem(OUTLET_APPROVAL_STATUS_KEY)
       const parsed = raw ? JSON.parse(raw) : {}
       const rid = String(restaurantData?._id || restaurantData?.id || restaurantMongoId || restaurantId || "default")
       const current = parsed?.[rid] || {}
-      parsed[rid] = { ...current, [section]: "pending" }
+      parsed[rid] = { ...current, [section]: pendingEntry }
       localStorage.setItem(OUTLET_APPROVAL_STATUS_KEY, JSON.stringify(parsed))
     } catch (error) {
       debugError("Failed to persist local approval status:", error)
     }
+  }
+
+  const getLocalStatusValue = (section) => {
+    const entry = localApprovalStatus?.[section]
+    if (entry && typeof entry === "object") {
+      return normalizeApprovalStatus(entry.status)
+    }
+    return normalizeApprovalStatus(entry)
+  }
+
+  const getLocalMarkedAt = (section) => {
+    const entry = localApprovalStatus?.[section]
+    if (entry && typeof entry === "object" && Number.isFinite(Number(entry.markedAt))) {
+      return Number(entry.markedAt)
+    }
+    return 0
   }
 
   // Format address from location object
@@ -295,12 +351,24 @@ export default function OutletInfo() {
     if (!restaurantData) return
     const sections = ["name", "basic", "compliance", "bank"]
     const next = { ...localApprovalStatus }
+    const backendUpdatedAt = Number(new Date(restaurantData?.updatedAt || 0))
     let changed = false
     sections.forEach((section) => {
       const backendStatus = readSectionStatusFromBackend(section)
-      if (backendStatus === "approved" && next[section] && next[section] !== "approved") {
-        next[section] = "approved"
+      const localStatus = getLocalStatusValue(section)
+      if ((backendStatus === "approved" || backendStatus === "rejected") && localStatus && localStatus !== backendStatus) {
+        next[section] = { status: backendStatus, markedAt: Date.now() }
         changed = true
+      }
+
+      // Fallback: if backend has no pending signal anymore and data was updated after local edit,
+      // resolve stale local pending to approved.
+      if (!backendStatus && localStatus === "pending" && !hasAnyPendingFromBackend()) {
+        const markedAt = getLocalMarkedAt(section)
+        if (backendUpdatedAt && markedAt && backendUpdatedAt > markedAt) {
+          next[section] = { status: "approved", markedAt: Date.now() }
+          changed = true
+        }
       }
     })
     if (!changed) return
@@ -319,7 +387,7 @@ export default function OutletInfo() {
   const getSectionStatus = (section) => {
     const backendStatus = readSectionStatusFromBackend(section)
     if (backendStatus) return backendStatus
-    const local = normalizeApprovalStatus(localApprovalStatus?.[section])
+    const local = getLocalStatusValue(section)
     return local || "approved"
   }
 
@@ -553,15 +621,46 @@ export default function OutletInfo() {
   }
 
   const handleSaveCompliance = async () => {
+    const panNumber = String(complianceForm.panNumber || "").trim().toUpperCase()
+    const gstNumber = String(complianceForm.gstNumber || "").trim().toUpperCase()
+    const gstLegalName = String(complianceForm.gstLegalName || "").trim()
+    const gstAddress = String(complianceForm.gstAddress || "").trim()
+    const fssaiNumber = String(complianceForm.fssaiNumber || "").trim()
+
+    if (panNumber && !PAN_REGEX.test(panNumber)) {
+      toast.error("Invalid PAN format (e.g. ABCDE1234F)")
+      return
+    }
+    if (complianceForm.gstRegistered && !gstNumber) {
+      toast.error("GST number is required when GST is registered")
+      return
+    }
+    if (gstNumber && !GST_REGEX.test(gstNumber)) {
+      toast.error("Invalid GST format (e.g. 27ABCDE1234F1Z5)")
+      return
+    }
+    if (complianceForm.gstRegistered && !gstLegalName) {
+      toast.error("GST legal name is required")
+      return
+    }
+    if (complianceForm.gstRegistered && !gstAddress) {
+      toast.error("GST address is required")
+      return
+    }
+    if (fssaiNumber && !FSSAI_REGEX.test(fssaiNumber)) {
+      toast.error("FSSAI number must be exactly 14 digits")
+      return
+    }
+
     try {
       setSavingCompliance(true)
       const payload = {
-        panNumber: complianceForm.panNumber.trim(),
+        panNumber,
         gstRegistered: complianceForm.gstRegistered === true,
-        gstNumber: complianceForm.gstRegistered ? complianceForm.gstNumber.trim() : "",
-        gstLegalName: complianceForm.gstRegistered ? complianceForm.gstLegalName.trim() : "",
-        gstAddress: complianceForm.gstRegistered ? complianceForm.gstAddress.trim() : "",
-        fssaiNumber: complianceForm.fssaiNumber.trim(),
+        gstNumber: complianceForm.gstRegistered ? gstNumber : "",
+        gstLegalName: complianceForm.gstRegistered ? gstLegalName : "",
+        gstAddress: complianceForm.gstRegistered ? gstAddress : "",
+        fssaiNumber,
         fssaiExpiry: complianceForm.fssaiExpiry || null,
       }
       await restaurantAPI.updateProfile(payload)
@@ -602,7 +701,7 @@ export default function OutletInfo() {
     const ifscCode = String(bankForm.ifscCode || "").trim().toUpperCase()
     const upiId = String(bankForm.upiId || "").trim()
     const accountHolderName = String(bankForm.accountHolderName || "").trim()
-    if ((accountNumber || ifscCode || accountHolderName) && !/^\d{9,18}$/.test(accountNumber)) {
+    if ((accountNumber || ifscCode || accountHolderName) && !ACCOUNT_NUMBER_REGEX.test(accountNumber)) {
       toast.error("Account number must be 9 to 18 digits")
       return
     }
@@ -610,8 +709,8 @@ export default function OutletInfo() {
       toast.error("Account numbers do not match")
       return
     }
-    if ((accountNumber || ifscCode || accountHolderName) && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
-      toast.error("Invalid IFSC format (e.g. SBIN0018764)")
+    if ((accountNumber || ifscCode || accountHolderName) && !IFSC_REGEX.test(ifscCode)) {
+      toast.error("Invalid IFSC format (e.g. SBIN0001234)")
       return
     }
     if (upiId && !/^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/.test(upiId)) {
@@ -655,11 +754,28 @@ export default function OutletInfo() {
   }
 
   const handleSaveBasicDetails = async () => {
+    const ownerName = String(basicForm.ownerName || "").trim()
+    const ownerEmail = String(basicForm.ownerEmail || "").trim().toLowerCase()
+    const primaryContactNumber = String(basicForm.primaryContactNumber || "").replace(/\D/g, "")
+
+    if (!ownerName || !OWNER_NAME_REGEX.test(ownerName)) {
+      toast.error("Owner name should contain only letters and spaces")
+      return
+    }
+    if (!ownerEmail || !EMAIL_REGEX.test(ownerEmail) || hasSuspiciousEmailTld(ownerEmail)) {
+      toast.error("Please enter a valid email address")
+      return
+    }
+    if (primaryContactNumber && !INDIAN_MOBILE_REGEX.test(primaryContactNumber)) {
+      toast.error("Primary contact must be a valid 10-digit Indian mobile number")
+      return
+    }
+
     try {
       setSavingBasic(true)
       const payload = {
-        ownerName: basicForm.ownerName.trim(),
-        ownerEmail: basicForm.ownerEmail.trim(),
+        ownerName,
+        ownerEmail,
       }
       await restaurantAPI.updateProfile(payload)
       setRestaurantData((prev) => (prev ? { ...prev, ...payload } : prev))
@@ -733,6 +849,12 @@ export default function OutletInfo() {
     if (!url) return ""
     const cleanUrl = String(url).split("?")[0].toLowerCase()
     return cleanUrl.endsWith(".pdf") ? "View pdf" : "View image"
+  }
+
+  const openImagePreview = (url) => {
+    const cleanUrl = String(url || "").trim()
+    if (!cleanUrl) return
+    setPreviewImageUrl(cleanUrl)
   }
 
   const normalizeRating = (value) => {
@@ -1004,9 +1126,19 @@ export default function OutletInfo() {
                     <p className="text-xs text-slate-500">GST document</p>
                     <div className="mt-1 flex items-center gap-3">
                       {gstDocUrl ? (
-                        <a href={gstDocUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
-                          {getViewLabel(gstDocUrl)}
-                        </a>
+                        getViewLabel(gstDocUrl) === "View pdf" ? (
+                          <a href={gstDocUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                            {getViewLabel(gstDocUrl)}
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openImagePreview(gstDocUrl)}
+                            className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                          >
+                            View image
+                          </button>
+                        )
                       ) : (
                         <p className="text-sm font-medium text-slate-900">Not uploaded</p>
                       )}
@@ -1034,9 +1166,19 @@ export default function OutletInfo() {
                 <p className="text-xs text-slate-500">FSSAI document</p>
                 <div className="mt-1 flex items-center gap-3">
                   {fssaiDocUrl ? (
-                    <a href={fssaiDocUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
-                      {getViewLabel(fssaiDocUrl)}
-                    </a>
+                    getViewLabel(fssaiDocUrl) === "View pdf" ? (
+                      <a href={fssaiDocUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                        {getViewLabel(fssaiDocUrl)}
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openImagePreview(fssaiDocUrl)}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                      >
+                        View image
+                      </button>
+                    )
                   ) : (
                     <p className="text-sm font-medium text-slate-900">Not uploaded</p>
                   )}
@@ -1060,9 +1202,19 @@ export default function OutletInfo() {
                 <p className="text-xs text-slate-500">PAN document</p>
                 <div className="mt-1 flex items-center gap-3">
                   {panDocUrl ? (
-                    <a href={panDocUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
-                      {getViewLabel(panDocUrl)}
-                    </a>
+                    getViewLabel(panDocUrl) === "View pdf" ? (
+                      <a href={panDocUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                        {getViewLabel(panDocUrl)}
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openImagePreview(panDocUrl)}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                      >
+                        View image
+                      </button>
+                    )
                   ) : (
                     <p className="text-sm font-medium text-slate-900">Not uploaded</p>
                   )}
@@ -1103,14 +1255,13 @@ export default function OutletInfo() {
               <div className="sm:col-span-2">
                 <p className="text-xs text-slate-500">UPI QR image</p>
                 {String(restaurantData?.upiQrImage?.url || restaurantData?.upiQrImage || "").trim() ? (
-                  <a
-                    href={String(restaurantData?.upiQrImage?.url || restaurantData?.upiQrImage || "").trim()}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => openImagePreview(String(restaurantData?.upiQrImage?.url || restaurantData?.upiQrImage || "").trim())}
                     className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2"
                   >
                     View
-                  </a>
+                  </button>
                 ) : (
                   <p className="text-sm font-medium text-slate-900">Not uploaded</p>
                 )}
@@ -1149,7 +1300,12 @@ export default function OutletInfo() {
               <p className="text-xs text-slate-500 mb-1">Owner name</p>
               <Input
                 value={basicForm.ownerName}
-                onChange={(e) => setBasicForm((prev) => ({ ...prev, ownerName: e.target.value }))}
+                onChange={(e) =>
+                  setBasicForm((prev) => ({
+                    ...prev,
+                    ownerName: e.target.value.replace(/[^A-Za-z\s]/g, "").replace(/\s{2,}/g, " "),
+                  }))
+                }
                 placeholder="Enter owner name"
               />
             </div>
@@ -1166,7 +1322,12 @@ export default function OutletInfo() {
               <p className="text-xs text-slate-500 mb-1">Email</p>
               <Input
                 value={basicForm.ownerEmail}
-                onChange={(e) => setBasicForm((prev) => ({ ...prev, ownerEmail: e.target.value }))}
+                onChange={(e) =>
+                  setBasicForm((prev) => ({
+                    ...prev,
+                    ownerEmail: e.target.value.replace(/\s/g, "").toLowerCase(),
+                  }))
+                }
                 placeholder="Enter email"
               />
             </div>
@@ -1190,7 +1351,12 @@ export default function OutletInfo() {
               <p className="text-xs text-slate-500 mb-1">PAN number</p>
               <Input
                 value={complianceForm.panNumber}
-                onChange={(e) => setComplianceForm((prev) => ({ ...prev, panNumber: e.target.value }))}
+                onChange={(e) =>
+                  setComplianceForm((prev) => ({
+                    ...prev,
+                    panNumber: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+                  }))
+                }
                 placeholder="Enter PAN number"
               />
             </div>
@@ -1211,7 +1377,12 @@ export default function OutletInfo() {
                   <p className="text-xs text-slate-500 mb-1">GST number</p>
                   <Input
                     value={complianceForm.gstNumber}
-                    onChange={(e) => setComplianceForm((prev) => ({ ...prev, gstNumber: e.target.value }))}
+                    onChange={(e) =>
+                      setComplianceForm((prev) => ({
+                        ...prev,
+                        gstNumber: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15),
+                      }))
+                    }
                     placeholder="Enter GST number"
                   />
                 </div>
@@ -1237,7 +1408,12 @@ export default function OutletInfo() {
               <p className="text-xs text-slate-500 mb-1">FSSAI number</p>
               <Input
                 value={complianceForm.fssaiNumber}
-                onChange={(e) => setComplianceForm((prev) => ({ ...prev, fssaiNumber: e.target.value }))}
+                onChange={(e) =>
+                  setComplianceForm((prev) => ({
+                    ...prev,
+                    fssaiNumber: e.target.value.replace(/\D/g, "").slice(0, 14),
+                  }))
+                }
                 placeholder="Enter FSSAI number"
               />
             </div>
@@ -1269,7 +1445,12 @@ export default function OutletInfo() {
               <p className="text-xs text-slate-500 mb-1">Account holder name</p>
               <Input
                 value={bankForm.accountHolderName}
-                onChange={(e) => setBankForm((prev) => ({ ...prev, accountHolderName: e.target.value }))}
+                onChange={(e) =>
+                  setBankForm((prev) => ({
+                    ...prev,
+                    accountHolderName: e.target.value.replace(/[^A-Za-z\s]/g, "").replace(/\s{2,}/g, " "),
+                  }))
+                }
                 placeholder="Enter account holder name"
               />
             </div>
@@ -1277,7 +1458,7 @@ export default function OutletInfo() {
               <p className="text-xs text-slate-500 mb-1">Account number</p>
               <Input
                 value={bankForm.accountNumber}
-                onChange={(e) => setBankForm((prev) => ({ ...prev, accountNumber: e.target.value.replace(/[^\d\s-]/g, "") }))}
+                onChange={(e) => setBankForm((prev) => ({ ...prev, accountNumber: e.target.value.replace(/\D/g, "").slice(0, 18) }))}
                 placeholder="Enter account number"
               />
             </div>
@@ -1285,7 +1466,7 @@ export default function OutletInfo() {
               <p className="text-xs text-slate-500 mb-1">Confirm account number</p>
               <Input
                 value={bankForm.confirmAccountNumber}
-                onChange={(e) => setBankForm((prev) => ({ ...prev, confirmAccountNumber: e.target.value.replace(/[^\d\s-]/g, "") }))}
+                onChange={(e) => setBankForm((prev) => ({ ...prev, confirmAccountNumber: e.target.value.replace(/\D/g, "").slice(0, 18) }))}
                 placeholder="Re-enter account number"
               />
             </div>
@@ -1293,7 +1474,12 @@ export default function OutletInfo() {
               <p className="text-xs text-slate-500 mb-1">IFSC code</p>
               <Input
                 value={bankForm.ifscCode}
-                onChange={(e) => setBankForm((prev) => ({ ...prev, ifscCode: e.target.value.toUpperCase() }))}
+                onChange={(e) =>
+                  setBankForm((prev) => ({
+                    ...prev,
+                    ifscCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11),
+                  }))
+                }
                 placeholder="e.g. SBIN0018764"
               />
             </div>
@@ -1354,6 +1540,26 @@ export default function OutletInfo() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {previewImageUrl ? (
+        <div className="fixed inset-0 z-[120] bg-black/70 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-3xl bg-white rounded-xl p-3">
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl("")}
+              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-700"
+              aria-label="Close preview"
+            >
+              <X size={16} />
+            </button>
+            <img
+              src={previewImageUrl}
+              alt="Preview"
+              className="w-full max-h-[80vh] object-contain rounded-md"
+            />
+          </div>
+        </div>
+      ) : null}
  
 
       <ImageSourcePicker

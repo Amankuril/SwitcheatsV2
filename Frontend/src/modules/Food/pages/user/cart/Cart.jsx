@@ -78,6 +78,8 @@ const formatFullAddress = (address) => {
 const RUPEE_SYMBOL = "\u20B9"
 const CART_RECIPIENT_DETAILS_STORAGE_KEY = "food-cart-recipient-details-v1"
 const CART_ORDER_NOTE_STORAGE_KEY = "food-cart-order-note-v1"
+const RECIPIENT_NAME_REGEX = /^[A-Za-z ]+$/
+const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/
 
 const haversineKm = (lat1, lon1, lat2, lon2) => {
   const R = 6371
@@ -341,7 +343,13 @@ export default function Cart() {
     if (normalized === "other") return "Other"
     return label || "Saved address"
   }
-  const sanitizeRecipientPhone = (value) => String(value || "").replace(/[^\d+]/g, "").slice(0, 14)
+  const sanitizeRecipientName = (value) => String(value || "").replace(/[^A-Za-z ]/g, "").replace(/\s+/g, " ")
+  const sanitizeRecipientPhone = (value) => String(value || "").replace(/\D/g, "").slice(0, 10)
+  const isValidRecipientName = (value) => {
+    const normalized = String(value || "").replace(/\s+/g, " ").trim()
+    return normalized.length >= 2 && RECIPIENT_NAME_REGEX.test(normalized)
+  }
+  const isValidIndianMobile = (value) => INDIAN_MOBILE_REGEX.test(String(value || ""))
   const savedAddress = getDefaultAddress()
   const selectedAddress = addresses.find((addr) => getAddressId(addr) && getAddressId(addr) === selectedAddressId)
 
@@ -494,6 +502,32 @@ export default function Cart() {
       // Ignore storage errors and keep note flow working.
     }
   }, [note, showNoteInput])
+
+  const handleRecipientEditToggle = () => {
+    if (!isEditingRecipient) {
+      setIsEditingRecipient(true)
+      return
+    }
+
+    const normalizedName = String(recipientDetails.name || "").replace(/\s+/g, " ").trim()
+    const normalizedPhone = sanitizeRecipientPhone(recipientDetails.phone || "")
+
+    if (!isValidRecipientName(normalizedName)) {
+      toast.error("Name should contain only letters and spaces")
+      return
+    }
+    if (!isValidIndianMobile(normalizedPhone)) {
+      toast.error("Enter a valid 10-digit Indian mobile number")
+      return
+    }
+
+    setRecipientDetails((prev) => ({
+      ...prev,
+      name: normalizedName,
+      phone: normalizedPhone,
+    }))
+    setIsEditingRecipient(false)
+  }
 
   useEffect(() => {
     if (deliveryAddressMode === "current") {
@@ -2463,7 +2497,7 @@ export default function Cart() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setIsEditingRecipient((prev) => !prev)}
+                    onClick={handleRecipientEditToggle}
                     className="text-[#EB590E] text-xs md:text-sm font-semibold whitespace-nowrap"
                   >
                     {isEditingRecipient ? "Done" : "Change"}
@@ -2482,7 +2516,7 @@ export default function Cart() {
                         onChange={(e) =>
                           setRecipientDetails((prev) => ({
                             ...prev,
-                            name: e.target.value,
+                            name: sanitizeRecipientName(e.target.value),
                           }))
                         }
                         placeholder="Enter recipient name"
@@ -2502,6 +2536,7 @@ export default function Cart() {
                             phone: sanitizeRecipientPhone(e.target.value),
                           }))
                         }
+                        maxLength={10}
                         placeholder="Enter recipient phone"
                         className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111111] px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:border-[#EB590E]"
                       />

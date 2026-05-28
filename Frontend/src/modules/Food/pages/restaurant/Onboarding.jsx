@@ -40,7 +40,7 @@ const OWNER_NAME_REGEX = /^[A-Za-z ]+$/
 const ACCOUNT_HOLDER_NAME_REGEX = /^[A-Za-z ]+$/
 const GST_LEGAL_NAME_REGEX = /^[A-Za-z ]+$/
 const INDIAN_PHONE_REGEX = /^[6-9]\d{9}$/
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,10}$/
+const EMAIL_REGEX = /^(?!.*\.\.)([A-Za-z0-9]+[._%+-]?)*[A-Za-z0-9]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}$/
 const LOCAL_IMAGE_FILE_ACCEPT = ".jpg,.jpeg,.png,.webp,.heic,.heif"
 const GALLERY_IMAGE_ACCEPT =
   ".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif"
@@ -209,6 +209,18 @@ const normalizeAccountTypeValue = (value) => {
 }
 
 const getTodayLocalYMD = () => formatDateToLocalYMD(new Date())
+
+const hasSuspiciousEmailTld = (emailValue) => {
+  const email = String(emailValue || "").trim().toLowerCase()
+  const domain = email.split("@")[1] || ""
+  const tld = domain.split(".").pop() || ""
+  if (!tld) return true
+  // Reject typo endings like ".comm", ".commm", etc.
+  if (/^com+$/i.test(tld) && tld !== "com") return true
+  // Reject obvious fake endings like ".commmm", ".innnn", etc.
+  if (/(.)\1{2,}/.test(tld)) return true
+  return false
+}
 
 // Helper functions for localStorage
 const saveOnboardingToLocalStorage = (step1, step2, step3, currentStep, step4State) => {
@@ -581,6 +593,7 @@ export default function RestaurantOnboarding() {
   const [zones, setZones] = useState([])
   const [zonesLoading, setZonesLoading] = useState(false)
   const [isOnboardingHydrated, setIsOnboardingHydrated] = useState(false)
+  const isRestoringOnboardingRef = useRef(true)
 
   const [step1, setStep1] = useState({
     restaurantName: "",
@@ -922,6 +935,7 @@ export default function RestaurantOnboarding() {
 
   // Load from localStorage on mount and check URL parameter
   useEffect(() => {
+    isRestoringOnboardingRef.current = true
     setVerifiedPhoneNumber(getVerifiedPhoneFromStoredRestaurant())
 
     // Check if step is specified in URL (from OTP login redirect)
@@ -1052,6 +1066,8 @@ export default function RestaurantOnboarding() {
           }
         }
       } finally {
+        // Prevent save effect from writing default/empty state before restored data settles.
+        isRestoringOnboardingRef.current = false
         setIsOnboardingHydrated(true)
       }
     }
@@ -1088,6 +1104,7 @@ export default function RestaurantOnboarding() {
   // Save to localStorage whenever step data changes
   useEffect(() => {
     if (!isOnboardingHydrated) return
+    if (isRestoringOnboardingRef.current) return
     saveOnboardingToLocalStorage(step1, step2, step3, step, step4State)
     
     // Save images to IndexedDB
@@ -1338,7 +1355,7 @@ export default function RestaurantOnboarding() {
     }
     if (!step1.ownerEmail?.trim()) {
       errors.push("Owner email is required")
-    } else if (!EMAIL_REGEX.test(step1.ownerEmail.trim()) || step1.ownerEmail.includes('..')) {
+    } else if (!EMAIL_REGEX.test(step1.ownerEmail.trim()) || step1.ownerEmail.includes('..') || hasSuspiciousEmailTld(step1.ownerEmail)) {
       errors.push("Please enter a valid email address")
     } else {
       const emailParts = step1.ownerEmail.trim().toLowerCase().split('@')[1]?.split('.') || []
@@ -1710,7 +1727,7 @@ export default function RestaurantOnboarding() {
                 onClick={() => isEditing && setStep1({ ...step1, pureVegRestaurant: true })}
                 className={`px-3 py-1.5 text-xs rounded-full border ${
                   step1.pureVegRestaurant === true
-                    ? "bg-green-600 text-white border-green-600"
+                    ? "bg-gray-900 text-white border-gray-900"
                     : "bg-white text-gray-700 border-gray-200"
                 } ${!isEditing ? "opacity-70 cursor-not-allowed" : ""}`}
               >
@@ -3407,7 +3424,7 @@ export default function RestaurantOnboarding() {
         }
         if (!step1.ownerEmail?.trim()) {
           planErrors.push('Owner email is missing. Please go back to Step 1 and provide an email.')
-        } else if (!EMAIL_REGEX.test(String(step1.ownerEmail).trim()) || String(step1.ownerEmail).includes('..')) {
+        } else if (!EMAIL_REGEX.test(String(step1.ownerEmail).trim()) || String(step1.ownerEmail).includes('..') || hasSuspiciousEmailTld(step1.ownerEmail)) {
           planErrors.push(`Email "${step1.ownerEmail}" is invalid. Please fix it in Step 1.`)
         } else {
           const emailParts = String(step1.ownerEmail).trim().toLowerCase().split('@')[1]?.split('.') || []
