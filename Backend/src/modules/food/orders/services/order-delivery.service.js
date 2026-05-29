@@ -532,7 +532,8 @@ export async function confirmReachedPickupDelivery(orderId, deliveryPartnerId) {
         title: 'Rider arrived!',
         body: `${partner?.name || 'The delivery partner'} has arrived at ${
           restaurant?.restaurantName || 'your restaurant'
-        } to pick up Order #${order._id.toString()}.`,
+        } to pick up Order .`,
+        // #${order._id.toString()}
         data: {
           type: 'rider_arrived',
           orderId: String(order._id.toString()),
