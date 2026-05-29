@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import useRestaurantBackNavigation from "@food/hooks/useRestaurantBackNavigation"
 import Lenis from "lenis"
@@ -223,55 +223,54 @@ export default function OutletInfo() {
     return parts.join(", ") || ""
   }
 
+  const refreshRestaurantData = useCallback(async () => {
+    try {
+      const response = await restaurantAPI.getCurrentRestaurant()
+      const data = response?.data?.data?.restaurant || response?.data?.restaurant
+      if (!data) return
+
+      setRestaurantData(data)
+      setRestaurantName(data.name || "")
+      setRestaurantId(data.restaurantId || data.id || "")
+      setRestaurantMongoId(String(data.id || data._id || ""))
+      setAddress(formatAddress(data.location))
+
+      if (data.cuisines && Array.isArray(data.cuisines) && data.cuisines.length > 0) {
+        setCuisineTags(data.cuisines.join(", "))
+      }
+
+      if (data.profileImage?.url) {
+        setThumbnailImage(data.profileImage.url)
+      }
+
+      if (data.coverImages && Array.isArray(data.coverImages) && data.coverImages.length > 0) {
+        setCoverImages(data.coverImages.map((img) => ({
+          url: img.url || img,
+          publicId: img.publicId
+        })))
+        setMainImage(data.coverImages[0].url || data.coverImages[0])
+      } else if (data.menuImages && Array.isArray(data.menuImages) && data.menuImages.length > 0) {
+        setCoverImages(data.menuImages.map((img) => ({
+          url: img.url,
+          publicId: img.publicId
+        })))
+        setMainImage(data.menuImages[0].url)
+      } else {
+        setCoverImages([])
+      }
+    } catch (error) {
+      if (error.code !== "ERR_NETWORK" && error.code !== "ECONNABORTED" && !error.message?.includes("timeout")) {
+        debugError("Error fetching restaurant data:", error)
+      }
+    }
+  }, [])
+
   // Fetch restaurant data on mount
   useEffect(() => {
     const fetchRestaurantData = async () => {
       try {
         setLoading(true)
-        const response = await restaurantAPI.getCurrentRestaurant()
-        const data = response?.data?.data?.restaurant || response?.data?.restaurant
-        if (data) {
-          setRestaurantData(data)
-          
-          // Set restaurant name
-          setRestaurantName(data.name || "")
-          
-          // Set restaurant ID
-          setRestaurantId(data.restaurantId || data.id || "")
-          // Set MongoDB _id for last 5 digits display
-          const mongoId = String(data.id || data._id || "")
-          setRestaurantMongoId(mongoId)
-          
-          // Format and set address
-          const formattedAddress = formatAddress(data.location)
-          setAddress(formattedAddress)
-          
-          // Format cuisines
-          if (data.cuisines && Array.isArray(data.cuisines) && data.cuisines.length > 0) {
-            setCuisineTags(data.cuisines.join(", "))
-          }
-          
-          // Set images
-          if (data.profileImage?.url) {
-            setThumbnailImage(data.profileImage.url)
-          }
-          // Use coverImages if available, otherwise fallback to menuImages for backward compatibility
-          if (data.coverImages && Array.isArray(data.coverImages) && data.coverImages.length > 0) {
-            setCoverImages(data.coverImages.map(img => ({
-              url: img.url || img,
-              publicId: img.publicId
-            })))
-            setMainImage(data.coverImages[0].url || data.coverImages[0])
-          } else if (data.menuImages && Array.isArray(data.menuImages) && data.menuImages.length > 0) {
-            setCoverImages(data.menuImages.map(img => ({
-              url: img.url,
-              publicId: img.publicId
-            })))
-            setMainImage(data.menuImages[0].url)
-          } else {
-            setCoverImages([])
-          }
-        }
+        await refreshRestaurantData()
       } catch (error) {
         if (error.code !== 'ERR_NETWORK' && error.code !== 'ECONNABORTED' && !error.message?.includes('timeout')) {
           debugError("Error fetching restaurant data:", error)
@@ -298,7 +297,31 @@ export default function OutletInfo() {
       window.removeEventListener("cuisinesUpdated", handleCuisinesUpdate)
       window.removeEventListener("addressUpdated", handleAddressUpdate)
     }
-  }, [])
+  }, [refreshRestaurantData])
+
+  // Keep approval status in sync without requiring logout/login.
+  // Poll only while there is a pending update signal.
+  useEffect(() => {
+    if (!restaurantData) return
+    const shouldPoll = hasAnyPendingFromBackend() || ["name", "basic", "compliance", "bank"].some((section) => getLocalStatusValue(section) === "pending")
+    if (!shouldPoll) return
+
+    const intervalId = setInterval(() => {
+      void refreshRestaurantData()
+    }, 7000)
+
+    const onFocus = () => {
+      void refreshRestaurantData()
+    }
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onFocus)
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onFocus)
+    }
+  }, [restaurantData, localApprovalStatus, refreshRestaurantData])
 
   useEffect(() => {
     setComplianceForm({
