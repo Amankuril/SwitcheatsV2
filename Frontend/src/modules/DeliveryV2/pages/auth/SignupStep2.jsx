@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { ArrowLeft, Upload, X, Check, Camera, Image as ImageIcon } from "lucide-react"
 import { deliveryAPI } from "@food/api"
 import { toast } from "sonner"
-import { isFlutterBridgeAvailable, openCamera } from "@food/utils/imageUploadUtils"
+import { openCamera, openGallery } from "@food/utils/imageUploadUtils"
 import useDeliveryBackNavigation from "../../hooks/useDeliveryBackNavigation"
 import { useDeliveryOnboardingStore } from "../../store/useDeliveryOnboardingStore"
 const debugLog = (...args) => {}
@@ -282,8 +282,11 @@ export default function SignupStep2() {
     })
   }
 
-  const handlePickFromGallery = (docType) => {
-    fileInputRefs.current[docType]?.click()
+  const handlePickFromGallery = async (docType) => {
+    await openGallery({
+      onSelectFile: (file) => handleFileSelect(docType, file),
+      fileNamePrefix: `signup-${docType}`
+    })
   }
 
   const handleRemove = (docType) => {
