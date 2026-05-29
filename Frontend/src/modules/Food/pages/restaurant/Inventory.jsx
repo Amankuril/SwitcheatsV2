@@ -790,6 +790,7 @@ export default function Inventory() {
   const [showCalendar, setShowCalendar] = useState(false)
   const [showTimePicker, setShowTimePicker] = useState(false)
   const [restaurantProfile, setRestaurantProfile] = useState(null)
+  const isPureVegRestaurant = restaurantProfile?.pureVegRestaurant === true
   const [stockRules, setStockRules] = useState(() => {
     try {
       if (typeof window === "undefined") return {}
@@ -1110,6 +1111,12 @@ export default function Inventory() {
       localStorage.setItem(INVENTORY_ADDON_FORM_KEY, JSON.stringify(payload))
     } catch {}
   }, [addonName, addonDescription, addonPrice, addonFoodType, addonImagePreview, isAddAddonOpen])
+
+  useEffect(() => {
+    if (isPureVegRestaurant && addonFoodType !== "veg") {
+      setAddonFoodType("veg")
+    }
+  }, [isPureVegRestaurant, addonFoodType])
 
   const resetAddonForm = () => {
     if (addonImagePreview && addonImagePreview.startsWith("blob:")) {
@@ -2065,7 +2072,10 @@ export default function Inventory() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
                       <div className="grid grid-cols-2 gap-2">
-                        {ADDON_TYPE_OPTIONS.map((option) => {
+                        {(isPureVegRestaurant
+                          ? ADDON_TYPE_OPTIONS.filter((option) => option.value === "veg")
+                          : ADDON_TYPE_OPTIONS
+                        ).map((option) => {
                           const active = addonFoodType === option.value
                           return (
                             <button

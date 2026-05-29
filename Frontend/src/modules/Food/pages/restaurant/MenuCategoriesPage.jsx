@@ -56,11 +56,31 @@ export default function MenuCategoriesPage() {
   const [imagePreview, setImagePreview] = useState(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false)
+  const [isPureVegRestaurant, setIsPureVegRestaurant] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
     fetchCategories()
   }, [])
+
+  useEffect(() => {
+    const fetchRestaurantType = async () => {
+      try {
+        const response = await restaurantAPI.getCurrentRestaurant()
+        const data = response?.data?.data?.restaurant || response?.data?.restaurant
+        setIsPureVegRestaurant(data?.pureVegRestaurant === true)
+      } catch {
+        setIsPureVegRestaurant(false)
+      }
+    }
+    fetchRestaurantType()
+  }, [])
+
+  useEffect(() => {
+    if (isPureVegRestaurant && formData.foodTypeScope !== "Veg") {
+      setFormData((prev) => ({ ...prev, foodTypeScope: "Veg" }))
+    }
+  }, [isPureVegRestaurant, formData.foodTypeScope])
 
   // Prevent background scroll when modal is open
   useEffect(() => {
@@ -116,7 +136,7 @@ export default function MenuCategoriesPage() {
 
   const openCreateModal = () => {
     setEditingCategory(null)
-    setFormData(defaultFormData)
+    setFormData((prev) => ({ ...defaultFormData, foodTypeScope: isPureVegRestaurant ? "Veg" : defaultFormData.foodTypeScope }))
     setSelectedImageFile(null)
     setImagePreview(null)
     setShowModal(true)
@@ -134,7 +154,7 @@ export default function MenuCategoriesPage() {
       image: category?.image || "",
       isActive: category?.isActive !== false,
       sortOrder: Number.isFinite(Number(category?.sortOrder)) ? Number(category.sortOrder) : 0,
-      foodTypeScope: category?.foodTypeScope || "Veg",
+      foodTypeScope: isPureVegRestaurant ? "Veg" : (category?.foodTypeScope || "Veg"),
     })
     setSelectedImageFile(null)
     setImagePreview(category?.image || null)
@@ -185,7 +205,7 @@ export default function MenuCategoriesPage() {
         image: imageUrl,
         isActive: formData.isActive !== false,
         sortOrder: Number.isFinite(Number(formData.sortOrder)) ? Number(formData.sortOrder) : 0,
-        foodTypeScope: formData.foodTypeScope,
+        foodTypeScope: isPureVegRestaurant ? "Veg" : formData.foodTypeScope,
       }
 
       if (editingCategory) {
@@ -280,7 +300,7 @@ export default function MenuCategoriesPage() {
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
             <p className="text-lg font-semibold text-slate-900">No restaurant categories yet</p>
             <p className="mt-2 text-sm text-slate-500">
-              Start with a category and choose whether it should accept veg, non-veg, or both kinds of dishes.
+              Start with a category and choose diet scope for dishes.
             </p>
           </div>
         ) : (
@@ -426,11 +446,17 @@ export default function MenuCategoriesPage() {
                     value={formData.foodTypeScope}
                     onChange={(e) => setFormData((prev) => ({ ...prev, foodTypeScope: e.target.value }))}
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-900"
+                    disabled={isPureVegRestaurant}
                   >
                     <option value="Veg">Veg</option>
-                    <option value="Non-Veg">Non-Veg</option>
-                    <option value="Both">Both</option>
+                    {!isPureVegRestaurant && <option value="Non-Veg">Non-Veg</option>}
+                    {!isPureVegRestaurant && <option value="Both">Both</option>}
                   </select>
+                  {isPureVegRestaurant && (
+                    <p className="mt-1 text-xs text-emerald-700">
+                      Pure veg restaurant: category scope is locked to Veg.
+                    </p>
+                  )}
                 </div>
 
                 <div>

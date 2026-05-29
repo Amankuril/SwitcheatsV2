@@ -101,6 +101,7 @@ export default function ItemDetailsPage() {
   const [loadingCategories, setLoadingCategories] = useState(true)
   const [loadingItem, setLoadingItem] = useState(false)
   const [keyboardInset, setKeyboardInset] = useState(0)
+  const [isPureVegRestaurant, setIsPureVegRestaurant] = useState(false)
 
   const maxNameLength = 70
   const maxDescriptionLength = 1000
@@ -240,6 +241,13 @@ export default function ItemDetailsPage() {
     const fetchCategories = async () => {
       try {
         setLoadingCategories(true)
+        try {
+          const restaurantRes = await restaurantAPI.getCurrentRestaurant()
+          const restaurant = restaurantRes?.data?.data?.restaurant || restaurantRes?.data?.restaurant
+          setIsPureVegRestaurant(restaurant?.pureVegRestaurant === true)
+        } catch {
+          setIsPureVegRestaurant(false)
+        }
         const response = await restaurantAPI.getCategories()
         if (response.data.success && response.data.data.categories) {
           // Format categories for the UI - flat list, no subcategories
@@ -275,6 +283,12 @@ export default function ItemDetailsPage() {
 
     fetchCategories()
   }, [category, defaultCategory, defaultCategoryId, isNewItem, selectedCategoryId])
+
+  useEffect(() => {
+    if (isPureVegRestaurant && foodType !== "Veg") {
+      setFoodType("Veg")
+    }
+  }, [isPureVegRestaurant, foodType])
 
   // Keep focused form fields visible above mobile keyboard
   useEffect(() => {
@@ -979,16 +993,18 @@ export default function ItemDetailsPage() {
                 {foodType === "Veg" && <Check className="w-4 h-4" style={{ color: "#16A34A" }} />}
                 <span>Veg</span>
               </button>
-              <button
-                onClick={() => setFoodType("Non-Veg")}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${foodType === "Non-Veg"
-                  ? "border-red-600 border-2 text-red-600"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-              >
-                {foodType === "Non-Veg" && <Check className="w-4 h-4" />}
-                <span>Non-Veg</span>
-              </button>
+              {!isPureVegRestaurant && (
+                <button
+                  onClick={() => setFoodType("Non-Veg")}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${foodType === "Non-Veg"
+                    ? "border-red-600 border-2 text-red-600"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                >
+                  {foodType === "Non-Veg" && <Check className="w-4 h-4" />}
+                  <span>Non-Veg</span>
+                </button>
+              )}
             </div>
           </div>
 

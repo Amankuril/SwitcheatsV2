@@ -114,6 +114,7 @@ export default function HubMenu() {
 
   // Restaurant info - fetch from backend
   const restaurantName = restaurantData?.name || ""
+  const isPureVegRestaurant = restaurantData?.pureVegRestaurant === true
   const restaurantExpertise = restaurantData?.cuisines?.length > 0 
     ? restaurantData.cuisines.join(", ") 
     : ""
@@ -634,7 +635,7 @@ export default function HubMenu() {
     setAddonName(addon.name || "")
     setAddonDescription(addon.description || "")
     setAddonPrice(addon.price?.toString() || "")
-    setAddonFoodType(addon.foodType === "non-veg" ? "non-veg" : "veg")
+    setAddonFoodType(isPureVegRestaurant ? "veg" : (addon.foodType === "non-veg" ? "non-veg" : "veg"))
     setAddonImages(addon.images && addon.images.length > 0 ? addon.images : (addon.image ? [addon.image] : []))
     setAddonImageFiles(new Map())
     setIsAddAddonModalOpen(true)
@@ -655,6 +656,12 @@ export default function HubMenu() {
       toast.error(error?.response?.data?.message || 'Failed to delete add-on')
     }
   }
+
+  useEffect(() => {
+    if (isPureVegRestaurant && addonFoodType !== "veg") {
+      setAddonFoodType("veg")
+    }
+  }, [isPureVegRestaurant, addonFoodType])
 
   // Bulk Upload Handlers
   const handleDownloadTemplate = async () => {
@@ -2384,7 +2391,7 @@ export default function HubMenu() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Type <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={`grid gap-2 ${isPureVegRestaurant ? "grid-cols-1" : "grid-cols-2"}`}>
                     <button
                       type="button"
                       onClick={() => setAddonFoodType("veg")}
@@ -2396,17 +2403,19 @@ export default function HubMenu() {
                     >
                       Veg
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setAddonFoodType("non-veg")}
-                      className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                        addonFoodType === "non-veg"
-                          ? "border-rose-500 bg-rose-50 text-rose-700"
-                          : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                      }`}
-                    >
-                      Non-veg
-                    </button>
+                    {!isPureVegRestaurant && (
+                      <button
+                        type="button"
+                        onClick={() => setAddonFoodType("non-veg")}
+                        className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                          addonFoodType === "non-veg"
+                            ? "border-rose-500 bg-rose-50 text-rose-700"
+                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        Non-veg
+                      </button>
+                    )}
                   </div>
                 </div>
 
