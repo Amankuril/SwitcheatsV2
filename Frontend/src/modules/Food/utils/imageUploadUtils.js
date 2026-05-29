@@ -207,9 +207,16 @@ export const openGallery = async ({ onSelectFile, fileNamePrefix = "gallery-phot
 
         if (selectedFile && String(selectedFile.type || "").startsWith("image/")) {
           onSelectFile(selectedFile)
-          return
         }
+
+        // In Flutter app mode, do not fallback to browser picker.
+        // Browser picker can show camera/gallery chooser on some devices.
+        return
       }
+
+      // Handler responded but no valid image selected (cancel/fail).
+      // Keep strict gallery-only behavior by not opening browser chooser.
+      return
     }
 
     // Fallback: browser picker is generally reliable across Android/iOS/Web.
