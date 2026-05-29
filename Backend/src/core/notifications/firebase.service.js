@@ -192,7 +192,7 @@ const buildMessagePayload = (payload = {}, token) => {
         priority: 'high',
         notification: {
             channel_id: 'default',
-            sound: 'default',
+            // sound: 'default',
             default_vibrate_timings: true,
             default_light_settings: true
         }
