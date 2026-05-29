@@ -62,7 +62,14 @@ export const NewOrderModal = ({ order, onAccept, onReject, onMinimize }) => {
   if (!order) return null;
 
   const earnings = order.earnings || order.riderEarning || (order.orderAmount ? order.orderAmount * 0.1 : 0);
-  const restaurantName = order.restaurantName || order.restaurant_name || (order.restaurantId?.name) || 'Restaurant';
+  const restaurantName =
+    order.restaurantName ||
+    order.restaurant_name ||
+    order.restaurant?.restaurantName ||
+    order.restaurant?.name ||
+    order.restaurantId?.restaurantName ||
+    order.restaurantId?.name ||
+    'Restaurant';
   const restaurantAddress = order.restaurantAddress || order.restaurant_address || (order.restaurantId?.location?.address) || 'Address not available';
   const deliveryAddress = order?.deliveryAddress || {};
 
@@ -127,7 +134,13 @@ export const NewOrderModal = ({ order, onAccept, onReject, onMinimize }) => {
 
         <div className="flex-1 overflow-y-auto no-scrollbar">
           {/* Header Ribbon (Compact Premium) */}
-          <div className="bg-linear-to-br from-emerald-500 via-green-500 to-emerald-600 px-6 py-5 flex justify-between items-center text-white">
+          <div
+            className="px-6 py-5 flex justify-between items-center text-white"
+            style={{
+              backgroundColor: "var(--module-theme-color, #00B761)",
+              borderBottom: "1px solid rgba(var(--module-theme-rgb, 0,183,97), 0.25)",
+            }}
+          >
             <div>
               <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] mb-1">New Order Request</p>
               <div className="flex items-baseline gap-1">
@@ -135,7 +148,7 @@ export const NewOrderModal = ({ order, onAccept, onReject, onMinimize }) => {
                 <h2 className="text-4xl font-black tracking-tighter">{Number(earnings || 0).toFixed(2)}</h2>
               </div>
             </div>
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-2 text-white flex flex-col items-center min-w-[80px]">
+            <div className="bg-black/15 border border-white/20 rounded-2xl px-4 py-2 text-white flex flex-col items-center min-w-[80px]">
               <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Expires</span>
               <span className="font-black text-2xl tabular-nums leading-none">{timeLeft}s</span>
             </div>

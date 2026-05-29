@@ -10,7 +10,10 @@ export const OrderSummaryModal = ({ order, onDone }) => {
   const earnings = order?.earnings || order?.riderEarning || (order?.orderAmount * 0.1) || 0;
 
   return (
-    <div className="fixed inset-0 z-[160] bg-green-500 overflow-y-auto">
+    <div
+      className="fixed inset-0 z-[160] overflow-y-auto"
+      style={{ backgroundColor: "var(--module-theme-color, #00B761)" }}
+    >
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
