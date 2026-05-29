@@ -213,7 +213,13 @@ export default function Wallet() {
 
               <div className="flex-shrink-0 w-full md:w-auto">
                 <Button
-                  className="w-full md:w-auto md:min-w-[200px] lg:min-w-[240px] h-12 md:h-14 lg:h-16 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white font-semibold text-sm md:text-base lg:text-lg rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
+                  className="w-full md:w-auto md:min-w-[200px] lg:min-w-[240px] h-12 md:h-14 lg:h-16 text-white font-semibold text-sm md:text-base lg:text-lg rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(var(--module-theme-rgb,250,2,114),0.94), var(--module-theme-color,#FA0272))",
+                    boxShadow:
+                      "0 12px 24px rgba(var(--module-theme-rgb,250,2,114),0.30)",
+                  }}
                   onClick={() => setAddMoneyModalOpen(true)}
                 >
                   <Plus className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />

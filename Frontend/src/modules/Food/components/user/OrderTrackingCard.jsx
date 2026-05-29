@@ -370,8 +370,9 @@ function OrderTrackingCardInner({ hasBottomNav = true }) {
              onClick={(e) => { e.stopPropagation(); setDismissedKey(currentOrderKey); }}
              className="absolute top-2 right-2 p-1.5 rounded-full transition-colors z-20 shadow-sm"
              style={{
-               backgroundColor: "rgba(var(--module-theme-rgb, 235,89,14), 0.10)",
-               color: "rgba(var(--module-theme-rgb, 235,89,14), 0.78)",
+               backgroundColor: "rgba(var(--module-theme-rgb, 235,89,14), 0.20)",
+               color: "var(--module-theme-color, #EB590E)",
+               border: "1px solid rgba(var(--module-theme-rgb, 235,89,14), 0.32)",
              }}
           >
             <X className="w-3.5 h-3.5 pointer-events-none" />

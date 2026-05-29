@@ -123,11 +123,41 @@ export function normalizeOrderForClient(orderDoc) {
   const order = orderDoc?.toObject ? orderDoc.toObject() : orderDoc || {};
   const mongoId = (order._id || orderDoc?._id || "").toString();
   const displayId = order.order_id || mongoId;
+  const statusHistory = Array.isArray(order?.statusHistory)
+    ? order.statusHistory
+    : [];
+  const cancellationEntry = [...statusHistory]
+    .reverse()
+    .find((entry) => String(entry?.to || "").toLowerCase().includes("cancel"));
+  const cancellationReason =
+    String(order?.cancellationReason || "").trim() ||
+    String(cancellationEntry?.note || "").trim() ||
+    (String(order?.orderStatus || "").toLowerCase().includes("cancel")
+      ? String(order?.note || "").trim()
+      : "");
+  const cancellationStatus = String(cancellationEntry?.to || "").toLowerCase();
+  let cancelledBy = "";
+  if (cancellationStatus === "cancelled_by_user") cancelledBy = "customer";
+  else if (cancellationStatus === "cancelled_by_restaurant")
+    cancelledBy = "restaurant";
+  else if (cancellationStatus === "cancelled_by_admin") cancelledBy = "admin";
+  else if (String(cancellationEntry?.byRole || "").toUpperCase() === "USER")
+    cancelledBy = "customer";
+  else if (
+    String(cancellationEntry?.byRole || "").toUpperCase() === "RESTAURANT"
+  )
+    cancelledBy = "restaurant";
+  else if (String(cancellationEntry?.byRole || "").toUpperCase() === "ADMIN")
+    cancelledBy = "admin";
+
   return {
     ...order,
     orderMongoId: mongoId,
     orderId: displayId,
     status: order?.orderStatus || order?.status || "",
+    cancellationReason,
+    cancelledBy,
+    cancelledAt: cancellationEntry?.at || null,
     deliveredAt:
       order?.deliveryState?.deliveredAt || order?.deliveredAt || null,
     deliveryPartnerId:

@@ -2711,7 +2711,13 @@ function OrderCard({
               type="button"
               onClick={(e) => { e.stopPropagation(); onMarkReady({ orderId, mongoId, customerName }); }}
               disabled={isMarkingReady}
-              className="h-8 px-3 rounded-lg text-[11px] font-bold bg-green-600 text-white active:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm">
+              className="h-8 px-3 rounded-lg text-[11px] font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(var(--module-theme-rgb,37,99,235),0.96), var(--module-theme-color,#2563EB))",
+                boxShadow:
+                  "0 8px 16px -10px rgba(var(--module-theme-rgb,37,99,235),0.85)",
+              }}>
               {isMarkingReady ? "Marking…" : "Mark Ready"}
             </button>
           )}
