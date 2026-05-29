@@ -5,6 +5,18 @@ import { API_ENDPOINTS } from "@food/api/config"
 import { Textarea } from "@food/components/ui/textarea"
 import { legalHtmlToPlainText, plainTextToLegalHtml } from "@food/utils/legalContentFormat"
 const debugError = (...args) => {}
+const SUPPORT_EMAIL_REGEX = /^(?!.*\.\.)([A-Za-z0-9]+[._%+-]?)*[A-Za-z0-9]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}$/
+const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/
+
+const hasSuspiciousEmailTld = (emailValue) => {
+  const email = String(emailValue || "").trim().toLowerCase()
+  const domain = email.split("@")[1] || ""
+  const tld = domain.split(".").pop() || ""
+  if (!tld) return true
+  if (/^com+$/i.test(tld) && tld !== "com") return true
+  if (/(.)\1{2,}/.test(tld)) return true
+  return false
+}
 
 export default function SupportCMS() {
   const [loading, setLoading] = useState(true)
@@ -61,6 +73,16 @@ export default function SupportCMS() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const email = String(supportData.email || "").trim().toLowerCase()
+    const mobile = String(supportData.mobile || "").trim()
+    if (email && (!SUPPORT_EMAIL_REGEX.test(email) || hasSuspiciousEmailTld(email))) {
+      toast.error("Please enter a valid support email address")
+      return
+    }
+    if (mobile && !INDIAN_MOBILE_REGEX.test(mobile)) {
+      toast.error("Please enter a valid 10-digit Indian mobile number")
+      return
+    }
     try {
       setSaving(true)
       // Convert plain text/markdown to HTML for storage + user rendering
@@ -71,8 +93,8 @@ export default function SupportCMS() {
         { 
           title: supportData.title, 
           content: htmlContent,
-          email: supportData.email,
-          mobile: supportData.mobile,
+          email,
+          mobile,
           module: selectedModule
         },
         { contextModule: "admin" }
@@ -152,7 +174,13 @@ export default function SupportCMS() {
                 id="support-mobile"
                 type="text"
                 value={supportData.mobile || ""}
-                onChange={(e) => setSupportData(prev => ({ ...prev, mobile: e.target.value }))}
+                onChange={(e) =>
+                  setSupportData((prev) => ({
+                    ...prev,
+                    mobile: e.target.value.replace(/\D/g, "").slice(0, 10),
+                  }))
+                }
+                maxLength={10}
                 placeholder="+91 00000 00000"
                 className="bg-white border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 outline-none"
               />

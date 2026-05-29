@@ -716,15 +716,15 @@ export default function EarningAddonHistory() {
 
       {/* Settings Dialog */}
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className="max-w-md bg-white">
-          <DialogHeader>
+        <DialogContent className="max-w-md bg-white p-0 overflow-hidden">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b border-slate-200">
             <DialogTitle className="flex items-center gap-2">
               <Settings className="w-5 h-5" />
               Table Settings
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
+          <div className="px-5 py-4">
+            <div className="max-h-[55vh] overflow-y-auto pr-1">
               <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                 <Columns className="w-4 h-4" />
                 Visible Columns
@@ -749,7 +749,7 @@ export default function EarningAddonHistory() {
                 ))}
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+            <div className="mt-4 flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
               <button
                 onClick={resetColumns}
                 className="px-4 py-2 text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -769,5 +769,4 @@ export default function EarningAddonHistory() {
     </div>
   )
 }
-
 

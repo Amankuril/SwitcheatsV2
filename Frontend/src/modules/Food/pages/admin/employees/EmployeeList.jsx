@@ -3,6 +3,20 @@ import { Link } from "react-router-dom";
 import { Plus, Search, Shield, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { adminAPI } from "@food/api";
 
+const SUBADMIN_EMAIL_REGEX = /^(?!.*\.\.)([A-Za-z0-9]+[._%+-]?)*[A-Za-z0-9]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}$/;
+const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
+const NAME_REGEX = /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/;
+
+const hasSuspiciousEmailTld = (emailValue) => {
+  const email = String(emailValue || "").trim().toLowerCase();
+  const domain = email.split("@")[1] || "";
+  const tld = domain.split(".").pop() || "";
+  if (!tld) return true;
+  if (/^com+$/i.test(tld) && tld !== "com") return true;
+  if (/(.)\1{2,}/.test(tld)) return true;
+  return false;
+};
+
 export default function EmployeeList() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,20 +36,20 @@ export default function EmployeeList() {
       nextErrors.name = "Name is required.";
     } else if (name.length < 2) {
       nextErrors.name = "Name must be at least 2 characters.";
-    } else if (!/^[a-zA-Z ]+$/.test(name)) {
+    } else if (!NAME_REGEX.test(name)) {
       nextErrors.name = "Name can contain only letters and spaces.";
     }
 
     if (!email) {
       nextErrors.email = "Email is required.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    } else if (!SUBADMIN_EMAIL_REGEX.test(email) || hasSuspiciousEmailTld(email)) {
       nextErrors.email = "Enter a valid email address.";
     }
 
     if (!phone) {
       nextErrors.phone = "Phone is required.";
-    } else if (!/^\d{10}$/.test(phone)) {
-      nextErrors.phone = "Phone must be exactly 10 digits.";
+    } else if (!INDIAN_MOBILE_REGEX.test(phone)) {
+      nextErrors.phone = "Enter a valid 10-digit Indian mobile number.";
     }
 
     if (!password) {
@@ -119,7 +133,8 @@ export default function EmployeeList() {
             placeholder="Name"
             value={form.name}
             onChange={(e) => {
-              setForm((p) => ({ ...p, name: e.target.value }));
+              const cleaned = e.target.value.replace(/[^A-Za-z\s]/g, "").replace(/\s{2,}/g, " ");
+              setForm((p) => ({ ...p, name: cleaned }));
               if (errors.name) setErrors((prev) => ({ ...prev, name: "" }));
             }}
           />

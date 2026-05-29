@@ -6,6 +6,18 @@ import { setCachedSettings, updateFavicon, updateTitle } from "@food/utils/busin
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
+const BUSINESS_EMAIL_REGEX = /^(?!.*\.\.)([A-Za-z0-9]+[._%+-]?)*[A-Za-z0-9]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}$/
+
+const hasSuspiciousEmailTld = (emailValue) => {
+  const email = String(emailValue || "").trim().toLowerCase()
+  const domain = email.split("@")[1] || ""
+  const tld = domain.split(".").pop() || ""
+  if (!tld) return true
+  // Block malformed TLDs like "commm", "cooom", etc.
+  if (/^com+$/i.test(tld) && tld !== "com") return true
+  if (/(.)\1{2,}/.test(tld)) return true
+  return false
+}
 
 
 export default function BusinessSetup() {
@@ -115,8 +127,8 @@ export default function BusinessSetup() {
         toast.error("Email is required");
         return;
       }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email.trim())) {
+      const normalizedEmail = formData.email.trim()
+      if (!BUSINESS_EMAIL_REGEX.test(normalizedEmail) || hasSuspiciousEmailTld(normalizedEmail)) {
         toast.error("Please enter a valid email address");
         return;
       }
@@ -141,7 +153,7 @@ export default function BusinessSetup() {
       // Prepare form data
       const dataToSend = {
         companyName: formData.companyName.trim(),
-        email: formData.email.trim(),
+        email: normalizedEmail,
         phoneCountryCode: formData.phoneCountryCode,
         phoneNumber: formData.phoneNumber.trim(),
         address: formData.address.trim(),
