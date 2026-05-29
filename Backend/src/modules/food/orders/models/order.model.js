@@ -276,6 +276,8 @@ const orderSchema = new mongoose.Schema(
             default: () => ({})
         },
         note: { type: String, default: '', trim: true },
+        acceptanceWindowSeconds: { type: Number, default: 240, min: 1 },
+        acceptanceDeadlineAt: { type: Date, default: null },
         sendCutlery: { type: Boolean, default: true },
         deliveryFleet: { type: String, default: 'standard', trim: true },
         scheduledAt: { type: Date, default: null },

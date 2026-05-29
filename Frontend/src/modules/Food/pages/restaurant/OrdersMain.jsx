@@ -947,6 +947,14 @@ export default function OrdersMain() {
     return Number.isFinite(itemsTotal) ? itemsTotal : 0;
   };
 
+  const getOrderCountdownSeconds = (orderLike) => {
+    const deadlineRaw = orderLike?.acceptanceDeadlineAt;
+    if (!deadlineRaw) return 240;
+    const deadlineMs = new Date(deadlineRaw).getTime();
+    if (!Number.isFinite(deadlineMs)) return 240;
+    return Math.max(0, Math.floor((deadlineMs - Date.now()) / 1000));
+  };
+
   // Restaurant notifications hook for real-time orders
   const { newOrder, clearNewOrder, isConnected } = useRestaurantNotifications();
 
@@ -1108,10 +1116,15 @@ export default function OrdersMain() {
       }
 
       if (!hasOrderBeenShown(newOrder)) {
+        const remaining = getOrderCountdownSeconds(newOrder);
+        if (remaining <= 0) {
+          requestOrdersRefresh();
+          return;
+        }
         markOrderAsShown(newOrder);
         setPopupOrder(newOrder);
         setShowNewOrderPopup(true);
-        setCountdown(240); // Reset countdown to 4 minutes
+        setCountdown(remaining);
         requestOrdersRefresh();
       }
     }
@@ -1258,13 +1271,19 @@ export default function OrdersMain() {
                 orderToPopup.payment?.method ||
                 null,
               payment: orderToPopup.payment,
+              acceptanceDeadlineAt: orderToPopup.acceptanceDeadlineAt || null,
             };
 
             debugLog("?? Found order ready for popup:", orderForPopup);
+            const remaining = getOrderCountdownSeconds(orderForPopup);
+            if (remaining <= 0) {
+              requestOrdersRefresh();
+              return;
+            }
             markOrderAsShown({ orderId, _id: orderToPopup._id });
             setPopupOrder(orderForPopup);
             setShowNewOrderPopup(true);
-            setCountdown(240);
+            setCountdown(remaining);
           }
         }
       } catch (error) {
@@ -1301,13 +1320,24 @@ export default function OrdersMain() {
 
   // Countdown timer
   useEffect(() => {
-    if (showNewOrderPopup && countdown > 0) {
-      const timer = setInterval(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [showNewOrderPopup, countdown]);
+    if (!showNewOrderPopup) return;
+    const activePopupOrder = popupOrder || newOrder;
+    if (!activePopupOrder) return;
+
+    const timer = setInterval(() => {
+      const remaining = getOrderCountdownSeconds(activePopupOrder);
+      setCountdown(remaining);
+      if (remaining <= 0) {
+        setShowNewOrderPopup(false);
+        setPopupOrder(null);
+        clearNewOrder();
+        requestOrdersRefresh();
+      }
+    }, 1000);
+
+    setCountdown(getOrderCountdownSeconds(activePopupOrder));
+    return () => clearInterval(timer);
+  }, [showNewOrderPopup, popupOrder, newOrder, clearNewOrder]);
 
   useEffect(() => {
     if (!showNewOrderPopup) {
@@ -1456,7 +1486,7 @@ export default function OrdersMain() {
     setShowNewOrderPopup(false);
     setPopupOrder(null);
     clearNewOrder();
-    setCountdown(240);
+    setCountdown(0);
     setPrepTime(11);
     setAcceptSwipeProgress(0);
     setIsAcceptingOrder(false);
@@ -1499,7 +1529,7 @@ export default function OrdersMain() {
     setPopupOrder(null);
     clearNewOrder();
     setRejectReason("");
-    setCountdown(240);
+    setCountdown(0);
     setPrepTime(11);
   };
 

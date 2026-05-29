@@ -27,6 +27,15 @@ export const processOrderJob = async (job) => {
         }
     }
 
+    if (action === 'ORDER_ACCEPTANCE_TIMEOUT_CHECK') {
+        try {
+            const { expireUnacceptedOrderById } = await import('../../../modules/food/orders/services/order.service.js');
+            await expireUnacceptedOrderById(orderMongoId);
+        } catch (err) {
+            logger.error(`[BullMQ:order] ORDER_ACCEPTANCE_TIMEOUT_CHECK failed: ${err.message}`);
+        }
+    }
+
 
     return { processed: true, action, jobId: job.id };
 };

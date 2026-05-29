@@ -57,6 +57,78 @@ import {
 const COMMISSION_CACHE_MS = 10 * 1000;
 let commissionRulesCache = null;
 let commissionRulesLoadedAt = 0;
+const ORDER_ACCEPTANCE_WINDOW_SECONDS = 240;
+
+function buildAcceptanceDeadline(date = new Date()) {
+  return new Date(date.getTime() + ORDER_ACCEPTANCE_WINDOW_SECONDS * 1000);
+}
+
+async function expireUnacceptedOrders(filter = {}) {
+  const now = new Date();
+  const baseFilter = {
+    orderStatus: { $in: ["created", "confirmed"] },
+    acceptanceDeadlineAt: { $ne: null, $lte: now },
+    ...filter,
+  };
+
+  const docs = await FoodOrder.find(baseFilter).select("_id orderStatus").lean();
+  if (!docs.length) return 0;
+
+  for (const doc of docs) {
+    const from = String(doc.orderStatus || "created");
+    const updated = await FoodOrder.findOneAndUpdate(
+      {
+        _id: doc._id,
+        orderStatus: { $in: ["created", "confirmed"] },
+        acceptanceDeadlineAt: { $ne: null, $lte: now },
+      },
+      {
+        $set: {
+          orderStatus: "cancelled_by_restaurant",
+          note: "Not accepted by restaurant",
+        },
+        $push: {
+          statusHistory: {
+            at: now,
+            byRole: "SYSTEM",
+            from,
+            to: "cancelled_by_restaurant",
+            note: "Not accepted by restaurant",
+          },
+        },
+      },
+      { new: true },
+    );
+
+    if (!updated) continue;
+
+    try {
+      const io = getIO();
+      if (io) {
+        const payload = {
+          orderMongoId: updated._id?.toString?.(),
+          orderId: updated._id.toString(),
+          orderStatus: updated.orderStatus,
+          note: "Not accepted by restaurant",
+          message: "Order was not accepted by restaurant in time.",
+        };
+        io.to(rooms.user(updated.userId)).emit("order_status_update", payload);
+        io.to(rooms.restaurant(updated.restaurantId)).emit("order_status_update", payload);
+      }
+    } catch (err) {
+      logger.warn(`expireUnacceptedOrders socket emit failed: ${err?.message || err}`);
+    }
+  }
+
+  return docs.length;
+}
+
+export async function expireUnacceptedOrderById(orderMongoId) {
+  if (!orderMongoId || !mongoose.Types.ObjectId.isValid(String(orderMongoId))) {
+    return 0;
+  }
+  return expireUnacceptedOrders({ _id: new mongoose.Types.ObjectId(String(orderMongoId)) });
+}
 
 async function getActiveCommissionRules() {
   const now = Date.now();
@@ -307,6 +379,9 @@ export async function createOrder(userId, dto) {
       pricing: normalizedPricing,
       payment,
       orderStatus: initialStatus,
+      acceptanceWindowSeconds: ORDER_ACCEPTANCE_WINDOW_SECONDS,
+      acceptanceDeadlineAt:
+        initialStatus === "created" ? buildAcceptanceDeadline() : null,
       dispatch: { modeAtCreation: dispatchMode, status: "unassigned" },
       statusHistory: [
         {
@@ -350,6 +425,21 @@ export async function createOrder(userId, dto) {
     }
 
     await order.save();
+    void addOrderJob(
+      {
+        action: "ORDER_ACCEPTANCE_TIMEOUT_CHECK",
+        orderMongoId: order._id?.toString?.(),
+        orderId: order._id.toString(),
+      },
+      {
+        delay: ORDER_ACCEPTANCE_WINDOW_SECONDS * 1000,
+        removeOnComplete: true,
+        removeOnFail: true,
+        jobId: `order-accept-timeout-${order._id?.toString?.()}`,
+      },
+    ).catch((err) => {
+      logger.warn(`Failed to enqueue acceptance timeout check: ${err?.message || err}`);
+    });
 
     if (isWallet) {
       try {
@@ -452,6 +542,8 @@ export async function verifyPayment(userId, dto) {
   
   const from = order.orderStatus;
   order.orderStatus = "created";
+  order.acceptanceWindowSeconds = ORDER_ACCEPTANCE_WINDOW_SECONDS;
+  order.acceptanceDeadlineAt = buildAcceptanceDeadline();
 
   pushStatusHistory(order, {
     byRole: "USER",
@@ -461,6 +553,21 @@ export async function verifyPayment(userId, dto) {
     note: "Payment verified, order confirmed",
   });
   await order.save();
+  void addOrderJob(
+    {
+      action: "ORDER_ACCEPTANCE_TIMEOUT_CHECK",
+      orderMongoId: order._id?.toString?.(),
+      orderId: order._id.toString(),
+    },
+    {
+      delay: ORDER_ACCEPTANCE_WINDOW_SECONDS * 1000,
+      removeOnComplete: true,
+      removeOnFail: true,
+      jobId: `order-accept-timeout-${order._id?.toString?.()}`,
+    },
+  ).catch((err) => {
+    logger.warn(`Failed to enqueue acceptance timeout check: ${err?.message || err}`);
+  });
 
   await foodTransactionService.updateTransactionStatus(order._id, 'captured', {
     status: 'captured',
@@ -509,6 +616,7 @@ export async function processDispatchTimeout(orderId, partnerId, options = {}) {
 
 // ----- User: list, get, cancel -----
 export async function listOrdersUser(userId, query) {
+  await expireUnacceptedOrders();
   const { page, limit, skip } = buildPaginationOptions(query);
   const filter = { 
     userId: new mongoose.Types.ObjectId(userId),
@@ -539,6 +647,7 @@ export async function getOrderById(
   orderId,
   { userId, restaurantId, deliveryPartnerId, admin } = {},
 ) {
+  await expireUnacceptedOrders();
   const identity = buildOrderIdentityFilter(orderId);
   if (!identity) throw new ValidationError("Order id required");
   const order = await FoodOrder.findOne(identity)
@@ -943,6 +1052,9 @@ export async function updateOrderInstructions(orderId, userId, instructions) {
 
 // ----- Restaurant -----
 export async function listOrdersRestaurant(restaurantId, query) {
+  await expireUnacceptedOrders({
+    restaurantId: new mongoose.Types.ObjectId(restaurantId),
+  });
   const { page, limit, skip } = buildPaginationOptions(query);
   const filter = {
     restaurantId: new mongoose.Types.ObjectId(restaurantId),
@@ -969,12 +1081,25 @@ export async function updateOrderStatusRestaurant(
   orderStatus,
   note = "",
 ) {
+  await expireUnacceptedOrders({
+    restaurantId: new mongoose.Types.ObjectId(restaurantId),
+  });
   const identity = buildOrderIdentityFilter(orderId);
   let order = await FoodOrder.findOne({
     ...identity,
     restaurantId: new mongoose.Types.ObjectId(restaurantId),
   });
   if (!order) throw new NotFoundError("Order not found");
+
+  const targetStatus = String(orderStatus || "").toLowerCase();
+  if (targetStatus === "preparing" || targetStatus === "confirmed") {
+    const now = new Date();
+    const deadline = order.acceptanceDeadlineAt ? new Date(order.acceptanceDeadlineAt) : null;
+    if (deadline && deadline.getTime() <= now.getTime()) {
+      await expireUnacceptedOrders({ _id: order._id });
+      throw new ValidationError("Order acceptance window has expired");
+    }
+  }
   const from = order.orderStatus;
   if (!isStatusAdvance(from, orderStatus)) {
     throw new ValidationError(
