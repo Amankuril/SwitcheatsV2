@@ -2446,17 +2446,32 @@ export async function updateRestaurantById(id, body = {}) {
 export async function updateRestaurantStatus(id, body = {}) {
     if (!id || !mongoose.Types.ObjectId.isValid(id)) return null;
     const raw = body.status !== undefined ? body.status : body.isActive;
-    const isActive = parseBooleanLike(raw, 'status');
-    const status = isActive ? 'approved' : 'rejected';
+    let status = null;
+
+    if (typeof raw === 'string') {
+        const normalized = raw.trim().toLowerCase();
+        if (['approved', 'pending', 'rejected'].includes(normalized)) {
+            status = normalized;
+        }
+    }
+
+    if (!status) {
+        const isActive = parseBooleanLike(raw, 'status');
+        status = isActive ? 'approved' : 'rejected';
+    }
+
+    const approvedAt = status === 'approved' ? new Date() : undefined;
+    const rejectedAt = status === 'rejected' ? new Date() : undefined;
+    const rejectionReason = status === 'rejected' ? 'Disabled by admin' : undefined;
 
     return FoodRestaurant.findByIdAndUpdate(
         id,
         {
             $set: {
                 status,
-                approvedAt: isActive ? new Date() : undefined,
-                rejectedAt: isActive ? undefined : new Date(),
-                rejectionReason: isActive ? undefined : 'Disabled by admin'
+                approvedAt,
+                rejectedAt,
+                rejectionReason
             }
         },
         { new: true, runValidators: false }
