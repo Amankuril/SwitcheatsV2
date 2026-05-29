@@ -21,6 +21,8 @@ const normalizeAddonDoc = (doc) => {
         // Draft fields (what restaurant edits)
         name: draft.name || '',
         description: draft.description || '',
+        foodType: draft.foodType === 'non-veg' ? 'non-veg' : 'veg',
+        isVeg: draft.foodType !== 'non-veg',
         price: Number(draft.price) || 0,
         image: draft.image || '',
         images: Array.isArray(draft.images) ? draft.images : [],
@@ -29,6 +31,8 @@ const normalizeAddonDoc = (doc) => {
             ? {
                 name: published.name || '',
                 description: published.description || '',
+                foodType: published.foodType === 'non-veg' ? 'non-veg' : 'veg',
+                isVeg: published.foodType !== 'non-veg',
                 price: Number(published.price) || 0,
                 image: published.image || '',
                 images: Array.isArray(published.images) ? published.images : []
@@ -105,6 +109,7 @@ export async function createRestaurantAddon(restaurantId, body) {
         draft: {
             name,
             description: String(body.description || '').trim(),
+            foodType: body?.foodType === 'non-veg' ? 'non-veg' : 'veg',
             price: Number(body.price) || 0,
             image: String(body.image || '').trim(),
             images: Array.isArray(body.images) ? body.images.filter(Boolean).slice(0, 10) : []
@@ -176,6 +181,13 @@ export async function updateRestaurantAddon(restaurantId, addonId, updateDto) {
             set['draft.name'] = name;
         }
         if (d.description !== undefined) set['draft.description'] = String(d.description || '').trim();
+        if (d.foodType !== undefined) {
+            const ft = String(d.foodType || '').trim().toLowerCase();
+            if (ft !== 'veg' && ft !== 'non-veg') {
+                throw new ValidationError('Food type must be veg or non-veg');
+            }
+            set['draft.foodType'] = ft;
+        }
         if (d.price !== undefined) {
             const price = Number(d.price);
             if (!Number.isFinite(price) || price < 0) throw new ValidationError('Price must be >= 0');
@@ -224,4 +236,3 @@ export async function deleteRestaurantAddon(restaurantId, addonId) {
     ).lean();
     return updated ? { id: updated._id } : null;
 }
-

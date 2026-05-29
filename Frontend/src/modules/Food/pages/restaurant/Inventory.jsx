@@ -54,6 +54,10 @@ const ADDON_FILTER_OPTIONS = [
   { value: "pending", label: "Pending" },
   { value: "rejected", label: "Rejected" },
 ]
+const ADDON_TYPE_OPTIONS = [
+  { value: "veg", label: "Veg" },
+  { value: "non-veg", label: "Non-veg" },
+]
 
 const getApprovalDisplayMeta = (approvalStatus) => {
   const normalizedStatus = String(approvalStatus || "approved").toLowerCase()
@@ -906,6 +910,7 @@ export default function Inventory() {
   const [addonName, setAddonName] = useState("")
   const [addonDescription, setAddonDescription] = useState("")
   const [addonPrice, setAddonPrice] = useState("")
+  const [addonFoodType, setAddonFoodType] = useState("veg")
   const [addonImageFile, setAddonImageFile] = useState(null)
   const [addonImagePreview, setAddonImagePreview] = useState("")
   const [savingAddon, setSavingAddon] = useState(false)
@@ -1081,6 +1086,7 @@ export default function Inventory() {
         setAddonName(parsed?.name || "")
         setAddonDescription(parsed?.description || "")
         setAddonPrice(parsed?.price || "")
+        setAddonFoodType(parsed?.foodType === "non-veg" ? "non-veg" : "veg")
         if (parsed?.isOpen) setIsAddAddonOpen(true)
         if (parsed?.preview) {
           setAddonImagePreview(parsed.preview)
@@ -1097,12 +1103,13 @@ export default function Inventory() {
         name: addonName,
         description: addonDescription,
         price: addonPrice,
+        foodType: addonFoodType,
         preview: addonImagePreview,
         isOpen: isAddAddonOpen
       }
       localStorage.setItem(INVENTORY_ADDON_FORM_KEY, JSON.stringify(payload))
     } catch {}
-  }, [addonName, addonDescription, addonPrice, addonImagePreview, isAddAddonOpen])
+  }, [addonName, addonDescription, addonPrice, addonFoodType, addonImagePreview, isAddAddonOpen])
 
   const resetAddonForm = () => {
     if (addonImagePreview && addonImagePreview.startsWith("blob:")) {
@@ -1111,6 +1118,7 @@ export default function Inventory() {
     setAddonName("")
     setAddonDescription("")
     setAddonPrice("")
+    setAddonFoodType("veg")
     setAddonImageFile(null)
     setAddonImagePreview("")
     if (addonImageInputRef.current) {
@@ -1163,6 +1171,7 @@ export default function Inventory() {
       const payload = {
         name: addonName.trim(),
         description: addonDescription.trim(),
+        foodType: addonFoodType === "non-veg" ? "non-veg" : "veg",
         price: parsedPrice,
         image: imageUrl,
         images: imageUrl ? [imageUrl] : [],
@@ -2054,6 +2063,28 @@ export default function Inventory() {
                       />
                     </div>
                     <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {ADDON_TYPE_OPTIONS.map((option) => {
+                          const active = addonFoodType === option.value
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => setAddonFoodType(option.value)}
+                              className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                                active
+                                  ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Image (1 only)</label>
                       {addonImagePreview && (
                         <div className="mb-2">
@@ -2137,6 +2168,41 @@ export default function Inventory() {
                         <div className="flex-1 min-w-0">
                           <div className="mb-2 flex items-center gap-2 flex-wrap">
                             <h3 className="text-base font-semibold text-slate-950">{addon.name}</h3>
+                            <div
+                              className={`h-4 w-4 rounded-sm border-2 flex items-center justify-center ${
+                                addon.isVeg === false || addon.foodType === "non-veg" ? "border-red-500" : ""
+                              }`}
+                              style={
+                                addon.isVeg === false || addon.foodType === "non-veg"
+                                  ? undefined
+                                  : { borderColor: "#16A34A", backgroundColor: "#F0FDF4" }
+                              }
+                            >
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  addon.isVeg === false || addon.foodType === "non-veg" ? "bg-red-500" : ""
+                                }`}
+                                style={
+                                  addon.isVeg === false || addon.foodType === "non-veg"
+                                    ? undefined
+                                    : { backgroundColor: "#16A34A" }
+                                }
+                              />
+                            </div>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                addon.isVeg === false || addon.foodType === "non-veg"
+                                  ? "bg-rose-50 text-rose-700"
+                                  : ""
+                              }`}
+                              style={
+                                addon.isVeg === false || addon.foodType === "non-veg"
+                                  ? undefined
+                                  : { backgroundColor: "#ECFDF3", color: "#15803D" }
+                              }
+                            >
+                              {addon.isVeg === false || addon.foodType === "non-veg" ? "Non-veg" : "Veg"}
+                            </span>
                             <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                               addon.isAvailable !== false
                                 ? "bg-emerald-50 text-emerald-700"
@@ -2321,21 +2387,20 @@ export default function Inventory() {
 
                           return (
                           <div key={item.id}>
-                            <div className="flex items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50/80 px-4 py-3">
-                              <div className="flex flex-1 items-center gap-3 min-w-0">
-                                {/* Veg/Non-veg Icon */}
-                                <div
-                                  className={`h-4 w-4 rounded-sm border-2 flex items-center justify-center ${item.isVeg ? '' : 'border-red-500'}`}
-                                  style={item.isVeg ? { borderColor: "#16A34A", backgroundColor: "#F0FDF4" } : undefined}
-                                >
-                                  <div
-                                    className={`h-2 w-2 rounded-full ${item.isVeg ? '' : 'bg-red-500'}`}
-                                    style={item.isVeg ? { backgroundColor: "#16A34A" } : undefined}
-                                  />
-                                </div>
+                            <div className="flex items-start justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50/80 px-4 py-3">
+                              <div className="flex flex-1 items-start gap-3 min-w-0">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
+                                    <div
+                                      className={`h-4 w-4 rounded-sm border-2 flex items-center justify-center ${item.isVeg ? '' : 'border-red-500'}`}
+                                      style={item.isVeg ? { borderColor: "#16A34A", backgroundColor: "#F0FDF4" } : undefined}
+                                    >
+                                      <div
+                                        className={`h-2 w-2 rounded-full ${item.isVeg ? '' : 'bg-red-500'}`}
+                                        style={item.isVeg ? { backgroundColor: "#16A34A" } : undefined}
+                                      />
+                                    </div>
                                     <span
                                       className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${item.isVeg ? "" : "bg-rose-50 text-rose-700"}`}
                                       style={item.isVeg ? { backgroundColor: "#ECFDF3", color: "#15803D" } : undefined}
@@ -2356,6 +2421,9 @@ export default function Inventory() {
                                   }`}>
                                     {item.inStock ? "In stock" : getRuleStatusLabel(item.stockRule)}
                                   </p>
+                                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                                    Amount: ₹{Number(item.price || 0).toFixed(2)}
+                                  </p>
                                   {item.approvalStatus === "rejected" && item.rejectionReason ? (
                                     <p className="mt-1 line-clamp-2 text-[11px] font-medium text-red-600">
                                       Reason: {item.rejectionReason}
@@ -2375,8 +2443,24 @@ export default function Inventory() {
                                   </button>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
+                              <div className="flex h-full min-h-[120px] flex-col items-end justify-between gap-2 shrink-0">
+                                <div className="relative h-16 w-16 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
+                                  <div className="absolute inset-0 flex items-center justify-center px-1 text-center text-[10px] font-medium leading-3 text-slate-500">
+                                    {String(item.name || "Item").slice(0, 18)}
+                                  </div>
+                                  {item.image ? (
+                                    <img
+                                      src={item.image}
+                                      alt={item.name || "Item"}
+                                      className="absolute inset-0 h-full w-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = "none"
+                                      }}
+                                    />
+                                  ) : null}
+                                </div>
                                 {/* Recommend Thumb Icon */}
+                                <div className="mt-auto flex items-center gap-2">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -2403,6 +2487,7 @@ export default function Inventory() {
                                     }
                                     className="data-[state=checked]:bg-green-600"
                                   />
+                                </div>
                                 </div>
                               </div>
                             </div>

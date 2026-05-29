@@ -127,7 +127,7 @@ export default function Cart() {
   }
 
   const { cart, updateQuantity, addToCart, getCartCount, clearCart, cleanCartForRestaurant } = cartContext;
-  const { getDefaultAddress, getDefaultPaymentMethod, setDefaultAddress, addresses, paymentMethods, userProfile } = useProfile()
+  const { getDefaultAddress, getDefaultPaymentMethod, setDefaultAddress, addresses, paymentMethods, userProfile, vegMode } = useProfile()
   const { createOrder } = useOrders()
   const { openLocationSelector } = useLocationSelector()
   const { location: currentLocation, loading: currentLocationLoading } = useUserLocation() // Get live location address
@@ -229,6 +229,18 @@ export default function Cart() {
   const [availableCoupons, setAvailableCoupons] = useState([])
   const [loadingCoupons, setLoadingCoupons] = useState(false)
   const [userOrderCount, setUserOrderCount] = useState(0)
+
+  const suggestedAddons = useMemo(() => {
+    if (!Array.isArray(addons) || addons.length === 0) return []
+    // Veg mode ON => only veg suggestions.
+    // Veg mode OFF => show all suggestions.
+    if (vegMode !== true) return addons
+    return addons.filter((addon) => {
+      if (addon?.isVeg === true) return true
+      const ft = String(addon?.foodType || "").trim().toLowerCase()
+      return ft === "veg" || ft === "vegetarian"
+    })
+  }, [addons, vegMode])
 
   // Fee settings from database (used for platform fee and GST fallback only)
   const [feeSettings, setFeeSettings] = useState({
@@ -2166,7 +2178,7 @@ export default function Cart() {
               )}
 
               {/* Complete your meal section - Approved Addons */}
-              {addons.length > 0 && (
+              {suggestedAddons.length > 0 && (
                 <div className="bg-white dark:bg-[#1a1a1a] px-4 md:px-6 py-5 rounded-2xl shadow-sm border border-slate-100 dark:border-gray-800">
                   <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
                     <div className="w-6 h-6 md:w-8 md:h-8 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
@@ -2186,7 +2198,7 @@ export default function Cart() {
                     </div>
                   ) : (
                     <div className="flex gap-3 md:gap-4 overflow-x-auto pb-2 -mx-4 md:-mx-6 px-4 md:px-6 scrollbar-hide">
-                      {addons.map((addon) => (
+                      {suggestedAddons.map((addon) => (
                         <div key={addon.id} className="flex-shrink-0 w-28 md:w-36">
                           <div className="relative bg-gray-100 dark:bg-gray-800 rounded-lg md:rounded-xl overflow-hidden">
                             <img

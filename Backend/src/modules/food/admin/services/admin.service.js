@@ -2873,6 +2873,13 @@ export async function updateRestaurantAddonAdmin(addonId, body) {
     const updatePayload = {};
     if (body.name !== undefined) updatePayload.name = String(body.name || '').trim();
     if (body.description !== undefined) updatePayload.description = String(body.description || '').trim();
+    if (body.foodType !== undefined) {
+        const foodType = String(body.foodType || '').trim().toLowerCase();
+        if (!['veg', 'non-veg'].includes(foodType)) {
+            throw new ValidationError('Food type must be veg or non-veg');
+        }
+        updatePayload.foodType = foodType;
+    }
     if (body.price !== undefined) {
         const p = Number(body.price);
         if (!Number.isFinite(p) || p < 0) throw new ValidationError('Price must be a valid positive number');
