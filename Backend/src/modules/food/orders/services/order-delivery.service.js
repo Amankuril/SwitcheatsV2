@@ -536,7 +536,7 @@ export async function confirmReachedPickupDelivery(orderId, deliveryPartnerId) {
         // #${order._id.toString()}
         data: {
           type: 'rider_arrived',
-          orderId: String(order._id.toString()),
+          // orderId: String(order._id.toString()),
           orderMongoId: String(order._id),
           partnerName: partner?.name || '',
         },
