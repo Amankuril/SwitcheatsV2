@@ -21,29 +21,31 @@ export const ImageSourcePicker = ({
   fileNamePrefix = "upload",
   galleryInputRef = null
 }) => {
+  const runAfterClose = (fn) => {
+    onClose()
+    window.setTimeout(fn, 0)
+  }
   
   const handleOpenCamera = async () => {
-    const openPromise = openCamera({
-      onSelectFile: onFileSelect,
-      fileNamePrefix: fileNamePrefix
+    runAfterClose(() => {
+      void openCamera({
+        onSelectFile: onFileSelect,
+        fileNamePrefix: fileNamePrefix
+      })
     })
-    onClose()
-    await openPromise
   }
 
   const handlePickFromDevice = async () => {
-    // Keep gallery behavior aligned with delivery onboarding:
-    // always use shared openGallery utility first.
-    await openGallery({
-      onSelectFile: onFileSelect,
-      fileNamePrefix: fileNamePrefix
+    runAfterClose(() => {
+      void openGallery({
+        onSelectFile: onFileSelect,
+        fileNamePrefix: fileNamePrefix
+      })
+      // Optional extra fallback trigger for non-bridge plain web.
+      if (!isFlutterBridgeAvailable() && galleryInputRef && galleryInputRef.current) {
+        galleryInputRef.current.click()
+      }
     })
-    onClose()
-
-    // Optional web fallback for non-bridge environments where no file was picked.
-    if (!isFlutterBridgeAvailable() && galleryInputRef && galleryInputRef.current) {
-      galleryInputRef.current.click()
-    }
   }
 
   // If no bridge is available, we might not even need the dialog if we want to default to gallery
