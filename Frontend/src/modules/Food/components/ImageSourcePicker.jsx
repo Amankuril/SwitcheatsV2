@@ -32,16 +32,18 @@ export const ImageSourcePicker = ({
   }
 
   const handlePickFromDevice = async () => {
-    onClose()
-    
     // 1. Try Bridge first
     if (isFlutterBridgeAvailable()) {
-      await openGallery({
+      const openPromise = openGallery({
         onSelectFile: onFileSelect,
         fileNamePrefix: fileNamePrefix
       })
+      onClose()
+      await openPromise
       return
     }
+
+    onClose()
 
     // 2. Try provided ref (Standard browser behavior)
     if (galleryInputRef && galleryInputRef.current) {
