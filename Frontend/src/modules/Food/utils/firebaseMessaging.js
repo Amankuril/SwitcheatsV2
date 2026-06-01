@@ -556,6 +556,33 @@ async function getFirebasePublicEnv() {
   return publicEnvPromise;
 }
 
+function passFirebaseConfigToServiceWorker(registration, config) {
+  if (!registration || !config) return;
+  const payload = {
+    type: "INIT_FIREBASE_CONFIG",
+    config: {
+      apiKey: sanitize(config.apiKey),
+      authDomain: sanitize(config.authDomain),
+      projectId: sanitize(config.projectId),
+      appId: sanitize(config.appId),
+      messagingSenderId: sanitize(config.messagingSenderId),
+      storageBucket: sanitize(config.storageBucket),
+      measurementId: sanitize(config.measurementId),
+    },
+  };
+
+  const postConfig = (worker) => {
+    if (!worker || typeof worker.postMessage !== "function") return false;
+    worker.postMessage(payload);
+    return true;
+  };
+
+  if (!postConfig(registration.active)) {
+    postConfig(registration.waiting);
+    postConfig(registration.installing);
+  }
+}
+
 function getMessagingFirebaseApp(config) {
   const appConfig = {
     apiKey: config.apiKey,
@@ -845,6 +872,7 @@ export async function registerWebPushForCurrentModule(pathname = window.location
         scope: registration.scope,
         moduleName,
       });
+      passFirebaseConfigToServiceWorker(registration, firebasePublicEnv);
       const messaging = getMessaging(app);
 
       const token = await getToken(messaging, {

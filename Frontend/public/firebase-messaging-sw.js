@@ -199,49 +199,19 @@ async function notifyFocusedClients(payload) {
   }
 }
 
-async function loadFirebaseWebConfig() {
-  const candidates = [
-    "/api/v1/food/public/env",
-    "/api/v1/env/public",
-    "/api/env/public",
-  ];
-  for (const url of candidates) {
-    try {
-      const response = await fetch(url, { cache: "no-store" });
-      if (!response.ok) continue;
-      const json = await response.json();
-      const data = (json && json.data) || {};
-      const config = {
-        apiKey: sanitize(data.VITE_FIREBASE_API_KEY || data.FIREBASE_API_KEY),
-        authDomain: sanitize(data.VITE_FIREBASE_AUTH_DOMAIN || data.FIREBASE_AUTH_DOMAIN),
-        projectId: sanitize(data.VITE_FIREBASE_PROJECT_ID || data.FIREBASE_PROJECT_ID),
-        appId: sanitize(data.VITE_FIREBASE_APP_ID || data.FIREBASE_APP_ID),
-        messagingSenderId: sanitize(data.VITE_FIREBASE_MESSAGING_SENDER_ID || data.FIREBASE_MESSAGING_SENDER_ID),
-        storageBucket: sanitize(data.VITE_FIREBASE_STORAGE_BUCKET || data.FIREBASE_STORAGE_BUCKET),
-        measurementId: sanitize(data.VITE_FIREBASE_MEASUREMENT_ID || data.FIREBASE_MEASUREMENT_ID),
-      };
+let messaging = null;
+let firebaseSwInitialized = false;
 
-      if (config.apiKey && config.projectId && config.appId && config.messagingSenderId) {
-        pushDebugLog(PUSH_DEBUG_PREFIX, "Loaded Firebase web config");
-        return config;
-      }
-    } catch {
-      // try next candidate
-    }
-  }
-
-  return null;
+function isValidFirebaseConfig(config = {}) {
+  return Boolean(config?.apiKey && config?.projectId && config?.appId && config?.messagingSenderId);
 }
 
-(async () => {
-  const config = await loadFirebaseWebConfig();
-  if (!config || !config.apiKey || !config.projectId || !config.appId || !config.messagingSenderId) {
-    return;
-  }
-
+function initializeFirebaseInServiceWorker(config = {}) {
+  if (firebaseSwInitialized || !isValidFirebaseConfig(config)) return;
   firebase.initializeApp(config);
+  messaging = firebase.messaging();
+  firebaseSwInitialized = true;
   pushDebugLog(PUSH_DEBUG_PREFIX, "Firebase messaging service worker initialized");
-  const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage(async (payload) => {
     pushDebugLog(PUSH_DEBUG_PREFIX, "Received Firebase background message", { payload });
@@ -299,7 +269,13 @@ async function loadFirebaseWebConfig() {
       });
     }
   });
-})();
+}
+
+self.addEventListener("message", (event) => {
+  const data = event?.data || {};
+  if (data?.type !== "INIT_FIREBASE_CONFIG") return;
+  initializeFirebaseInServiceWorker(data?.config || {});
+});
 
 self.addEventListener("push", (event) => {
   if (!event.data) return;
