@@ -59,18 +59,6 @@ export default defineConfig({
           ) {
             return 'vendor-mui'
           }
-          if (id.includes('@radix-ui/') || id.includes('react-day-picker') || id.includes('dayjs')) {
-            return 'vendor-ui'
-          }
-          if (
-            id.includes('@floating-ui/') ||
-            id.includes('react-remove-scroll') ||
-            id.includes('react-style-singleton') ||
-            id.includes('use-callback-ref') ||
-            id.includes('use-sidecar')
-          ) {
-            return 'vendor-ui'
-          }
           if (id.includes('firebase')) return 'vendor-firebase'
           if (id.includes('@react-google-maps') || id.includes('@googlemaps/')) return 'vendor-maps'
           if (id.includes('leaflet') || id.includes('react-leaflet')) return 'vendor-leaflet'
