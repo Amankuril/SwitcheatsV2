@@ -74,6 +74,7 @@ export default function RestaurantSignupEmail() {
       setStep(2)
       setResendTimer(60)
       const timer = setInterval(() => {
+        if (typeof document !== "undefined" && document.hidden) return
         setResendTimer((prev) => {
           if (prev <= 1) {
             clearInterval(timer)
@@ -185,6 +186,7 @@ export default function RestaurantSignupEmail() {
       await restaurantAPI.sendOTP(null, "register", formData.email)
       setResendTimer(60)
       const timer = setInterval(() => {
+        if (typeof document !== "undefined" && document.hidden) return
         setResendTimer((prev) => {
           if (prev <= 1) {
             clearInterval(timer)

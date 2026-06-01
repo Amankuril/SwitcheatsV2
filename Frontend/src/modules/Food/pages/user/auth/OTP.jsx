@@ -62,6 +62,7 @@ export default function OTP() {
 
     setResendTimer(60)
     const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
       setResendTimer((prev) => {
         if (prev <= 1) {
           clearInterval(timer)

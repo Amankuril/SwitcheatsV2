@@ -328,10 +328,21 @@ const RestaurantImageCarousel = React.memo(
       if (!hasRecommended || images.length <= 1) return;
 
       const interval = setInterval(() => {
+        if (typeof document !== "undefined" && document.hidden) return;
         setCurrentIndex((prev) => (prev + 1) % images.length);
       }, 3000);
 
-      return () => clearInterval(interval);
+      const handleVisibilityChange = () => {
+        if (typeof document !== "undefined" && !document.hidden) {
+          setCurrentIndex((prev) => (prev + 1) % images.length);
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      };
     }, [restaurant.recommendedItems, images.length, setCurrentIndex]);
 
     const showMultipleImages = images.length > 1;
@@ -915,11 +926,22 @@ export default function Home() {
   );
 
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    const tickAvailability = () => {
+      if (typeof document !== "undefined" && document.hidden) return
       setAvailabilityTick(Date.now());
-    }, 60000);
+    }
+    const intervalId = setInterval(tickAvailability, 60000);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setAvailabilityTick(Date.now());
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, []);
 
   useEffect(() => {
@@ -1209,7 +1231,7 @@ export default function Home() {
     if (heroBannerImages.length <= 1) return;
 
     autoSlideIntervalRef.current = setInterval(() => {
-      if (!isSwiping.current) {
+      if (!isSwiping.current && (typeof document === "undefined" || !document.hidden)) {
         setCurrentBannerIndex((prev) => (prev + 1) % heroBannerImages.length);
       }
     }, HERO_BANNER_AUTO_SLIDE_MS);
@@ -2558,10 +2580,21 @@ export default function Home() {
   // Animated placeholder cycling - same as RestaurantDetails highlight offer animation
   useEffect(() => {
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
       setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
     }, 2000); // Change placeholder every 2 seconds (same as RestaurantDetails)
 
-    return () => clearInterval(interval);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, []); // placeholders is a constant, no need for dependency
 
   // Memoized Hero Banner Component for better perf

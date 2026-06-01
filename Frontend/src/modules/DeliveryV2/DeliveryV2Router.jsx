@@ -12,26 +12,26 @@ const OTP = lazy(() => import("./pages/auth/OTP"))
 const SignupStep1 = lazy(() => import("./pages/auth/SignupStep1"))
 const SignupStep2 = lazy(() => import("./pages/auth/SignupStep2"))
 
-// V2 Pages
-import DeliveryHomeV2 from './pages/DeliveryHomeV2';
-import { PayoutV2 } from './pages/pocket/PayoutV2';
-import { PocketStatementV2 } from './pages/pocket/PocketStatementV2';
-import { DeductionStatementV2 } from './pages/pocket/DeductionStatementV2';
-import { LimitSettlementV2 } from './pages/pocket/LimitSettlementV2';
-import { PocketBalanceV2 } from './pages/pocket/PocketBalanceV2';
-import { CashLimitInfoV2 } from './pages/pocket/CashLimitInfoV2';
-import { ProfileBankV2 } from './pages/profile/ProfileBankV2';
-import { ProfileDocsV2 } from './pages/profile/ProfileDocsV2';
-import { SupportTicketsV2 } from './pages/help/SupportTicketsV2';
-import { CreateSupportTicketV2 } from './pages/help/CreateSupportTicketV2';
-import { ViewSupportTicketV2 } from './pages/help/ViewSupportTicketV2';
-import ShowIdCardV2 from './pages/help/ShowIdCardV2';
-import { PocketDetailsV2 } from './pages/pocket/PocketDetailsV2';
-import { ProfileDetailsV2 } from './pages/profile/ProfileDetailsV2';
-import TermsAndConditionsV2 from './pages/TermsAndConditionsV2';
-import PrivacyPolicyV2 from './pages/PrivacyPolicyV2';
-import HelpContentV2 from './pages/HelpContentV2';
-import NotificationsV2 from './pages/NotificationsV2';
+// V2 Pages (Lazy loaded)
+const DeliveryHomeV2 = lazy(() => import('./pages/DeliveryHomeV2'));
+const PayoutV2 = lazy(() => import('./pages/pocket/PayoutV2').then((m) => ({ default: m.PayoutV2 })));
+const PocketStatementV2 = lazy(() => import('./pages/pocket/PocketStatementV2').then((m) => ({ default: m.PocketStatementV2 })));
+const DeductionStatementV2 = lazy(() => import('./pages/pocket/DeductionStatementV2').then((m) => ({ default: m.DeductionStatementV2 })));
+const LimitSettlementV2 = lazy(() => import('./pages/pocket/LimitSettlementV2').then((m) => ({ default: m.LimitSettlementV2 })));
+const PocketBalanceV2 = lazy(() => import('./pages/pocket/PocketBalanceV2').then((m) => ({ default: m.PocketBalanceV2 })));
+const CashLimitInfoV2 = lazy(() => import('./pages/pocket/CashLimitInfoV2').then((m) => ({ default: m.CashLimitInfoV2 })));
+const ProfileBankV2 = lazy(() => import('./pages/profile/ProfileBankV2').then((m) => ({ default: m.ProfileBankV2 })));
+const ProfileDocsV2 = lazy(() => import('./pages/profile/ProfileDocsV2').then((m) => ({ default: m.ProfileDocsV2 })));
+const SupportTicketsV2 = lazy(() => import('./pages/help/SupportTicketsV2').then((m) => ({ default: m.SupportTicketsV2 })));
+const CreateSupportTicketV2 = lazy(() => import('./pages/help/CreateSupportTicketV2').then((m) => ({ default: m.CreateSupportTicketV2 })));
+const ViewSupportTicketV2 = lazy(() => import('./pages/help/ViewSupportTicketV2').then((m) => ({ default: m.ViewSupportTicketV2 })));
+const ShowIdCardV2 = lazy(() => import('./pages/help/ShowIdCardV2'));
+const PocketDetailsV2 = lazy(() => import('./pages/pocket/PocketDetailsV2').then((m) => ({ default: m.PocketDetailsV2 })));
+const ProfileDetailsV2 = lazy(() => import('./pages/profile/ProfileDetailsV2').then((m) => ({ default: m.ProfileDetailsV2 })));
+const TermsAndConditionsV2 = lazy(() => import('./pages/TermsAndConditionsV2'));
+const PrivacyPolicyV2 = lazy(() => import('./pages/PrivacyPolicyV2'));
+const HelpContentV2 = lazy(() => import('./pages/HelpContentV2'));
+const NotificationsV2 = lazy(() => import('./pages/NotificationsV2'));
 
 const DeliveryV2Router = () => {
   // Safely enforce light mode for the Delivery app to prevent User dark mode bleeding

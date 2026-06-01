@@ -74,11 +74,23 @@ export default function CategoryPage() {
   const [availabilityTick, setAvailabilityTick] = useState(Date.now())
 
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    const tickAvailability = () => {
+      if (typeof document !== "undefined" && document.hidden) return
       setAvailabilityTick(Date.now());
-    }, 60000);
+    }
 
-    return () => clearInterval(intervalId);
+    const intervalId = setInterval(tickAvailability, 60000);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setAvailabilityTick(Date.now());
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, []);
 
   const showCategorySkeleton = useDelayedLoading(loadingCategories)
@@ -2099,4 +2111,3 @@ export default function CategoryPage() {
     </div>
   )
 }
-

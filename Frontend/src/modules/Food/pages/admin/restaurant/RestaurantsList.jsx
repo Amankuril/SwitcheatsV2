@@ -4,7 +4,6 @@ import { Search, Download, ChevronDown, Eye, Settings, ArrowUpDown, Loader2, X, 
 import { adminAPI, restaurantAPI, uploadAPI } from "@food/api"
 import { clearModuleAuth } from "@food/utils/auth"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@food/components/ui/dropdown-menu"
-import { exportRestaurantsToPDF } from "@food/components/admin/restaurants/restaurantsExportUtils"
 import { getGoogleMapsApiKey } from "@food/utils/googleMapsApiKey"
 
 // Import icons from Dashboard-icons
@@ -1000,10 +999,14 @@ export default function RestaurantsList() {
   }
 
   // Handle export functionality
-  const handleExport = () => {
+  const loadRestaurantsExportUtils = () =>
+    import("@food/components/admin/restaurants/restaurantsExportUtils")
+
+  const handleExport = async () => {
     const dataToExport = filteredRestaurants.length > 0 ? filteredRestaurants : restaurants
     const filename = "restaurants_list"
-    exportRestaurantsToPDF(dataToExport, filename)
+    const utils = await loadRestaurantsExportUtils()
+    utils.exportRestaurantsToPDF(dataToExport, filename)
   }
 
   return (
@@ -1101,12 +1104,11 @@ export default function RestaurantsList() {
                     PDF
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    onClick={() => {
+                    onClick={async () => {
                       const dataToExport = filteredRestaurants.length > 0 ? filteredRestaurants : restaurants
                       const filename = "restaurants_list"
-                      import("@food/components/admin/restaurants/restaurantsExportUtils").then(utils => {
-                        utils.exportRestaurantsToExcel(dataToExport, filename)
-                      })
+                      const utils = await loadRestaurantsExportUtils()
+                      utils.exportRestaurantsToExcel(dataToExport, filename)
                     }} 
                     className="cursor-pointer flex items-center gap-2"
                   >

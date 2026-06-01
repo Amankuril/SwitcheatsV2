@@ -401,6 +401,7 @@ export default function Under250() {
     }
     if (displayBanners.length <= 1) return
     autoSlideIntervalRef.current = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
       setCurrentBannerIndex((prev) => (prev + 1) % displayBanners.length)
     }, 3500)
   }, [displayBanners.length])
@@ -681,11 +682,22 @@ export default function Under250() {
   }, [cart])
 
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    const tickAvailability = () => {
+      if (typeof document !== "undefined" && document.hidden) return
       setAvailabilityTick(Date.now());
-    }, 60000);
+    }
+    const intervalId = setInterval(tickAvailability, 60000);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setAvailabilityTick(Date.now());
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, []);
 
   useEffect(() => {

@@ -1049,15 +1049,29 @@ export default function Cart() {
     }
 
     const handleFocus = () => {
+      if (typeof document !== "undefined" && document.hidden) return
       fetchFeeSettings()
+    }
+
+    const pollFeeSettings = () => {
+      if (typeof document !== "undefined" && document.hidden) return
+      fetchFeeSettings()
+    }
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        fetchFeeSettings()
+      }
     }
 
     fetchFeeSettings()
     window.addEventListener("focus", handleFocus)
-    const intervalId = setInterval(fetchFeeSettings, 30000)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    const intervalId = setInterval(pollFeeSettings, 30000)
 
     return () => {
       window.removeEventListener("focus", handleFocus)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
       clearInterval(intervalId)
     }
   }, [])

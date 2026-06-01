@@ -37,6 +37,7 @@ export default function RestaurantForgotPassword() {
       setStep(2)
       setResendTimer(60)
       const timer = setInterval(() => {
+        if (typeof document !== "undefined" && document.hidden) return
         setResendTimer((prev) => {
           if (prev <= 1) {
             clearInterval(timer)
@@ -130,6 +131,7 @@ export default function RestaurantForgotPassword() {
       await restaurantAPI.sendOTP(null, "reset-password", email)
       setResendTimer(60)
       const timer = setInterval(() => {
+        if (typeof document !== "undefined" && document.hidden) return
         setResendTimer((prev) => {
           if (prev <= 1) {
             clearInterval(timer)
@@ -422,4 +424,3 @@ export default function RestaurantForgotPassword() {
     </div>
   )
 }
-

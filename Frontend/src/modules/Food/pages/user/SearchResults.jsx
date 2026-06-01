@@ -53,11 +53,22 @@ export default function SearchResults() {
   const [availabilityTick, setAvailabilityTick] = useState(Date.now())
 
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    const tickAvailability = () => {
+      if (typeof document !== "undefined" && document.hidden) return
       setAvailabilityTick(Date.now());
-    }, 60000);
+    }
+    const intervalId = setInterval(tickAvailability, 60000);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setAvailabilityTick(Date.now());
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, []);
   const slugify = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
   const uniqueRestaurants = (list) => {
@@ -1138,4 +1149,3 @@ export default function SearchResults() {
     </div>
   )
 }
-

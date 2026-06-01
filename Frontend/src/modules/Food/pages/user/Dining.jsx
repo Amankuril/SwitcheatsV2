@@ -413,7 +413,7 @@ export default function Dining() {
     if (diningHeroBanners.length <= 1) return
 
     autoSlideIntervalRef.current = setInterval(() => {
-      if (!isBannerSwipingRef.current) {
+      if (!isBannerSwipingRef.current && (typeof document === "undefined" || !document.hidden)) {
         setCurrentBannerIndex((prev) => (prev + 1) % diningHeroBanners.length)
       }
     }, 3500)
@@ -425,11 +425,18 @@ export default function Dining() {
 
   useEffect(() => {
     startBannerAutoSlide()
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        startBannerAutoSlide()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
     return () => {
       if (autoSlideIntervalRef.current) {
         clearInterval(autoSlideIntervalRef.current)
       }
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
   }, [startBannerAutoSlide])
 
@@ -1500,5 +1507,3 @@ export default function Dining() {
     </AnimatedPage>
   )
 }
-
-

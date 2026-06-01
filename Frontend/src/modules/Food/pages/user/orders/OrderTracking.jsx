@@ -797,9 +797,19 @@ export default function OrderTracking() {
   useEffect(() => {
     if (!isEditWindowOpen) return
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
       setTimerNow(Date.now())
     }, 1000)
-    return () => clearInterval(interval)
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setTimerNow(Date.now())
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [isEditWindowOpen])
 
   // Poll for order updates (especially when delivery partner accepts)
@@ -947,10 +957,21 @@ export default function OrderTracking() {
 
     // Update every minute
     const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       setEstimatedTime(calculateTimeRemaining());
     }, 60000);
 
-    return () => clearInterval(timer);
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        setEstimatedTime(calculateTimeRemaining());
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [order?.createdAt, order?.estimatedDeliveryTime, order?.estimatedTime]);
 
   // Listen for order status updates from socket (e.g., "Delivery partner on the way")

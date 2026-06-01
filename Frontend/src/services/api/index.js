@@ -1046,41 +1046,45 @@ export const restaurantAPI = {
       )
       .then((res) => res),
   /** Upload and set restaurant profile image (multipart). Field name: file */
-  uploadProfileImage: (file) => {
+  uploadProfileImage: async (file) => {
     if (!file) return Promise.reject(new Error("File is required"));
+    const uploadFile = await toUploadReadyImage(file);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", uploadFile);
     return apiClient.post("/food/restaurant/profile/profile-image", formData, {
       contextModule: "restaurant",
     });
   },
   /** Upload a menu/cover image (multipart). Does not auto-attach; use updateProfile(menuImages) after. */
-  uploadMenuImage: (file) => {
+  uploadMenuImage: async (file) => {
     if (!file) return Promise.reject(new Error("File is required"));
+    const uploadFile = await toUploadReadyImage(file);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", uploadFile);
     return apiClient.post("/food/restaurant/profile/menu-image", formData, {
       contextModule: "restaurant",
     });
   },
-  uploadCoverImages: (files = []) => {
+  uploadCoverImages: async (files = []) => {
     const normalizedFiles = Array.from(files || []).filter(Boolean);
     if (normalizedFiles.length === 0) {
       return Promise.reject(new Error("At least one file is required"));
     }
+    const convertedFiles = await toUploadReadyImages(normalizedFiles);
     const formData = new FormData();
-    normalizedFiles.forEach((file) => formData.append("files", file));
+    convertedFiles.forEach((file) => formData.append("files", file));
     return apiClient.post("/food/restaurant/profile/cover-images", formData, {
       contextModule: "restaurant",
     });
   },
-  uploadMenuImages: (files = []) => {
+  uploadMenuImages: async (files = []) => {
     const normalizedFiles = Array.from(files || []).filter(Boolean);
     if (normalizedFiles.length === 0) {
       return Promise.reject(new Error("At least one file is required"));
     }
+    const convertedFiles = await toUploadReadyImages(normalizedFiles);
     const formData = new FormData();
-    normalizedFiles.forEach((file) => formData.append("files", file));
+    convertedFiles.forEach((file) => formData.append("files", file));
     return apiClient.post("/food/restaurant/profile/menu-images", formData, {
       contextModule: "restaurant",
     });
@@ -1624,6 +1628,70 @@ const getPublicRestaurantOutletTimingsOnce = (id, config = {}) => {
   );
 };
 
+const shouldConvertImageToWebP = (file) => {
+  const type = String(file?.type || "").toLowerCase();
+  if (!type.startsWith("image/")) return false;
+  if (type === "image/webp") return false;
+  if (type === "image/gif") return false;
+  if (type === "image/svg+xml") return false;
+  return true;
+};
+
+const loadImageFromFile = async (file) => {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.decoding = "async";
+    const loaded = new Promise((resolve, reject) => {
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+    });
+    image.src = objectUrl;
+    return await loaded;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
+const convertImageToWebPForUpload = async (file, { quality = 0.98 } = {}) => {
+  if (!shouldConvertImageToWebP(file)) return file;
+  if (typeof document === "undefined") return file;
+
+  try {
+    const img = await loadImageFromFile(file);
+    const width = Number(img.naturalWidth || img.width || 0);
+    const height = Number(img.naturalHeight || img.height || 0);
+    if (!width || !height) return file;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const webpBlob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/webp", quality),
+    );
+    if (!webpBlob) return file;
+
+    // Keep original when WebP does not reduce payload enough.
+    if (webpBlob.size >= file.size * 0.98) return file;
+
+    const baseName = String(file.name || "upload").replace(/\.[^.]+$/, "");
+    return new File([webpBlob], `${baseName}.webp`, {
+      type: "image/webp",
+      lastModified: Date.now(),
+    });
+  } catch {
+    return file;
+  }
+};
+
+const toUploadReadyImage = async (file) => convertImageToWebPForUpload(file);
+const toUploadReadyImages = async (files = []) =>
+  Promise.all(Array.from(files || []).map((file) => toUploadReadyImage(file)));
+
 /** Single in-flight + short cache for delivery /auth/me - one call per page load / refresh. */
 let deliveryMeInFlight = null;
 let deliveryMeCached = null;
@@ -2096,10 +2164,11 @@ export const userAPI = {
       contextModule: "user",
     }),
   /** Upload and set user profile image (multipart). Field name: file */
-  uploadProfileImage: (file) => {
+  uploadProfileImage: async (file) => {
     if (!file) return Promise.reject(new Error("File is required"));
+    const uploadFile = await toUploadReadyImage(file);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", uploadFile);
     return apiClient.post("/food/user/profile/profile-image", formData, {
       contextModule: "user",
     });
@@ -2258,13 +2327,14 @@ export const uploadAPI = {
    * @param {File|Blob} file
    * @param {{ folder?: string }} options
    */
-  uploadMedia: (file, options = {}) => {
+  uploadMedia: async (file, options = {}) => {
     if (!file) {
       return Promise.reject(new Error("File is required for upload"));
     }
+    const uploadFile = await toUploadReadyImage(file);
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", uploadFile);
     if (options.folder) {
       formData.append("folder", options.folder);
     }

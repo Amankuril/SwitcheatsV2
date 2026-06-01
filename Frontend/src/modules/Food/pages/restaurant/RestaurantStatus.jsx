@@ -45,11 +45,22 @@ export default function RestaurantStatus() {
 
   // Update current date/time every minute
   useEffect(() => {
-    const interval = setInterval(() => {
+    const tickDateTime = () => {
+      if (typeof document !== "undefined" && document.hidden) return
       setCurrentDateTime(new Date())
-    }, 60000) // Update every minute
+    }
+    const interval = setInterval(tickDateTime, 60000) // Update every minute
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setCurrentDateTime(new Date())
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [])
 
   // Fetch restaurant data from backend
@@ -61,12 +72,38 @@ export default function RestaurantStatus() {
         const data = response?.data?.data?.restaurant || response?.data?.restaurant
         if (data) {
           setRestaurantData(data)
+          const isAccepting = data?.isAcceptingOrders !== undefined ? Boolean(data.isAcceptingOrders) : false
+          setDeliveryStatus(isAccepting)
+          try {
+            localStorage.setItem('restaurant_online_status', JSON.stringify(isAccepting))
+          } catch {}
+          persistRestaurantOnlineStatus(isAccepting)
+          window.dispatchEvent(new CustomEvent('restaurantStatusChanged', {
+            detail: { isOnline: isAccepting }
+          }))
+        } else {
+          setDeliveryStatus(false)
+          try {
+            localStorage.setItem('restaurant_online_status', JSON.stringify(false))
+          } catch {}
+          persistRestaurantOnlineStatus(false)
+          window.dispatchEvent(new CustomEvent('restaurantStatusChanged', {
+            detail: { isOnline: false }
+          }))
         }
       } catch (error) {
         // Only log error if it's not a network/timeout error (backend might be down/slow)
         if (error.code !== 'ERR_NETWORK' && error.code !== 'ECONNABORTED' && !error.message?.includes('timeout')) {
           debugError("Error fetching restaurant data:", error)
         }
+        setDeliveryStatus(false)
+        try {
+          localStorage.setItem('restaurant_online_status', JSON.stringify(false))
+        } catch {}
+        persistRestaurantOnlineStatus(false)
+        window.dispatchEvent(new CustomEvent('restaurantStatusChanged', {
+          detail: { isOnline: false }
+        }))
         // Continue with default values if fetch fails
       } finally {
         setLoading(false)
@@ -103,6 +140,7 @@ export default function RestaurantStatus() {
   // Check if restaurant is currently open based on outlet timings only
   useEffect(() => {
     const checkIfOpen = () => {
+      if (typeof document !== "undefined" && document.hidden) return
       const now = new Date()
       const currentDayFull = now.toLocaleDateString('en-US', { weekday: 'long' }) // "Monday", "Tuesday", etc.
       const currentHour = now.getHours()
@@ -158,61 +196,23 @@ export default function RestaurantStatus() {
       checkIfOpen()
     }
     window.addEventListener("outletTimingsUpdated", handleOutletTimingsUpdate)
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        checkIfOpen()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
     
     return () => {
       clearInterval(interval)
       window.removeEventListener("outletTimingsUpdated", handleOutletTimingsUpdate)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
   }, [currentDateTime, outletTimings])
 
   // Note: Delivery status is now manually controlled by user via toggle
   // We don't automatically set it based on timings anymore
   // The isWithinTimings is only used to show warning messages
-
-  // Load delivery status from backend
-  useEffect(() => {
-    const loadDeliveryStatus = async () => {
-      try {
-        const response = await restaurantAPI.getCurrentRestaurant()
-        const restaurant = response?.data?.data?.restaurant || response?.data?.restaurant
-        if (restaurant?.isAcceptingOrders !== undefined) {
-          setDeliveryStatus(restaurant.isAcceptingOrders)
-          try {
-            localStorage.setItem('restaurant_online_status', JSON.stringify(Boolean(restaurant.isAcceptingOrders)))
-          } catch {}
-          persistRestaurantOnlineStatus(restaurant.isAcceptingOrders)
-          // Dispatch event to update navbar
-          window.dispatchEvent(new CustomEvent('restaurantStatusChanged', { 
-            detail: { isOnline: restaurant.isAcceptingOrders } 
-          }))
-        } else {
-          setDeliveryStatus(false)
-          try {
-            localStorage.setItem('restaurant_online_status', JSON.stringify(false))
-          } catch {}
-          persistRestaurantOnlineStatus(false)
-          window.dispatchEvent(new CustomEvent('restaurantStatusChanged', { 
-            detail: { isOnline: false } 
-          }))
-        }
-      } catch (error) {
-        // Only log error if it's not a network/timeout error (backend might be down/slow)
-        if (error.code !== 'ERR_NETWORK' && error.code !== 'ECONNABORTED' && !error.message?.includes('timeout')) {
-          debugError("Error loading delivery status:", error)
-        }
-        setDeliveryStatus(false)
-        try {
-          localStorage.setItem('restaurant_online_status', JSON.stringify(false))
-        } catch {}
-        persistRestaurantOnlineStatus(false)
-        window.dispatchEvent(new CustomEvent('restaurantStatusChanged', { 
-          detail: { isOnline: false } 
-        }))
-      }
-    }
-
-    loadDeliveryStatus()
-  }, [])
 
   // Handle delivery status change
   const handleDeliveryStatusChange = async (checked) => {
@@ -515,4 +515,3 @@ export default function RestaurantStatus() {
     </div>
   )
 }
-

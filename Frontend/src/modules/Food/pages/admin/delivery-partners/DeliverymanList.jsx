@@ -3,7 +3,6 @@ import { Search, Download, ChevronDown, Eye, User, Star, ArrowUpDown, Settings, 
 import { adminAPI } from "@food/api"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@food/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@food/components/ui/dialog"
-import { exportDeliverymenToExcel, exportDeliverymenToPDF } from "@food/components/admin/deliveryman/deliverymanExportUtils"
 import { toast } from "sonner"
 const debugError = () => {}
 
@@ -189,20 +188,25 @@ availableCashLimit: deliveryman.availableCashLimit || 0,
     }
   }
 
-  const handleExportPDF = () => {
+  const loadDeliverymanExportUtils = () =>
+    import("@food/components/admin/deliveryman/deliverymanExportUtils")
+
+  const handleExportPDF = async () => {
     if (filteredDeliverymen.length === 0) {
       alert("No data to export")
       return
     }
-    exportDeliverymenToPDF(filteredDeliverymen)
+    const utils = await loadDeliverymanExportUtils()
+    utils.exportDeliverymenToPDF(filteredDeliverymen)
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (filteredDeliverymen.length === 0) {
       alert("No data to export")
       return
     }
-    exportDeliverymenToExcel(filteredDeliverymen)
+    const utils = await loadDeliverymanExportUtils()
+    utils.exportDeliverymenToExcel(filteredDeliverymen)
   }
 
   const toggleColumn = (columnKey) => {

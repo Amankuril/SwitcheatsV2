@@ -36,14 +36,22 @@ const PromotionBannerCarousel = ({ zoneId: propZoneId }) => {
     if (banners.length <= 1) return;
 
     autoSlideIntervalRef.current = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       setCurrentIndex((prev) => (prev + 1) % banners.length);
     }, 5000);
   }, [banners.length]);
 
   useEffect(() => {
     startAutoSlide();
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        startAutoSlide();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       if (autoSlideIntervalRef.current) clearInterval(autoSlideIntervalRef.current);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [startAutoSlide]);
 

@@ -17,8 +17,6 @@ import {
 import { orderAPI, restaurantAPI } from "@food/api"
 import { useCart } from "@food/context/CartContext"
 import { toast } from "sonner"
-import { jsPDF } from "jspdf"
-import autoTable from "jspdf-autotable"
 import { getCompanyNameAsync } from "@food/utils/businessSettings"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
@@ -218,6 +216,10 @@ export default function UserOrderDetails() {
 
   const handleDownloadSummary = async () => {
     try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ])
       const companyName = await getCompanyNameAsync()
       // Create new PDF document
       const doc = new jsPDF()
@@ -686,6 +688,5 @@ export default function UserOrderDetails() {
     </div>
   )
 }
-
 
 

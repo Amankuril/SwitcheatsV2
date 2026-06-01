@@ -25,8 +25,6 @@ import RestaurantNavbar from "@food/components/restaurant/RestaurantNavbar";
 import notificationSound from "@food/assets/audio/alert.mp3";
 import { restaurantAPI, diningAPI } from "@food/api";
 import { useRestaurantNotifications } from "@food/hooks/useRestaurantNotifications";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import ResendNotificationButton from "@food/components/restaurant/ResendNotificationButton";
 const debugLog = (...args) => { };
 const debugWarn = (...args) => { };
@@ -94,6 +92,35 @@ const transformOrderForList = (order) => ({
   sortTimestamp: new Date(getAllOrdersTimestamp(order)).getTime(),
 });
 
+// Shared short-lived cache to collapse duplicate getOrders() calls across sections
+// mounting/polling at nearly the same time.
+let sharedOrdersResponse = null;
+let sharedOrdersFetchedAt = 0;
+let sharedOrdersPromise = null;
+
+const getSharedOrdersResponse = async (maxAgeMs = 1500) => {
+  const now = Date.now();
+  if (sharedOrdersResponse && now - sharedOrdersFetchedAt <= maxAgeMs) {
+    return sharedOrdersResponse;
+  }
+  if (sharedOrdersPromise) {
+    return sharedOrdersPromise;
+  }
+
+  sharedOrdersPromise = restaurantAPI
+    .getOrders()
+    .then((response) => {
+      sharedOrdersResponse = response;
+      sharedOrdersFetchedAt = Date.now();
+      return response;
+    })
+    .finally(() => {
+      sharedOrdersPromise = null;
+    });
+
+  return sharedOrdersPromise;
+};
+
 // Completed Orders List Component
 function CompletedOrders({ onSelectOrder, refreshToken = 0 }) {
   const [orders, setOrders] = useState([]);
@@ -104,7 +131,7 @@ function CompletedOrders({ onSelectOrder, refreshToken = 0 }) {
 
     const fetchOrders = async () => {
       try {
-        const response = await restaurantAPI.getOrders();
+        const response = await getSharedOrdersResponse();
 
         if (!isMounted) return;
 
@@ -310,7 +337,7 @@ function CancelledOrders({ onSelectOrder, refreshToken = 0 }) {
 
     const fetchOrders = async () => {
       try {
-        const response = await restaurantAPI.getOrders();
+        const response = await getSharedOrdersResponse();
 
         if (!isMounted) return;
 
@@ -537,12 +564,19 @@ function TableBookings() {
 
   useEffect(() => {
     let isMounted = true;
+    let restaurantEntity = null;
+
+    const resolveRestaurantEntity = async () => {
+      if (restaurantEntity) return restaurantEntity;
+      const res = await restaurantAPI.getCurrentRestaurant();
+      restaurantEntity =
+        res.data?.data?.restaurant || res.data?.restaurant || res.data?.data || null;
+      return restaurantEntity;
+    };
 
     const fetchBookings = async () => {
       try {
-        const res = await restaurantAPI.getCurrentRestaurant();
-        const restaurant =
-          res.data?.data?.restaurant || res.data?.restaurant || res.data?.data;
+        const restaurant = await resolveRestaurantEntity();
         const restaurantId = restaurant?._id || restaurant?.id;
 
         if (restaurantId) {
@@ -559,10 +593,20 @@ function TableBookings() {
     };
 
     fetchBookings();
-    const interval = setInterval(fetchBookings, 10000);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      fetchBookings();
+    }, 10000);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        fetchBookings();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       isMounted = false;
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
@@ -697,7 +741,7 @@ function AllOrders({ onSelectOrder, onCancel }) {
 
     const fetchOrders = async () => {
       try {
-        const response = await restaurantAPI.getOrders();
+        const response = await getSharedOrdersResponse();
 
         if (!isMounted) return;
 
@@ -736,17 +780,29 @@ function AllOrders({ onSelectOrder, onCancel }) {
     };
 
     fetchOrders();
-    intervalId = setInterval(fetchOrders, 10000);
+    intervalId = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      fetchOrders();
+    }, 10000);
     countdownIntervalId = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       if (isMounted) {
         setCurrentTime(new Date());
       }
     }, 1000);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        fetchOrders();
+        if (isMounted) setCurrentTime(new Date());
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       isMounted = false;
       if (intervalId) clearInterval(intervalId);
       if (countdownIntervalId) clearInterval(countdownIntervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
@@ -1216,7 +1272,7 @@ export default function OrdersMain() {
       if (showNewOrderPopupRef.current || newOrderRef.current) return;
 
       try {
-        const response = await restaurantAPI.getOrders();
+        const response = await getSharedOrdersResponse();
         if (response.data?.success && response.data.data?.orders) {
           const now = Date.now();
 
@@ -1295,9 +1351,21 @@ export default function OrdersMain() {
 
     // Check once on mount, and then every minute
     checkOrdersToPopup();
-    const intervalId = setInterval(checkOrdersToPopup, 60000);
+    const intervalId = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      checkOrdersToPopup();
+    }, 60000);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        checkOrdersToPopup();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   // Play audio when popup opens
@@ -1592,6 +1660,10 @@ export default function OrdersMain() {
     }
 
     try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
       // Create new PDF document
       const doc = new jsPDF();
 
@@ -2781,7 +2853,7 @@ function PreparingOrders({
     const fetchOrders = async () => {
       try {
         // Fetch all orders and filter for 'preparing' status on frontend
-        const response = await restaurantAPI.getOrders();
+        const response = await getSharedOrdersResponse();
 
         if (!isMounted) return;
 
@@ -2864,16 +2936,24 @@ function PreparingOrders({
 
     // Update countdown every second
     const countdownIntervalId = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       if (isMounted) {
         setCurrentTime(new Date());
       }
     }, 1000);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        if (isMounted) setCurrentTime(new Date());
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       isMounted = false;
       if (countdownIntervalId) {
         clearInterval(countdownIntervalId);
       }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshToken]); // Re-fetch only when parent requests it
 
@@ -3097,7 +3177,7 @@ function ReadyOrders({ onSelectOrder, refreshToken = 0 }) {
     const fetchOrders = async () => {
       try {
         // Fetch all orders and filter for 'ready' status on frontend
-        const response = await restaurantAPI.getOrders();
+        const response = await getSharedOrdersResponse();
 
         if (!isMounted) return;
 
@@ -3215,7 +3295,7 @@ const OutForDeliveryOrders = ({ onSelectOrder, refreshToken = 0 }) => {
     const fetchOrders = async () => {
       try {
         // Fetch all orders and filter for 'out_for_delivery' status on frontend
-        const response = await restaurantAPI.getOrders();
+        const response = await getSharedOrdersResponse();
 
         if (!isMounted) return;
 

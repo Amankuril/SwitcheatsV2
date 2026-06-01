@@ -82,13 +82,21 @@ export default function GoogleMapsTracking({
   useEffect(() => {
     if (!lastUpdate) return;
     const checkGPS = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       const now = new Date().getTime();
       const lastTime = new Date(lastUpdate).getTime();
       setIsGPSWeak(now - lastTime > 45000); // 45 seconds threshold
     };
     const interval = setInterval(checkGPS, 10000); // Check every 10 seconds
     checkGPS(); // Initial check
-    return () => clearInterval(interval);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) checkGPS();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [lastUpdate]);
 
   // Sync routeInfo with parent
@@ -666,5 +674,4 @@ export default function GoogleMapsTracking({
     </div>
   )
 }
-
 

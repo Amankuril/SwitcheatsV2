@@ -537,10 +537,17 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
         void hydrateAvailableOrder();
       }
     }, isSocketConnected ? 12000 : 5000);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        void hydrateAvailableOrder();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       cancelled = true;
       window.clearInterval(poller);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [activeOrder, currentTab, isOnline, isSocketConnected, setActiveOrder]);
 

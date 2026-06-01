@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { UtensilsCrossed, ChevronRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -106,6 +106,7 @@ function ordersFingerprint(orders) {
 
 function OrderTrackingCardInner({ hasBottomNav = true }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { orders: contextOrders } = useOrders();
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [apiOrders, setApiOrders] = useState([]);
@@ -155,10 +156,31 @@ function OrderTrackingCardInner({ hasBottomNav = true }) {
   }, []);
 
   useEffect(() => {
+    const onOrdersListingPage =
+      typeof location?.pathname === "string" &&
+      location.pathname.startsWith("/food/user/orders") &&
+      !/^\/food\/user\/orders\/[^/]+/.test(location.pathname);
+
     fetchOrders();
-    const interval = setInterval(fetchOrders, 30000);
-    return () => clearInterval(interval);
-  }, [fetchOrders]);
+    if (onOrdersListingPage) return undefined;
+
+    const pollOrders = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      fetchOrders();
+    };
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        fetchOrders();
+      }
+    };
+
+    const interval = setInterval(pollOrders, 30000);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [fetchOrders, location.pathname]);
 
   const uniqueOrders = useMemo(() => {
     const isMongoObjectId = (value) => /^[a-f0-9]{24}$/i.test(String(value || ""));
@@ -262,14 +284,25 @@ function OrderTrackingCardInner({ hasBottomNav = true }) {
     }
 
     const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       const next = getTimeRemaining(activeOrder);
       setTimeRemaining((prev) => (prev === next ? prev : next));
     };
 
     tick();
     const interval = setInterval(tick, 60000);
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        const next = getTimeRemaining(activeOrder);
+        setTimeRemaining((prev) => (prev === next ? prev : next));
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [activeOrder]);
 
   // Proactive verification for active orders not found in recent API list

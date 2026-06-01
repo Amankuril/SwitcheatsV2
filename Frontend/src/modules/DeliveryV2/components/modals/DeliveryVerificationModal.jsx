@@ -213,7 +213,24 @@ const PaymentModal = ({ order, otpString, onComplete, onClose }) => {
       // Immediate check, then every 4 seconds
       checkPaymentSync();
       if (pollingRef.current) clearInterval(pollingRef.current);
-      pollingRef.current = setInterval(checkPaymentSync, 4000);
+      const guardedPaymentSync = () => {
+        if (typeof document !== "undefined" && document.hidden) return;
+        void checkPaymentSync();
+      };
+      pollingRef.current = setInterval(guardedPaymentSync, 4000);
+      const handleVisibilityChange = () => {
+        if (typeof document !== "undefined" && !document.hidden) {
+          void checkPaymentSync();
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      };
     } else {
       // Stop polling if we switched away from pending
       if (pollingRef.current) {
@@ -221,12 +238,7 @@ const PaymentModal = ({ order, otpString, onComplete, onClose }) => {
         pollingRef.current = null;
       }
     }
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-    };
+    return undefined;
   }, [paymentStatus, isCashAccepted, checkPaymentSync]);
 
 

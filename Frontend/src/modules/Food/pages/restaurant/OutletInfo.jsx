@@ -109,6 +109,31 @@ export default function OutletInfo() {
   const fssaiDocInputRef = useRef(null)
   const [activePicker, setActivePicker] = useState(null) // { type: string, ref: any, title: string, multiple: boolean, onFileSelect?: fn, description?: string, fileNamePrefix?: string }
   const bankQrInputRef = useRef(null)
+  const restaurantCacheRef = useRef({ data: null, fetchedAt: 0 })
+  const restaurantPromiseRef = useRef(null)
+
+  const getCurrentRestaurantCached = useCallback(async ({ force = false, maxAgeMs = 1500 } = {}) => {
+    const now = Date.now()
+    if (!force && restaurantCacheRef.current.data && now - restaurantCacheRef.current.fetchedAt <= maxAgeMs) {
+      return restaurantCacheRef.current.data
+    }
+    if (!force && restaurantPromiseRef.current) {
+      return restaurantPromiseRef.current
+    }
+
+    restaurantPromiseRef.current = restaurantAPI
+      .getCurrentRestaurant()
+      .then((response) => {
+        const data = response?.data?.data?.restaurant || response?.data?.restaurant || null
+        restaurantCacheRef.current = { data, fetchedAt: Date.now() }
+        return data
+      })
+      .finally(() => {
+        restaurantPromiseRef.current = null
+      })
+
+    return restaurantPromiseRef.current
+  }, [])
 
   const normalizeApprovalStatus = (value) => {
     const raw = String(value || "").trim().toLowerCase()
@@ -308,10 +333,12 @@ export default function OutletInfo() {
     if (!shouldPoll) return
 
     const intervalId = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
       void refreshRestaurantData()
     }, 7000)
 
     const onFocus = () => {
+      if (typeof document !== "undefined" && document.hidden) return
       void refreshRestaurantData()
     }
     window.addEventListener("focus", onFocus)
@@ -454,8 +481,7 @@ export default function OutletInfo() {
         }
         
         // Refresh restaurant data
-        const response = await restaurantAPI.getCurrentRestaurant()
-        const data = response?.data?.data?.restaurant || response?.data?.restaurant
+        const data = await getCurrentRestaurantCached({ force: true })
         if (data) {
           setRestaurantData(data)
           if (data.profileImage?.url) {
@@ -483,8 +509,7 @@ export default function OutletInfo() {
       setUploadingCount(fileArray.length)
 
       // Get current images
-      const currentResponse = await restaurantAPI.getCurrentRestaurant()
-      const currentData = currentResponse?.data?.data?.restaurant || currentResponse?.data?.restaurant
+      const currentData = await getCurrentRestaurantCached()
       const existingImages = currentData?.menuImages && Array.isArray(currentData.menuImages)
         ? currentData.menuImages.map(img => ({
             url: img.url,
@@ -622,8 +647,7 @@ export default function OutletInfo() {
       setImageType('profile')
       await restaurantAPI.updateProfile({ profileImage: "" })
       setThumbnailImage("https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200&h=200&fit=crop")
-      const response = await restaurantAPI.getCurrentRestaurant()
-      const data = response?.data?.data?.restaurant || response?.data?.restaurant
+      const data = await getCurrentRestaurantCached({ force: true })
       if (data) {
         setRestaurantData(data)
         if (data.profileImage?.url) {

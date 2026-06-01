@@ -3,7 +3,6 @@ import { Search, Filter, Eye, Check, X, Package, ArrowUpDown, FileText, FileSpre
 import { adminAPI } from "@food/api"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@food/components/ui/dialog"
-import { exportJoinRequestsToExcel, exportJoinRequestsToPDF } from "@food/components/admin/deliveryman/joinRequestExportUtils"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -193,20 +192,25 @@ export default function JoinRequest() {
     }
   }
 
-  const handleExportPDF = () => {
+  const loadJoinRequestExportUtils = () =>
+    import("@food/components/admin/deliveryman/joinRequestExportUtils")
+
+  const handleExportPDF = async () => {
     if (filteredRequests.length === 0) {
       toast.error("No data to export")
       return
     }
-    exportJoinRequestsToPDF(filteredRequests)
+    const utils = await loadJoinRequestExportUtils()
+    utils.exportJoinRequestsToPDF(filteredRequests)
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (filteredRequests.length === 0) {
       toast.error("No data to export")
       return
     }
-    exportJoinRequestsToExcel(filteredRequests)
+    const utils = await loadJoinRequestExportUtils()
+    utils.exportJoinRequestsToExcel(filteredRequests)
   }
 
   const handleResetFilters = () => {

@@ -172,11 +172,23 @@ export default function RestaurantWelcome() {
   // Auto-advance carousel every 2.5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
       setDirection(1) // Always go forward
       setCurrentIndex((prev) => (prev + 1) % carouselData.length)
     }, 5000) // 5 seconds
 
-    return () => clearInterval(interval)
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setDirection(1)
+        setCurrentIndex((prev) => (prev + 1) % carouselData.length)
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [carouselData.length])
 
   return (

@@ -83,9 +83,22 @@ export default function Orders() {
     }
 
     updateCountdowns()
-    const interval = setInterval(updateCountdowns, 10000) // Update every 10 seconds for better UX
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      updateCountdowns()
+    }, 10000) // Update every 10 seconds for better UX
 
-    return () => clearInterval(interval)
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        updateCountdowns()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [orders])
 
   // Get order status text
@@ -389,13 +402,25 @@ export default function Orders() {
 
     fetchOrders()
 
-    // Poll for order updates every 20 seconds to detect delivered orders
-    // This ensures rating popup shows quickly when order is delivered
+    // Poll for order updates every 20 seconds to detect delivered orders.
+    // Pause polling in background tabs to reduce unnecessary CPU/network usage.
     const pollInterval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
       fetchOrders()
     }, 20000) // Poll every 20 seconds
 
-    return () => clearInterval(pollInterval)
+    // When user returns to tab, refresh immediately for fresh status.
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        fetchOrders()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      clearInterval(pollInterval)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [])
 
   // Format date helper

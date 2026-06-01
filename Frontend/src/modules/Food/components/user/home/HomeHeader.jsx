@@ -119,9 +119,21 @@ export default function HomeHeader({
 
   useEffect(() => {
     const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
       setCurrentSlide((prev) => (prev + 1) % 3);
     }, 4000);
-    return () => clearInterval(timer);
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setCurrentSlide((prev) => (prev + 1) % 3);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   const handleTouchStart = (event) => {

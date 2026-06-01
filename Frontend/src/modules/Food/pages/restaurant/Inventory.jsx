@@ -1369,8 +1369,21 @@ export default function Inventory() {
     }
 
     runExpiryCheck()
-    const intervalId = setInterval(runExpiryCheck, 15000)
-    return () => clearInterval(intervalId)
+    const guardedExpiryCheck = () => {
+      if (typeof document !== "undefined" && document.hidden) return
+      void runExpiryCheck()
+    }
+    const intervalId = setInterval(guardedExpiryCheck, 15000)
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        void runExpiryCheck()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => {
+      clearInterval(intervalId)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [stockRules])
 
   // Calculate total items

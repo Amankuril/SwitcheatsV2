@@ -16,8 +16,6 @@ import {
 import { adminAPI, uploadAPI } from "@food/api"
 import { API_BASE_URL } from "@food/api/config"
 import { toast } from "sonner"
-import jsPDF from "jspdf"
-import autoTable from "jspdf-autotable"
 import { canCurrentAdminAction } from "@food/utils/adminRbac"
 
 const defaultFormData = {
@@ -301,8 +299,12 @@ export default function Category() {
     }
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ])
       const doc = new jsPDF()
       doc.setFontSize(18)
       doc.setTextColor(30, 30, 30)

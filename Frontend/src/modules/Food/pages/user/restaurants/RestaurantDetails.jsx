@@ -197,11 +197,23 @@ function RestaurantDetailsContent() {
   const fetchedSlugRef = useRef(null)
 
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    const tickAvailability = () => {
+      if (typeof document !== "undefined" && document.hidden) return
       setAvailabilityTick(Date.now())
-    }, 60000)
+    }
 
-    return () => clearInterval(intervalId)
+    const intervalId = setInterval(tickAvailability, 60000)
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setAvailabilityTick(Date.now())
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      clearInterval(intervalId)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [])
 
   useEffect(() => {
@@ -1948,6 +1960,7 @@ function RestaurantDetailsContent() {
   // Auto-rotate images every 3 seconds
   useEffect(() => {
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
       setCurrentImageIndex((prev) => {
         const offersLength = Array.isArray(restaurant?.offers) && restaurant.offers.length > 0
           ? restaurant.offers.length
@@ -1955,16 +1968,41 @@ function RestaurantDetailsContent() {
         return (prev + 1) % offersLength
       })
     }, 3000)
-    return () => clearInterval(interval)
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setCurrentImageIndex((prev) => {
+          const offersLength = Array.isArray(restaurant?.offers) && restaurant.offers.length > 0
+            ? restaurant.offers.length
+            : 1
+          return (prev + 1) % offersLength
+        })
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [restaurant?.offers?.length || 0])
 
   // Auto-rotate highlight offer text every 2 seconds
   useEffect(() => {
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
       setHighlightIndex((prev) => (prev + 1) % highlightOffers.length)
     }, 2000)
 
-    return () => clearInterval(interval)
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        setHighlightIndex((prev) => (prev + 1) % highlightOffers.length)
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [highlightOffers.length])
 
   // Show loading state
