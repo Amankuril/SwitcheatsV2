@@ -37,20 +37,7 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return
 
-          if (
-            id.includes('/react/') ||
-            id.includes('/react-dom/') ||
-            id.includes('/scheduler/')
-          ) {
-            return 'vendor-react'
-          }
           if (id.includes('react-router')) return 'vendor-router'
-          if (id.includes('@reduxjs/toolkit') || id.includes('react-redux') || id.includes('zustand')) {
-            return 'vendor-state'
-          }
-          if (id.includes('engine.io-client') || id.includes('socket.io-parser') || id.includes('@socket.io/')) {
-            return 'vendor-network'
-          }
           if (id.includes('@mui/') || id.includes('@emotion/')) return 'vendor-mui'
           if (
             id.includes('stylis') ||
@@ -66,19 +53,9 @@ export default defineConfig({
           if (id.includes('framer-motion') || id.includes('gsap') || id.includes('canvas-confetti') || id.includes('lenis')) {
             return 'vendor-motion'
           }
-          if (id.includes('lucide-react') || id.includes('react-icons') || id.includes('@heroicons/react')) {
-            return 'vendor-icons'
-          }
-          if (id.includes('axios') || id.includes('socket.io-client')) return 'vendor-network'
           if (id.includes('jspdf') || id.includes('jspdf-autotable')) return 'vendor-export-pdf'
           if (id.includes('exceljs')) return 'vendor-export-excel'
           if (id.includes('html2canvas')) return 'vendor-export-canvas'
-          if (id.includes('sonner') || id.includes('clsx') || id.includes('class-variance-authority') || id.includes('tailwind-merge')) {
-            return 'vendor-utils'
-          }
-          if (id.includes('next-themes') || id.includes('react-colorful') || id.includes('react-is')) {
-            return 'vendor-misc'
-          }
           return 'vendor-core'
         },
       },
