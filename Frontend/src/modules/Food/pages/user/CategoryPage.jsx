@@ -1566,7 +1566,13 @@ export default function CategoryPage() {
                           )}
 
                           {/* Rating Badge (NOW ON IMAGE, bottom-left with white border) */}
-                          <div className="absolute bottom-0 left-0 bg-green-600 border-[4px] rounded-md border-white text-white text-[11px] md:text-xs font-bold px-1.5 py-0.5 flex items-center gap-0.5">
+                          <div
+                            className="absolute bottom-0 left-0 border-[4px] rounded-md border-white text-white text-[11px] md:text-xs font-bold px-1.5 py-0.5 flex items-center gap-0.5"
+                            style={{
+                              backgroundColor: "var(--module-theme-color, #FA0272)",
+                              boxShadow: "0 6px 14px rgba(var(--module-theme-rgb,250,2,114),0.35)",
+                            }}
+                          >
                             {restaurant.rating}
                             <Star className="h-2.5 w-2.5 md:h-3 md:w-3 fill-white" />
                           </div>
@@ -1708,7 +1714,13 @@ export default function CategoryPage() {
                               </p>
                             )}
                           </div>
-                          <div className="flex-shrink-0 bg-green-600 text-white px-2 md:px-3 lg:px-4 py-1 lg:py-1.5 rounded-lg flex items-center gap-1">
+                          <div
+                            className="flex-shrink-0 text-white px-2 md:px-3 lg:px-4 py-1 lg:py-1.5 rounded-lg flex items-center gap-1"
+                            style={{
+                              backgroundColor: "var(--module-theme-color, #FA0272)",
+                              boxShadow: "0 8px 16px rgba(var(--module-theme-rgb,250,2,114),0.28)",
+                            }}
+                          >
                             <span className="text-sm md:text-base lg:text-lg font-bold">{restaurant.rating}</span>
                             <Star className="h-3 w-3 md:h-4 md:w-4 lg:h-5 lg:w-5 fill-white text-white" />
                           </div>
