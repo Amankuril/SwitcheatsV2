@@ -47,6 +47,38 @@ const emptyDataStub = () =>
     config: {},
   });
 
+/** Single in-flight + short cache for user /auth/me to collapse duplicate page-load calls. */
+let userMeInFlight = null;
+let userMeCached = null;
+let userMeCacheTime = 0;
+const USER_ME_CACHE_MS = 3000;
+
+const clearUserMeCache = () => {
+  userMeInFlight = null;
+  userMeCached = null;
+  userMeCacheTime = 0;
+};
+
+const getUserMeOnce = (force = false) => {
+  const now = Date.now();
+  if (!force && userMeCached && now - userMeCacheTime < USER_ME_CACHE_MS) {
+    return Promise.resolve(userMeCached);
+  }
+  if (!userMeInFlight) {
+    userMeInFlight = authService
+      .getMe("user")
+      .then((res) => {
+        userMeCached = res;
+        userMeCacheTime = Date.now();
+        return res;
+      })
+      .finally(() => {
+        userMeInFlight = null;
+      });
+  }
+  return userMeInFlight;
+};
+
 export const api = {
   get: (_url, _config) => emptyDataStub(),
   post: (_url, _data, _config) => emptyDataStub(),
@@ -84,9 +116,10 @@ export const authAPI = {
       platform,
     );
   },
-  getCurrentUser: () => authService.getMe("user"),
+  getCurrentUser: () => getUserMeOnce(),
   refreshToken: (token) => authService.refreshToken(token),
   logout: (refreshToken, fcmToken = null, platform = "web") => {
+    clearUserMeCache();
     const token =
       refreshToken ||
       (typeof localStorage !== "undefined"
@@ -662,7 +695,7 @@ export const adminAPI = {
 
   /** Public categories (user app) - zone-aware */
   getPublicCategories: (params = {}, config = {}) =>
-    apiClient.get("/food/restaurant/categories/public", {
+    publicGetOnce("/food/restaurant/categories/public", {
       params: params ?? {},
       ...config,
     }),
@@ -2147,10 +2180,15 @@ export const deliveryAPI = {
 };
 
 export const userAPI = {
-  deleteCurrentUserAccount: () => apiClient.delete('/food/user/profile', { contextModule: 'user' }),
+  deleteCurrentUserAccount: () =>
+    apiClient
+      .delete('/food/user/profile', { contextModule: 'user' })
+      .finally(() => {
+        clearUserMeCache();
+      }),
   /** Get current user profile (Bearer USER). */
   getProfile: () =>
-    authService.getMe("user").then((res) => {
+    getUserMeOnce().then((res) => {
       const user =
         res?.data?.data?.user ??
         res?.data?.user ??
@@ -2356,47 +2394,87 @@ export const orderAPI = {
     apiClient.post("/food/orders/verify-payment", body ?? {}, {
       contextModule: "user",
     }),
-  getOrders: (params = {}) =>
-    apiClient
-      .get("/food/orders", {
-        params: { limit: 20, page: 1, ...params },
-        contextModule: "user",
-      })
-      .then((res) => {
-        const payload = res?.data?.data;
+  getOrders: (() => {
+    const inFlight = new Map();
+    const cache = new Map();
+    const CACHE_MS = 2000;
 
-        // Normalize backend paginated shape:
-        // { data: { data: [...], meta: { total, page, limit, totalPages } } }
-        // into UI-friendly:
-        // { data: { orders: [...], pagination: { total, page, limit, pages } } }
-        if (
-          payload &&
-          typeof payload === "object" &&
-          Array.isArray(payload.data) &&
-          payload.meta &&
-          typeof payload.meta === "object"
-        ) {
-          const meta = payload.meta;
-          return {
-            ...res,
-            data: {
-              ...res.data,
+    const stableOrdersKey = (params = {}) => {
+      const safe = params && typeof params === "object" ? { ...params } : {};
+      const normalized = { limit: 20, page: 1, ...safe };
+      delete normalized._ts;
+      return JSON.stringify(
+        Object.keys(normalized)
+          .sort()
+          .reduce((acc, key) => {
+            acc[key] = normalized[key];
+            return acc;
+          }, {}),
+      );
+    };
+
+    return (params = {}) => {
+      const key = stableOrdersKey(params);
+      const now = Date.now();
+      const cachedHit = cache.get(key);
+      if (cachedHit && now - cachedHit.at < CACHE_MS) {
+        return Promise.resolve(cachedHit.res);
+      }
+
+      const existing = inFlight.get(key);
+      if (existing) return existing;
+
+      const request = apiClient
+        .get("/food/orders", {
+          params: { limit: 20, page: 1, ...params },
+          contextModule: "user",
+        })
+        .then((res) => {
+          const payload = res?.data?.data;
+
+          // Normalize backend paginated shape:
+          // { data: { data: [...], meta: { total, page, limit, totalPages } } }
+          // into UI-friendly:
+          // { data: { orders: [...], pagination: { total, page, limit, pages } } }
+          if (
+            payload &&
+            typeof payload === "object" &&
+            Array.isArray(payload.data) &&
+            payload.meta &&
+            typeof payload.meta === "object"
+          ) {
+            const meta = payload.meta;
+            const normalizedRes = {
+              ...res,
               data: {
-                ...payload,
-                orders: payload.data,
-                pagination: {
-                  total: Number(meta.total || 0),
-                  page: Number(meta.page || 1),
-                  limit: Number(meta.limit || params.limit || 20),
-                  pages: Number(meta.totalPages || 1),
+                ...res.data,
+                data: {
+                  ...payload,
+                  orders: payload.data,
+                  pagination: {
+                    total: Number(meta.total || 0),
+                    page: Number(meta.page || 1),
+                    limit: Number(meta.limit || params.limit || 20),
+                    pages: Number(meta.totalPages || 1),
+                  },
                 },
               },
-            },
-          };
-        }
+            };
+            cache.set(key, { at: Date.now(), res: normalizedRes });
+            return normalizedRes;
+          }
 
-        return res;
-      }),
+          cache.set(key, { at: Date.now(), res });
+          return res;
+        })
+        .finally(() => {
+          inFlight.delete(key);
+        });
+
+      inFlight.set(key, request);
+      return request;
+    };
+  })(),
   getOrderDetails: (() => {
     const inFlight = new Map();
     const cache = new Map();
