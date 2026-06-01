@@ -28,10 +28,15 @@ function isNativeLikeShell() {
 
   const protocol = String(window.location?.protocol || '').toLowerCase()
   const userAgent = String(window.navigator?.userAgent || '').toLowerCase()
+  const referrer = String(document.referrer || '').toLowerCase()
 
   return (
     Boolean(window.flutter_inappwebview) ||
     Boolean(window.ReactNativeWebView) ||
+    userAgent.includes('flutter') ||
+    userAgent.includes('inappwebview') ||
+    userAgent.includes('crosswalk') ||
+    referrer.startsWith('android-app://') ||
     protocol === 'file:' ||
     userAgent.includes(' wv') ||
     userAgent.includes('; wv')
@@ -74,7 +79,11 @@ function bootstrapNativeHashRoute() {
 }
 
 bootstrapNativeHashRoute()
-const cleanupSmoothScroll = setupSmoothScroll({ disabled: isNativeLikeShell() })
+const isEmbeddedShell = isNativeLikeShell()
+if (isEmbeddedShell) {
+  document.documentElement.setAttribute('data-embedded-shell', 'true')
+}
+const cleanupSmoothScroll = setupSmoothScroll({ disabled: isEmbeddedShell })
 window.addEventListener('beforeunload', cleanupSmoothScroll)
 
 // ─── Suppress known non-critical errors ──────────────────────────────────────
