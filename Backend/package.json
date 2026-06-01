@@ -15,6 +15,7 @@
     "worker:maintenance": "node src/queues/workers/maintenance.worker.js",
     "migrate:fcm-tokens": "node scripts/migrate-fcm-tokens-to-profile-models.js",
     "migrate:order-payments": "node scripts/migrate-orders-to-transactions.js",
+    "migrate:outlet-timings-from-opening-closing": "node scripts/sync-outlet-timings-from-opening-closing.js",
     "cleanup:legacy-collections": "node scripts/cleanup-legacy-collections.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

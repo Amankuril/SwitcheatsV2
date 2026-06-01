@@ -18,6 +18,7 @@ const debugError = (...args) => {}
 // Inline placeholder (no external request, avoids referrer policy / 500 from via.placeholder)
 const PLACEHOLDER_40 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect fill='%23e2e8f0' width='40' height='40'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-size='12' font-family='sans-serif'%3E?%3C/text%3E%3C/svg%3E"
 const PLACEHOLDER_128 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Crect fill='%23e2e8f0' width='128' height='128'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-size='32' font-family='sans-serif'%3E?%3C/text%3E%3C/svg%3E"
+const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 const normalizeApprovalStatus = (restaurant) => {
   const raw = String(restaurant?.status || "").trim().toLowerCase()
@@ -109,6 +110,7 @@ export default function RestaurantsList() {
   const [error, setError] = useState(null)
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
   const [restaurantDetails, setRestaurantDetails] = useState(null)
+  const [restaurantOutletTimings, setRestaurantOutletTimings] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [banConfirmDialog, setBanConfirmDialog] = useState(null) // { restaurant, action: 'ban' | 'unban' }
   const [banning, setBanning] = useState(false)
@@ -568,6 +570,7 @@ export default function RestaurantsList() {
     setSelectedRestaurant(restaurant)
     setLoadingDetails(true)
     setRestaurantDetails(null)
+    setRestaurantOutletTimings(null)
 
     try {
       // Always fetch full details from Admin API so the modal matches the
@@ -578,19 +581,22 @@ export default function RestaurantsList() {
         return
       }
 
-      const response = await adminAPI.getRestaurantById(restaurantId)
-      if (!response?.data?.success) {
+      const [detailsRes, timingsRes] = await Promise.all([
+        adminAPI.getRestaurantById(restaurantId).catch(() => null),
+        restaurantAPI.getOutletTimingsByRestaurantId(restaurantId, { noCache: true }).catch(() => null),
+      ])
+
+      const detailsData = detailsRes?.data?.data
+      if (detailsData && (detailsData.restaurantName || detailsData._id)) {
+        setRestaurantDetails(detailsData)
+      } else {
         setRestaurantDetails(restaurant.originalData || restaurant)
-        return
       }
 
-      const data = response?.data?.data
-      if (data && (data.restaurantName || data._id)) {
-        setRestaurantDetails(data)
-        return
+      const outletTimings = timingsRes?.data?.data?.outletTimings
+      if (outletTimings && typeof outletTimings === "object" && !Array.isArray(outletTimings)) {
+        setRestaurantOutletTimings(outletTimings)
       }
-
-      setRestaurantDetails(restaurant.originalData || restaurant)
     } catch (err) {
       debugError("Error fetching restaurant details:", err)
       // Use the restaurant data we already have
@@ -879,6 +885,7 @@ export default function RestaurantsList() {
     setLocationEditError("")
     setSelectedRestaurant(null)
     setRestaurantDetails(null)
+    setRestaurantOutletTimings(null)
   }
 
   // Handle ban/unban restaurant
@@ -1486,8 +1493,25 @@ export default function RestaurantsList() {
                   (Array.isArray(r?.cuisines) && r.cuisines.length ? r.cuisines : null) ||
                   (Array.isArray(r?.onboarding?.step2?.cuisines) && r.onboarding.step2.cuisines.length ? r.onboarding.step2.cuisines : null) ||
                   null
-                const openingTimeVal = r?.openingTime || r?.deliveryTimings?.openingTime || r?.onboarding?.step2?.deliveryTimings?.openingTime || ""
-                const closingTimeVal = r?.closingTime || r?.deliveryTimings?.closingTime || r?.onboarding?.step2?.deliveryTimings?.closingTime || ""
+                const outletTimingsByDay =
+                  restaurantOutletTimings && typeof restaurantOutletTimings === "object" && !Array.isArray(restaurantOutletTimings)
+                    ? restaurantOutletTimings
+                    : null
+                const outletDayRows = outletTimingsByDay
+                  ? DAY_ORDER
+                    .map((day) => {
+                      const dayData = outletTimingsByDay?.[day]
+                      if (!dayData || typeof dayData !== "object") return null
+                      const isOpen = dayData.isOpen !== false
+                      return {
+                        day,
+                        isOpen,
+                        openingTime: isOpen ? dayData.openingTime || "" : "",
+                        closingTime: isOpen ? dayData.closingTime || "" : "",
+                      }
+                    })
+                    .filter(Boolean)
+                  : []
                 const openDaysVal =
                   (Array.isArray(r?.openDays) && r.openDays.length ? r.openDays : null) ||
                   (Array.isArray(r?.onboarding?.step2?.openDays) && r.onboarding.step2.openDays.length ? r.onboarding.step2.openDays : null) ||
@@ -1673,14 +1697,20 @@ export default function RestaurantsList() {
                     <div>
                       <h4 className="text-lg font-semibold text-slate-900 mb-4">Timings & Status</h4>
                       <div className="space-y-3">
-                        {(openingTimeVal || closingTimeVal) && (
-                          <div className="flex items-center gap-3">
-                            <Clock className="w-5 h-5 text-slate-400" />
-                            <div>
-                              <p className="text-xs text-slate-500">Opening / Closing</p>
-                              <p className="text-sm font-medium text-slate-900">
-                                {formatTime12Hour(openingTimeVal)} – {formatTime12Hour(closingTimeVal)}
-                              </p>
+                        {outletDayRows.length > 0 && (
+                          <div>
+                            <p className="text-xs text-slate-500 mb-1">Outlet Timings (Day-wise)</p>
+                            <div className="space-y-1.5">
+                              {outletDayRows.map((slot) => (
+                                <div key={slot.day} className="flex items-center justify-between text-sm">
+                                  <span className="text-slate-600 font-medium">{slot.day}</span>
+                                  <span className="text-slate-900">
+                                    {slot.isOpen
+                                      ? `${formatTime12Hour(slot.openingTime)} – ${formatTime12Hour(slot.closingTime)}`
+                                      : "Closed"}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}
@@ -2444,5 +2474,3 @@ export default function RestaurantsList() {
     </div>
   )
 }
-
-

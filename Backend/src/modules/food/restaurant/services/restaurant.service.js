@@ -9,6 +9,7 @@ import { FoodOfferUsage } from '../../admin/models/offerUsage.model.js';
 import { FoodRestaurantMenu } from '../models/restaurantMenu.model.js';
 import { FoodItem } from '../../admin/models/food.model.js';
 import { FoodOrder } from '../../orders/models/order.model.js';
+import { FoodRestaurantOutletTimings } from '../models/outletTimings.model.js';
 import { getRestaurantSubscriptionSettings } from '../../admin/services/admin.service.js';
 import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
 import {
@@ -34,6 +35,17 @@ const normalizePhone = (value) => {
         digits: digits || '',
         last10: digits ? digits.slice(-10) : ''
     };
+};
+
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const normalizeDayName = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const exact = DAY_NAMES.find((d) => d.toLowerCase() === raw.toLowerCase());
+    if (exact) return exact;
+    const abbr = raw.slice(0, 3).toLowerCase();
+    return DAY_NAMES.find((d) => d.toLowerCase().startsWith(abbr)) || null;
 };
 
 export const createRestaurantOnboardingOrder = async (payload = {}) => {
@@ -585,6 +597,35 @@ export const registerRestaurant = async (payload, files) => {
             subscriptionValidTill: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Valid for 30 days
             ...images
         });
+
+        // Seed day-wise outlet timings at onboarding from the initial opening/closing fields.
+        // Later manual changes by restaurant are preserved (we only insert if missing).
+        try {
+            const normalizedOpenDays = Array.isArray(openDays)
+                ? [...new Set(openDays.map(normalizeDayName).filter(Boolean))]
+                : [];
+            const openDaysSet = new Set(normalizedOpenDays.length ? normalizedOpenDays : DAY_NAMES);
+            const seedOpeningTime = normalizedOpeningTime || '09:00';
+            const seedClosingTime = normalizedClosingTime || '22:00';
+
+            const seededTimings = DAY_NAMES.map((day) => {
+                const isOpen = openDaysSet.has(day);
+                return {
+                    day,
+                    isOpen,
+                    openingTime: isOpen ? seedOpeningTime : '',
+                    closingTime: isOpen ? seedClosingTime : '',
+                };
+            });
+
+            await FoodRestaurantOutletTimings.updateOne(
+                { restaurantId: restaurant._id },
+                { $setOnInsert: { restaurantId: restaurant._id, timings: seededTimings } },
+                { upsert: true }
+            );
+        } catch (seedErr) {
+            console.error('Failed to seed outlet timings during onboarding:', seedErr);
+        }
 
         try {
             const { notifyAdminsSafely } = await import('../../../../core/notifications/firebase.service.js');
