@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { ValidationError } from '../../../../core/auth/errors.js';
 import { FoodRestaurant } from '../../restaurant/models/restaurant.model.js';
+import { FoodRestaurantOutletTimings } from '../../restaurant/models/outletTimings.model.js';
 import { FoodDeliveryPartner } from '../../delivery/models/deliveryPartner.model.js';
 import { DeliverySupportTicket } from '../../delivery/models/supportTicket.model.js';
 import { FoodNotification } from '../../../../core/notifications/models/notification.model.js';
@@ -51,6 +52,8 @@ import {
     normalizeFoodVariantsInput,
     serializeFoodVariants
 } from './foodVariant.service.js';
+
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const parseBooleanLike = (value, fieldName) => {
     if (typeof value === 'boolean') return value;
@@ -121,6 +124,46 @@ const validateOpeningClosingTimes = (openingTime, closingTime) => {
     if (close < open) {
         throw new ValidationError('Closing time cannot be less than opening time');
     }
+};
+
+const normalizeDayName = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const exact = DAY_NAMES.find((d) => d.toLowerCase() === raw.toLowerCase());
+    if (exact) return exact;
+    const abbr = raw.slice(0, 3).toLowerCase();
+    return DAY_NAMES.find((d) => d.toLowerCase().startsWith(abbr)) || null;
+};
+
+const syncAdminRestaurantOutletTimings = async (restaurantDoc) => {
+    const openingTime = normalizeRestaurantTime(restaurantDoc?.openingTime) || '09:00';
+    const closingTime = normalizeRestaurantTime(restaurantDoc?.closingTime) || '22:00';
+    const normalizedOpenDays = Array.isArray(restaurantDoc?.openDays)
+        ? [...new Set(restaurantDoc.openDays.map(normalizeDayName).filter(Boolean))]
+        : [];
+    const fallbackOpenDays = new Set(normalizedOpenDays.length ? normalizedOpenDays : DAY_NAMES);
+
+    const existing = await FoodRestaurantOutletTimings.findOne({ restaurantId: restaurantDoc._id })
+        .select('timings')
+        .lean();
+    const existingTimings = Array.isArray(existing?.timings) ? existing.timings : [];
+
+    const timings = DAY_NAMES.map((day) => {
+        const current = existingTimings.find((slot) => normalizeDayName(slot?.day) === day);
+        const isOpen = current ? current.isOpen !== false : fallbackOpenDays.has(day);
+        return {
+            day,
+            isOpen,
+            openingTime: isOpen ? openingTime : '',
+            closingTime: isOpen ? closingTime : '',
+        };
+    });
+
+    await FoodRestaurantOutletTimings.updateOne(
+        { restaurantId: restaurantDoc._id },
+        { $set: { timings } },
+        { upsert: true }
+    );
 };
 
 export async function getRestaurantComplaints(query = {}) {
@@ -2440,6 +2483,16 @@ export async function updateRestaurantById(id, body = {}) {
     }
 
     await doc.save();
+
+    if (body.openingTime !== undefined || body.closingTime !== undefined) {
+        await syncAdminRestaurantOutletTimings(doc);
+
+        const { invalidateCache } = await import('../../../../middleware/cache.js');
+        void invalidateCache('restaurants:*');
+        void invalidateCache('restaurant_detail:*');
+        void invalidateCache('restaurant_timings:*');
+    }
+
     return FoodRestaurant.findById(id).select('-__v').populate('zoneId', 'name zoneName serviceLocation isActive').lean();
 }
 
