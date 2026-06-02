@@ -1033,7 +1033,7 @@ Order again from this restaurant in the ${companyName} app.`
                         </div>
                         <span className="text-xs font-semibold text-red-500">Restaurant Cancelled</span>
                       </div>
-                      <p className="text-xs text-gray-600 ml-7">Refund will be processed in 24-48 hours</p>
+                      <p className="text-xs text-gray-600 ml-7">If prepaid, refund is sent automatically to the original payment method.</p>
                     </div>
                   ) : paymentFailed ? (
                     <div className="flex items-center gap-2">

@@ -63,6 +63,103 @@ function buildAcceptanceDeadline(date = new Date()) {
   return new Date(date.getTime() + ORDER_ACCEPTANCE_WINDOW_SECONDS * 1000);
 }
 
+function buildCancellationRefundDescription(order, cancelledBy = 'system') {
+  const orderReadableId = order?.order_id || order?._id;
+  switch (String(cancelledBy || '').toLowerCase()) {
+    case 'user':
+      return `Refund for cancelled order #${orderReadableId}`;
+    case 'restaurant':
+      return `Refund for order #${orderReadableId} cancelled by restaurant`;
+    case 'admin':
+      return `Refund for order #${orderReadableId} cancelled by admin`;
+    case 'auto_cancel':
+    case 'timeout':
+    case 'system':
+      return `Refund for order #${orderReadableId} auto-cancelled by system`;
+    default:
+      return `Refund for cancelled order #${orderReadableId}`;
+  }
+}
+
+async function applyCancellationRefund(order, { cancelledBy = 'system', refundAmount } = {}) {
+  if (!order?.payment) {
+    return { attempted: false, processed: false, reason: 'missing_payment' };
+  }
+
+  const paymentMethod = String(order.payment?.method || 'cash').toLowerCase();
+  const paymentStatus = String(order.payment?.status || 'cod_pending').toLowerCase();
+  const refundStatus = String(order.payment?.refund?.status || 'none').toLowerCase();
+  const amount = Number(refundAmount ?? order?.pricing?.total ?? order?.payment?.amountDue ?? 0);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { attempted: false, processed: false, reason: 'invalid_amount' };
+  }
+
+  if (paymentMethod === 'cash' || paymentMethod === 'cod') {
+    return { attempted: false, processed: false, reason: 'cash_payment' };
+  }
+
+  if (paymentStatus === 'refunded' || refundStatus === 'processed') {
+    return { attempted: false, processed: true, reason: 'already_refunded', method: paymentMethod };
+  }
+
+  if (paymentStatus !== 'paid') {
+    return { attempted: false, processed: false, reason: `payment_status_${paymentStatus || 'unknown'}`, method: paymentMethod };
+  }
+
+  if (paymentMethod === 'razorpay') {
+    const paymentId = String(order.payment?.razorpay?.paymentId || '').trim();
+    if (!paymentId) {
+      order.payment.refund = {
+        status: 'failed',
+        amount,
+      };
+      return { attempted: true, processed: false, reason: 'missing_razorpay_payment_id', method: paymentMethod };
+    }
+
+    const refundResult = await initiateRazorpayRefund(paymentId, amount);
+    if (refundResult.success) {
+      order.payment.status = 'refunded';
+      order.payment.refund = {
+        status: 'processed',
+        amount,
+        refundId: refundResult.refundId,
+        processedAt: new Date(),
+      };
+      return { attempted: true, processed: true, method: paymentMethod, refundId: refundResult.refundId };
+    }
+
+    order.payment.refund = {
+      status: 'failed',
+      amount,
+    };
+    return {
+      attempted: true,
+      processed: false,
+      reason: refundResult.error || 'razorpay_refund_failed',
+      method: paymentMethod,
+    };
+  }
+
+  if (paymentMethod === 'wallet') {
+    await userWalletService.refundWalletBalance(
+      order.userId,
+      amount,
+      buildCancellationRefundDescription(order, cancelledBy),
+      { orderId: order._id, cancelledBy }
+    );
+    order.payment.status = 'refunded';
+    order.payment.refund = {
+      status: 'processed',
+      amount,
+      processedAt: new Date(),
+    };
+    return { attempted: true, processed: true, method: paymentMethod };
+  }
+
+  return { attempted: false, processed: false, reason: `unsupported_method_${paymentMethod}`, method: paymentMethod };
+}
+
 async function expireUnacceptedOrders(filter = {}) {
   const now = new Date();
   const baseFilter = {
@@ -101,6 +198,13 @@ async function expireUnacceptedOrders(filter = {}) {
     );
 
     if (!updated) continue;
+
+    try {
+      await applyCancellationRefund(updated, { cancelledBy: 'auto_cancel' });
+      await updated.save();
+    } catch (err) {
+      logger.warn(`expireUnacceptedOrders refund failed for ${updated._id}: ${err?.message || err}`);
+    }
 
     try {
       const io = getIO();
@@ -836,58 +940,11 @@ export async function cancelOrder(orderId, userId, reason) {
 
   const paymentMethod = String(order.payment?.method || "cash").toLowerCase();
   const paymentStatus = String(order.payment?.status || "cod_pending").toLowerCase();
-  const hasRefundProcessed =
-    String(order.payment?.refund?.status || "none").toLowerCase() === "processed";
-
-  // ✅ NEW: Automated Razorpay Refund on User Cancel
-  if (
-    paymentStatus === "paid" &&
-    paymentMethod === "razorpay" &&
-    order.payment?.razorpay?.paymentId &&
-    !hasRefundProcessed
-  ) {
-    try {
-      const refundResult = await initiateRazorpayRefund(
-        order.payment.razorpay.paymentId,
-        order.pricing.total
-      );
-
-      if (refundResult.success) {
-        order.payment.status = "refunded";
-        order.payment.refund = {
-          status: "processed",
-          amount: order.pricing.total,
-          refundId: refundResult.refundId,
-          processedAt: new Date()
-        };
-      } else {
-        // Log failure but let order cancellation proceed
-        order.payment.refund = {
-          status: "failed",
-          amount: order.pricing.total
-        };
-      }
-    } catch (err) {
-      console.error(`Refund processing error for Order ${orderId}:`, err);
-      order.payment.refund = { status: "failed", amount: order.pricing.total };
-    }
-  } else if (
-    paymentStatus === "paid" &&
-    paymentMethod === "wallet" &&
-    !hasRefundProcessed
-  ) {
-    try {
-      await userWalletService.refundWalletBalance(userId, order.pricing.total, `Refund for cancelled order #${order.order_id || order._id}`, { orderId: order._id });
-      order.payment.status = "refunded";
-      order.payment.refund = {
-        status: "processed",
-        amount: order.pricing.total,
-        processedAt: new Date()
-      };
-    } catch (err) {
-      console.error(`Wallet refund processing error for Order ${orderId}:`, err);
-      order.payment.refund = { status: "failed", amount: order.pricing.total };
-    }
+  try {
+    await applyCancellationRefund(order, { cancelledBy: 'user' });
+  } catch (err) {
+    console.error(`Refund processing error for Order ${orderId}:`, err);
+    order.payment.refund = { status: "failed", amount: order.pricing.total };
   }
 
   await order.save();
@@ -1299,61 +1356,13 @@ export async function updateOrderStatusRestaurant(
         to: orderStatus
     });
 
-    // ✅ NEW: Automated Razorpay Refund on Restaurant Cancel
-    // Triggers if the restaurant sets status to a cancelled state (e.g., cancelled_by_restaurant)
-    if (
-      String(orderStatus).includes("cancel") &&
-      order.payment.status === "paid" &&
-      order.payment.method === "razorpay" &&
-      order.payment.razorpay?.paymentId &&
-      (!order.payment.refund || order.payment.refund.status !== "processed")
-    ) {
+    if (String(orderStatus).includes("cancel")) {
       try {
-        const refundResult = await initiateRazorpayRefund(
-          order.payment.razorpay.paymentId,
-          order.pricing.total
-        );
-
-        if (refundResult.success) {
-          order.payment.status = "refunded";
-          order.payment.refund = {
-            status: "processed",
-            amount: order.pricing.total,
-            refundId: refundResult.refundId,
-            processedAt: new Date()
-          };
-        } else {
-          // Record failure so admin knows a manual refund might be needed
-          order.payment.refund = {
-            status: "failed",
-            amount: order.pricing.total
-          };
-        }
+        await applyCancellationRefund(order, { cancelledBy: 'restaurant' });
       } catch (err) {
         console.error(`Automated refund failed for Order ${order._id.toString()} (Restaurant Cancel):`, err);
         order.payment.refund = { status: "failed", amount: order.pricing.total };
       }
-      // Re-save order with updated payment status
-      await order.save();
-    } else if (
-      String(orderStatus).includes("cancel") &&
-      order.payment.status === "paid" &&
-      order.payment.method === "wallet" &&
-      (!order.payment.refund || order.payment.refund.status !== "processed")
-    ) {
-      try {
-        await userWalletService.refundWalletBalance(order.userId, order.pricing.total, `Refund for order #${order.order_id || order._id} cancelled by restaurant`, { orderId: order._id });
-        order.payment.status = "refunded";
-        order.payment.refund = {
-          status: "processed",
-          amount: order.pricing.total,
-          processedAt: new Date()
-        };
-      } catch (err) {
-        console.error(`Wallet refund processing error for Order ${order._id.toString()}:`, err);
-        order.payment.refund = { status: "failed", amount: order.pricing.total };
-      }
-      // Re-save order with updated payment status
       await order.save();
     }
 
@@ -1691,6 +1700,15 @@ export async function updateOrderStatusAdmin(orderId, orderStatus, note = "", ad
         note: note || "Status updated by admin",
     });
 
+    if (String(orderStatus).includes("cancel")) {
+        try {
+            await applyCancellationRefund(order, { cancelledBy: 'admin' });
+        } catch (err) {
+            logger.warn(`Admin cancellation refund failed for order ${order._id}: ${err?.message || err}`);
+            order.payment.refund = { status: "failed", amount: order.pricing?.total || 0 };
+        }
+    }
+
     await order.save();
 
     if (String(orderStatus) === "delivered") {
@@ -1760,7 +1778,6 @@ export async function processRefundAdmin(orderId, amount, adminId) {
     let order = await FoodOrder.findOne(identity);
     if (!order) throw new NotFoundError("Order not found");
 
-    const paymentMethod = String(order.payment?.method || "cash").toLowerCase();
     const currentPaymentStatus = String(order.payment?.status || "").toLowerCase();
 
     if (currentPaymentStatus === "refunded") {
@@ -1770,53 +1787,33 @@ export async function processRefundAdmin(orderId, amount, adminId) {
     const refundAmount = Number(amount) || order.pricing?.total || 0;
     if (refundAmount <= 0) throw new ValidationError("Invalid refund amount");
 
-    let refundSuccess = false;
-    let refundId = null;
+    const refundResult = await applyCancellationRefund(order, {
+        cancelledBy: 'admin',
+        refundAmount,
+    });
 
-    if (paymentMethod === "razorpay" && order.payment?.razorpay?.paymentId) {
-        const result = await initiateRazorpayRefund(order.payment.razorpay.paymentId, refundAmount);
-        if (result.success) {
-            refundSuccess = true;
-            refundId = result.refundId;
+    if (!refundResult.processed) {
+        if (order.isModified()) {
+            await order.save();
         }
-    } else if (paymentMethod === "wallet") {
-        await userWalletService.refundWalletBalance(
-            order.userId, 
-            refundAmount, 
-            `Refund for order #${order.order_id || order._id} processed by admin`,
-            { orderId: order._id, adminId }
-        );
-        refundSuccess = true;
-    } else if (paymentMethod === "cash") {
-        // Just mark as refunded in DB for COD if needed, or handle offline
-        refundSuccess = true;
+        if (refundResult.reason === 'cash_payment') {
+            throw new ValidationError('Cash on Delivery orders do not require a refund');
+        }
+        throw new Error('Refund processing failed');
     }
 
-    if (refundSuccess) {
-        order.payment.status = "refunded";
-        order.payment.refund = {
-            status: "processed",
-            amount: refundAmount,
-            refundId: refundId,
-            processedAt: new Date(),
-            processedBy: adminId
-        };
-        await order.save();
+    await order.save();
 
-        // Sync transaction
-        try {
-            await foodTransactionService.updateTransactionStatus(order._id, order.orderStatus, {
-                status: 'refunded',
-                note: `Refund of ₹${refundAmount} processed by admin`,
-                recordedByRole: 'ADMIN',
-                recordedById: adminId
-            });
-        } catch (err) {
-            logger.warn(`Admin refund transaction sync failed: ${err?.message || err}`);
-        }
-
-        return { success: true, order: normalizeOrderForClient(order) };
+    try {
+        await foodTransactionService.updateTransactionStatus(order._id, order.orderStatus, {
+            status: 'refunded',
+            note: `Refund of ₹${refundAmount} processed by admin`,
+            recordedByRole: 'ADMIN',
+            recordedById: adminId
+        });
+    } catch (err) {
+        logger.warn(`Admin refund transaction sync failed: ${err?.message || err}`);
     }
 
-    throw new Error("Refund processing failed");
+    return { success: true, order: normalizeOrderForClient(order) };
 }

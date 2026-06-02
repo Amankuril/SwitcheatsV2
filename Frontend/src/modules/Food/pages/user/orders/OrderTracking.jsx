@@ -1073,7 +1073,9 @@ export default function OrderTracking() {
         const successMessage = response.data?.message ||
           (paymentMethod === 'cash' || paymentMethod === 'cod'
             ? 'Order cancelled successfully. No refund required as payment was not made.'
-            : 'Order cancelled successfully. Refund will be processed after admin approval.');
+            : paymentMethod === 'wallet'
+              ? 'Order cancelled successfully. Refund has been credited to your wallet.'
+              : 'Order cancelled successfully. Refund has been initiated to your original payment method.');
         toast.success(successMessage);
         setShowCancelDialog(false);
         setCancellationReason("");
