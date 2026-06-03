@@ -27,6 +27,13 @@ const getDeliveryName = (deliveryman) =>
 const getDeliveryPhone = (deliveryman) =>
   deliveryman?.phone || deliveryman?.mobile || deliveryman?.fullData?.phone || "N/A"
 
+const isDeliveryOnlineFromDb = (deliveryman) => {
+  const status = String(deliveryman?.availabilityStatus || deliveryman?.fullData?.availabilityStatus || "").toLowerCase()
+  if (status === "online") return true
+  if (status === "offline") return false
+  return deliveryman?.isOnline === true || deliveryman?.fullData?.isOnline === true
+}
+
 const formatLastSeen = (timestamp) => {
   if (!timestamp) return "No live update yet"
   const date = new Date(Number(timestamp))
@@ -56,6 +63,56 @@ const getLocationFromPayload = (payload) => {
       status === "online" ||
       status === "busy",
   }
+}
+
+const getDbLocationFromDeliveryman = (deliveryman) => {
+  const source = deliveryman?.lastLocation || deliveryman?.fullData?.lastLocation || {}
+  const coordinates = Array.isArray(source?.coordinates)
+    ? source.coordinates
+    : Array.isArray(deliveryman?.lastLocation?.coordinates)
+      ? deliveryman.lastLocation.coordinates
+      : []
+  const lat = toFiniteNumber(
+    source?.lat ??
+    source?.latitude ??
+    deliveryman?.lastLat ??
+    deliveryman?.fullData?.lastLat ??
+    coordinates[1],
+  )
+  const lng = toFiniteNumber(
+    source?.lng ??
+    source?.longitude ??
+    deliveryman?.lastLng ??
+    deliveryman?.fullData?.lastLng ??
+    coordinates[0],
+  )
+  const timestamp =
+    toFiniteNumber(source?.timestamp) ||
+    toFiniteNumber(new Date(deliveryman?.lastLocationAt || deliveryman?.fullData?.lastLocationAt || "").getTime())
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  return {
+    lat,
+    lng,
+    latitude: lat,
+    longitude: lng,
+    heading: toFiniteNumber(source?.heading ?? source?.bearing) || 0,
+    speed: toFiniteNumber(source?.speed) || 0,
+    accuracy: toFiniteNumber(source?.accuracy),
+    timestamp,
+    isOnline: true,
+  }
+}
+
+const getFreshestLocation = (liveLocation, dbLocation) => {
+  const hasLiveCoordinates = Number.isFinite(liveLocation?.lat) && Number.isFinite(liveLocation?.lng)
+  const hasDbCoordinates = Number.isFinite(dbLocation?.lat) && Number.isFinite(dbLocation?.lng)
+  if (!hasLiveCoordinates) return hasDbCoordinates ? dbLocation : null
+  if (!hasDbCoordinates) return liveLocation
+
+  const liveTimestamp = toFiniteNumber(liveLocation?.timestamp) || 0
+  const dbTimestamp = toFiniteNumber(dbLocation?.timestamp) || 0
+  return dbTimestamp >= liveTimestamp - 5000 ? dbLocation : liveLocation
 }
 
 export default function DeliveryLiveTracking() {
@@ -190,8 +247,10 @@ export default function DeliveryLiveTracking() {
     return deliverymen.map((deliveryman) => {
       const deliveryId = getDeliveryId(deliveryman)
       const liveLocation = locationsById[deliveryId]
-      const hasCoordinates = Number.isFinite(liveLocation?.lat) && Number.isFinite(liveLocation?.lng)
-      const isOnline = Boolean(liveLocation?.isOnline && hasCoordinates)
+      const dbLocation = getDbLocationFromDeliveryman(deliveryman)
+      const freshestLocation = getFreshestLocation(liveLocation, dbLocation)
+      const hasCoordinates = Number.isFinite(freshestLocation?.lat) && Number.isFinite(freshestLocation?.lng)
+      const isOnline = isDeliveryOnlineFromDb(deliveryman)
 
       return {
         id: deliveryId,
@@ -199,8 +258,8 @@ export default function DeliveryLiveTracking() {
         phone: getDeliveryPhone(deliveryman),
         zone: deliveryman?.zone?.name || deliveryman?.zoneName || deliveryman?.serviceZone || "N/A",
         isOnline,
-        location: hasCoordinates ? liveLocation : null,
-        lastSeen: liveLocation?.timestamp || null,
+        location: isOnline && hasCoordinates ? freshestLocation : null,
+        lastSeen: freshestLocation?.timestamp || deliveryman?.lastLocationAt || null,
       }
     }).filter((deliveryman) => deliveryman.id)
   }, [deliverymen, locationsById])

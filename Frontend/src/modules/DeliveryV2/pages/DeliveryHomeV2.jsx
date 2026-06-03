@@ -4,7 +4,7 @@ import { useDeliveryStore } from '@/modules/DeliveryV2/store/useDeliveryStore';
 import { useProximityCheck } from '@/modules/DeliveryV2/hooks/useProximityCheck';
 import { useOrderManager } from '@/modules/DeliveryV2/hooks/useOrderManager';
 import { useDeliveryNotifications } from '@food/hooks/useDeliveryNotifications';
-import { writeOrderTracking } from '@food/realtimeTracking';
+import { writeDeliveryLocation, writeOrderTracking } from '@food/realtimeTracking';
 import { deliveryAPI } from '@food/api';
 import { toast } from 'sonner';
 
@@ -33,6 +33,24 @@ import { getHaversineDistance, calculateETA, calculateHeading } from '@/modules/
 import { useCompanyName } from "@food/hooks/useCompanyName";
 import { useNavigate } from 'react-router-dom';
 import useNotificationInbox from "@food/hooks/useNotificationInbox";
+
+const getStoredDeliveryPartnerId = () => {
+  if (typeof localStorage === 'undefined') return '';
+
+  const directId =
+    localStorage.getItem('deliveryPartnerId') ||
+    localStorage.getItem('deliveryPartnerMongoId') ||
+    localStorage.getItem('deliveryBoyId') ||
+    '';
+  if (directId) return directId;
+
+  try {
+    const user = JSON.parse(localStorage.getItem('delivery_user') || '{}');
+    return String(user?._id || user?.id || user?.userId || user?.deliveryPartnerId || '');
+  } catch (_) {
+    return '';
+  }
+};
 
 /** Minimal bottom-sheet popup (Restored from legacy FeedNavbar) */
 function BottomPopup({ isOpen, onClose, title, children, maxHeight = "85vh" }) {
@@ -107,8 +125,10 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
   const [eta, setEta] = useState(null);
   const lastLocationSentAt = useRef(0);
   const lastCoordRef = useRef(null);
+  const deliveryPartnerIdRef = useRef(getStoredDeliveryPartnerId());
   const rollingSpeedRef = useRef([]);
   const lastAutoArrivalRef = useRef({ PICKING_UP: false, PICKED_UP: false });
+  const isOnlineRef = useRef(isOnline);
 
   const [zoom, setZoom] = useState(14);
   const [isSimMode, setIsSimMode] = useState(false);
@@ -117,6 +137,27 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
   const [simProgress, setSimProgress] = useState(0); // 0 to 1 between points
   const [activePolyline, setActivePolyline] = useState(null);
   const mapRef = useRef(null);
+
+  useEffect(() => {
+    isOnlineRef.current = isOnline;
+  }, [isOnline]);
+
+  useEffect(() => {
+    const markOfflineForExit = () => {
+      if (!isOnlineRef.current) return;
+      isOnlineRef.current = false;
+      deliveryAPI.markOfflineOnExit?.();
+      useDeliveryStore.getState().setOnline(false);
+    };
+
+    window.addEventListener('pagehide', markOfflineForExit);
+    window.addEventListener('beforeunload', markOfflineForExit);
+
+    return () => {
+      window.removeEventListener('pagehide', markOfflineForExit);
+      window.removeEventListener('beforeunload', markOfflineForExit);
+    };
+  }, []);
 
   const isLoggingOut = useRef(false);
   const handleLogout = useCallback(() => {
@@ -197,10 +238,26 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
               // A. HTTP Backup
               deliveryAPI.updateLocation(lat, lng, true, { heading }).catch(() => { });
 
-              // B. SOCKET LIVE (SILKY SMOOTH)
+              // B. ADMIN LIVE TRACKING NODE
+              const deliveryPartnerId = deliveryPartnerIdRef.current || getStoredDeliveryPartnerId();
+              deliveryPartnerIdRef.current = deliveryPartnerId;
+              if (deliveryPartnerId) {
+                writeDeliveryLocation({
+                  deliveryId: deliveryPartnerId,
+                  lat,
+                  lng,
+                  heading,
+                  speed: 0,
+                  isOnline: true,
+                  activeOrderId: payload.orderId || null,
+                  timestamp: now
+                }).catch(() => { });
+              }
+
+              // C. SOCKET LIVE (SILKY SMOOTH)
               if (payload.orderId) emitLocation(payload);
 
-              // C. FIREBASE REALTIME DB (Persistent Route for Customer Map)
+              // D. FIREBASE REALTIME DB (Persistent Route for Customer Map)
               if (payload.orderId) {
                 writeOrderTracking(payload.orderId, {
                   lat,
@@ -418,10 +475,27 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
           accuracy: pos.coords.accuracy
         }).catch(() => { });
 
-        // B. SOCKET LIVE (SILKY SMOOTH)
+        // B. ADMIN LIVE TRACKING NODE
+        const deliveryPartnerId = deliveryPartnerIdRef.current || getStoredDeliveryPartnerId();
+        deliveryPartnerIdRef.current = deliveryPartnerId;
+        if (deliveryPartnerId) {
+          writeDeliveryLocation({
+            deliveryId: deliveryPartnerId,
+            lat,
+            lng,
+            heading: heading || 0,
+            speed: speed || 0,
+            accuracy: pos.coords.accuracy,
+            isOnline: true,
+            activeOrderId: payload.orderId || null,
+            timestamp: now
+          }).catch(() => { });
+        }
+
+        // C. SOCKET LIVE (SILKY SMOOTH)
         if (payload.orderId) emitLocation(payload);
 
-        // C. FIREBASE REALTIME DB (Persistent)
+        // D. FIREBASE REALTIME DB (Persistent)
         if (payload.orderId) {
           writeOrderTracking(payload.orderId, {
             lat,
@@ -460,11 +534,25 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
           true,
           { heading: 0, speed: 0, accuracy: null }
         ).catch(() => { });
+        const deliveryPartnerId = deliveryPartnerIdRef.current || getStoredDeliveryPartnerId();
+        deliveryPartnerIdRef.current = deliveryPartnerId;
+        if (deliveryPartnerId) {
+          writeDeliveryLocation({
+            deliveryId: deliveryPartnerId,
+            lat: lastCoordRef.current.lat,
+            lng: lastCoordRef.current.lng,
+            heading: 0,
+            speed: 0,
+            isOnline: true,
+            activeOrderId: activeOrder?.orderId || activeOrder?._id || null,
+            timestamp: now
+          }).catch(() => { });
+        }
       }
     }, 10000); // Check every 10 seconds
 
     return () => clearInterval(pingInterval);
-  }, [isOnline]);
+  }, [activeOrder, isOnline]);
 
   useEffect(() => { setIncomingOrder(newOrder); }, [newOrder]);
 
@@ -602,6 +690,21 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
                     if (nextState) {
                       navigator.geolocation.getCurrentPosition((pos) => {
                         deliveryAPI.updateLocation(pos.coords.latitude, pos.coords.longitude, true).catch(() => { });
+                        const deliveryPartnerId = deliveryPartnerIdRef.current || getStoredDeliveryPartnerId();
+                        deliveryPartnerIdRef.current = deliveryPartnerId;
+                        if (deliveryPartnerId) {
+                          writeDeliveryLocation({
+                            deliveryId: deliveryPartnerId,
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                            heading: pos.coords.heading || 0,
+                            speed: pos.coords.speed || 0,
+                            accuracy: pos.coords.accuracy,
+                            isOnline: true,
+                            activeOrderId: activeOrder?.orderId || activeOrder?._id || null,
+                            timestamp: Date.now()
+                          }).catch(() => { });
+                        }
                       }, (err) => console.warn('Online sync position failed:', err), { enableHighAccuracy: true });
                     } else {
                       deliveryAPI.updateOnlineStatus(false).catch(() => { });

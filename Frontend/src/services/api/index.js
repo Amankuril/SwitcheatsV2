@@ -3,7 +3,7 @@
  */
 
 import apiClient from "./axios.js";
-import { API_ENDPOINTS } from "./config.js";
+import { API_BASE_URL, API_ENDPOINTS } from "./config.js";
 import * as authService from "./auth.js";
 
 const stub = () =>
@@ -1903,6 +1903,29 @@ export const deliveryAPI = {
       { status: isOnline ? "online" : "offline", latitude, longitude, ...extras },
       { contextModule: "delivery" },
     ),
+  markOfflineOnExit: () => {
+    if (typeof window === "undefined" || typeof fetch !== "function") return false;
+    const token =
+      window.localStorage.getItem("delivery_accessToken") ||
+      window.localStorage.getItem("accessToken");
+    if (!token) return false;
+
+    const url = `${API_BASE_URL || ""}/food/delivery/availability`;
+    try {
+      fetch(url, {
+        method: "PATCH",
+        keepalive: true,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: "offline", reason: "client_exit" }),
+      }).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
+  },
   /** Orders */
   getOrders: (() => {
     // Collapse duplicate list fetches triggered by multiple effects + StrictMode.

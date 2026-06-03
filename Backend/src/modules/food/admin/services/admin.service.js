@@ -4020,6 +4020,17 @@ export async function getDeliveryPartners(query) {
 
     const deliveryPartners = list.map((doc, index) => {
         const stats = statsMap.get(doc._id.toString()) || {};
+        const lastLat = toFiniteNumber(doc.lastLat ?? doc.lastLocation?.coordinates?.[1]);
+        const lastLng = toFiniteNumber(doc.lastLng ?? doc.lastLocation?.coordinates?.[0]);
+        const lastLocation = lastLat !== null && lastLng !== null
+            ? {
+                lat: lastLat,
+                lng: lastLng,
+                latitude: lastLat,
+                longitude: lastLng,
+                timestamp: doc.lastLocationAt ? new Date(doc.lastLocationAt).getTime() : null
+            }
+            : null;
         return {
             _id: doc._id,
             sl: skip + index + 1,
@@ -4030,6 +4041,12 @@ export async function getDeliveryPartners(query) {
             zone: doc.city || doc.state || doc.address || '',
             vehicleType: doc.vehicleType || '',
             status: doc.status,
+            availabilityStatus: doc.availabilityStatus || 'offline',
+            isOnline: doc.availabilityStatus === 'online',
+            lastLocation,
+            lastLat,
+            lastLng,
+            lastLocationAt: doc.lastLocationAt || null,
             profilePhoto: doc.profilePhoto || null,
             profileImage: doc.profilePhoto ? { url: doc.profilePhoto } : null,
             // Stats fields
