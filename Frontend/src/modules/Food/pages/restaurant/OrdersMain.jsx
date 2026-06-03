@@ -1011,6 +1011,34 @@ export default function OrdersMain() {
     return Math.max(0, Math.floor((deadlineMs - Date.now()) / 1000));
   };
 
+  const getOrderAcceptanceWindowSeconds = (orderLike) => {
+    const snapshotSeconds = Number(orderLike?.acceptanceWindowSeconds);
+    if (Number.isFinite(snapshotSeconds) && snapshotSeconds > 0) {
+      return Math.round(snapshotSeconds);
+    }
+
+    const deadlineMs = new Date(orderLike?.acceptanceDeadlineAt || "").getTime();
+    const createdMs = new Date(orderLike?.createdAt || "").getTime();
+    if (Number.isFinite(deadlineMs) && Number.isFinite(createdMs) && deadlineMs > createdMs) {
+      return Math.max(1, Math.round((deadlineMs - createdMs) / 1000));
+    }
+
+    return 240;
+  };
+
+  const getAcceptTimerFillPercent = (orderLike) => {
+    const totalSeconds = getOrderAcceptanceWindowSeconds(orderLike);
+    if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return 0;
+    return Math.max(0, Math.min(100, (countdown / totalSeconds) * 100));
+  };
+
+  const getAcceptTimerFillColor = (orderLike) => {
+    const fillPercent = getAcceptTimerFillPercent(orderLike);
+    if (fillPercent > 60) return "rgba(16, 185, 129, 0.16)";
+    if (fillPercent > 30) return "rgba(245, 158, 11, 0.18)";
+    return "rgba(244, 63, 94, 0.16)";
+  };
+
   // Restaurant notifications hook for real-time orders
   const { newOrder, clearNewOrder, isConnected } = useRestaurantNotifications();
 
@@ -1327,6 +1355,7 @@ export default function OrdersMain() {
                 orderToPopup.payment?.method ||
                 null,
               payment: orderToPopup.payment,
+              acceptanceWindowSeconds: orderToPopup.acceptanceWindowSeconds || null,
               acceptanceDeadlineAt: orderToPopup.acceptanceDeadlineAt || null,
             };
 
@@ -2336,9 +2365,15 @@ export default function OrdersMain() {
                   >
                     {/* Progress Fill (Timer) */}
                     <motion.div
-                      className="absolute inset-y-0 left-0 bg-emerald-500/10"
-                      initial={{ width: "100%" }}
-                      animate={{ width: `${(countdown / 240) * 100}%` }}
+                      className="absolute inset-y-0 left-0"
+                      initial={{
+                        width: "100%",
+                        backgroundColor: getAcceptTimerFillColor(popupOrder || newOrder),
+                      }}
+                      animate={{
+                        width: `${getAcceptTimerFillPercent(popupOrder || newOrder)}%`,
+                        backgroundColor: getAcceptTimerFillColor(popupOrder || newOrder),
+                      }}
                       transition={{ duration: 1, ease: "linear" }}
                     />
                     

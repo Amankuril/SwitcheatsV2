@@ -271,6 +271,14 @@ export const adminAPI = {
     apiClient.get("/food/admin/restaurant-subscription-settings", {
       contextModule: "admin",
     }),
+  getRestaurantOrderAcceptanceSettings: () =>
+    apiClient.get("/food/admin/restaurant-settings/order-acceptance", {
+      contextModule: "admin",
+    }),
+  updateRestaurantOrderAcceptanceSettings: (body = {}) =>
+    apiClient.patch("/food/admin/restaurant-settings/order-acceptance", body ?? {}, {
+      contextModule: "admin",
+    }),
   getRestaurantSubscriptionHistory: (params = {}) =>
     apiClient.get("/food/admin/restaurant-subscriptions/history", {
       params,

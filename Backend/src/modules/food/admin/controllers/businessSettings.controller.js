@@ -27,6 +27,12 @@ const normalizeFontFamily = (value, fallback) => {
     return POWER_SCANNING_FONT_OPTIONS.includes(raw) ? raw : fallback;
 };
 
+const normalizeOrderAcceptanceMinutes = (value, fallback = 4) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.max(1, Math.min(20, Math.round(numeric)));
+};
+
 const buildPowerScanningPayload = (payload = {}, existing = POWER_SCANNING_DEFAULT) => ({
     user: {
         themeColor: normalizeHexColor(payload?.user?.themeColor, existing?.user?.themeColor || POWER_SCANNING_DEFAULT.user.themeColor),
@@ -120,6 +126,61 @@ export async function updatePowerScanningSettings(req, res, next) {
         await settings.save();
 
         return sendResponse(res, 200, 'Power scanning settings updated successfully', settings.powerScanning);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function getOrderAcceptanceSettings(req, res, next) {
+    try {
+        let settings = await FoodBusinessSettings.findOne();
+        if (!settings) {
+            settings = await FoodBusinessSettings.create({
+                companyName: 'Switcheats',
+                email: 'admin@switcheats.com'
+            });
+        }
+
+        const minutes = normalizeOrderAcceptanceMinutes(settings.orderAcceptanceTimeMinutes);
+        if (settings.orderAcceptanceTimeMinutes !== minutes) {
+            settings.orderAcceptanceTimeMinutes = minutes;
+            await settings.save();
+        }
+
+        return sendResponse(res, 200, 'Order acceptance settings fetched successfully', {
+            orderAcceptanceTimeMinutes: minutes,
+            acceptanceWindowSeconds: minutes * 60
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function updateOrderAcceptanceSettings(req, res, next) {
+    try {
+        const rawMinutes = req.body?.orderAcceptanceTimeMinutes;
+        const numeric = Number(rawMinutes);
+        if (!Number.isFinite(numeric)) {
+            return res.status(400).json({ success: false, message: 'Order acceptance time is required' });
+        }
+
+        const minutes = Math.round(numeric);
+        if (minutes < 1 || minutes > 20) {
+            return res.status(400).json({ success: false, message: 'Order acceptance time must be between 1 and 20 minutes' });
+        }
+
+        let settings = await FoodBusinessSettings.findOne();
+        if (!settings) {
+            settings = new FoodBusinessSettings();
+        }
+
+        settings.orderAcceptanceTimeMinutes = minutes;
+        await settings.save();
+
+        return sendResponse(res, 200, 'Order acceptance settings updated successfully', {
+            orderAcceptanceTimeMinutes: minutes,
+            acceptanceWindowSeconds: minutes * 60
+        });
     } catch (error) {
         next(error);
     }

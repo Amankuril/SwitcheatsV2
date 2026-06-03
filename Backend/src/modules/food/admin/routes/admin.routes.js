@@ -56,6 +56,7 @@ const resolveSectionFromRequest = (path = '', method = '') => {
     if (path === '/orders' && String(method).toUpperCase() === 'GET') return null;
     if (
         path.startsWith('/restaurants') ||
+        path.startsWith('/restaurant-settings') ||
         path.startsWith('/restaurant-subscription-settings') ||
         path.startsWith('/restaurant-subscriptions') ||
         path.startsWith('/zones')
@@ -98,6 +99,7 @@ router.use(
     ])
 );
 router.use('/support-tickets', requireAdminPermission('customer_management', 'view'));
+router.use('/restaurant-settings', requireAdminPermission('restaurant_management', 'view'));
 router.use('/restaurant-subscription-settings', requireAdminPermission('restaurant_management', 'view'));
 router.use('/restaurant-subscriptions', requireAdminPermission('restaurant_management', 'view'));
 router.use('/categories', requireAdminPermission('food_management', 'view'));
@@ -277,6 +279,10 @@ router.patch('/business-settings', upload.fields([
 ]), businessSettingsController.updateBusinessSettings);
 router.get('/power-scanning', businessSettingsController.getPowerScanningSettings);
 router.patch('/power-scanning', businessSettingsController.updatePowerScanningSettings);
+
+// ----- Restaurant Settings -----
+router.get('/restaurant-settings/order-acceptance', businessSettingsController.getOrderAcceptanceSettings);
+router.patch('/restaurant-settings/order-acceptance', businessSettingsController.updateOrderAcceptanceSettings);
 
 // ----- Delivery Cash Limit -----
 router.get('/delivery-cash-limit', adminController.getDeliveryCashLimit);

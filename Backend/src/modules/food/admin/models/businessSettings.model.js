@@ -49,7 +49,8 @@ const businessSettingsSchema = new mongoose.Schema(
                 themeColor: { type: String, default: '#00B761' },
                 fontFamily: { type: String, default: 'Poppins' }
             }
-        }
+        },
+        orderAcceptanceTimeMinutes: { type: Number, default: 4, min: 1, max: 20 }
     },
     { timestamps: true }
 );

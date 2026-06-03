@@ -13,6 +13,7 @@ import { FoodOffer } from '../../admin/models/offer.model.js';
 import { FoodOfferUsage } from '../../admin/models/offerUsage.model.js';
 import { FoodDeliveryCommissionRule } from '../../admin/models/deliveryCommissionRule.model.js';
 import { FoodRestaurantCommission } from '../../admin/models/restaurantCommission.model.js';
+import { FoodBusinessSettings } from '../../admin/models/businessSettings.model.js';
 import { FoodTransaction } from '../models/foodTransaction.model.js';
 import { FoodSupportTicket } from '../../user/models/supportTicket.model.js';
 import { config } from '../../../../config/env.js';
@@ -59,8 +60,29 @@ let commissionRulesCache = null;
 let commissionRulesLoadedAt = 0;
 const ORDER_ACCEPTANCE_WINDOW_SECONDS = 240;
 
-function buildAcceptanceDeadline(date = new Date()) {
-  return new Date(date.getTime() + ORDER_ACCEPTANCE_WINDOW_SECONDS * 1000);
+function normalizeAcceptanceWindowSeconds(minutes) {
+  const numeric = Number(minutes);
+  if (!Number.isFinite(numeric)) return ORDER_ACCEPTANCE_WINDOW_SECONDS;
+  const roundedMinutes = Math.round(numeric);
+  if (roundedMinutes < 1 || roundedMinutes > 20) return ORDER_ACCEPTANCE_WINDOW_SECONDS;
+  return roundedMinutes * 60;
+}
+
+async function getOrderAcceptanceWindowSeconds() {
+  try {
+    const settings = await FoodBusinessSettings.findOne()
+      .select('orderAcceptanceTimeMinutes')
+      .lean();
+    return normalizeAcceptanceWindowSeconds(settings?.orderAcceptanceTimeMinutes);
+  } catch (err) {
+    logger.warn(`Failed to load order acceptance setting: ${err?.message || err}`);
+    return ORDER_ACCEPTANCE_WINDOW_SECONDS;
+  }
+}
+
+function buildAcceptanceDeadline(date = new Date(), windowSeconds = ORDER_ACCEPTANCE_WINDOW_SECONDS) {
+  const seconds = Number(windowSeconds);
+  return new Date(date.getTime() + (Number.isFinite(seconds) && seconds > 0 ? seconds : ORDER_ACCEPTANCE_WINDOW_SECONDS) * 1000);
 }
 
 function buildCancellationRefundDescription(order, cancelledBy = 'system') {
@@ -468,6 +490,7 @@ export async function createOrder(userId, dto) {
     );
 
     const initialStatus = (paymentMethod === "razorpay" || paymentMethod === "card") ? "pending_payment" : "created";
+    const acceptanceWindowSeconds = await getOrderAcceptanceWindowSeconds();
 
     const order = new FoodOrder({
       userId: toObjectId(userId, 'User ID'),
@@ -483,9 +506,9 @@ export async function createOrder(userId, dto) {
       pricing: normalizedPricing,
       payment,
       orderStatus: initialStatus,
-      acceptanceWindowSeconds: ORDER_ACCEPTANCE_WINDOW_SECONDS,
+      acceptanceWindowSeconds,
       acceptanceDeadlineAt:
-        initialStatus === "created" ? buildAcceptanceDeadline() : null,
+        initialStatus === "created" ? buildAcceptanceDeadline(new Date(), acceptanceWindowSeconds) : null,
       dispatch: { modeAtCreation: dispatchMode, status: "unassigned" },
       statusHistory: [
         {
@@ -536,7 +559,7 @@ export async function createOrder(userId, dto) {
         orderId: order._id.toString(),
       },
       {
-        delay: ORDER_ACCEPTANCE_WINDOW_SECONDS * 1000,
+        delay: acceptanceWindowSeconds * 1000,
         removeOnComplete: true,
         removeOnFail: true,
         jobId: `order-accept-timeout-${order._id?.toString?.()}`,
@@ -645,9 +668,10 @@ export async function verifyPayment(userId, dto) {
   order.payment.razorpay.signature = dto.razorpaySignature;
   
   const from = order.orderStatus;
+  const acceptanceWindowSeconds = await getOrderAcceptanceWindowSeconds();
   order.orderStatus = "created";
-  order.acceptanceWindowSeconds = ORDER_ACCEPTANCE_WINDOW_SECONDS;
-  order.acceptanceDeadlineAt = buildAcceptanceDeadline();
+  order.acceptanceWindowSeconds = acceptanceWindowSeconds;
+  order.acceptanceDeadlineAt = buildAcceptanceDeadline(new Date(), acceptanceWindowSeconds);
 
   pushStatusHistory(order, {
     byRole: "USER",
@@ -664,7 +688,7 @@ export async function verifyPayment(userId, dto) {
       orderId: order._id.toString(),
     },
     {
-      delay: ORDER_ACCEPTANCE_WINDOW_SECONDS * 1000,
+      delay: acceptanceWindowSeconds * 1000,
       removeOnComplete: true,
       removeOnFail: true,
       jobId: `order-accept-timeout-${order._id?.toString?.()}`,
