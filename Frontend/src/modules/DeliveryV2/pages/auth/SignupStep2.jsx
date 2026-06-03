@@ -35,40 +35,98 @@ const sanitizeUploadedDocValue = (value) => {
   return null
 }
 
-const fileToDataUrl = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ""))
-    reader.onerror = () => reject(new Error("Failed to read file"))
-    reader.readAsDataURL(file)
-  })
-
-const dataUrlToFile = (dataUrl, fileName, mimeType) => {
-  try {
-    const parts = String(dataUrl || "").split(",")
-    if (parts.length < 2) return null
-    const metadata = parts[0] || ""
-    const base64 = parts[1] || ""
-    const parsedMime =
-      mimeType ||
-      (metadata.match(/data:([^;]+);base64/i)?.[1] || "image/jpeg")
-    const binary = atob(base64)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i += 1) {
-      bytes[i] = binary.charCodeAt(i)
-    }
-    return new File([bytes], fileName || "document.jpg", { type: parsedMime })
-  } catch (e) {
-    return null
-  }
-}
-
 const sanitizeUploadedDocs = (docs) => ({
   profilePhoto: sanitizeUploadedDocValue(docs?.profilePhoto),
   aadharPhoto: sanitizeUploadedDocValue(docs?.aadharPhoto),
   panPhoto: sanitizeUploadedDocValue(docs?.panPhoto),
   drivingLicensePhoto: sanitizeUploadedDocValue(docs?.drivingLicensePhoto)
 })
+
+const MAX_DOCUMENT_IMAGE_BYTES = 5 * 1024 * 1024
+const TARGET_DOCUMENT_IMAGE_BYTES = 2 * 1024 * 1024
+const MAX_DOCUMENT_IMAGE_EDGE = 1600
+
+const loadImageFromFile = (file) =>
+  new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const image = new Image()
+    image.decoding = "async"
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(image)
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error("Failed to load image"))
+    }
+    image.src = objectUrl
+  })
+
+const canvasToBlob = (canvas, type, quality) =>
+  new Promise((resolve) => {
+    canvas.toBlob(resolve, type, quality)
+  })
+
+const optimizeDocumentImage = async (file) => {
+  if (!(file instanceof File) || !String(file.type || "").startsWith("image/")) {
+    return file
+  }
+
+  if (typeof document === "undefined" || typeof URL === "undefined") {
+    return file
+  }
+
+  try {
+    const image = await loadImageFromFile(file)
+    const originalWidth = Number(image.naturalWidth || image.width || 0)
+    const originalHeight = Number(image.naturalHeight || image.height || 0)
+    if (!originalWidth || !originalHeight) return file
+
+    const longestEdge = Math.max(originalWidth, originalHeight)
+    const scale = longestEdge > MAX_DOCUMENT_IMAGE_EDGE
+      ? MAX_DOCUMENT_IMAGE_EDGE / longestEdge
+      : 1
+
+    const targetWidth = Math.max(1, Math.round(originalWidth * scale))
+    const targetHeight = Math.max(1, Math.round(originalHeight * scale))
+    const shouldProcess =
+      scale < 1 || file.size > TARGET_DOCUMENT_IMAGE_BYTES
+
+    if (!shouldProcess) return file
+
+    const canvas = document.createElement("canvas")
+    canvas.width = targetWidth
+    canvas.height = targetHeight
+    const context = canvas.getContext("2d", { alpha: false })
+    if (!context) return file
+
+    context.drawImage(image, 0, 0, targetWidth, targetHeight)
+
+    const preferredType =
+      file.type === "image/png" ? "image/jpeg" : (file.type || "image/jpeg")
+    const optimizedBlob = await canvasToBlob(canvas, preferredType, 0.82)
+    if (!optimizedBlob) return file
+
+    if (optimizedBlob.size >= file.size && scale === 1) {
+      return file
+    }
+
+    const baseName = String(file.name || "document").replace(/\.[^.]+$/, "")
+    const extension = preferredType === "image/png"
+      ? "png"
+      : preferredType === "image/webp"
+        ? "webp"
+        : "jpg"
+
+    return new File([optimizedBlob], `${baseName}.${extension}`, {
+      type: preferredType,
+      lastModified: Date.now()
+    })
+  } catch (error) {
+    debugWarn("Failed to optimize document image", error)
+    return file
+  }
+}
 
 const getFriendlyRegistrationError = (error) => {
   const rawMessage =
@@ -158,15 +216,6 @@ export default function SignupStep2() {
   })
   const { documents, setDocument, removeDocument, clearOnboardingState } = useDeliveryOnboardingStore()
   const [uploadedDocs, setUploadedDocs] = useState(() => {
-    const saved = sessionStorage.getItem("deliverySignupDocs")
-    if (saved) {
-      try {
-        return sanitizeUploadedDocs(JSON.parse(saved))
-      } catch (e) {
-        debugError("Error parsing saved docs:", e)
-      }
-    }
-    // Sync with store if session is empty but store has files
     const initial = createEmptyUploadedDocs()
     Object.keys(documents).forEach(key => {
       if (documents[key]) initial[key] = { file: true }
@@ -183,28 +232,13 @@ export default function SignupStep2() {
     document.body.scrollTop = 0
   }, [])
 
-  // Save uploaded docs to session storage whenever they change
   useEffect(() => {
-    sessionStorage.setItem("deliverySignupDocs", JSON.stringify(uploadedDocs))
-  }, [uploadedDocs])
-
-  useEffect(() => {
-    const docTypes = ["profilePhoto", "aadharPhoto", "panPhoto", "drivingLicensePhoto"]
-    docTypes.forEach((docType) => {
-      if (documents[docType] instanceof File) return
-      const saved = uploadedDocs[docType]
-      if (!saved || typeof saved !== "object" || !saved.dataUrl) return
-      const restoredFile = dataUrlToFile(
-        saved.dataUrl,
-        saved.name || `${docType}.jpg`,
-        saved.type || "image/jpeg"
-      )
-      if (restoredFile) {
-        restoredFile._previewUrl = saved.dataUrl
-        setDocument(docType, restoredFile)
-      }
-    })
-  }, [documents, setDocument, uploadedDocs])
+    const saved = sessionStorage.getItem("deliverySignupDocs")
+    if (!saved) return
+    if (/\"dataUrl\"\s*:/.test(saved) || saved.length > 250000) {
+      sessionStorage.removeItem("deliverySignupDocs")
+    }
+  }, [])
 
   const documentsRef = useRef(documents)
   useEffect(() => {
@@ -247,7 +281,10 @@ export default function SignupStep2() {
       toast.error("Please select an image file")
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
+
+    const normalizedFile = await optimizeDocumentImage(file)
+
+    if (normalizedFile.size > MAX_DOCUMENT_IMAGE_BYTES) {
       toast.error("Image size should be less than 5MB")
       return
     }
@@ -258,18 +295,16 @@ export default function SignupStep2() {
       URL.revokeObjectURL(oldFile._previewUrl)
     }
 
-    // Persist preview so refresh can restore and submit without re-uploading.
-    const dataUrl = await fileToDataUrl(file)
-    file._previewUrl = dataUrl
+    normalizedFile._previewUrl = URL.createObjectURL(normalizedFile)
 
-    setDocument(docType, file)
+    setDocument(docType, normalizedFile)
     setUploadedDocs((prev) => ({
       ...prev,
       [docType]: {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        dataUrl
+        name: normalizedFile.name,
+        type: normalizedFile.type,
+        size: normalizedFile.size,
+        file: true
       }
     }))
     toast.success(`${docType.replace(/([A-Z])/g, " $1").trim()} selected`)
