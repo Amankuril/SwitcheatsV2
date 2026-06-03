@@ -11,6 +11,19 @@ const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
+const getEntityId = (value) => {
+  if (!value) return ""
+  if (typeof value === "string" || typeof value === "number") return String(value)
+  if (typeof value === "object") {
+    return String(value._id || value.id || value.restaurantId || "")
+  }
+  return ""
+}
+
+const getRestaurantName = (value) => {
+  if (!value || typeof value !== "object") return ""
+  return String(value.name || value.restaurantName || "")
+}
 
 const createFoodForm = () => ({
   restaurantId: "",
@@ -63,6 +76,8 @@ export default function FoodsList() {
   const [imagePreviewUrl, setImagePreviewUrl] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [totalFoods, setTotalFoods] = useState(0)
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const [imageVersion, setImageVersion] = useState(Date.now())
   const ensureActionAccess = (action) => {
     if (canCurrentAdminAction(action)) return true
@@ -70,44 +85,73 @@ export default function FoodsList() {
     return false
   }
 
-  const getItemCreatedMs = (item = {}) => {
-    const direct = [item.createdAt, item.addedAt, item.requestedAt, item.updatedAt]
-      .map((v) => new Date(v).getTime())
-      .find((ms) => Number.isFinite(ms) && ms > 0)
-    if (direct) return direct
-
-    const rawId = String(item.id || "")
-    const match = rawId.match(/\d{10,}/)
-    if (match) {
-      const fromId = Number(match[0])
-      if (Number.isFinite(fromId) && fromId > 0) return fromId
-    }
-    return 0
-  }
-
-  const toArray = (value) => (Array.isArray(value) ? value : [])
   const withImageVersion = (url) => {
     if (!url || typeof url !== "string") return FOOD_FALLBACK_IMAGE
     return `${url}${url.includes("?") ? "&" : "?"}v=${imageVersion}`
   }
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim())
+    }, 300)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [searchQuery])
+
+  const fetchRestaurantsForFilter = useCallback(async () => {
+    try {
+      const restaurantsResponse = await adminAPI.getRestaurants({ limit: 1000 })
+      const list =
+        restaurantsResponse?.data?.data?.restaurants ||
+        restaurantsResponse?.data?.restaurants ||
+        []
+
+      const restaurantsMap = new Map()
+      ;(Array.isArray(list) ? list : []).forEach((restaurant) => {
+        const restaurantId = getEntityId(restaurant)
+        if (!restaurantId || restaurantsMap.has(restaurantId)) return
+        restaurantsMap.set(restaurantId, {
+          id: restaurantId,
+          name: getRestaurantName(restaurant) || "Unknown Restaurant",
+        })
+      })
+
+      setRestaurantsForFilter(
+        Array.from(restaurantsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+      )
+    } catch (error) {
+      debugError("Error fetching restaurants:", error)
+      setRestaurantsForFilter([])
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchRestaurantsForFilter()
+  }, [fetchRestaurantsForFilter])
+
   const fetchAllFoods = useCallback(async () => {
     try {
       setLoading(true)
-      const foodsRes = await adminAPI.getFoods({ limit: 1000 })
+
+      const params = { page: currentPage, limit: pageSize }
+      if (selectedRestaurant !== "all") params.restaurantId = selectedRestaurant
+      if (debouncedSearchQuery) params.search = debouncedSearchQuery
+
+      const foodsRes = await adminAPI.getFoods(params)
       const list = foodsRes?.data?.data?.foods || []
-      const approvedOnly = Array.isArray(list)
-        ? list.filter((f) => String(f?.approvalStatus || "").toLowerCase() === "approved")
-        : []
-      const normalizedFoods = Array.isArray(approvedOnly)
-        ? approvedOnly.map((f) => ({
+      const total = Number(foodsRes?.data?.data?.total ?? foodsRes?.data?.total ?? 0)
+      const normalizedFoods = Array.isArray(list)
+        ? list.map((f) => ({
             id: String(f.id || f._id || ""),
             _id: f._id || f.id,
             name: f.name || "Unnamed Item",
             image: f.image || FOOD_FALLBACK_IMAGE,
             status: f.isAvailable !== false && String(f.approvalStatus || "").toLowerCase() !== "rejected",
-            restaurantId: String(f.restaurantId || ""),
-            restaurantName: f.restaurantName || "Unknown Restaurant",
+            restaurantId: getEntityId(f.restaurantId || f.restaurant?._id || f.restaurant),
+            restaurantName:
+              f.restaurantName ||
+              getRestaurantName(f.restaurant) ||
+              "Unknown Restaurant",
             categoryId: String(f.categoryId || ""),
             categoryName: f.categoryName || "",
             price: getFoodDisplayPrice(f),
@@ -123,61 +167,29 @@ export default function FoodsList() {
         : []
 
       setFoods(normalizedFoods)
-
-      try {
-        const [activeRestaurantsResponse, inactiveRestaurantsResponse] = await Promise.all([
-          adminAPI.getRestaurants({ limit: 1000 }),
-          adminAPI.getRestaurants({ limit: 1000, status: "inactive" }),
-        ])
-
-        const activeRestaurants = activeRestaurantsResponse?.data?.data?.restaurants ||
-          activeRestaurantsResponse?.data?.restaurants ||
-          []
-        const inactiveRestaurants = inactiveRestaurantsResponse?.data?.data?.restaurants ||
-          inactiveRestaurantsResponse?.data?.restaurants ||
-          []
-
-        const restaurantsMap = new Map()
-        ;[...activeRestaurants, ...inactiveRestaurants].forEach((restaurant) => {
-          const restaurantId = String(restaurant?._id || restaurant?.id || "")
-          if (!restaurantId) return
-          if (!restaurantsMap.has(restaurantId)) {
-            restaurantsMap.set(restaurantId, restaurant)
-          }
-        })
-        const restaurants = Array.from(restaurantsMap.values())
-        setRestaurantsForFilter(
-          restaurants
-            .map((restaurant) => ({
-              id: String(restaurant?._id || restaurant?.id || ""),
-              name: restaurant?.name || restaurant?.restaurantName || "Unknown Restaurant",
-            }))
-            .filter((restaurant) => restaurant.id)
-            .sort((a, b) => a.name.localeCompare(b.name))
-        )
-      } catch (_restaurantError) {
-        const fallbackMap = new Map()
-        normalizedFoods.forEach((food) => {
-          const id = String(food.restaurantId || "")
-          if (!id) return
-          if (!fallbackMap.has(id)) {
-            fallbackMap.set(id, { id, name: food.restaurantName || "Unknown Restaurant" })
-          }
-        })
-        setRestaurantsForFilter(
-          Array.from(fallbackMap.values()).sort((a, b) => a.name.localeCompare(b.name))
-        )
-      }
+      setTotalFoods(Number.isFinite(total) ? total : normalizedFoods.length)
       setImageVersion(Date.now())
+      setRestaurantsForFilter((prev) => {
+        const restaurantsMap = new Map((Array.isArray(prev) ? prev : []).map((restaurant) => [restaurant.id, restaurant]))
+        normalizedFoods.forEach((food) => {
+          const restaurantId = getEntityId(food.restaurantId)
+          if (!restaurantId || restaurantsMap.has(restaurantId)) return
+          restaurantsMap.set(restaurantId, {
+            id: restaurantId,
+            name: food.restaurantName || "Unknown Restaurant",
+          })
+        })
+        return Array.from(restaurantsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+      })
     } catch (error) {
       debugError("Error fetching foods:", error)
       toast.error("Failed to load foods")
       setFoods([])
-      setRestaurantsForFilter([])
+      setTotalFoods(0)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [currentPage, pageSize, selectedRestaurant, debouncedSearchQuery])
 
   useEffect(() => {
     fetchAllFoods()
@@ -228,36 +240,10 @@ export default function FoodsList() {
     return `FOOD${lastDigits}`
   }
 
-  const filteredFoods = useMemo(() => {
-    let result = [...foods]
-    
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim()
-      result = result.filter(food =>
-        food.name.toLowerCase().includes(query) ||
-        food.id.toString().includes(query) ||
-        food.restaurantName?.toLowerCase().includes(query) ||
-        food.categoryName?.toLowerCase().includes(query)
-      )
-    }
-
-    if (selectedRestaurant !== "all") {
-      result = result.filter((food) => String(food.restaurantId) === selectedRestaurant)
-    }
-
-    result.sort((a, b) => getItemCreatedMs(b) - getItemCreatedMs(a))
-    return result
-  }, [foods, searchQuery, selectedRestaurant])
-
   const totalPages = useMemo(() => {
-    if (filteredFoods.length === 0) return 1
-    return Math.ceil(filteredFoods.length / pageSize)
-  }, [filteredFoods.length, pageSize])
-
-  const paginatedFoods = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return filteredFoods.slice(start, start + pageSize)
-  }, [filteredFoods, currentPage, pageSize])
+    if (totalFoods === 0) return 1
+    return Math.ceil(totalFoods / pageSize)
+  }, [totalFoods, pageSize])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -474,7 +460,7 @@ export default function FoodsList() {
     try {
       setDeleting(true)
       await adminAPI.deleteFood(food?._id || food?.id)
-      setFoods((prev) => prev.filter((f) => String(f.id) !== String(id)))
+      await fetchAllFoods()
       toast.success("Food item deleted successfully")
     } catch (error) {
       debugError("Error deleting food:", error)
@@ -509,7 +495,7 @@ export default function FoodsList() {
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold text-slate-900">Food List</h2>
             <span className="px-3 py-1 rounded-full text-sm font-semibold bg-slate-100 text-slate-700">
-              {filteredFoods.length}
+              {totalFoods}
             </span>
           </div>
 
@@ -584,7 +570,7 @@ export default function FoodsList() {
                     </div>
                   </td>
                 </tr>
-              ) : filteredFoods.length === 0 ? (
+              ) : foods.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center justify-center">
@@ -594,7 +580,7 @@ export default function FoodsList() {
                   </td>
                 </tr>
               ) : (
-                paginatedFoods.map((food, index) => (
+                foods.map((food, index) => (
                   <tr
                     key={food.id}
                     className="hover:bg-slate-50 transition-colors"
@@ -668,17 +654,17 @@ export default function FoodsList() {
           </table>
         </div>
 
-        {!loading && filteredFoods.length > 0 && (
+        {!loading && totalFoods > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
             <div className="text-sm text-slate-600">
               Showing{" "}
               <span className="font-semibold text-slate-800">{(currentPage - 1) * pageSize + 1}</span>
               {" "}to{" "}
               <span className="font-semibold text-slate-800">
-                {Math.min(currentPage * pageSize, filteredFoods.length)}
+                {Math.min((currentPage - 1) * pageSize + foods.length, totalFoods)}
               </span>
               {" "}of{" "}
-              <span className="font-semibold text-slate-800">{filteredFoods.length}</span>
+              <span className="font-semibold text-slate-800">{totalFoods}</span>
             </div>
 
             <div className="flex items-center gap-2">
