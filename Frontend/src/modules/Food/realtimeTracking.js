@@ -22,6 +22,43 @@ function getOrderTrackingPath(orderId) {
   return `active_orders/${sanitizeRealtimeKey(orderId)}`;
 }
 
+function normalizeDeliveryLocationPayload(payload = {}) {
+  const source = payload?.location && typeof payload.location === 'object' ? payload.location : payload;
+  const lat = toFiniteNumber(source?.lat ?? source?.latitude);
+  const lng = toFiniteNumber(source?.lng ?? source?.longitude);
+  const timestamp = toFiniteNumber(source?.timestamp ?? source?.last_updated ?? source?.lastUpdate);
+  const status = String(source?.status || '').trim().toLowerCase();
+
+  return {
+    ...source,
+    lat,
+    lng,
+    latitude: lat,
+    longitude: lng,
+    heading: toFiniteNumber(source?.heading ?? source?.bearing) || 0,
+    speed: toFiniteNumber(source?.speed) || 0,
+    accuracy: toFiniteNumber(source?.accuracy),
+    timestamp: timestamp || null,
+    last_updated: toFiniteNumber(source?.last_updated) || timestamp || null,
+    isOnline:
+      source?.isOnline === true ||
+      status === 'online' ||
+      status === 'busy',
+    status: status || (source?.isOnline === true ? 'online' : 'offline'),
+  };
+}
+
+function normalizeDeliveryNode(node = {}) {
+  return Object.entries(node || {}).reduce((acc, [deliveryId, payload]) => {
+    const location = normalizeDeliveryLocationPayload(payload);
+    acc[deliveryId] = {
+      ...(payload && typeof payload === 'object' ? payload : {}),
+      location,
+    };
+    return acc;
+  }, {});
+}
+
 export function subscribeOrderTracking(orderId, onChange, onError) {
   if (!orderId || typeof onChange !== 'function') return () => {};
   // Enable Auth so RTDB security rules can work (existing session),
@@ -64,17 +101,32 @@ export function subscribeDeliveryLocation(deliveryId, onChange, onError) {
 export function subscribeAllDeliveryLocations(onChange, onError) {
   if (typeof onChange !== 'function') return () => {};
   ensureFirebaseInitialized({ enableAuth: true, enableGoogleProvider: false, enableRealtimeDb: true });
-  const path = 'delivery';
-  const unsub = onValue(
-    ref(firebaseRealtimeDb, path),
-    (snapshot) => {
-      onChange(snapshot.val() || {}, path);
-    },
-    (error) => {
-      if (typeof onError === 'function') onError(error, path);
-    },
+  const nodes = {
+    delivery: {},
+    delivery_boys: {},
+  };
+  const emit = () => {
+    onChange(
+      {
+        ...normalizeDeliveryNode(nodes.delivery),
+        ...normalizeDeliveryNode(nodes.delivery_boys),
+      },
+      'delivery_boys',
+    );
+  };
+  const unsubscribers = ['delivery', 'delivery_boys'].map((path) =>
+    onValue(
+      ref(firebaseRealtimeDb, path),
+      (snapshot) => {
+        nodes[path] = snapshot.val() || {};
+        emit();
+      },
+      (error) => {
+        if (typeof onError === 'function') onError(error, path);
+      },
+    ),
   );
-  return unsub;
+  return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
 }
 
 export function subscribeRestaurantLocation(restaurantId, onChange, onError) {

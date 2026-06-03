@@ -148,6 +148,7 @@ export const adminSidebarMenu = [
         subItems: [
           { label: "New Join Request", path: "/admin/food/delivery-partners/join-request" },
           { label: "Deliveryman List", path: "/admin/food/delivery-partners" },
+          { label: "Live Tracking", path: "/admin/food/delivery-partners/live-tracking" },
           { label: "Deliveryman Reviews", path: "/admin/food/delivery-partners/reviews" },
           { label: "Bonus", path: "/admin/food/delivery-partners/bonus" },
           { label: "Earning Addon", path: "/admin/food/delivery-partners/earning-addon" },
