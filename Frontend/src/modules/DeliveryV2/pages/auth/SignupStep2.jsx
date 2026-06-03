@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, X, Check, Camera, Image as ImageIcon } from "lucide-
 import { deliveryAPI } from "@food/api"
 import { toast } from "sonner"
 import { openCamera, openGallery } from "@food/utils/imageUploadUtils"
+import { clearModuleAuth, isModuleAuthenticated } from "@food/utils/auth"
 import useDeliveryBackNavigation from "../../hooks/useDeliveryBackNavigation"
 import { useDeliveryOnboardingStore } from "../../store/useDeliveryOnboardingStore"
 const debugLog = (...args) => {}
@@ -65,6 +66,20 @@ const loadImageFromFile = (file) =>
 const canvasToBlob = (canvas, type, quality) =>
   new Promise((resolve) => {
     canvas.toBlob(resolve, type, quality)
+  })
+
+const waitForPreviewReady = (src) =>
+  new Promise((resolve, reject) => {
+    if (!src) {
+      reject(new Error("Preview source is required"))
+      return
+    }
+
+    const image = new Image()
+    image.decoding = "async"
+    image.onload = () => resolve(src)
+    image.onerror = () => reject(new Error("Failed to render preview"))
+    image.src = src
   })
 
 const optimizeDocumentImage = async (file) => {
@@ -225,6 +240,8 @@ export default function SignupStep2() {
   const [activePicker, setActivePicker] = useState(null) // { docType: string, title: string, ref: any }
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [uploading, setUploading] = useState({})
+  const documentTypes = ["profilePhoto", "aadharPhoto", "panPhoto", "drivingLicensePhoto"]
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" })
@@ -247,12 +264,26 @@ export default function SignupStep2() {
 
   useEffect(() => {
     return () => {
+      isMountedRef.current = false
       // Do NOT revokeObjectURL here anymore because we want to preserve 
       // the previews when navigating back and forth between steps.
       // The browser will clean them up when the tab is closed or 
       // when we explicitly revoke them during file replacement/removal.
     }
   }, [])
+
+  const navigateWithFallback = (path) => {
+    navigate(path, { replace: true })
+
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        if (!isMountedRef.current) return
+        if (window.location.pathname !== path) {
+          window.location.replace(path)
+        }
+      }, 250)
+    }
+  }
 
   const getPreviewSrc = (docType) => {
     const localFile = documents[docType]
@@ -277,37 +308,47 @@ export default function SignupStep2() {
   const handleFileSelect = async (docType, file) => {
     if (!file) return
 
+    setUploading((prev) => ({ ...prev, [docType]: true }))
+
     if (!file.type.startsWith("image/")) {
+      setUploading((prev) => ({ ...prev, [docType]: false }))
       toast.error("Please select an image file")
       return
     }
 
-    const normalizedFile = await optimizeDocumentImage(file)
+    try {
+      const normalizedFile = await optimizeDocumentImage(file)
 
-    if (normalizedFile.size > MAX_DOCUMENT_IMAGE_BYTES) {
-      toast.error("Image size should be less than 5MB")
-      return
-    }
-
-    // Revoke old URL if replacing a file
-    const oldFile = documents[docType]
-    if (oldFile instanceof File && oldFile._previewUrl && String(oldFile._previewUrl).startsWith("blob:")) {
-      URL.revokeObjectURL(oldFile._previewUrl)
-    }
-
-    normalizedFile._previewUrl = URL.createObjectURL(normalizedFile)
-
-    setDocument(docType, normalizedFile)
-    setUploadedDocs((prev) => ({
-      ...prev,
-      [docType]: {
-        name: normalizedFile.name,
-        type: normalizedFile.type,
-        size: normalizedFile.size,
-        file: true
+      if (normalizedFile.size > MAX_DOCUMENT_IMAGE_BYTES) {
+        toast.error("Image size should be less than 5MB")
+        return
       }
-    }))
-    toast.success(`${docType.replace(/([A-Z])/g, " $1").trim()} selected`)
+
+      const oldFile = documents[docType]
+      if (oldFile instanceof File && oldFile._previewUrl && String(oldFile._previewUrl).startsWith("blob:")) {
+        URL.revokeObjectURL(oldFile._previewUrl)
+      }
+
+      normalizedFile._previewUrl = URL.createObjectURL(normalizedFile)
+      await waitForPreviewReady(normalizedFile._previewUrl)
+
+      setDocument(docType, normalizedFile)
+      setUploadedDocs((prev) => ({
+        ...prev,
+        [docType]: {
+          name: normalizedFile.name,
+          type: normalizedFile.type,
+          size: normalizedFile.size,
+          file: true
+        }
+      }))
+      toast.success(`${docType.replace(/([A-Z])/g, " $1").trim()} selected`)
+    } catch (error) {
+      debugError("Failed to process selected file:", error)
+      toast.error("Failed to process image")
+    } finally {
+      setUploading((prev) => ({ ...prev, [docType]: false }))
+    }
   }
 
   const handleTakeCameraPhoto = (docType, label) => {
@@ -338,6 +379,12 @@ export default function SignupStep2() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    const isAnyUploading = Object.values(uploading).some(Boolean)
+    if (isAnyUploading) {
+      toast.error("Please wait until all image previews are ready")
+      return
+    }
 
     if (!documents.profilePhoto || !documents.aadharPhoto || !documents.panPhoto || !documents.drivingLicensePhoto) {
       toast.error("Please upload all required documents")
@@ -427,16 +474,24 @@ export default function SignupStep2() {
       if (response?.data?.success) {
         sessionStorage.removeItem("deliverySignupDetails")
         sessionStorage.removeItem("deliverySignupDocs")
-        await cleanupDeliveryOnboardingIndexedDb()
+        sessionStorage.removeItem("deliveryAuthData")
         clearOnboardingState()
+        void cleanupDeliveryOnboardingIndexedDb().catch((error) => {
+          debugWarn("Failed to cleanup onboarding IndexedDB", error)
+        })
         if (isCompleteProfile) {
           sessionStorage.removeItem("deliveryNeedsRegistration")
+          clearModuleAuth("delivery")
           toast.success("Registration successful. Please login with OTP.")
-          setTimeout(() => navigate("/food/delivery/login", { replace: true }), 1500)
+          navigateWithFallback("/food/delivery/login")
         } else {
+          const targetPath = isModuleAuthenticated("delivery")
+            ? "/food/delivery"
+            : "/food/delivery/login"
           toast.success("Profile submitted. Waiting for admin approval.")
-          setTimeout(() => navigate("/food/delivery", { replace: true }), 1500)
+          navigateWithFallback(targetPath)
         }
+        return
       }
     } catch (error) {
       debugError("Error submitting registration:", error)
@@ -449,9 +504,10 @@ export default function SignupStep2() {
 
   const DocumentUpload = ({ docType, label, required = true }) => {
     const uploaded = uploadedDocs[docType]
-    const isUploading = uploading[docType]
+    const isUploading = Boolean(uploading[docType])
     const previewSrc = getPreviewSrc(docType)
     const hasPreview = Boolean(previewSrc)
+    const controlsDisabled = isUploading || isSubmitting
 
     return (
       <div className="bg-white rounded-lg p-4 border border-gray-200">
@@ -468,8 +524,11 @@ export default function SignupStep2() {
             />
             <button
               type="button"
+              disabled={controlsDisabled}
               onClick={() => handleRemove(docType)}
-              className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
+              className={`absolute top-2 right-2 text-white p-2 rounded-full transition-colors ${
+                controlsDisabled ? "bg-red-300 cursor-not-allowed" : "bg-red-500 hover:bg-red-600"
+              }`}
             >
               <X className="w-4 h-4" />
             </button>
@@ -484,7 +543,7 @@ export default function SignupStep2() {
               {isUploading ? (
                 <>
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mb-2"></div>
-                  <p className="text-sm text-gray-500">Uploading...</p>
+                  <p className="text-sm text-gray-500">Preparing preview...</p>
                 </>
               ) : (
                 <>
@@ -499,16 +558,26 @@ export default function SignupStep2() {
               <div className="w-full grid grid-cols-2 gap-2 pb-4">
                 <button
                   type="button"
+                  disabled={controlsDisabled}
                   onClick={() => handleTakeCameraPhoto(docType, label)}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gray-900 text-white text-xs font-bold cursor-pointer hover:bg-black transition-all active:scale-95"
+                  className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-white text-xs font-bold transition-all ${
+                    controlsDisabled
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-gray-900 cursor-pointer hover:bg-black active:scale-95"
+                  }`}
                 >
                   <Camera className="w-4 h-4" />
                   <span>Take Photo</span>
                 </button>
                 <button
                   type="button"
+                  disabled={controlsDisabled}
                   onClick={() => handlePickFromGallery(docType)}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#00B761] text-white text-xs font-bold cursor-pointer hover:bg-[#00A055] transition-all active:scale-95"
+                  className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-white text-xs font-bold transition-all ${
+                    controlsDisabled
+                      ? "bg-[#8fd8b6] cursor-not-allowed"
+                      : "bg-[#00B761] cursor-pointer hover:bg-[#00A055] active:scale-95"
+                  }`}
                 >
                   <ImageIcon className="w-4 h-4" />
                   <span>Gallery</span>
@@ -533,13 +602,21 @@ export default function SignupStep2() {
                 }
                 e.target.value = ""
               }}
-              disabled={isUploading}
+              disabled={controlsDisabled}
             />
           </div>
         )}
       </div>
     )
   }
+
+  const isAnyUploading = documentTypes.some((docType) => Boolean(uploading[docType]))
+  const hasAllDocuments = documentTypes.every((docType) => documents[docType])
+  const hasAllPreviews = documentTypes.every((docType) => {
+    if (!documents[docType]) return false
+    return Boolean(getPreviewSrc(docType))
+  })
+  const disableSubmit = isSubmitting || isAnyUploading || !hasAllDocuments || !hasAllPreviews
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -570,13 +647,13 @@ export default function SignupStep2() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting || !documents.profilePhoto || !documents.aadharPhoto || !documents.panPhoto || !documents.drivingLicensePhoto}
-            className={`w-full py-4 rounded-lg font-bold text-white text-base transition-colors mt-6 ${isSubmitting || !documents.profilePhoto || !documents.aadharPhoto || !documents.panPhoto || !documents.drivingLicensePhoto
+            disabled={disableSubmit}
+            className={`w-full py-4 rounded-lg font-bold text-white text-base transition-colors mt-6 ${disableSubmit
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-[#00B761] hover:bg-[#00A055]"
               }`}
           >
-            {isSubmitting ? "Submitting..." : "Complete Signup"}
+            {isSubmitting ? "Submitting..." : isAnyUploading ? "Preparing images..." : "Complete Signup"}
           </button>
         </form>
       </div>
