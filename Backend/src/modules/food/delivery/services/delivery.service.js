@@ -44,23 +44,42 @@ export const registerDeliveryPartner = async (payload, files) => {
         });
     }
 
-    const images = {};
+    const uploadTasks = [];
 
     if (files?.profilePhoto?.[0]) {
-        images.profilePhoto = await uploadImageBuffer(files.profilePhoto[0].buffer, 'food/delivery/profile');
-    }
-    if (files?.aadharPhoto?.[0]) {
-        images.aadharPhoto = await uploadImageBuffer(files.aadharPhoto[0].buffer, 'food/delivery/aadhar');
-    }
-    if (files?.panPhoto?.[0]) {
-        images.panPhoto = await uploadImageBuffer(files.panPhoto[0].buffer, 'food/delivery/pan');
-    }
-    if (files?.drivingLicensePhoto?.[0]) {
-        images.drivingLicensePhoto = await uploadImageBuffer(
-            files.drivingLicensePhoto[0].buffer,
-            'food/delivery/license'
+        uploadTasks.push(
+            uploadImageBuffer(files.profilePhoto[0].buffer, 'food/delivery/profile').then((url) => [
+                'profilePhoto',
+                url
+            ])
         );
     }
+    if (files?.aadharPhoto?.[0]) {
+        uploadTasks.push(
+            uploadImageBuffer(files.aadharPhoto[0].buffer, 'food/delivery/aadhar').then((url) => [
+                'aadharPhoto',
+                url
+            ])
+        );
+    }
+    if (files?.panPhoto?.[0]) {
+        uploadTasks.push(
+            uploadImageBuffer(files.panPhoto[0].buffer, 'food/delivery/pan').then((url) => [
+                'panPhoto',
+                url
+            ])
+        );
+    }
+    if (files?.drivingLicensePhoto?.[0]) {
+        uploadTasks.push(
+            uploadImageBuffer(
+                files.drivingLicensePhoto[0].buffer,
+                'food/delivery/license'
+            ).then((url) => ['drivingLicensePhoto', url])
+        );
+    }
+
+    const images = Object.fromEntries(await Promise.all(uploadTasks));
 
     let normalizedEmail = undefined;
     if (email && String(email).trim()) {
