@@ -3852,7 +3852,10 @@ export const getRestaurantSubscriptionSettings = async () => {
     const growthMinGmv = Number(raw?.growthMinGmv ?? (starterMaxGmv + 0.01)) || (starterMaxGmv + 0.01);
     const growthMaxGmv = Number(raw?.growthMaxGmv ?? 60000) || 60000;
     const premiumMinGmv = Number(raw?.premiumMinGmv ?? (growthMaxGmv + 0.01)) || (growthMaxGmv + 0.01);
-    const onboardingFee = Number(raw?.onboardingFee ?? 799) || 799;
+    const onboardingFeeValue = Number(raw?.onboardingFee ?? 799);
+    const onboardingFee = Number.isFinite(onboardingFeeValue)
+        ? Math.max(0, onboardingFeeValue)
+        : 799;
 
     return {
         ...raw,

@@ -670,7 +670,7 @@ export const createPostApprovalOnboardingPaymentOrder = async (restaurantId, pay
     }
 
     const settings = await getRestaurantSubscriptionSettings();
-    const onboardingFeeBase = Number(settings?.onboardingFee || 799);
+    const onboardingFeeBase = Number(settings?.onboardingFee ?? 799);
     const onboardingFeeGST = Math.round(onboardingFeeBase * GST_RATE);
     const onboardingFeeTotal = needsOnboardingPayment ? onboardingFeeBase + onboardingFeeGST : 0;
     const { planName, baseAmount: planBase, eligibility } = await resolvePlanPricingFromEligibility(restaurant._id, settings);

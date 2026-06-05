@@ -348,7 +348,7 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
   const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
   if (isRestaurantSubscriptionEnabled && (!restaurant.onboardingFeePaid || isSubscriptionExpired(restaurant))) {
     const settings = await getRestaurantSubscriptionSettings();
-    const onboardingFeeBase = Number(settings?.onboardingFee || 799);
+    const onboardingFeeBase = Number(settings?.onboardingFee ?? 799);
     const onboardingFeeGST = Math.round(onboardingFeeBase * 0.18);
     const needsOnboardingPayment = !restaurant.onboardingFeePaid;
     const onboardingFeeTotal = needsOnboardingPayment ? onboardingFeeBase + onboardingFeeGST : 0;

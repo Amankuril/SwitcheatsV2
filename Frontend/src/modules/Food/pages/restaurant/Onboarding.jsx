@@ -3101,7 +3101,7 @@ export default function RestaurantOnboarding() {
     const starterPrice = Number(subscriptionSettings.starterPrice || 999)
     const growthPrice = Number(subscriptionSettings.growthPrice || 1999)
     const premiumPrice = Number(subscriptionSettings.premiumPrice || 2999)
-    const onboardingFeeBase = subscriptionSettings.onboardingFee
+    const onboardingFeeBase = Math.max(0, Number(subscriptionSettings.onboardingFee ?? 799))
 
 
     const subscriptionPlans = [
@@ -3114,6 +3114,7 @@ export default function RestaurantOnboarding() {
     const GST_RATE = 0.18
     const onboardingGST = Math.round(onboardingFeeBase * GST_RATE)
     const onboardingFeeTotal = onboardingFeeBase + onboardingGST
+    const hasOnboardingFee = onboardingFeeTotal > 0
 
     const selectedPlan = subscriptionPlans.find(p => p.id === step4State.subscriptionPlan)
     const selectedPlanBase = selectedPlan ? selectedPlan.price : 0
@@ -3139,19 +3140,21 @@ export default function RestaurantOnboarding() {
 
     return (
       <div className="space-y-6">
-        <section className="bg-white p-4 sm:p-6 rounded-md space-y-4">
-          <h2 className="text-lg font-semibold text-black">Onboarding setup</h2>
-          <div className="text-sm text-gray-600">
-            <p>Complete the setup with payment to activate your restaurant. The onboarding fee is mandatory.</p>
-          </div>
+        {hasOnboardingFee && (
+          <section className="bg-white p-4 sm:p-6 rounded-md space-y-4">
+            <h2 className="text-lg font-semibold text-black">Onboarding setup</h2>
+            <div className="text-sm text-gray-600">
+              <p>Complete the setup with payment to activate your restaurant. The onboarding fee is mandatory.</p>
+            </div>
 
-          <div className="border border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
-            <p className="text-sm font-medium text-orange-900">Onboarding fee</p>
-            <p className="text-lg font-semibold text-orange-600">₹{onboardingFeeBase} + ₹{onboardingGST} (18% GST)</p>
-            <p className="text-xl font-bold text-orange-700">Total: ₹{onboardingFeeTotal}</p>
-            <p className="text-xs text-orange-700">Mandatory to activate account</p>
-          </div>
-        </section>
+            <div className="border border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
+              <p className="text-sm font-medium text-orange-900">Onboarding fee</p>
+              <p className="text-lg font-semibold text-orange-600">₹{onboardingFeeBase} + ₹{onboardingGST} (18% GST)</p>
+              <p className="text-xl font-bold text-orange-700">Total: ₹{onboardingFeeTotal}</p>
+              <p className="text-xs text-orange-700">Mandatory to activate account</p>
+            </div>
+          </section>
+        )}
 
         <section className="bg-white p-4 sm:p-6 rounded-md space-y-4">
           <h2 className="text-lg font-semibold text-black">Select subscription plan</h2>
@@ -3211,7 +3214,11 @@ export default function RestaurantOnboarding() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-medium text-black">Pay now</p>
-                    <p className="text-xs text-gray-600 mt-1">Pay onboarding fee (₹{onboardingFeeTotal}) plus the selected subscription plan (₹{subscriptionPlanTotal}) in full now.</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {hasOnboardingFee
+                        ? `Pay onboarding fee (₹${onboardingFeeTotal}) plus the selected subscription plan (₹${subscriptionPlanTotal}) in full now.`
+                        : `Pay the selected subscription plan (₹${subscriptionPlanTotal}) in full now.`}
+                    </p>
                   </div>
                   <div className={`w-5 h-5 rounded-full border-2 ${step4State.paymentType === 'full' ? 'border-black bg-black' : 'border-gray-300'}`} />
                 </div>
@@ -3229,7 +3236,11 @@ export default function RestaurantOnboarding() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-medium text-black">Pay partial</p>
-                    <p className="text-xs text-gray-600 mt-1">Pay part of the subscription now. Onboarding fee is always collected.</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {hasOnboardingFee
+                        ? "Pay part of the subscription now. Onboarding fee is always collected."
+                        : "Pay part of the subscription now."}
+                    </p>
                   </div>
                   <div className={`w-5 h-5 rounded-full border-2 ${step4State.paymentType === 'partial' ? 'border-black bg-black' : 'border-gray-300'}`} />
                 </div>
@@ -3247,7 +3258,11 @@ export default function RestaurantOnboarding() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-medium text-black">Pay later</p>
-                    <p className="text-xs text-gray-600 mt-1">Pay subscription later. Only onboarding fee (₹{onboardingFeeTotal} with GST) will be collected now.</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {hasOnboardingFee
+                        ? `Pay subscription later. Only onboarding fee (₹${onboardingFeeTotal} with GST) will be collected now.`
+                        : "Pay nothing now. The subscription amount will become due."}
+                    </p>
                   </div>
                   <div className={`w-5 h-5 rounded-full border-2 ${step4State.paymentType === 'later' ? 'border-black bg-black' : 'border-gray-300'}`} />
                 </div>
@@ -3270,7 +3285,9 @@ export default function RestaurantOnboarding() {
                   placeholder={`Enter partial plan base payment (₹1 - ₹${selectedPlanBase})`}
                 />
                 <p className="text-xs text-gray-500 mt-2">
-                  Onboarding fee (₹{onboardingFeeTotal} inc. GST) is mandatory. The partial payment for subscription will also have 18% GST added.
+                  {hasOnboardingFee
+                    ? `Onboarding fee (₹${onboardingFeeTotal} inc. GST) is mandatory. The partial payment for subscription will also have 18% GST added.`
+                    : "The partial payment for subscription will have 18% GST added."}
                 </p>
               </div>
             )}
@@ -3281,18 +3298,22 @@ export default function RestaurantOnboarding() {
           <section className="bg-white p-4 sm:p-6 rounded-md space-y-4">
             <h2 className="text-lg font-semibold text-black">Payment summary</h2>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Onboarding fee (Base)</span>
-                <span className="font-medium">₹{onboardingFeeBase}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Onboarding GST (18%)</span>
-                <span className="font-medium">₹{onboardingGST}</span>
-              </div>
-              <div className="flex justify-between border-t border-gray-100 pt-1">
-                <span className="text-gray-800 font-medium">Onboarding Total</span>
-                <span className="font-bold">₹{onboardingFeeTotal}</span>
-              </div>
+              {hasOnboardingFee && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Onboarding fee (Base)</span>
+                    <span className="font-medium">₹{onboardingFeeBase}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Onboarding GST (18%)</span>
+                    <span className="font-medium">₹{onboardingGST}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-100 pt-1">
+                    <span className="text-gray-800 font-medium">Onboarding Total</span>
+                    <span className="font-bold">₹{onboardingFeeTotal}</span>
+                  </div>
+                </>
+              )}
               
               <div className="mt-2 pt-2 border-t border-gray-100">
                 <div className="flex justify-between">
@@ -3311,10 +3332,12 @@ export default function RestaurantOnboarding() {
 
               <div className="mt-2 pt-2 border-t border-gray-200">
                 <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Breakdown of Pay now</div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Onboarding (Total)</span>
-                  <span className="font-medium">₹{onboardingFeeTotal}</span>
-                </div>
+                {hasOnboardingFee && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Onboarding (Total)</span>
+                    <span className="font-medium">₹{onboardingFeeTotal}</span>
+                  </div>
+                )}
                 
                 {subscriptionPaidNowTotal > 0 && (
                   <>
@@ -3365,7 +3388,7 @@ export default function RestaurantOnboarding() {
       const starterPrice = Number(subscriptionSettings.starterPrice || 999)
       const growthPrice = Number(subscriptionSettings.growthPrice || 1999)
       const premiumPrice = Number(subscriptionSettings.premiumPrice || 2999)
-      const onboardingFeeBase = subscriptionSettings.onboardingFee
+      const onboardingFeeBase = Math.max(0, Number(subscriptionSettings.onboardingFee ?? 799))
 
       const selectedPlanBase =
         step4State.subscriptionPlan === 'premium'

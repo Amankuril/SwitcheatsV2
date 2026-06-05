@@ -119,7 +119,7 @@ export default function PostApprovalPayment() {
     const starterPrice = Number(settings.starterPrice || 999)
     const growthPrice = Number(settings.growthPrice || 1999)
     const premiumPrice = Number(settings.premiumPrice || 2999)
-    const onboardingFeeBase = Number(settings.onboardingFee || 799)
+    const onboardingFeeBase = Math.max(0, Number(settings.onboardingFee ?? 799))
 
     const selectedPlanBase =
       plan === "premium" ? premiumPrice : plan === "growth" ? growthPrice : starterPrice
@@ -158,17 +158,25 @@ export default function PostApprovalPayment() {
     }
   }, [settings, plan, paymentType, partialAmount, mode])
 
+  const hasOnboardingFee = mode === "onboarding" && Number(calc?.onboardingFeeTotal || 0) > 0
+
   const paymentInfoContent = useMemo(() => ({
     full: mode === "onboarding"
-      ? "Pay now: Onboarding fee and the selected plan are charged right away. From the next cycle onward, regular due rules apply."
+      ? hasOnboardingFee
+        ? "Pay now: Onboarding fee and the selected plan are charged right away. From the next cycle onward, regular due rules apply."
+        : "Pay now: The selected plan is charged right away. From the next cycle onward, regular due rules apply."
       : "Pay now: The full selected plan amount is charged right away. Once dues are cleared, the remaining wallet balance stays available.",
     partial: mode === "onboarding"
-      ? "Pay partial: Onboarding fee is mandatory now. A partial plan amount is paid now and the rest becomes due. Due is auto-deducted when available earnings reach the due amount."
+      ? hasOnboardingFee
+        ? "Pay partial: Onboarding fee is mandatory now. A partial plan amount is paid now and the rest becomes due. Due is auto-deducted when available earnings reach the due amount."
+        : "Pay partial: A partial plan amount is paid now and the rest becomes due. Due is auto-deducted when available earnings reach the due amount."
       : "Pay partial: A partial plan amount is paid now and the rest becomes due. Due auto-settles when available earnings can fully cover it.",
     later: mode === "onboarding"
-      ? "Pay later: Only onboarding fee is charged now. The full plan amount becomes due and will auto-deduct from available earnings once balance is sufficient."
+      ? hasOnboardingFee
+        ? "Pay later: Only onboarding fee is charged now. The full plan amount becomes due and will auto-deduct from available earnings once balance is sufficient."
+        : "Pay later: Nothing is charged now. The full plan amount becomes due and will auto-deduct from available earnings once balance is sufficient."
       : "Pay later: Nothing is charged now. The full plan amount becomes due and will auto-deduct from available earnings once balance is sufficient.",
-  }), [mode])
+  }), [hasOnboardingFee, mode])
 
   const handleCreateOrder = async () => {
     if (!calc) {
@@ -352,7 +360,7 @@ export default function PostApprovalPayment() {
                 <span className="font-bold text-red-700">₹{Number(gmvLast30Days || 0).toFixed(2)}</span>
               </div>
             </div>
-          ) : (
+          ) : hasOnboardingFee ? (
             <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 relative z-10">
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-slate-600 font-medium text-sm">Setup Fee (Base)</span>
@@ -367,7 +375,7 @@ export default function PostApprovalPayment() {
                 <span className="font-bold text-lg" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>₹{calc.onboardingFeeTotal}</span>
               </div>
             </div>
-          )}
+          ) : null}
         </section>
 
         {/* 2. Subscription Plan */}
@@ -475,7 +483,7 @@ export default function PostApprovalPayment() {
               {[
                 { id: "full", title: "Pay Full Now", desc: "Pay the complete amount and clear all dues instantly." },
                 { id: "partial", title: "Pay Partial", desc: "Pay a custom amount now, rest will be auto-deducted later." },
-                { id: "later", title: "Pay Later", desc: mode === "onboarding" ? "Pay only onboarding fee now." : "Pay nothing now, auto-deduct later." }
+                { id: "later", title: "Pay Later", desc: hasOnboardingFee ? "Pay only onboarding fee now." : "Pay nothing now, auto-deduct later." }
               ].map((opt) => {
                 const selected = paymentType === opt.id
                 return (
@@ -534,7 +542,7 @@ export default function PostApprovalPayment() {
             </h3>
             
             <div className="space-y-2 text-sm text-slate-600">
-              {mode === "onboarding" && (
+              {hasOnboardingFee && (
                 <>
                   <div className="flex justify-between items-center"><span>Onboarding fee (Base)</span><span className="font-bold text-slate-900">₹{calc.onboardingFeeBase}</span></div>
                   <div className="flex justify-between items-center"><span>Onboarding GST (18%)</span><span className="font-bold text-slate-900">₹{calc.onboardingGST}</span></div>
@@ -554,7 +562,7 @@ export default function PostApprovalPayment() {
 
               <p className="text-xs font-bold tracking-wider pt-2 mb-2 uppercase" style={{ color: STATIC_SUBSCRIPTION_COLOR }}>BREAKDOWN OF PAY NOW</p>
               
-              {mode === "onboarding" && (
+              {hasOnboardingFee && (
                 <div className="flex justify-between items-center"><span>Onboarding (Total)</span><span className="font-bold text-slate-900">₹{calc.onboardingFeeTotal}</span></div>
               )}
               <div className="flex justify-between items-center"><span>Subscription (Pay now) Base</span><span className="font-bold text-slate-900">₹{calc.subscriptionPaidNowBase}</span></div>
