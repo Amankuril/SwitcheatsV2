@@ -325,6 +325,14 @@ router.post('/delivery/earning-addon-completions/check', adminController.checkEa
 router.get('/delivery/support-tickets/stats', adminController.getSupportTicketStats);
 router.get('/delivery/support-tickets', adminController.getSupportTickets);
 router.patch('/delivery/support-tickets/:id', adminController.updateSupportTicket);
+router.get('/delivery/order-emergency-requests', adminController.getOrderEmergencyRequests);
+router.get('/delivery/order-emergency-requests/:id', adminController.getOrderEmergencyRequest);
+router.patch('/delivery/order-emergency-requests/:id', adminController.updateOrderEmergencyRequest);
+router.patch(
+    '/delivery/order-emergency-requests/:id/deassign-resend',
+    requireAdminPermission('delivery_management', 'edit'),
+    adminController.deassignAndResendOrderEmergencyRequest
+);
 router.get('/delivery/partners', adminController.getDeliveryPartners);
 router.get('/delivery/:id', adminController.getDeliveryPartnerById);
 router.patch('/delivery/:id/approve', adminController.approveDeliveryPartner);

@@ -644,10 +644,28 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
       if (orderStatusUpdate.status === 'cancelled') {
         toast.error('Order cancelled');
         resetTrip();
+      } else if (orderStatusUpdate.status === 'deassigned') {
+        clearNewOrder();
+        setIncomingOrder(null);
+        clearActiveOrder();
+        setShowVerification(false);
+        setIsModalMinimized(false);
+        setActivePolyline(null);
+        setSimPath([]);
+        setSimIndex(0);
+        setSimProgress(0);
+        setEta(null);
+        toast.info('Order reassigned by admin');
       }
       clearOrderStatusUpdate();
     }
-  }, [orderStatusUpdate, resetTrip, clearOrderStatusUpdate]);
+  }, [
+    orderStatusUpdate,
+    resetTrip,
+    clearOrderStatusUpdate,
+    clearNewOrder,
+    clearActiveOrder,
+  ]);
 
 
   const handleCenterMap = () => {

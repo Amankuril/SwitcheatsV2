@@ -142,6 +142,7 @@ export const adminSidebarMenu = [
       { type: "link", label: "Delivery boy Wallet", path: "/admin/food/delivery-boy-wallet", icon: "PiggyBank" },
       { type: "link", label: "Delivery Emergency Help", path: "/admin/food/delivery-emergency-help", icon: "Phone" },
       { type: "link", label: "Delivery Support Tickets", path: "/admin/food/delivery-support-tickets", icon: "MessageSquare" },
+      { type: "link", label: "Order Reassignment Requests", path: "/admin/food/delivery-order-reassignment-requests", icon: "AlertTriangle" },
       {
         type: "expandable",
         label: "Deliveryman",

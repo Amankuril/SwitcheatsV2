@@ -25,6 +25,7 @@ const ProfileDocsV2 = lazy(() => import('./pages/profile/ProfileDocsV2').then((m
 const SupportTicketsV2 = lazy(() => import('./pages/help/SupportTicketsV2').then((m) => ({ default: m.SupportTicketsV2 })));
 const CreateSupportTicketV2 = lazy(() => import('./pages/help/CreateSupportTicketV2').then((m) => ({ default: m.CreateSupportTicketV2 })));
 const ViewSupportTicketV2 = lazy(() => import('./pages/help/ViewSupportTicketV2').then((m) => ({ default: m.ViewSupportTicketV2 })));
+const OrderEmergencyRequestsV2 = lazy(() => import('./pages/help/OrderEmergencyRequestsV2').then((m) => ({ default: m.OrderEmergencyRequestsV2 })));
 const ShowIdCardV2 = lazy(() => import('./pages/help/ShowIdCardV2'));
 const PocketDetailsV2 = lazy(() => import('./pages/pocket/PocketDetailsV2').then((m) => ({ default: m.PocketDetailsV2 })));
 const ProfileDetailsV2 = lazy(() => import('./pages/profile/ProfileDetailsV2').then((m) => ({ default: m.ProfileDetailsV2 })));
@@ -89,6 +90,7 @@ const DeliveryV2Router = () => {
         <Route path="help/tickets" element={<ProtectedRoute><SupportTicketsV2 /></ProtectedRoute>} />
         <Route path="help/tickets/create" element={<ProtectedRoute><CreateSupportTicketV2 /></ProtectedRoute>} />
         <Route path="help/tickets/:ticketId" element={<ProtectedRoute><ViewSupportTicketV2 /></ProtectedRoute>} />
+        <Route path="help/order-emergency" element={<ProtectedRoute><OrderEmergencyRequestsV2 /></ProtectedRoute>} />
         <Route path="help/id-card" element={<ProtectedRoute><ShowIdCardV2 /></ProtectedRoute>} />
         <Route path="help/content" element={<HelpContentV2 />} />
         

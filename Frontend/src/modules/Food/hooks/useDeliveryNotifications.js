@@ -940,6 +940,17 @@ export const useDeliveryNotifications = () => {
       }
     });
 
+    socketRef.current.on('order_deassigned', (data) => {
+      debugLog('Delivery order deassigned by admin:', data);
+      stopAlertLoop();
+      activeOrderRef.current = null;
+      setNewOrder(null);
+      setOrderStatusUpdate({
+        ...(data || {}),
+        status: 'deassigned'
+      });
+    });
+
     socketRef.current.on('admin_notification', (payload) => {
       debugLog('Admin broadcast received via socket', payload);
       dispatchNotificationInboxRefresh();
@@ -1053,4 +1064,3 @@ export const useDeliveryNotifications = () => {
     emitLocation
   };
 };
-

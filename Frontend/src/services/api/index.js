@@ -429,6 +429,28 @@ export const adminAPI = {
     apiClient.patch(`/food/admin/delivery/support-tickets/${id}`, body ?? {}, {
       contextModule: "admin",
     }),
+  getOrderEmergencyRequests: (params = {}) =>
+    apiClient.get("/food/admin/delivery/order-emergency-requests", {
+      params,
+      contextModule: "admin",
+    }),
+  getOrderEmergencyRequestById: (id) =>
+    apiClient.get(
+      `/food/admin/delivery/order-emergency-requests/${String(id)}`,
+      { contextModule: "admin" },
+    ),
+  updateOrderEmergencyRequest: (id, body = {}) =>
+    apiClient.patch(
+      `/food/admin/delivery/order-emergency-requests/${String(id)}`,
+      body,
+      { contextModule: "admin" },
+    ),
+  deassignAndResendEmergencyOrder: (id) =>
+    apiClient.patch(
+      `/food/admin/delivery/order-emergency-requests/${String(id)}/deassign-resend`,
+      {},
+      { contextModule: "admin" },
+    ),
   createBroadcastNotification: (body = {}) =>
     apiClient.post("/food/admin/notifications/broadcast", body ?? {}, {
       contextModule: "admin",
@@ -1888,6 +1910,18 @@ export const deliveryAPI = {
   /** GET /food/delivery/support-tickets/:id - get one ticket (own only). */
   getSupportTicketById: (id) =>
     apiClient.get(`/food/delivery/support-tickets/${id}`, {
+      contextModule: "delivery",
+    }),
+  getOrderEmergencyRequests: () =>
+    apiClient.get("/food/delivery/order-emergency-requests", {
+      contextModule: "delivery",
+    }),
+  createOrderEmergencyRequest: (body = {}) =>
+    apiClient.post("/food/delivery/order-emergency-requests", body, {
+      contextModule: "delivery",
+    }),
+  getOrderEmergencyRequestById: (id) =>
+    apiClient.get(`/food/delivery/order-emergency-requests/${String(id)}`, {
       contextModule: "delivery",
     }),
   /** PATCH /food/delivery/availability - set online/offline (and optional lat/lng). */

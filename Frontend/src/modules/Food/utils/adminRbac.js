@@ -28,6 +28,7 @@ const PATH_PREFIX_TO_SECTION = [
   { prefix: "/admin/food/delivery-boy-wallet", section: "delivery_management" },
   { prefix: "/admin/food/delivery-emergency-help", section: "delivery_management" },
   { prefix: "/admin/food/delivery-support-tickets", section: "delivery_management" },
+  { prefix: "/admin/food/delivery-order-reassignment-requests", section: "delivery_management" },
   { prefix: "/admin/food/food-approval", section: "food_management" },
   { prefix: "/admin/food/foods", section: "food_management" },
   { prefix: "/admin/food/addons", section: "food_management" },

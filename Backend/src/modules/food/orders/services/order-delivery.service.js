@@ -176,14 +176,23 @@ export async function getCurrentTripDelivery(deliveryPartnerId) {
 
 export async function listOrdersAvailableDelivery(deliveryPartnerId, query) {
   const { page, limit, skip } = buildPaginationOptions(query);
+  const partnerId = new mongoose.Types.ObjectId(deliveryPartnerId);
   const filter = {
     $or: [
       {
         'dispatch.status': 'unassigned',
+        'dispatch.offeredTo': {
+          $not: {
+            $elemMatch: {
+              partnerId,
+              action: 'deassigned',
+            },
+          },
+        },
         orderStatus: { $in: ['confirmed', 'preparing', 'ready_for_pickup'] },
       },
       {
-        'dispatch.deliveryPartnerId': new mongoose.Types.ObjectId(deliveryPartnerId),
+        'dispatch.deliveryPartnerId': partnerId,
         orderStatus: {
           $nin: [
             'delivered',
@@ -259,7 +268,17 @@ export async function acceptOrderDelivery(orderId, deliveryPartnerId) {
       ...identity,
       orderStatus: { $in: acceptedStatuses },
       $or: [
-        { 'dispatch.status': 'unassigned' },
+        {
+          'dispatch.status': 'unassigned',
+          'dispatch.offeredTo': {
+            $not: {
+              $elemMatch: {
+                partnerId,
+                action: 'deassigned',
+              },
+            },
+          },
+        },
         {
           'dispatch.status': 'assigned',
           'dispatch.deliveryPartnerId': partnerId,

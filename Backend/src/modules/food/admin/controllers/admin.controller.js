@@ -10,6 +10,12 @@ import { validateFeeSettingsUpsertDto } from '../validators/feeSettings.validato
 import { validateDeliveryEmergencyHelpUpsertDto } from '../validators/deliveryEmergencyHelp.validator.js';
 import { validateReferralSettingsUpsertDto } from '../validators/referralSettings.validator.js';
 import { ADMIN_ACTIONS, ADMIN_PERMISSION_SECTIONS, sanitizeAdminPermissions } from '../../../../constants/permissions.js';
+import {
+    deassignAndResendEmergencyOrder,
+    getOrderEmergencyRequestAdmin,
+    listOrderEmergencyRequestsAdmin,
+    updateOrderEmergencyRequestAdmin
+} from '../../delivery/services/orderEmergencyRequest.service.js';
 
 // ----- Customers / Users -----
 export async function getCustomers(req, res, next) {
@@ -88,6 +94,72 @@ export async function deleteSafetyEmergencyReport(req, res, next) {
         const deleted = await adminService.deleteSafetyEmergencyReport(id);
         if (!deleted) return res.status(404).json({ success: false, message: 'Report not found' });
         res.status(200).json({ success: true, message: 'Safety emergency report deleted successfully', data: { report: deleted } });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function getOrderEmergencyRequests(req, res, next) {
+    try {
+        const data = await listOrderEmergencyRequestsAdmin(req.query || {});
+        res.status(200).json({
+            success: true,
+            message: 'Order reassignment requests fetched successfully',
+            data
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function updateOrderEmergencyRequest(req, res, next) {
+    try {
+        const request = await updateOrderEmergencyRequestAdmin(
+            req.params.id,
+            req.body || {}
+        );
+        res.status(200).json({
+            success: true,
+            message: 'Order reassignment request updated successfully',
+            data: { request }
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function getOrderEmergencyRequest(req, res, next) {
+    try {
+        const request = await getOrderEmergencyRequestAdmin(req.params.id);
+        if (!request) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order reassignment request not found'
+            });
+        }
+        res.status(200).json({
+            success: true,
+            message: 'Order reassignment request fetched successfully',
+            data: { request }
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function deassignAndResendOrderEmergencyRequest(req, res, next) {
+    try {
+        const result = await deassignAndResendEmergencyOrder(
+            req.params.id,
+            req.user?.userId
+        );
+        res.status(200).json({
+            success: true,
+            message: result.alreadyResolved
+                ? 'Order reassignment was already completed'
+                : 'Delivery partner deassigned and order dispatch restarted',
+            data: result
+        });
     } catch (error) {
         next(error);
     }

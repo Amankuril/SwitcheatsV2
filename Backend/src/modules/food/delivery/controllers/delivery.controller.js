@@ -6,6 +6,11 @@ import { DeliveryBonusTransaction } from '../../admin/models/deliveryBonusTransa
 import { validateDeliveryRegisterDto, validateDeliveryProfileUpdateDto, validateDeliveryBankDetailsDto } from '../validators/delivery.validator.js';
 import { sendResponse } from '../../../../utils/response.js';
 import { getDeliveryReferralStats } from '../services/deliveryReferral.service.js';
+import {
+    createOrderEmergencyRequest,
+    getOrderEmergencyRequestByPartner,
+    listOrderEmergencyRequestsByPartner
+} from '../services/orderEmergencyRequest.service.js';
 
 export const registerDeliveryPartnerController = async (req, res, next) => {
     try {
@@ -98,6 +103,47 @@ export const getSupportTicketByIdController = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Ticket not found' });
         }
         return sendResponse(res, 200, 'Ticket fetched successfully', ticket);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const listOrderEmergencyRequestsController = async (req, res, next) => {
+    try {
+        const deliveryPartnerId = req.user?.userId;
+        const requests = await listOrderEmergencyRequestsByPartner(deliveryPartnerId);
+        return sendResponse(res, 200, 'Order reassignment requests fetched', { requests });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const createOrderEmergencyRequestController = async (req, res, next) => {
+    try {
+        const deliveryPartnerId = req.user?.userId;
+        const request = await createOrderEmergencyRequest(deliveryPartnerId, req.body || {});
+        return sendResponse(res, 201, 'Emergency reassignment request created', { request });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getOrderEmergencyRequestController = async (req, res, next) => {
+    try {
+        const deliveryPartnerId = req.user?.userId;
+        const request = await getOrderEmergencyRequestByPartner(
+            req.params.id,
+            deliveryPartnerId
+        );
+        if (!request) {
+            return res.status(404).json({
+                success: false,
+                message: 'Emergency reassignment request not found'
+            });
+        }
+        return sendResponse(res, 200, 'Emergency reassignment request fetched', {
+            request
+        });
     } catch (error) {
         next(error);
     }

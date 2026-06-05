@@ -149,6 +149,11 @@ export async function tryAutoAssign(orderId, options = {}) {
 
   try {
     const offeredIds = (order.dispatch?.offeredTo || []).map(o => o.partnerId.toString());
+    const permanentlyExcludedIds = new Set(
+      (order.dispatch?.offeredTo || [])
+        .filter((offer) => offer.action === 'deassigned')
+        .map((offer) => offer.partnerId.toString())
+    );
     
     // RADIUS EXPANSION LOGIC
     // Attempt 1: 15km, Attempt 2: 25km, Attempt 3: 40km, Attempt 4+: 60km
@@ -189,9 +194,12 @@ export async function tryAutoAssign(orderId, options = {}) {
       
       // If we ran out of new eligible partners, we might want to re-offer to everyone (Phase 2 style)
       const io = getIO();
-      if (io && partners.length > 0) {
+      const reofferEligible = partners.filter(
+        (partner) => !permanentlyExcludedIds.has(partner.partnerId.toString())
+      );
+      if (io && reofferEligible.length > 0) {
         const payload = buildDeliverySocketPayload(order, order.restaurantId);
-        for (const p of partners) {
+        for (const p of reofferEligible) {
           const roomName = rooms.delivery(p.partnerId);
           io.to(roomName).emit('new_order_available', { ...payload, pickupDistanceKm: p.distanceKm });
         }

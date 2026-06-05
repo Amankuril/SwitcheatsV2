@@ -70,6 +70,7 @@ const DeliveryWithdrawal = lazy(() => import("@food/pages/admin/DeliveryWithdraw
 const DeliveryBoyWallet = lazy(() => import("@food/pages/admin/DeliveryBoyWallet"));
 const DeliveryEmergencyHelp = lazy(() => import("@food/pages/admin/DeliveryEmergencyHelp"));
 const DeliverySupportTickets = lazy(() => import("@food/pages/admin/DeliverySupportTickets"));
+const OrderReassignmentRequests = lazy(() => import("@food/pages/admin/OrderReassignmentRequests"));
 const JoinRequest = lazy(() => import("@food/pages/admin/delivery-partners/JoinRequest"));
 const AddDeliveryman = lazy(() => import("@food/pages/admin/delivery-partners/AddDeliveryman"));
 const DeliverymanList = lazy(() => import("@food/pages/admin/delivery-partners/DeliverymanList"));
@@ -309,6 +310,7 @@ export default function AdminRouter() {
             <Route path="delivery-boy-wallet" element={<DeliveryBoyWallet />} />
             <Route path="delivery-emergency-help" element={<DeliveryEmergencyHelp />} />
             <Route path="delivery-support-tickets" element={<DeliverySupportTickets />} />
+            <Route path="delivery-order-reassignment-requests" element={<OrderReassignmentRequests />} />
             <Route path="delivery-partners" element={<DeliverymanList />} />
             <Route path="delivery-partners/add" element={<AddDeliveryman />} />
             <Route path="delivery-partners/live-tracking" element={<DeliveryLiveTracking />} />
