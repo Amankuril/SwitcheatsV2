@@ -512,23 +512,25 @@ const RestaurantCard = React.memo(({
               onIndexChange={setSlideIndex}
             />
 
-            {/* Featured Dish Badge - Top Left */}
-            <div className="absolute top-4 left-4 flex items-center z-10 transform transition-transform duration-300 group-hover:scale-105">
-              <div className="bg-black/70 backdrop-blur-lg text-white px-4 py-1.5 rounded-full text-[11px] font-medium tracking-tight flex items-center shadow-2xl border border-white/20 min-h-[28px] min-w-[100px] justify-center overflow-hidden">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={`${name}-${price}`}
-                    initial={{ y: 10, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -10, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
-                    className="whitespace-nowrap flex items-center"
-                  >
-                    {name} • ₹{price}
-                  </motion.div>
-                </AnimatePresence>
+            {/* Recommended Dish Badge - Top Left */}
+            {hasRecommended && (
+              <div className="absolute top-4 left-4 flex items-center z-10 transform transition-transform duration-300 group-hover:scale-105">
+                <div className="bg-black/70 backdrop-blur-lg text-white px-4 py-1.5 rounded-full text-[11px] font-medium tracking-tight flex items-center shadow-2xl border border-white/20 min-h-[28px] min-w-[100px] justify-center overflow-hidden">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={`${name}-${price}`}
+                      initial={{ y: 10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -10, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      className="whitespace-nowrap flex items-center"
+                    >
+                      {name} • ₹{price}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
               </div>
-            </div>
+            )}
           </Link>
 
           {/* Bookmark Icon - Top Right (Moved outside Image Link to ensure click-through works) */}
