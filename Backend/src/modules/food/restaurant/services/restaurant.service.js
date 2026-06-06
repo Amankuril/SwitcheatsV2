@@ -685,9 +685,86 @@ export const createPostApprovalOnboardingPaymentOrder = async (restaurantId, pay
     }
 
     const paymentAmountTotal = onboardingFeeTotal + subscription.paidTotal;
+    if (paymentAmountTotal === 0) {
+        const dueBefore = Number(restaurant.subscriptionDueAmount || 0);
+        const paidBefore = Number(restaurant.subscriptionPaidAmount || 0);
+
+        if (needsOnboardingPayment) {
+            restaurant.onboardingFeePaid = true;
+            restaurant.onboardingFeePaidAt = new Date();
+            restaurant.onboardingFeePaymentMethod = 'waived';
+            restaurant.onboardingFeePaymentOrderId = '';
+            restaurant.onboardingFeePaymentId = '';
+            restaurant.onboardingFeePaymentSignature = '';
+        }
+
+        restaurant.subscriptionPlan = planName;
+        restaurant.subscriptionAmount = needsOnboardingPayment
+            ? subscription.planTotal
+            : (Number(restaurant.subscriptionAmount || 0) + subscription.planTotal);
+        restaurant.subscriptionPaidAmount = paidBefore;
+        restaurant.subscriptionDueAmount = needsOnboardingPayment
+            ? subscription.dueTotal
+            : Math.max(0, dueBefore + subscription.dueTotal);
+        restaurant.subscriptionStatus = restaurant.subscriptionDueAmount > 0 ? 'due' : 'paid';
+        restaurant.subscriptionValidTill = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        await restaurant.save();
+
+        const gmvLast30Days = await getRestaurantGmvLast30Days(restaurant._id);
+        await logRestaurantSubscriptionHistory({
+            restaurantId: restaurant._id,
+            eventType: 'subscription_payment',
+            plan: planName,
+            paymentType: subscription.paymentType,
+            amount: 0,
+            dueBefore,
+            dueAfter: Number(restaurant.subscriptionDueAmount || 0),
+            paidBefore,
+            paidAfter: paidBefore,
+            gmvLast30Days,
+            note: needsOnboardingPayment
+                ? 'Onboarding fee waived; subscription deferred'
+                : 'Renewal subscription deferred',
+            metadata: {
+                mode: needsOnboardingPayment ? 'onboarding' : 'renewal',
+                onboardingFeeApplied: false,
+                subscriptionTotal: subscription.planTotal,
+                zeroPaymentCompletion: true,
+            },
+        }).catch(() => null);
+
+        await attemptAutoSettleSubscriptionDue(restaurant._id);
+        const updatedRestaurant = await FoodRestaurant.findById(restaurant._id);
+
+        return {
+            paymentRequired: false,
+            completed: true,
+            restaurant: updatedRestaurant ? updatedRestaurant.toObject() : restaurant.toObject(),
+            paymentSummary: {
+                mode: needsOnboardingPayment ? 'onboarding' : 'renewal',
+                onboardingFeeBase: 0,
+                onboardingFeeGST: 0,
+                onboardingFeeTotal: 0,
+                subscriptionPlan: planName,
+                subscriptionBase: planBase,
+                subscriptionGST: subscription.planGST,
+                subscriptionTotal: subscription.planTotal,
+                subscriptionPaymentType: subscription.paymentType,
+                subscriptionPaidNowTotal: 0,
+                subscriptionDueAfterPayment: subscription.dueTotal,
+                payableNow: 0,
+                eligiblePlan: eligibility.eligiblePlan,
+                gmvLast30Days: eligibility.gmv30d,
+                thresholdsUsed: eligibility.thresholdsUsed,
+                planCatalog: eligibility.planCatalog
+            }
+        };
+    }
+
     const orderPayload = await createRestaurantOnboardingOrder({ amount: paymentAmountTotal });
 
     return {
+        paymentRequired: true,
         ...orderPayload,
         paymentSummary: {
             mode: needsOnboardingPayment ? 'onboarding' : 'renewal',

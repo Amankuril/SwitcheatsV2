@@ -209,6 +209,26 @@ export default function PostApprovalPayment() {
 
       const res = await restaurantAPI.createPostApprovalOnboardingOrder(body)
       const orderData = res?.data?.data
+      if (orderData?.paymentRequired === false && orderData?.completed) {
+        const completedRestaurant = orderData?.restaurant || null
+        if (completedRestaurant) {
+          try {
+            const token = getModuleToken("restaurant")
+            const refresh = getModuleRefreshToken("restaurant")
+            if (token) {
+              setModuleAuthData("restaurant", token, completedRestaurant, refresh)
+            }
+          } catch {
+            // no-op: navigation will refresh the restaurant state
+          }
+        }
+
+        window.dispatchEvent(new Event("restaurantAuthChanged"))
+        toast.success("Account activated. Subscription amount added to dues.")
+        navigate("/food/restaurant", { replace: true })
+        return
+      }
+
       if (!orderData?.razorpay) throw new Error("Failed to create payment order")
 
       const { loadRazorpayScript, initRazorpayPayment } = await import("@food/utils/razorpay")
@@ -322,7 +342,9 @@ export default function PostApprovalPayment() {
       <header className="bg-white px-5 py-4 border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-lg mx-auto">
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Activate Account</h1>
-          <p className="text-sm text-slate-500 mt-1 font-medium">Finish payment to unlock your dashboard</p>
+          <p className="text-sm text-slate-500 mt-1 font-medium">
+            {calc.payableNow > 0 ? "Finish payment to unlock your dashboard" : "Finish setup to unlock your dashboard"}
+          </p>
         </div>
       </header>
 
@@ -603,7 +625,7 @@ export default function PostApprovalPayment() {
                 Processing...
               </span>
             ) : (
-              "Finish & Pay"
+              calc.payableNow > 0 ? "Finish & Pay" : "Finish Setup"
             )}
           </Button>
         </div>
