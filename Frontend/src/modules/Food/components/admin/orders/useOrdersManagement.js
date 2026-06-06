@@ -115,6 +115,7 @@ export function useOrdersManagement(orders, statusKey, title) {
     paymentType: true,
     paymentCollectionStatus: true,
     orderStatus: true,
+    deliveryPartner: true,
     actions: true,
   })
 
@@ -602,6 +603,7 @@ export function useOrdersManagement(orders, statusKey, title) {
       paymentType: true,
       paymentCollectionStatus: true,
       orderStatus: true,
+      deliveryPartner: true,
       actions: true,
     })
   }
@@ -632,4 +634,3 @@ export function useOrdersManagement(orders, statusKey, title) {
     resetColumns,
   }
 }
-

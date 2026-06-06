@@ -1005,6 +1005,23 @@ export default function OrdersPage({ statusKey = "all" }) {
         visibleColumns={visibleColumns}
         toggleColumn={toggleColumn}
         resetColumns={resetColumns}
+        columnsConfig={{
+          si: "Serial Number",
+          orderId: "Order ID",
+          orderDate: "Order Date",
+          orderOtp: "Order OTP",
+          customer: "Customer Information",
+          restaurant: "Restaurant",
+          foodItems: "Food Items",
+          totalAmount: "Total Amount",
+          paymentType: "Payment Type",
+          paymentCollectionStatus: "Payment Status",
+          orderStatus: "Order Status",
+          ...(statusKey === "all"
+            ? { deliveryPartner: "Assigned Delivery Partner" }
+            : {}),
+          actions: "Actions",
+        }}
       />
       <ViewOrderDialog
         isOpen={isViewOrderOpen}
@@ -1039,6 +1056,7 @@ export default function OrdersPage({ statusKey = "all" }) {
         }
         actionLoadingOrderId={processingActionOrderId}
         deletingOrderId={deletingOrderId}
+        showAssignedDeliveryPartner={statusKey === "all"}
       />
     </div>
   )
