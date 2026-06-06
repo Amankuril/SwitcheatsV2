@@ -26,6 +26,7 @@ import BottomNavOrders from "@food/components/restaurant/BottomNavOrders"
 import { Switch } from "@food/components/ui/switch"
 import { useNavigate } from "react-router-dom"
 import { restaurantAPI, uploadAPI } from "@food/api"
+import { isFlutterBridgeAvailable, openGallery } from "@food/utils/imageUploadUtils"
 import { toast } from "sonner"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
@@ -1135,18 +1136,15 @@ export default function Inventory() {
     localStorage.removeItem(INVENTORY_ADDON_FORM_KEY)
   }
 
-  const handleAddonImageSelect = (e) => {
-    const file = e.target.files?.[0]
+  const handleAddonImageFileSelect = (file) => {
     if (!file) return
     const allowed = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif"]
     if (!allowed.includes(file.type)) {
       toast.error("Invalid image type. Please use PNG, JPG, JPEG, WEBP, HEIC, or HEIF.")
-      e.target.value = ""
       return
     }
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Image must be under 5MB.")
-      e.target.value = ""
       return
     }
     if (addonImagePreview && addonImagePreview.startsWith("blob:")) {
@@ -1155,7 +1153,24 @@ export default function Inventory() {
     const preview = URL.createObjectURL(file)
     setAddonImageFile(file)
     setAddonImagePreview(preview)
+  }
+
+  const handleAddonImageSelect = (e) => {
+    const file = e.target.files?.[0]
+    handleAddonImageFileSelect(file)
     e.target.value = ""
+  }
+
+  const handleAddonGalleryPick = async () => {
+    if (isFlutterBridgeAvailable()) {
+      await openGallery({
+        onSelectFile: handleAddonImageFileSelect,
+        fileNamePrefix: "restaurant-addon-image",
+      })
+      return
+    }
+
+    addonImageInputRef.current?.click()
   }
 
   const handleSaveAddon = async () => {
@@ -2128,7 +2143,7 @@ export default function Inventory() {
                       />
                       <button
                         type="button"
-                        onClick={() => addonImageInputRef.current?.click()}
+                        onClick={handleAddonGalleryPick}
                         className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-3 text-left transition-colors hover:bg-gray-100"
                       >
                         <span className="flex items-center gap-2 text-sm font-medium text-gray-900">

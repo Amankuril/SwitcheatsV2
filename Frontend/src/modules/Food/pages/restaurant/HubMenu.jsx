@@ -27,6 +27,7 @@ import BottomNavOrders from "@food/components/restaurant/BottomNavOrders"
 // Removed foodManagement - now using backend API directly
 import { useNavigate } from "react-router-dom"
 import { restaurantAPI, uploadAPI } from "@food/api"
+import { isFlutterBridgeAvailable, openGallery } from "@food/utils/imageUploadUtils"
 import { toast } from "sonner"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
@@ -468,9 +469,7 @@ export default function HubMenu() {
   }, [activeTab])
 
   // Handle add-on image add
-  const handleAddonImageAdd = (e) => {
-    const files = Array.from(e.target.files)
-    
+  const handleAddonImageFilesAdd = (files = []) => {
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif"]
     const validFiles = files.filter(file => {
       if (!allowedTypes.includes(file.type)) {
@@ -502,6 +501,23 @@ export default function HubMenu() {
     if (addonFileInputRef.current) {
       addonFileInputRef.current.value = ""
     }
+  }
+
+  const handleAddonImageAdd = (e) => {
+    const files = Array.from(e.target.files || [])
+    handleAddonImageFilesAdd(files)
+  }
+
+  const handleAddonGalleryPick = async () => {
+    if (isFlutterBridgeAvailable()) {
+      await openGallery({
+        onSelectFile: (file) => handleAddonImageFilesAdd(file ? [file] : []),
+        fileNamePrefix: "restaurant-addon-image",
+      })
+      return
+    }
+
+    addonFileInputRef.current?.click()
   }
 
   // Handle add-on image delete
@@ -2460,13 +2476,14 @@ export default function HubMenu() {
                     className="hidden"
                     id="addon-image-upload"
                   />
-                  <label
-                    htmlFor="addon-image-upload"
+                  <button
+                    type="button"
+                    onClick={handleAddonGalleryPick}
                     className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 hover:bg-green-50 transition-colors"
                   >
                     <Camera className="h-5 w-5 text-gray-500" />
                     <span className="text-sm font-medium text-gray-700">Add Images</span>
-                  </label>
+                  </button>
                   <p className="text-xs text-gray-500 mt-1">Add multiple images (PNG, JPG, WEBP - max 5MB each)</p>
                 </div>
               </div>
