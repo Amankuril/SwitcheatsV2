@@ -85,6 +85,10 @@ export default function AddressSelectorPage() {
   const [baseMapHeight, setBaseMapHeight] = useState(320)
   const formBodyRef = useRef(null)
   const manualFieldRefs = useRef({})
+  const placesAutocompleteServiceRef = useRef(null)
+  const placesDetailsServiceRef = useRef(null)
+  const placesSessionTokenRef = useRef(null)
+  const suppressSuggestionFetchRef = useRef(false)
   
   const ENABLE_LOCATION_REVERSE_GEOCODE = import.meta.env.VITE_ENABLE_LOCATION_REVERSE_GEOCODE !== "false"
   const ENABLE_NOMINATIM_SEARCH = import.meta.env.VITE_ENABLE_NOMINATIM_SEARCH !== "false"
@@ -128,91 +132,176 @@ export default function AddressSelectorPage() {
     })
   }, [])
 
-  // Google Places Autocomplete search
-  useEffect(() => {
-    if (!showAddressForm || !GOOGLE_MAPS_API_KEY || !addressAutocompleteValue || addressAutocompleteValue.length < 3) {
-      setGooglePlacesSuggestions([]);
-      return;
+  const ensurePlacesServices = useCallback(async () => {
+    if (!GOOGLE_MAPS_API_KEY) return false
+
+    if (!window.google?.maps?.places) {
+      const loader = new Loader({
+        apiKey: GOOGLE_MAPS_API_KEY,
+        version: "weekly",
+        libraries: ["places"],
+      })
+      await loader.load()
     }
 
-    const t = setTimeout(async () => {
-      try {
-        if (!window.google || !window.google.maps || !window.google.maps.places) {
-          const loader = new Loader({ apiKey: GOOGLE_MAPS_API_KEY, version: "weekly", libraries: ["places"] });
-          await loader.load();
-        }
-        
-        const service = new window.google.maps.places.AutocompleteService();
-        const request = {
-          input: addressAutocompleteValue,
-          componentRestrictions: { country: 'in' }, // Restrict to India
-          locationBias: location ? { lat: location.latitude, lng: location.longitude, radius: 10000 } : undefined
-        };
+    if (!window.google?.maps?.places) return false
 
-        service.getPlacePredictions(request, (predictions, status) => {
-          if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-            setGooglePlacesSuggestions(predictions.map(p => ({
-              id: p.place_id,
-              display: p.description,
-              mainText: p.structured_formatting.main_text,
-              secondaryText: p.structured_formatting.secondary_text,
-              source: 'google'
-            })));
-          } else {
-            setGooglePlacesSuggestions([]);
-          }
-        });
-      } catch (e) {
-        debugError("Google Places error:", e);
-        setGooglePlacesSuggestions([]);
-      }
-    }, 400);
-
-    return () => clearTimeout(t);
-  }, [addressAutocompleteValue, showAddressForm, GOOGLE_MAPS_API_KEY, location]);
-
-  // Nominatim search fallback
-  useEffect(() => {
-    if (!showAddressForm || googlePlacesSuggestions.length > 0) {
-      setKeywordAddressSuggestions([])
-      return
+    if (!placesAutocompleteServiceRef.current) {
+      placesAutocompleteServiceRef.current =
+        new window.google.maps.places.AutocompleteService()
     }
-    const q = String(addressAutocompleteValue || "").trim()
-    if (!ENABLE_NOMINATIM_SEARCH || q.length < 3) {
-      setKeywordAddressSuggestions([])
+    if (!placesDetailsServiceRef.current) {
+      placesDetailsServiceRef.current = new window.google.maps.places.PlacesService(
+        document.createElement("div"),
+      )
+    }
+    if (
+      !placesSessionTokenRef.current &&
+      window.google.maps.places.AutocompleteSessionToken
+    ) {
+      placesSessionTokenRef.current =
+        new window.google.maps.places.AutocompleteSessionToken()
+    }
+
+    return true
+  }, [GOOGLE_MAPS_API_KEY])
+
+  // Hybrid search: Google Places first, then an India-scoped Nominatim fallback.
+  useEffect(() => {
+    if (!showAddressForm) return
+    if (suppressSuggestionFetchRef.current) {
+      suppressSuggestionFetchRef.current = false
       setIsKeywordSearching(false)
       return
     }
 
+    const q = String(addressAutocompleteValue || "").replace(/\s+/g, " ").trim()
+    if (q.length < 3) {
+      setGooglePlacesSuggestions([])
+      setKeywordAddressSuggestions([])
+      setIsKeywordSearching(false)
+      if (window.google?.maps?.places?.AutocompleteSessionToken) {
+        placesSessionTokenRef.current =
+          new window.google.maps.places.AutocompleteSessionToken()
+      }
+      return
+    }
+
+    setGooglePlacesSuggestions([])
+    setKeywordAddressSuggestions([])
+    let cancelled = false
     const t = setTimeout(async () => {
       try {
         setIsKeywordSearching(true)
+
+        const googleReady = await ensurePlacesServices().catch(() => false)
+        if (
+          googleReady &&
+          placesAutocompleteServiceRef.current &&
+          window.google?.maps?.places?.PlacesServiceStatus
+        ) {
+          const predictions = await new Promise((resolve) => {
+            placesAutocompleteServiceRef.current.getPlacePredictions(
+              {
+                input: q,
+                componentRestrictions: { country: "in" },
+                sessionToken: placesSessionTokenRef.current || undefined,
+              },
+              (items, status) => {
+                const ok =
+                  status === window.google.maps.places.PlacesServiceStatus.OK
+                resolve(ok && Array.isArray(items) ? items : [])
+              },
+            )
+          })
+
+          if (cancelled) return
+          if (predictions.length > 0) {
+            setGooglePlacesSuggestions(
+              predictions.slice(0, 6).map((prediction) => ({
+                id: prediction.place_id,
+                placeId: prediction.place_id,
+                display: prediction.description || "",
+                mainText:
+                  prediction.structured_formatting?.main_text ||
+                  prediction.description ||
+                  "",
+                secondaryText:
+                  prediction.structured_formatting?.secondary_text || "",
+                source: "google",
+              })),
+            )
+            setKeywordAddressSuggestions([])
+            return
+          }
+        }
+
+        setGooglePlacesSuggestions([])
+        if (!ENABLE_NOMINATIM_SEARCH) {
+          setKeywordAddressSuggestions([])
+          return
+        }
+
         const refLat = location?.latitude ?? 22.7196
         const refLng = location?.longitude ?? 75.8577
-        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=10&q=${encodeURIComponent(q)}`
-        const res = await fetch(url, { headers: { Accept: "application/json" } })
-        const json = await res.json()
-        const mapped = (Array.isArray(json) ? json : []).map(r => ({
-          id: r.place_id || r.osm_id,
-          display: r.display_name || "",
-          lat: Number(r.lat),
-          lng: Number(r.lon),
-          address: r.address || {},
-        }))
-        const withDistance = mapped
-          .filter(x => Number.isFinite(x.lat) && Number.isFinite(x.lng))
-          .map(x => ({ ...x, distanceMeters: calculateDistance(refLat, refLng, x.lat, x.lng) }))
-          .sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity))
-          .slice(0, 4)
-        setKeywordAddressSuggestions(withDistance)
+        const url =
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6` +
+          `&countrycodes=in&q=${encodeURIComponent(q)}`
+        const response = await fetch(url, { headers: { Accept: "application/json" } })
+        const json = await response.json()
+        if (cancelled) return
+
+        const suggestions = (Array.isArray(json) ? json : [])
+          .map((result) => ({
+            id: `n-${result.place_id || result.osm_id}`,
+            display: result.display_name || "",
+            lat: Number(result.lat),
+            lng: Number(result.lon),
+            address: result.address || {},
+            source: "nominatim",
+          }))
+          .filter(
+            (result) => Number.isFinite(result.lat) && Number.isFinite(result.lng),
+          )
+          .map((result) => ({
+            ...result,
+            distanceMeters: calculateDistance(
+              refLat,
+              refLng,
+              result.lat,
+              result.lng,
+            ),
+          }))
+          .sort(
+            (a, b) =>
+              (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity),
+          )
+          .slice(0, 6)
+
+        setKeywordAddressSuggestions(suggestions)
       } catch (e) {
-        setKeywordAddressSuggestions([])
+        debugError("Google Places error:", e);
+        if (!cancelled) {
+          setGooglePlacesSuggestions([])
+          setKeywordAddressSuggestions([])
+        }
       } finally {
-        setIsKeywordSearching(false)
+        if (!cancelled) setIsKeywordSearching(false)
       }
-    }, 350)
-    return () => clearTimeout(t)
-  }, [addressAutocompleteValue, showAddressForm, location, ENABLE_NOMINATIM_SEARCH])
+    }, 400)
+
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [
+    addressAutocompleteValue,
+    showAddressForm,
+    location?.latitude,
+    location?.longitude,
+    ENABLE_NOMINATIM_SEARCH,
+    ensurePlacesServices,
+  ])
 
   // Keep map anchored to resolved live location when available (avoids default-city bias on first open).
   useEffect(() => {
@@ -230,7 +319,11 @@ export default function AddressSelectorPage() {
 
     const initializeGoogleMap = async () => {
       try {
-        const loader = new Loader({ apiKey: GOOGLE_MAPS_API_KEY, version: "weekly" })
+        const loader = new Loader({
+          apiKey: GOOGLE_MAPS_API_KEY,
+          version: "weekly",
+          libraries: ["places"],
+        })
         const google = await loader.load()
         if (!isMounted || !mapContainerRef.current) return
 
@@ -471,6 +564,128 @@ export default function AddressSelectorPage() {
     }
   }
 
+  const selectGooglePlace = async (suggestion) => {
+    if (!suggestion?.placeId) return
+
+    try {
+      const ready = await ensurePlacesServices()
+      if (!ready || !placesDetailsServiceRef.current) {
+        throw new Error("Google Places is unavailable")
+      }
+
+      const place = await new Promise((resolve, reject) => {
+        placesDetailsServiceRef.current.getDetails(
+          {
+            placeId: suggestion.placeId,
+            fields: ["formatted_address", "address_components", "geometry"],
+            sessionToken: placesSessionTokenRef.current || undefined,
+          },
+          (result, status) => {
+            if (
+              status === window.google.maps.places.PlacesServiceStatus.OK &&
+              result
+            ) {
+              resolve(result)
+              return
+            }
+            reject(new Error(String(status || "Failed to fetch place details")))
+          },
+        )
+      })
+
+      const lat = place?.geometry?.location?.lat?.()
+      const lng = place?.geometry?.location?.lng?.()
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        throw new Error("Selected place has no coordinates")
+      }
+
+      const components = Array.isArray(place.address_components)
+        ? place.address_components
+        : []
+      const getComponent = (types) =>
+        components.find((component) =>
+          types.some((type) => component.types?.includes(type)),
+        )?.long_name || ""
+      const streetParts = [
+        getComponent(["street_number"]),
+        getComponent(["premise"]),
+        getComponent(["route"]),
+        getComponent(["sublocality_level_1", "sublocality", "neighborhood"]),
+      ].filter(Boolean)
+      const formattedAddress =
+        place.formatted_address || suggestion.display || streetParts.join(", ")
+      const city =
+        getComponent(["locality"]) ||
+        getComponent(["administrative_area_level_2"])
+      const state = getComponent(["administrative_area_level_1"])
+      const zipCode = getComponent(["postal_code"])
+
+      setMapPosition([lat, lng])
+      googleMapRef.current?.panTo({ lat, lng })
+      googleMapRef.current?.setZoom(17)
+      suppressSuggestionFetchRef.current = true
+      setAddressAutocompleteValue(formattedAddress)
+      setCurrentAddress(formattedAddress)
+      setAddressFormData((prev) => ({
+        ...prev,
+        street:
+          streetParts.join(", ") ||
+          suggestion.mainText ||
+          formattedAddress ||
+          prev.street,
+        city: city || prev.city,
+        state: state || prev.state,
+        zipCode: zipCode || prev.zipCode,
+      }))
+      setGooglePlacesSuggestions([])
+      setKeywordAddressSuggestions([])
+
+      if (window.google?.maps?.places?.AutocompleteSessionToken) {
+        placesSessionTokenRef.current =
+          new window.google.maps.places.AutocompleteSessionToken()
+      }
+    } catch (error) {
+      debugError("Google place details error:", error)
+      toast.error("Unable to select this location. Please try another result.")
+    }
+  }
+
+  const selectFallbackPlace = (suggestion) => {
+    const { lat, lng, display, address = {} } = suggestion || {}
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+
+    const street = [
+      address.house_number,
+      address.road,
+      address.suburb || address.neighbourhood || address.city_district,
+    ]
+      .filter(Boolean)
+      .join(", ")
+    const city =
+      address.city ||
+      address.town ||
+      address.village ||
+      address.municipality ||
+      address.county ||
+      ""
+
+    setMapPosition([lat, lng])
+    googleMapRef.current?.panTo({ lat, lng })
+    googleMapRef.current?.setZoom(17)
+    suppressSuggestionFetchRef.current = true
+    setAddressAutocompleteValue(display || "")
+    setCurrentAddress(display || "")
+    setAddressFormData((prev) => ({
+      ...prev,
+      street: street || display || prev.street,
+      city: city || prev.city,
+      state: address.state || prev.state,
+      zipCode: address.postcode || prev.zipCode,
+    }))
+    setGooglePlacesSuggestions([])
+    setKeywordAddressSuggestions([])
+  }
+
   const handleAddressFormSubmit = async (e) => {
     e.preventDefault()
     if (!addressFormData.street || !addressFormData.city) {
@@ -590,46 +805,8 @@ export default function AddressSelectorPage() {
                     {googlePlacesSuggestions.map((s) => (
                       <button
                         key={s.id}
-                        onClick={async () => {
-                          const geocoder = new window.google.maps.Geocoder();
-                          geocoder.geocode({ placeId: s.id }, (results, status) => {
-                            if (status === "OK" && results[0]) {
-                              const res = results[0];
-                              const lat = res.geometry.location.lat();
-                              const lng = res.geometry.location.lng();
-                              setMapPosition([lat, lng]);
-                              if (googleMapRef.current) {
-                                googleMapRef.current.panTo({ lat, lng });
-                                googleMapRef.current.setZoom(17);
-                              }
-                              setAddressAutocompleteValue(s.display);
-                              
-                              let street = "", city = "", state = "", postcode = "";
-                              res.address_components.forEach(comp => {
-                                const types = comp.types;
-                                if (types.includes("route") || types.includes("sublocality") || types.includes("neighborhood")) {
-                                  street = street ? `${street}, ${comp.long_name}` : comp.long_name;
-                                } else if (types.includes("locality")) {
-                                  city = comp.long_name;
-                                } else if (types.includes("administrative_area_level_1")) {
-                                  state = comp.long_name;
-                                } else if (types.includes("postal_code")) {
-                                  postcode = comp.long_name;
-                                }
-                              });
-
-                              setAddressFormData((prev) => ({
-                                ...prev,
-                                street: street || s.mainText || prev.street,
-                                city: city || prev.city,
-                                state: state || prev.state,
-                                zipCode: postcode || prev.zipCode,
-                              }));
-                              setCurrentAddress(res.formatted_address);
-                              setGooglePlacesSuggestions([]);
-                            }
-                          });
-                        }}
+                        type="button"
+                        onClick={() => void selectGooglePlace(s)}
                         className="w-full px-4 py-3 flex items-start gap-3 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors text-left border-b border-gray-50 dark:border-gray-800 last:border-none"
                       >
                         <MapPin className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
@@ -648,26 +825,8 @@ export default function AddressSelectorPage() {
                     {keywordAddressSuggestions.map((s) => (
                       <button
                         key={s.id}
-                        onClick={() => {
-                          const { lat, lng, display, address: a } = s
-                          setMapPosition([lat, lng])
-                          if (googleMapRef.current) {
-                            googleMapRef.current.panTo({ lat, lng })
-                            googleMapRef.current.setZoom(17)
-                          }
-                          setAddressAutocompleteValue(display)
-                          const city = a.city || a.town || a.village || a.county || ""
-                          const state = a.state || ""
-                          const zipCode = a.postcode || ""
-                          setAddressFormData((prev) => ({
-                            ...prev,
-                            street: display || prev.street,
-                            city: city || prev.city,
-                            state: state || prev.state,
-                            zipCode: zipCode || prev.zipCode,
-                          }))
-                          setKeywordAddressSuggestions([])
-                        }}
+                        type="button"
+                        onClick={() => selectFallbackPlace(s)}
                         className="w-full px-4 py-3 flex items-start gap-3 hover:bg-orange-50 dark:hover:bg-orange-900/10 transition-colors text-left border-b border-gray-50 dark:border-gray-800 last:border-none"
                       >
                         <MapPin className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
