@@ -111,9 +111,12 @@ export async function calculateOrderPricing(userId, dto) {
       const endOk = !offerEnd || now <= offerEnd;
       const startOk = !offer.startDate || now >= new Date(offer.startDate);
       const statusOk = offer.status === "active" && offer.showInCart !== false;
+      const selectedRestaurantIds = Array.isArray(offer.restaurantIds) && offer.restaurantIds.length > 0
+        ? offer.restaurantIds
+        : [offer.restaurantId].filter(Boolean);
       const scopeOk =
         offer.restaurantScope !== "selected" ||
-        String(offer.restaurantId || "") === String(dto.restaurantId || "");
+        selectedRestaurantIds.some((id) => String(id) === String(dto.restaurantId || ""));
       const minOk = subtotal >= (Number(offer.minOrderValue) || 0);
       let usageOk = true;
       if (

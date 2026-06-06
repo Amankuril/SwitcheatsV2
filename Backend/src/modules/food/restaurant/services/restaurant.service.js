@@ -2182,7 +2182,12 @@ export const listPublicOffers = async (query = {}) => {
                 { 
                     $and: [
                         { restaurantScope: 'selected' },
-                        { restaurantId: new mongoose.Types.ObjectId(restaurantId) }
+                        {
+                            $or: [
+                                { restaurantIds: new mongoose.Types.ObjectId(restaurantId) },
+                                { restaurantId: new mongoose.Types.ObjectId(restaurantId) }
+                            ]
+                        }
                     ]
                 }
             ]
@@ -2217,14 +2222,21 @@ export const listPublicOffers = async (query = {}) => {
     const list = await FoodOffer.find(filter)
         .sort({ createdAt: -1 })
         .populate({ path: 'restaurantId', select: 'restaurantName restaurantNameNormalized profileImage estimatedDeliveryTime rating' })
+        .populate({ path: 'restaurantIds', select: 'restaurantName restaurantNameNormalized profileImage estimatedDeliveryTime rating' })
         .lean();
 
     let allOffers = list.map((o) => {
-        const restaurant = o.restaurantId && typeof o.restaurantId === 'object' ? o.restaurantId : null;
+        const selectedRestaurants = Array.isArray(o.restaurantIds) && o.restaurantIds.length > 0
+            ? o.restaurantIds
+            : (o.restaurantId ? [o.restaurantId] : []);
+        const restaurant = selectedRestaurants.find((item) => String(item?._id || item) === String(restaurantId || ''))
+            || selectedRestaurants[0]
+            || null;
+        const restaurantIds = selectedRestaurants.map((item) => String(item?._id || item)).filter(Boolean);
         const restaurantSlug = restaurant?.restaurantNameNormalized || undefined;
         const restaurantName =
             o.restaurantScope === 'selected'
-                ? (restaurant?.restaurantName || 'Selected Restaurant')
+                ? (restaurant?.restaurantName || 'Selected Restaurants')
                 : 'All Restaurants';
 
         const title =
@@ -2245,6 +2257,7 @@ export const listPublicOffers = async (query = {}) => {
             isFirstOrderOnly: !!o.isFirstOrderOnly,
             restaurantScope: o.restaurantScope,
             restaurantId: restaurant?._id ? String(restaurant._id) : (o.restaurantScope === 'selected' ? String(o.restaurantId) : null),
+            restaurantIds,
             restaurantName,
             restaurantSlug,
             restaurantImage: restaurant?.profileImage || null,

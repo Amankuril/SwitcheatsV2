@@ -1175,7 +1175,10 @@ export const restaurantAPI = {
           // Guard: respect selected restaurant scope
           if (String(o?.restaurantScope) === "selected") {
             if (!restaurantId) return false;
-            return String(o.restaurantId || "") === String(restaurantId || "");
+            const restaurantIds = Array.isArray(o.restaurantIds) && o.restaurantIds.length > 0
+              ? o.restaurantIds
+              : [o.restaurantId].filter(Boolean);
+            return restaurantIds.some((id) => String(id) === String(restaurantId || ""));
           }
           return true;
         })

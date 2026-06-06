@@ -3532,16 +3532,19 @@ export async function getAllOffers(_query = {}) {
     const list = await FoodOffer.find({})
         .sort({ createdAt: -1 })
         .populate({ path: 'restaurantId', select: 'restaurantName' })
+        .populate({ path: 'restaurantIds', select: 'restaurantName' })
         .lean();
 
     const offers = list.map((o, index) => {
         const now = Date.now();
         const endTs = o.endDate ? new Date(o.endDate).getTime() : null;
         const isExpired = Boolean(endTs && now >= endTs);
-        const restaurantName =
-            o.restaurantScope === 'selected'
-                ? (o.restaurantId?.restaurantName || 'Selected Restaurant')
-                : 'All Restaurants';
+        const selectedRestaurants = Array.isArray(o.restaurantIds) && o.restaurantIds.length > 0
+            ? o.restaurantIds
+            : (o.restaurantId ? [o.restaurantId] : []);
+        const restaurantName = o.restaurantScope === 'selected'
+            ? (selectedRestaurants.map((restaurant) => restaurant?.restaurantName).filter(Boolean).join(', ') || 'Selected Restaurants')
+            : 'All Restaurants';
 
         const discountPercentage = o.discountType === 'percentage' ? Number(o.discountValue) : 0;
 
@@ -3588,6 +3591,7 @@ export async function createAdminOffer(body) {
         customerScope: body.customerScope,
         restaurantScope: body.restaurantScope,
         restaurantId: body.restaurantScope === 'selected' ? body.restaurantId : undefined,
+        restaurantIds: body.restaurantScope === 'selected' ? body.restaurantIds : [],
         minOrderValue: body.minOrderValue ?? 0,
         maxDiscount: body.maxDiscount ?? null,
         usageLimit: body.usageLimit ?? null,
@@ -3600,11 +3604,14 @@ export async function createAdminOffer(body) {
         createdByRole: 'ADMIN'
     });
 
-    if (doc.restaurantScope === 'selected' && doc.restaurantId) {
+    const selectedRestaurantIds = doc.restaurantScope === 'selected'
+        ? (doc.restaurantIds?.length ? doc.restaurantIds : [doc.restaurantId]).filter(Boolean)
+        : [];
+    if (selectedRestaurantIds.length > 0) {
         try {
             const { notifyOwnersSafely } = await import('../../../../core/notifications/firebase.service.js');
             await notifyOwnersSafely(
-                [{ ownerType: 'RESTAURANT', ownerId: doc.restaurantId }],
+                selectedRestaurantIds.map((ownerId) => ({ ownerType: 'RESTAURANT', ownerId })),
                 {
                     title: 'New Campaign Invitation! ðŸ“¢',
                     body: `You have been invited to join a new campaign: "${doc.couponCode}". Check it out now!`,

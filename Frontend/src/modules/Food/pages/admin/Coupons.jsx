@@ -1,10 +1,201 @@
-import { useState, useEffect, useMemo, useCallback } from "react"
-import { Search } from "lucide-react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { Check, ChevronDown, Search, X } from "lucide-react"
 import { adminAPI } from "@food/api"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
+function StyledSelect({ value, options, onChange, ariaLabel }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const rootRef = useRef(null)
+  const selectedOption = options.find((option) => option.value === value) || options[0]
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setIsOpen(false)
+    }
+    document.addEventListener("mousedown", handleOutsideClick)
+    document.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick)
+      document.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [])
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={`flex min-h-11 w-full items-center justify-between rounded-xl border bg-white px-3.5 py-2.5 text-left text-sm font-medium text-slate-700 shadow-sm outline-none transition hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 ${
+          isOpen ? "border-blue-500 ring-4 ring-blue-100" : "border-slate-200"
+        }`}
+      >
+        <span>{selectedOption?.label}</span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      {isOpen && (
+        <div
+          role="listbox"
+          className="absolute z-40 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.16)]"
+        >
+          {options.map((option) => {
+            const selected = option.value === value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => {
+                  onChange(option.value)
+                  setIsOpen(false)
+                }}
+                className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+                  selected
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                }`}
+              >
+                <span>{option.label}</span>
+                {selected && <Check className="h-4 w-4 text-blue-600" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RestaurantMultiSelect({ restaurants, value, onChange, error }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  const rootRef = useRef(null)
+  const selectedIds = Array.isArray(value) ? value : []
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
+  const selectedRestaurants = useMemo(
+    () => restaurants.filter((restaurant) => selectedSet.has(String(restaurant._id))),
+    [restaurants, selectedSet],
+  )
+  const filteredRestaurants = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    if (!normalizedQuery) return restaurants
+    return restaurants.filter((restaurant) =>
+      String(restaurant.name || "").toLowerCase().includes(normalizedQuery),
+    )
+  }, [query, restaurants])
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick)
+    return () => document.removeEventListener("mousedown", handleOutsideClick)
+  }, [])
+
+  const toggleRestaurant = (restaurantId) => {
+    const id = String(restaurantId)
+    onChange(selectedSet.has(id)
+      ? selectedIds.filter((selectedId) => selectedId !== id)
+      : [...selectedIds, id])
+  }
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        className={`flex min-h-11 w-full items-center justify-between rounded-xl border bg-white px-3.5 py-2.5 text-left text-sm shadow-sm outline-none transition ${
+          error ? "border-red-500" : "border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        }`}
+      >
+        <span className={selectedIds.length ? "font-medium text-slate-700" : "text-slate-400"}>
+          {selectedIds.length
+            ? `${selectedIds.length} restaurant${selectedIds.length === 1 ? "" : "s"} selected`
+            : "Choose restaurants"}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+          <div className="border-b border-slate-100 p-2.5">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search restaurants..."
+                className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="max-h-64 overflow-y-auto p-1.5">
+            {filteredRestaurants.length > 0 ? filteredRestaurants.map((restaurant) => {
+              const id = String(restaurant._id)
+              const selected = selectedSet.has(id)
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => toggleRestaurant(id)}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${
+                    selected ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                    selected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white"
+                  }`}>
+                    {selected && <Check className="h-3.5 w-3.5" />}
+                  </span>
+                  <span className="truncate font-medium">{restaurant.name || "Unnamed restaurant"}</span>
+                </button>
+              )
+            }) : (
+              <p className="px-3 py-6 text-center text-sm text-slate-500">No restaurants found</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {selectedRestaurants.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {selectedRestaurants.map((restaurant) => {
+            const id = String(restaurant._id)
+            return (
+              <span key={id} className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                {restaurant.name}
+                <button
+                  type="button"
+                  onClick={() => toggleRestaurant(id)}
+                  aria-label={`Remove ${restaurant.name}`}
+                  className="rounded-full p-0.5 hover:bg-blue-100"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Coupons() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -25,7 +216,7 @@ export default function Coupons() {
     discountValue: "",
     customerScope: "all",
     restaurantScope: "all",
-    restaurantId: "",
+    restaurantIds: [],
     endDate: "",
     startDate: "",
     minOrderValue: "",
@@ -101,6 +292,9 @@ export default function Coupons() {
     if (f.minOrderValue !== "" && Number(f.minOrderValue) < 0) e.minOrderValue = "Min order cannot be negative"
     if (f.usageLimit !== "" && Number(f.usageLimit) < 1) e.usageLimit = "Usage limit must be at least 1"
     if (f.perUserLimit !== "" && Number(f.perUserLimit) < 1) e.perUserLimit = "Per user limit must be at least 1"
+    if (f.restaurantScope === "selected" && (!Array.isArray(f.restaurantIds) || f.restaurantIds.length === 0)) {
+      e.restaurantIds = "Select at least one restaurant"
+    }
     const start = f.startDate ? new Date(`${f.startDate}T00:00:00`) : null
     const end = f.endDate ? new Date(`${f.endDate}T00:00:00`) : null
     const now = new Date()
@@ -132,6 +326,16 @@ export default function Coupons() {
         if (submitSuccess) setSubmitSuccess("")
         return
       }
+    }
+    if (field === "restaurantScope" && value === "all") {
+      setFormData((prev) => {
+        const next = { ...prev, restaurantScope: value, restaurantIds: [] }
+        validateForm(next)
+        return next
+      })
+      if (submitError) setSubmitError("")
+      if (submitSuccess) setSubmitSuccess("")
+      return
     }
     const next = { ...formData, [field]: value }
     // Date constraints
@@ -167,7 +371,7 @@ export default function Coupons() {
       discountValue: "",
       customerScope: "all",
       restaurantScope: "all",
-      restaurantId: "",
+      restaurantIds: [],
       endDate: "",
       startDate: "",
       minOrderValue: "",
@@ -199,8 +403,8 @@ export default function Coupons() {
       return
     }
 
-    if (formData.restaurantScope === "selected" && !formData.restaurantId) {
-      setSubmitError("Please select a restaurant")
+    if (formData.restaurantScope === "selected" && formData.restaurantIds.length === 0) {
+      setSubmitError("Please select at least one restaurant")
       return
     }
 
@@ -212,7 +416,7 @@ export default function Coupons() {
         discountValue: parsedDiscountValue,
         customerScope: formData.customerScope,
         restaurantScope: formData.restaurantScope,
-        restaurantId: formData.restaurantScope === "selected" ? formData.restaurantId : undefined,
+        restaurantIds: formData.restaurantScope === "selected" ? formData.restaurantIds : undefined,
         endDate: formData.endDate || undefined,
         startDate: formData.startDate || undefined,
         minOrderValue: formData.minOrderValue !== "" ? Number(formData.minOrderValue) : undefined,
@@ -323,14 +527,15 @@ export default function Coupons() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Discount Type</label>
-                  <select
+                  <StyledSelect
                     value={formData.discountType}
-                    onChange={(e) => handleFormChange("discountType", e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="percentage">Percentage</option>
-                    <option value="flat-price">Flat Amount</option>
-                  </select>
+                    onChange={(value) => handleFormChange("discountType", value)}
+                    ariaLabel="Discount type"
+                    options={[
+                      { value: "percentage", label: "Percentage" },
+                      { value: "flat-price", label: "Flat Amount" },
+                    ]}
+                  />
                 </div>
 
                 <div title={formData.discountType === "flat-price" ? "Max discount is not applicable for flat coupons" : ""}>
@@ -351,26 +556,28 @@ export default function Coupons() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Customer Scope</label>
-                  <select
+                  <StyledSelect
                     value={formData.customerScope}
-                    onChange={(e) => handleFormChange("customerScope", e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="all">All Users</option>
-                    <option value="first-time">First-time Users</option>
-                  </select>
+                    onChange={(value) => handleFormChange("customerScope", value)}
+                    ariaLabel="Customer scope"
+                    options={[
+                      { value: "all", label: "All Users" },
+                      { value: "first-time", label: "First-time Users" },
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Restaurant Scope</label>
-                  <select
+                  <StyledSelect
                     value={formData.restaurantScope}
-                    onChange={(e) => handleFormChange("restaurantScope", e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="all">All Restaurants</option>
-                    <option value="selected">Selected Restaurant</option>
-                  </select>
+                    onChange={(value) => handleFormChange("restaurantScope", value)}
+                    ariaLabel="Restaurant scope"
+                    options={[
+                      { value: "all", label: "All Restaurants" },
+                      { value: "selected", label: "Selected Restaurants" },
+                    ]}
+                  />
                 </div>
 
                 <div>
@@ -467,19 +674,14 @@ export default function Coupons() {
 
                 {formData.restaurantScope === "selected" && (
                   <div className="md:col-span-2 lg:col-span-3">
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Select Restaurant</label>
-                    <select
-                      value={formData.restaurantId}
-                      onChange={(e) => handleFormChange("restaurantId", e.target.value)}
-                      className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Choose a restaurant</option>
-                      {restaurants.map((restaurant) => (
-                        <option key={restaurant._id} value={restaurant._id}>
-                          {restaurant.name}
-                        </option>
-                      ))}
-                    </select>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Select Restaurants</label>
+                    <RestaurantMultiSelect
+                      restaurants={restaurants}
+                      value={formData.restaurantIds}
+                      onChange={(restaurantIds) => handleFormChange("restaurantIds", restaurantIds)}
+                      error={errors.restaurantIds}
+                    />
+                    {errors.restaurantIds && <p className="mt-1 text-xs text-red-600">{errors.restaurantIds}</p>}
                   </div>
                 )}
               </div>
@@ -691,4 +893,3 @@ export default function Coupons() {
     </div>
   )
 }
-
