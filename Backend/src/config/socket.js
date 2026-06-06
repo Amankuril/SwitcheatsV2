@@ -5,8 +5,6 @@ import { verifyAccessToken } from '../core/auth/token.util.js';
 import { getFirebaseDB } from './firebase.js';
 
 let io = null;
-const DELIVERY_DISCONNECT_OFFLINE_GRACE_MS = 3000;
-const deliveryDisconnectTimers = new Map();
 
 function logDeliverySocket(message, extra = {}) {
     const suffix = Object.keys(extra).length ? ` ${JSON.stringify(extra)}` : '';
@@ -28,58 +26,6 @@ function maskToken(token) {
     const trimmed = token.trim();
     if (!trimmed) return null;
     return `${trimmed.slice(0, 12)}...${trimmed.slice(-6)}`;
-}
-
-function clearDeliveryDisconnectTimer(deliveryPartnerId) {
-    const key = String(deliveryPartnerId || '');
-    if (!key) return;
-    const timer = deliveryDisconnectTimers.get(key);
-    if (timer) {
-        clearTimeout(timer);
-        deliveryDisconnectTimers.delete(key);
-    }
-}
-
-function scheduleDeliveryOfflineOnDisconnect(deliveryPartnerId) {
-    const key = String(deliveryPartnerId || '');
-    if (!key) return;
-
-    clearDeliveryDisconnectTimer(key);
-    const timer = setTimeout(async () => {
-        deliveryDisconnectTimers.delete(key);
-        try {
-            const room = roomNames.delivery(key);
-            const roomSize = io?.sockets?.adapter?.rooms?.get(room)?.size || 0;
-            if (roomSize > 0) return;
-
-            const { FoodDeliveryPartner } = await import('../modules/food/delivery/models/deliveryPartner.model.js');
-            await FoodDeliveryPartner.updateOne(
-                { _id: key, availabilityStatus: 'online' },
-                { $set: { availabilityStatus: 'offline' } }
-            );
-
-            try {
-                const db = getFirebaseDB();
-                if (db) {
-                    await db.ref(`delivery_boys/${key}`).update({
-                        status: 'offline',
-                        last_updated: Date.now()
-                    });
-                }
-            } catch (firebaseErr) {
-                logger.debug(`Firebase delivery offline sync skipped: ${firebaseErr.message}`);
-            }
-
-            logDeliverySocket('Marked delivery partner offline after socket disconnect grace', {
-                deliveryPartnerId: key,
-                graceMs: DELIVERY_DISCONNECT_OFFLINE_GRACE_MS,
-            });
-        } catch (err) {
-            logger.warn(`Failed to auto-offline delivery partner ${key}: ${err?.message || err}`);
-        }
-    }, DELIVERY_DISCONNECT_OFFLINE_GRACE_MS);
-
-    deliveryDisconnectTimers.set(key, timer);
 }
 
 const roomNames = {
@@ -174,7 +120,6 @@ export const initSocket = async (server) => {
             if (role === 'RESTAURANT') socket.join(roomNames.restaurant(userId));
             if (role === 'USER') socket.join(roomNames.user(userId));
             if (role === 'DELIVERY_PARTNER') {
-                clearDeliveryDisconnectTimer(userId);
                 socket.join(roomNames.delivery(userId));
                 logDeliverySocket('Auto-joined delivery room on connect', {
                     socketId: socket.id,
@@ -212,7 +157,6 @@ export const initSocket = async (server) => {
                 });
                 return;
             }
-            clearDeliveryDisconnectTimer(deliveryPartnerId);
             const room = roomNames.delivery(deliveryPartnerId);
             socket.join(room);
             const roomSize = io?.sockets?.adapter?.rooms?.get(room)?.size || 0;
@@ -368,13 +312,6 @@ export const initSocket = async (server) => {
 
         socket.on('disconnect', () => {
             logger.info(`Socket client disconnected: ${socket.id}`);
-            if (role === 'DELIVERY_PARTNER') {
-                logDeliverySocket('Delivery socket disconnected', {
-                    socketId: socket.id,
-                    deliveryPartnerId: String(userId || ''),
-                });
-                scheduleDeliveryOfflineOnDisconnect(userId);
-            }
         });
 
         // 🆕 Resync State on Reconnect

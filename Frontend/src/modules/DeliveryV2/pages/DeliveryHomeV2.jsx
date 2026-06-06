@@ -128,8 +128,6 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
   const deliveryPartnerIdRef = useRef(getStoredDeliveryPartnerId());
   const rollingSpeedRef = useRef([]);
   const lastAutoArrivalRef = useRef({ PICKING_UP: false, PICKED_UP: false });
-  const isOnlineRef = useRef(isOnline);
-
   const [zoom, setZoom] = useState(14);
   const [isSimMode, setIsSimMode] = useState(false);
   const [simPath, setSimPath] = useState([]);
@@ -137,27 +135,6 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
   const [simProgress, setSimProgress] = useState(0); // 0 to 1 between points
   const [activePolyline, setActivePolyline] = useState(null);
   const mapRef = useRef(null);
-
-  useEffect(() => {
-    isOnlineRef.current = isOnline;
-  }, [isOnline]);
-
-  useEffect(() => {
-    const markOfflineForExit = () => {
-      if (!isOnlineRef.current) return;
-      isOnlineRef.current = false;
-      deliveryAPI.markOfflineOnExit?.();
-      useDeliveryStore.getState().setOnline(false);
-    };
-
-    window.addEventListener('pagehide', markOfflineForExit);
-    window.addEventListener('beforeunload', markOfflineForExit);
-
-    return () => {
-      window.removeEventListener('pagehide', markOfflineForExit);
-      window.removeEventListener('beforeunload', markOfflineForExit);
-    };
-  }, []);
 
   const isLoggingOut = useRef(false);
   const handleLogout = useCallback(() => {
