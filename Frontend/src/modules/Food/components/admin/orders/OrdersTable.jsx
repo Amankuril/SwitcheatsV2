@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { Eye, Printer, ArrowUpDown, Loader2, Check, X, Trash2 } from "lucide-react"
+import { Eye, Printer, ArrowUpDown, Loader2, Check, X, Trash2, RefreshCw } from "lucide-react"
 
 const getStatusColor = (orderStatus) => {
   const colors = {
@@ -37,6 +37,7 @@ export default function OrdersTable({
   onAcceptOrder,
   onRejectOrder,
   onCancelOrder,
+  onDeassignAndResend,
   actionLoadingOrderId,
   deletingOrderId,
 }) {
@@ -68,6 +69,18 @@ export default function OrdersTable({
       "processing",
       "food on the way",
     ].includes(currentStatus)
+  }
+
+  const canDeassignAndResend = (order) => {
+    const backendStatus = String(order?.status || "").trim().toLowerCase()
+    const phase = String(order?.deliveryState?.currentPhase || "").trim().toLowerCase()
+    return (
+      ["confirmed", "preparing", "ready_for_pickup", "reached_pickup"].includes(backendStatus) &&
+      order?.dispatch?.status === "accepted" &&
+      Boolean(order?.dispatch?.deliveryPartnerId) &&
+      !order?.deliveryState?.pickedUpAt &&
+      !["en_route_to_delivery", "at_drop", "delivered", "completed"].includes(phase)
+    )
   }
 
   if (orders.length === 0) {
@@ -384,6 +397,21 @@ export default function OrdersTable({
                 {visibleColumns.actions && (
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center gap-2">
+                      {onDeassignAndResend && canDeassignAndResend(order) && (
+                        <button
+                          onClick={() => onDeassignAndResend(order)}
+                          disabled={actionLoadingOrderId === (order.id || order.orderId)}
+                          className="inline-flex items-center gap-1 rounded bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          title="Remove the current delivery partner and resend this order"
+                        >
+                          {actionLoadingOrderId === (order.id || order.orderId) ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          )}
+                          <span>Deassign &amp; Resend</span>
+                        </button>
+                      )}
                       {order.orderStatus === "Pending" && onAcceptOrder && (
                         <button
                           onClick={() => onAcceptOrder(order)}

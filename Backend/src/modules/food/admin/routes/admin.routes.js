@@ -388,6 +388,11 @@ router.get(
 router.get('/orders/:orderId', orderController.getOrderByIdAdminController);
 router.patch('/orders/:orderId/accept', orderController.acceptOrderAdminController);
 router.patch('/orders/:orderId/reject', orderController.rejectOrderAdminController);
+router.patch(
+    '/orders/:orderId/deassign-resend',
+    requireAdminPermission('order_management', 'edit'),
+    adminController.deassignAndResendOrder
+);
 router.post('/orders/:orderId/refund', orderController.processRefundAdminController);
 router.delete('/orders/:orderId', orderController.deleteOrderAdminController);
 

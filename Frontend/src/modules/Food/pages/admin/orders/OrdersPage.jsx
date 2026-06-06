@@ -770,6 +770,37 @@ export default function OrdersPage({ statusKey = "all" }) {
     }
   }
 
+  const handleDeassignAndResend = async (order) => {
+    const orderIdToUse = order.id || order._id || order.orderId
+    if (!orderIdToUse) {
+      toast.error("Order ID not found")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Deassign the current delivery partner from order ${order.orderId} and resend it to other eligible delivery partners?`,
+    )
+    if (!confirmed) return
+
+    try {
+      setProcessingActionOrderId(order.id || order.orderId)
+      const response = await adminAPI.deassignAndResendOrder(orderIdToUse)
+      toast.success(
+        response?.data?.message ||
+          "Delivery partner deassigned and order dispatch restarted",
+      )
+      await fetchOrders({ silent: true, withRingCheck: false })
+    } catch (error) {
+      debugError("Error reassigning order:", error)
+      toast.error(
+        error?.response?.data?.message || "Failed to deassign and resend order",
+      )
+      await fetchOrders({ silent: true, withRingCheck: false })
+    } finally {
+      setProcessingActionOrderId(null)
+    }
+  }
+
   const handleDeleteOrder = async (order) => {
     const orderIdToUse = order.id || order._id || order.orderId
     if (!orderIdToUse) {
@@ -996,6 +1027,7 @@ export default function OrdersPage({ statusKey = "all" }) {
         onDeleteOrder={statusKey === "all" ? handleDeleteOrder : undefined}
         onAcceptOrder={statusKey === "all" || statusKey === "pending" ? handleAcceptOrder : undefined}
         onRejectOrder={statusKey === "all" || statusKey === "pending" ? handleRejectOrder : undefined}
+        onDeassignAndResend={handleDeassignAndResend}
         onCancelOrder={
           statusKey === "all" ||
           statusKey === "pending" ||

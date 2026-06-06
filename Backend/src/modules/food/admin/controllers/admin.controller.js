@@ -12,6 +12,7 @@ import { validateReferralSettingsUpsertDto } from '../validators/referralSetting
 import { ADMIN_ACTIONS, ADMIN_PERMISSION_SECTIONS, sanitizeAdminPermissions } from '../../../../constants/permissions.js';
 import {
     deassignAndResendEmergencyOrder,
+    deassignAndResendOrderAdmin,
     getOrderEmergencyRequestAdmin,
     listOrderEmergencyRequestsAdmin,
     updateOrderEmergencyRequestAdmin
@@ -158,6 +159,22 @@ export async function deassignAndResendOrderEmergencyRequest(req, res, next) {
             message: result.alreadyResolved
                 ? 'Order reassignment was already completed'
                 : 'Delivery partner deassigned and order dispatch restarted',
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function deassignAndResendOrder(req, res, next) {
+    try {
+        const result = await deassignAndResendOrderAdmin(
+            req.params.orderId,
+            req.user?.userId
+        );
+        res.status(200).json({
+            success: true,
+            message: 'Delivery partner deassigned and order dispatch restarted',
             data: result
         });
     } catch (error) {

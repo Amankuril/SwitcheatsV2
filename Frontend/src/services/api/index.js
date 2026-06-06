@@ -647,6 +647,12 @@ export const adminAPI = {
     apiClient.patch(`/food/admin/orders/${String(orderId)}/reject`, { reason }, {
       contextModule: "admin",
     }),
+  deassignAndResendOrder: (orderId) =>
+    apiClient.patch(
+      `/food/admin/orders/${String(orderId)}/deassign-resend`,
+      {},
+      { contextModule: "admin" },
+    ),
   processRefund: (orderId, data) =>
     apiClient.post(`/food/admin/orders/${String(orderId)}/refund`, data ?? {}, {
       contextModule: "admin",

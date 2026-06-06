@@ -9,7 +9,10 @@ import { logger } from '../../../../utils/logger.js';
 import { FoodOrder } from '../../orders/models/order.model.js';
 import { FoodTransaction } from '../../orders/models/foodTransaction.model.js';
 import * as dispatchService from '../../orders/services/order-dispatch.service.js';
-import { notifyOwnersSafely } from '../../orders/services/order.helpers.js';
+import {
+    buildOrderIdentityFilter,
+    notifyOwnersSafely
+} from '../../orders/services/order.helpers.js';
 import { FoodDeliveryPartner } from '../models/deliveryPartner.model.js';
 import { DeliveryOrderEmergencyRequest } from '../models/orderEmergencyRequest.model.js';
 
@@ -64,6 +67,180 @@ const populateRequest = (query) => query
         path: 'resolvedBy',
         select: 'name email'
     });
+
+async function deassignOrderForRedispatch({
+    orderIdentity,
+    deliveryPartnerId,
+    adminId,
+    requestId = null,
+    reason,
+    historyNote
+}) {
+    const identity = buildOrderIdentityFilter(orderIdentity);
+    if (!identity) throw new ValidationError('Order id required');
+
+    const existingOrder = await FoodOrder.findOne(identity).lean();
+    if (!existingOrder) throw new NotFoundError('Order not found');
+    if (!isBeforePickup(existingOrder)) {
+        throw new ValidationError('Order can no longer be reassigned after pickup');
+    }
+
+    const assignedPartnerId = existingOrder.dispatch?.deliveryPartnerId;
+    if (
+        existingOrder.dispatch?.status !== 'accepted' ||
+        !assignedPartnerId ||
+        (deliveryPartnerId && String(assignedPartnerId) !== String(deliveryPartnerId))
+    ) {
+        throw new ValidationError(
+            'Order assignment changed or pickup was completed before reassignment'
+        );
+    }
+
+    const nextOrderStatus =
+        existingOrder.orderStatus === 'reached_pickup'
+            ? 'ready_for_pickup'
+            : existingOrder.orderStatus;
+    const now = new Date();
+
+    const order = await FoodOrder.findOneAndUpdate(
+        {
+            _id: existingOrder._id,
+            orderStatus: existingOrder.orderStatus,
+            'dispatch.status': 'accepted',
+            'dispatch.deliveryPartnerId': assignedPartnerId,
+            'deliveryState.pickedUpAt': null,
+            'deliveryState.currentPhase': {
+                $nin: ['en_route_to_delivery', 'at_drop', 'delivered', 'completed']
+            }
+        },
+        {
+            $set: {
+                orderStatus: nextOrderStatus,
+                'dispatch.status': 'unassigned',
+                'dispatch.deliveryPartnerId': null,
+                'deliveryState.currentPhase': 'en_route_to_pickup',
+                'deliveryState.status': '',
+                'deliveryState.reachedPickupAt': null,
+                'deliveryState.reachedDropAt': null,
+                'deliveryState.pickedUpAt': null,
+                'deliveryState.deliveredAt': null
+            },
+            $unset: {
+                'dispatch.assignedAt': '',
+                'dispatch.acceptedAt': '',
+                'dispatch.dispatchingAt': ''
+            },
+            $push: {
+                'dispatch.offeredTo': {
+                    partnerId: assignedPartnerId,
+                    at: now,
+                    action: 'deassigned'
+                },
+                statusHistory: {
+                    byRole: 'ADMIN',
+                    byId: adminId,
+                    from: 'accepted',
+                    to: 'unassigned',
+                    note: historyNote,
+                    at: now
+                }
+            }
+        },
+        { new: true }
+    ).lean();
+
+    if (!order) {
+        throw new ValidationError(
+            'Order assignment changed or pickup was completed before reassignment'
+        );
+    }
+
+    await FoodTransaction.findOneAndUpdate(
+        { orderId: order._id },
+        { $unset: { deliveryPartnerId: '' } }
+    );
+
+    const db = getFirebaseDB();
+    if (db) {
+        await db.ref(`active_orders/${String(order._id)}`).remove().catch((error) => {
+            logger.warn(
+                `Failed to clear tracking for reassigned order ${order._id}: ${error.message}`
+            );
+        });
+    }
+
+    const payload = {
+        orderId: String(order._id),
+        orderMongoId: String(order._id),
+        ...(requestId ? { requestId: String(requestId) } : {}),
+        reason
+    };
+    const io = getIO();
+    if (io) {
+        io.to(rooms.delivery(assignedPartnerId)).emit('order_deassigned', payload);
+        io.to(rooms.restaurant(order.restaurantId)).emit(
+            'order_status_update',
+            { ...payload, dispatchStatus: 'unassigned' }
+        );
+        io.to(rooms.user(order.userId)).emit(
+            'order_status_update',
+            { ...payload, dispatchStatus: 'unassigned' }
+        );
+    }
+
+    await notifyOwnersSafely(
+        [
+            { ownerType: 'DELIVERY_PARTNER', ownerId: assignedPartnerId },
+            { ownerType: 'RESTAURANT', ownerId: order.restaurantId },
+            { ownerType: 'USER', ownerId: order.userId }
+        ],
+        {
+            title: 'Delivery partner reassignment',
+            body: 'The order is being assigned to another delivery partner.',
+            data: {
+                type: 'order_deassigned',
+                orderId: String(order._id),
+                ...(requestId ? { requestId: String(requestId) } : {})
+            }
+        }
+    );
+
+    return { order, deliveryPartnerId: assignedPartnerId };
+}
+
+export async function deassignAndResendOrderAdmin(orderId, adminId) {
+    const result = await deassignOrderForRedispatch({
+        orderIdentity: orderId,
+        adminId,
+        reason: 'Order reassigned by admin',
+        historyNote: 'Delivery partner deassigned and dispatch restarted by admin'
+    });
+
+    const dispatchResult = await dispatchService.tryAutoAssign(result.order._id);
+
+    await DeliveryOrderEmergencyRequest.updateMany(
+        {
+            orderId: result.order._id,
+            status: { $in: [...ACTIVE_REQUEST_STATUSES, 'processing'] }
+        },
+        {
+            $set: {
+                status: 'resolved',
+                deassignedAt: new Date(),
+                resolvedAt: new Date(),
+                resolvedBy: adminId,
+                failureReason: ''
+            },
+            $unset: { activeKey: '' }
+        }
+    );
+
+    return {
+        orderId: String(result.order._id),
+        deliveryPartnerId: String(result.deliveryPartnerId),
+        dispatchStarted: Boolean(dispatchResult)
+    };
+}
 
 export async function createOrderEmergencyRequest(deliveryPartnerId, payload = {}) {
     const reason = String(payload.reason || '').trim();
@@ -242,8 +419,6 @@ export async function deassignAndResendEmergencyOrder(requestId, adminId) {
     }
 
     let order = null;
-    let wasDeassignedNow = false;
-
     try {
         const existingOrder = await FoodOrder.findById(request.orderId).lean();
         if (!existingOrder) throw new NotFoundError('Order not found');
@@ -251,125 +426,17 @@ export async function deassignAndResendEmergencyOrder(requestId, adminId) {
         if (request.deassignedAt && existingOrder.dispatch?.status === 'unassigned') {
             order = existingOrder;
         } else {
-            if (!isBeforePickup(existingOrder)) {
-                throw new ValidationError('Order can no longer be reassigned after pickup');
-            }
-
-            const nextOrderStatus =
-                existingOrder.orderStatus === 'reached_pickup'
-                    ? 'ready_for_pickup'
-                    : existingOrder.orderStatus;
-
-            order = await FoodOrder.findOneAndUpdate(
-                {
-                    _id: request.orderId,
-                    orderStatus: existingOrder.orderStatus,
-                    'dispatch.status': 'accepted',
-                    'dispatch.deliveryPartnerId': request.deliveryPartnerId,
-                    'deliveryState.pickedUpAt': null,
-                    'deliveryState.currentPhase': {
-                        $nin: ['en_route_to_delivery', 'at_drop', 'delivered', 'completed']
-                    }
-                },
-                {
-                    $set: {
-                        orderStatus: nextOrderStatus,
-                        'dispatch.status': 'unassigned',
-                        'dispatch.deliveryPartnerId': null,
-                        'deliveryState.currentPhase': 'en_route_to_pickup',
-                        'deliveryState.status': '',
-                        'deliveryState.reachedPickupAt': null,
-                        'deliveryState.reachedDropAt': null,
-                        'deliveryState.pickedUpAt': null,
-                        'deliveryState.deliveredAt': null
-                    },
-                    $unset: {
-                        'dispatch.assignedAt': '',
-                        'dispatch.acceptedAt': '',
-                        'dispatch.dispatchingAt': ''
-                    },
-                    $push: {
-                        'dispatch.offeredTo': {
-                            partnerId: request.deliveryPartnerId,
-                            at: new Date(),
-                            action: 'deassigned'
-                        },
-                        statusHistory: {
-                            byRole: 'ADMIN',
-                            byId: adminId,
-                            from: 'accepted',
-                            to: 'unassigned',
-                            note: `Emergency reassignment request ${request._id}`,
-                            at: new Date()
-                        }
-                    }
-                },
-                { new: true }
-            ).lean();
-
-            if (!order) {
-                throw new ValidationError(
-                    'Order assignment changed or pickup was completed before reassignment'
-                );
-            }
-            wasDeassignedNow = true;
+            const result = await deassignOrderForRedispatch({
+                orderIdentity: request.orderId,
+                deliveryPartnerId: request.deliveryPartnerId,
+                adminId,
+                requestId: request._id,
+                reason: 'Emergency reassignment approved by admin',
+                historyNote: `Emergency reassignment request ${request._id}`
+            });
+            order = result.order;
             request.deassignedAt = new Date();
             await request.save();
-        }
-
-        await FoodTransaction.findOneAndUpdate(
-            { orderId: request.orderId },
-            { $unset: { deliveryPartnerId: '' } }
-        );
-
-        const db = getFirebaseDB();
-        if (db) {
-            await db.ref(`active_orders/${String(request.orderId)}`).remove().catch((error) => {
-                logger.warn(
-                    `Failed to clear tracking for reassigned order ${request.orderId}: ${error.message}`
-                );
-            });
-        }
-
-        if (wasDeassignedNow) {
-            const io = getIO();
-            const payload = {
-                orderId: String(request.orderId),
-                orderMongoId: String(request.orderId),
-                requestId: String(request._id),
-                reason: 'Emergency reassignment approved by admin'
-            };
-            if (io) {
-                io.to(rooms.delivery(request.deliveryPartnerId)).emit(
-                    'order_deassigned',
-                    payload
-                );
-                io.to(rooms.restaurant(request.restaurantId)).emit(
-                    'order_status_update',
-                    { ...payload, dispatchStatus: 'unassigned' }
-                );
-                io.to(rooms.user(order.userId)).emit(
-                    'order_status_update',
-                    { ...payload, dispatchStatus: 'unassigned' }
-                );
-            }
-
-            await notifyOwnersSafely(
-                [
-                    { ownerType: 'DELIVERY_PARTNER', ownerId: request.deliveryPartnerId },
-                    { ownerType: 'RESTAURANT', ownerId: request.restaurantId },
-                    { ownerType: 'USER', ownerId: order.userId }
-                ],
-                {
-                    title: 'Delivery partner reassignment',
-                    body: 'The order is being assigned to another delivery partner.',
-                    data: {
-                        type: 'order_deassigned',
-                        orderId: String(request.orderId),
-                        requestId: String(request._id)
-                    }
-                }
-            );
         }
 
         const dispatchResult = await dispatchService.tryAutoAssign(request.orderId);
