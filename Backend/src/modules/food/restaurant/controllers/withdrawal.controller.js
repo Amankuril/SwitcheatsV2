@@ -21,10 +21,7 @@ export const createWithdrawalRequestController = async (req, res, next) => {
         const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
 
         const subscriptionDue = Number(restaurant?.subscriptionDueAmount || 0);
-        const totalEarnings = finance?.currentCycle?.estimatedPayout || 0;
-        const netAvailable = isRestaurantSubscriptionEnabled
-            ? Math.max(0, totalEarnings - subscriptionDue)
-            : Math.max(0, totalEarnings);
+        const netAvailable = Math.max(0, Number(finance?.currentCycle?.netAvailable || 0));
 
         if (amount > netAvailable) {
             if (isRestaurantSubscriptionEnabled && subscriptionDue > 0) {

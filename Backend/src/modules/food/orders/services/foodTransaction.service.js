@@ -109,6 +109,10 @@ export async function createInitialTransaction(order) {
 
     let restaurantNet = subtotal + packagingFee - restaurantCommission;
     let platformNetProfit = platformFee + deliveryFee + restaurantCommission - riderShare;
+    let adminDiscountShare = 0;
+    let restaurantDiscountShare = 0;
+    let discountAdminBearPercentage = 0;
+    let discountRestaurantBearPercentage = 0;
 
     // Handle discount attribution
     const couponCode = order.pricing?.couponCode;
@@ -118,16 +122,30 @@ export async function createInitialTransaction(order) {
             const { FoodOffer } = await import('../../admin/models/offer.model.js');
             const offer = await FoodOffer.findOne({ couponCode: String(couponCode).toUpperCase() }).lean();
             if (offer?.createdByRole === 'RESTAURANT') {
-                restaurantNet -= discount;
+                restaurantDiscountShare = discount;
+                discountRestaurantBearPercentage = 100;
             } else {
-                // Admin created (default) or not found
-                platformNetProfit -= discount;
+                // Admin created (default) or not found.
+                const adminPct = Number.isFinite(Number(offer?.adminBearPercentage))
+                    ? Math.max(0, Math.min(100, Number(offer.adminBearPercentage)))
+                    : 100;
+                const restaurantPct = Number.isFinite(Number(offer?.restaurantBearPercentage))
+                    ? Math.max(0, Math.min(100, Number(offer.restaurantBearPercentage)))
+                    : Math.max(0, 100 - adminPct);
+                const normalizedTotal = adminPct + restaurantPct;
+                discountAdminBearPercentage = normalizedTotal > 0 ? (adminPct / normalizedTotal) * 100 : 100;
+                discountRestaurantBearPercentage = normalizedTotal > 0 ? (restaurantPct / normalizedTotal) * 100 : 0;
+                restaurantDiscountShare = Math.round((discount * (discountRestaurantBearPercentage / 100)) * 100) / 100;
+                adminDiscountShare = Math.max(0, Math.round((discount - restaurantDiscountShare) * 100) / 100);
             }
         } catch (err) {
             // Log but don't fail, default to admin attribution
-            platformNetProfit -= discount;
+            adminDiscountShare = discount;
+            discountAdminBearPercentage = 100;
         }
     }
+    restaurantNet -= restaurantDiscountShare;
+    platformNetProfit -= adminDiscountShare;
 
     // Ensure nets are finite and rounded
     restaurantNet = Math.round((Number(restaurantNet) || 0) * 100) / 100;
@@ -166,6 +184,7 @@ export async function createInitialTransaction(order) {
             platformFee: platformFee,
             restaurantCommission: restaurantCommission,
             discount: discount,
+            couponCode: couponCode ? String(couponCode).toUpperCase() : null,
             total: totalCustomerPaid,
             currency: String(order.pricing?.currency || order.currency || 'INR'),
         },
@@ -175,7 +194,11 @@ export async function createInitialTransaction(order) {
             restaurantCommission: restaurantCommission,
             riderShare: riderShare,
             platformNetProfit: platformNetProfit,
-            taxAmount: tax
+            taxAmount: tax,
+            adminDiscountShare,
+            restaurantDiscountShare,
+            discountAdminBearPercentage,
+            discountRestaurantBearPercentage
         },
         gateway: {
             razorpayOrderId: order.payment?.razorpay?.orderId,

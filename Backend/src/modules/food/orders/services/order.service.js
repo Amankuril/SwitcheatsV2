@@ -426,6 +426,7 @@ export async function createOrder(userId, dto) {
       deliveryFee: Number(dto.pricing?.deliveryFee ?? 0) || 0,
       platformFee: Number(dto.pricing?.platformFee ?? 0) || 0,
       discount: Number(dto.pricing?.discount ?? 0) || 0,
+      couponCode: dto.pricing?.couponCode ? String(dto.pricing.couponCode).trim().toUpperCase() : null,
       total: Number(dto.pricing?.total ?? 0) || 0,
       currency: String(dto.pricing?.currency || "INR"),
     };

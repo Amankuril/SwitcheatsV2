@@ -901,7 +901,7 @@ export default function HubFinance() {
                 ) : (
                   <>
                     <p className="text-4xl font-bold text-gray-900 mb-2">
-                      ₹{(financeData?.currentCycle?.estimatedPayout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₹{(financeData?.currentCycle?.netAvailable ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     <p className="text-sm text-gray-600 mb-4">
                       {financeData?.currentCycle?.totalOrders || 0} {financeData?.currentCycle?.totalOrders === 1 ? 'order' : 'orders'}
@@ -917,13 +917,13 @@ export default function HubFinance() {
                         }
                         setShowWithdrawalModal(true);
                       }}
-                      disabled={!(financeData?.currentCycle?.estimatedPayout > 0)}
+                      disabled={!((financeData?.currentCycle?.netAvailable ?? 0) > 0)}
                       className={`w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 mt-4 transition-colors ${
-                        financeData?.currentCycle?.estimatedPayout > 0
+                        (financeData?.currentCycle?.netAvailable ?? 0) > 0
                           ? "text-white"
                           : "bg-gray-200 text-gray-500 cursor-not-allowed"
                       }`}
-                      style={financeData?.currentCycle?.estimatedPayout > 0 ? {
+                      style={(financeData?.currentCycle?.netAvailable ?? 0) > 0 ? {
                         background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 37,99,235), 0.9), var(--module-theme-color, #2563EB))",
                         boxShadow: "0 10px 20px rgba(var(--module-theme-rgb, 37,99,235), 0.28)",
                       } : undefined}
@@ -1202,6 +1202,17 @@ export default function HubFinance() {
                                 <p className="text-xs text-gray-600">
                                   {order.foodNames || (order.items && order.items.map(item => item.name).join(', ')) || 'N/A'}
                                 </p>
+                                {Number(order.discount || 0) > 0 && (
+                                  <p className="mt-1 text-[11px] font-medium text-rose-600">
+                                    Discount ₹{Number(order.restaurantDiscountShare || order.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    {Number(order.adminDiscountShare || 0) > 0
+                                      ? ` | Admin bear ₹${Number(order.adminDiscountShare || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : ""}
+                                    {Number(order.restaurantDiscountShare || 0) > 0 && Number(order.discount || 0) > Number(order.restaurantDiscountShare || 0)
+                                      ? ` | Total coupon ₹${Number(order.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : ""}
+                                  </p>
+                                )}
                               </div>
                               <div className="text-right ml-4">
                                 <p className="text-sm font-bold text-gray-900">
@@ -1234,6 +1245,17 @@ export default function HubFinance() {
                                 <p className="text-xs text-gray-600">
                                   {order.foodNames || (order.items && order.items.map(item => item.name).join(', ')) || 'N/A'}
                                 </p>
+                                {Number(order.discount || 0) > 0 && (
+                                  <p className="mt-1 text-[11px] font-medium text-rose-600">
+                                    Discount ₹{Number(order.restaurantDiscountShare || order.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    {Number(order.adminDiscountShare || 0) > 0
+                                      ? ` | Admin bear ₹${Number(order.adminDiscountShare || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : ""}
+                                    {Number(order.restaurantDiscountShare || 0) > 0 && Number(order.discount || 0) > Number(order.restaurantDiscountShare || 0)
+                                      ? ` | Total coupon ₹${Number(order.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : ""}
+                                  </p>
+                                )}
                               </div>
                               <div className="text-right ml-4">
                                 <p className="text-sm font-bold text-gray-900">
@@ -1283,7 +1305,7 @@ export default function HubFinance() {
                           </p>
                         </div>
                         <p className="text-xs text-gray-600 mt-1">
-                          Plan: {String(item?.plan || "-").toUpperCase()} • Due: ₹{Number(item?.dueBefore || 0).toLocaleString("en-IN")} -> ₹{Number(item?.dueAfter || 0).toLocaleString("en-IN")}
+                          Plan: {String(item?.plan || "-").toUpperCase()} • Due: ₹{Number(item?.dueBefore || 0).toLocaleString("en-IN")} {"->"} ₹{Number(item?.dueAfter || 0).toLocaleString("en-IN")}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           {item?.createdAt ? new Date(item.createdAt).toLocaleString() : ""}
@@ -1436,7 +1458,7 @@ export default function HubFinance() {
                     onClick={async () => {
                       const amount = parseFloat(withdrawalAmount)
                       if (!amount || amount <= 0) return
-                      if (amount > (financeData?.currentCycle?.estimatedPayout || 0)) return
+                      if (amount > (financeData?.currentCycle?.netAvailable ?? 0)) return
                       
                       try {
                         setSubmittingWithdrawal(true)

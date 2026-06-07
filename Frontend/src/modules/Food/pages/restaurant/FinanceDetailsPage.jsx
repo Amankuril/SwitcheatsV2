@@ -76,13 +76,18 @@ export default function FinanceDetailsPage() {
   const settlementData = useMemo(() => {
     const cycle = financeData?.currentCycle || {};
     const summary = financeData?.invoiceSummary || {};
+    const cycleOrders = Array.isArray(cycle.orders) ? cycle.orders : [];
+    const restaurantDiscount = cycleOrders.reduce(
+      (sum, order) => sum + Number(order?.restaurantDiscountShare || 0),
+      0,
+    );
     
     return {
       totalOrders: cycle.totalOrders || 0,
       netOrderValue: {
         itemSubtotal: summary.subtotal || 0,
         totalGSTCollected: summary.taxes || 0,
-        restaurantDiscountPromos: 0,
+        restaurantDiscountPromos: restaurantDiscount,
         restaurantDiscountOthers: 0,
         total: summary.subtotal || 0
       },

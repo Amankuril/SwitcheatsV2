@@ -835,7 +835,9 @@ export async function getTransactionReport(query = {}) {
             customerName: tx.userId?.name || 'Guest',
             totalItemAmount: subtotal,
             itemDiscount: pricing.discount || 0,
-            couponDiscount: 0, // Placeholder if you add coupon logic
+            couponDiscount: pricing.discount || 0,
+            adminDiscountShare: Number(tx.amounts?.adminDiscountShare || 0),
+            restaurantDiscountShare: Number(tx.amounts?.restaurantDiscountShare || 0),
             referralDiscount: 0, // Placeholder
             discountedAmount: Math.max(0, (pricing.subtotal || 0) - (pricing.discount || 0)),
             vatTax: tx.amounts?.taxAmount || pricing.tax || 0,
@@ -2247,11 +2249,16 @@ export async function getRestaurantAnalytics(restaurantId) {
     const cancelledOrders = orders.filter(o => ['cancelled_by_user', 'cancelled_by_restaurant', 'cancelled_by_admin'].includes(o.orderStatus));
 
     // Money metrics should come from the ledger (FoodTransaction), not FoodOrder.
-    const completedTx = (txRows || []).filter((tx) => {
-        if (tx?.orderId) return isCompletedOrder(tx.orderId);
-        return tx?.status === 'captured' || tx?.status === 'authorized' || tx?.status === 'settled';
-    });
-    const completedMoneyRows = completedTx.length > 0 ? completedTx : completedOrders;
+    const completedTxByOrderId = new Map(
+        (txRows || [])
+            .filter((tx) => tx?.orderId && isCompletedOrder(tx.orderId))
+            .map((tx) => [String(tx.orderId?._id || tx.orderId), tx])
+    );
+    // Prefer the ledger snapshot per order, but do not drop a completed order
+    // just because its transaction row is missing.
+    const completedMoneyRows = completedOrders.map(
+        (order) => completedTxByOrderId.get(String(order._id)) || order
+    );
 
     const sum = (arr, pick) => (arr || []).reduce((s, it) => s + (Number(pick(it)) || 0), 0);
 
@@ -2341,6 +2348,8 @@ export async function getRestaurantAnalytics(restaurantId) {
         deliveryFee: sum(completedMoneyRows, (row) => getPricing(row)?.deliveryFee),
         platformFee: sum(completedMoneyRows, (row) => getPricing(row)?.platformFee),
         discount: sum(completedMoneyRows, (row) => getPricing(row)?.discount),
+        adminDiscountShare: sum(completedMoneyRows, (row) => getAmount(row, 'adminDiscountShare')),
+        restaurantDiscountShare: sum(completedMoneyRows, (row) => getAmount(row, 'restaurantDiscountShare')),
         total: totalRevenue,
         currency: 'INR',
 
@@ -3592,7 +3601,10 @@ export async function getAllOffers(_query = {}) {
             maxDiscount: o.maxDiscount ?? null,
             usageLimit: o.usageLimit ?? null,
             usedCount: o.usedCount ?? 0,
-            restaurantScope: o.restaurantScope
+            restaurantScope: o.restaurantScope,
+            createdByRole: o.createdByRole || 'ADMIN',
+            adminBearPercentage: Number(o.adminBearPercentage ?? (o.createdByRole === 'RESTAURANT' ? 0 : 100)),
+            restaurantBearPercentage: Number(o.restaurantBearPercentage ?? (o.createdByRole === 'RESTAURANT' ? 100 : 0))
         };
     });
 
@@ -3622,7 +3634,9 @@ export async function createAdminOffer(body) {
         endDate: body.endDate,
         status: body.endDate && new Date(body.endDate).getTime() <= Date.now() ? 'inactive' : 'active',
         showInCart: true,
-        createdByRole: 'ADMIN'
+        createdByRole: 'ADMIN',
+        adminBearPercentage: body.adminBearPercentage ?? 100,
+        restaurantBearPercentage: body.restaurantBearPercentage ?? 0
     });
 
     const selectedRestaurantIds = doc.restaurantScope === 'selected'

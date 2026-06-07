@@ -224,6 +224,8 @@ export default function Coupons() {
     usageLimit: "",
     perUserLimit: "",
     isFirstOrderOnly: false,
+    adminBearPercentage: "100",
+    restaurantBearPercentage: "0",
   })
 
   const fetchOffers = useCallback(async () => {
@@ -292,6 +294,14 @@ export default function Coupons() {
     if (f.minOrderValue !== "" && Number(f.minOrderValue) < 0) e.minOrderValue = "Min order cannot be negative"
     if (f.usageLimit !== "" && Number(f.usageLimit) < 1) e.usageLimit = "Usage limit must be at least 1"
     if (f.perUserLimit !== "" && Number(f.perUserLimit) < 1) e.perUserLimit = "Per user limit must be at least 1"
+    const adminBear = Number(f.adminBearPercentage)
+    const restaurantBear = Number(f.restaurantBearPercentage)
+    if (!Number.isFinite(adminBear) || adminBear < 0 || adminBear > 100) e.adminBearPercentage = "Enter 0 to 100"
+    if (!Number.isFinite(restaurantBear) || restaurantBear < 0 || restaurantBear > 100) e.restaurantBearPercentage = "Enter 0 to 100"
+    if (Number.isFinite(adminBear) && Number.isFinite(restaurantBear) && Math.round((adminBear + restaurantBear) * 100) / 100 !== 100) {
+      e.adminBearPercentage = "Both shares must total 100%"
+      e.restaurantBearPercentage = "Both shares must total 100%"
+    }
     if (f.restaurantScope === "selected" && (!Array.isArray(f.restaurantIds) || f.restaurantIds.length === 0)) {
       e.restaurantIds = "Select at least one restaurant"
     }
@@ -333,6 +343,20 @@ export default function Coupons() {
         validateForm(next)
         return next
       })
+      if (submitError) setSubmitError("")
+      if (submitSuccess) setSubmitSuccess("")
+      return
+    }
+    if (field === "adminBearPercentage" || field === "restaurantBearPercentage") {
+      const numeric = Number(value)
+      const next = { ...formData, [field]: value }
+      if (Number.isFinite(numeric) && numeric >= 0 && numeric <= 100) {
+        const counterpart = String(Math.round((100 - numeric) * 100) / 100)
+        if (field === "adminBearPercentage") next.restaurantBearPercentage = counterpart
+        if (field === "restaurantBearPercentage") next.adminBearPercentage = counterpart
+      }
+      setFormData(next)
+      validateForm(next)
       if (submitError) setSubmitError("")
       if (submitSuccess) setSubmitSuccess("")
       return
@@ -379,6 +403,8 @@ export default function Coupons() {
       usageLimit: "",
       perUserLimit: "",
       isFirstOrderOnly: false,
+      adminBearPercentage: "100",
+      restaurantBearPercentage: "0",
     })
   }
 
@@ -424,6 +450,8 @@ export default function Coupons() {
         usageLimit: formData.usageLimit !== "" ? Number(formData.usageLimit) : undefined,
         perUserLimit: formData.perUserLimit !== "" ? Number(formData.perUserLimit) : undefined,
         isFirstOrderOnly: Boolean(formData.isFirstOrderOnly),
+        adminBearPercentage: Number(formData.adminBearPercentage),
+        restaurantBearPercentage: Number(formData.restaurantBearPercentage),
       }
       await adminAPI.createAdminOffer(payload)
 
@@ -634,6 +662,36 @@ export default function Coupons() {
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Admin Bear (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={formData.adminBearPercentage}
+                  onChange={(e) => handleFormChange("adminBearPercentage", e.target.value)}
+                  placeholder="e.g. 70"
+                  className={`w-full px-3 py-2.5 text-sm rounded-lg border ${errors.adminBearPercentage ? "border-red-500" : "border-slate-300"} bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                />
+                {errors.adminBearPercentage && <p className="mt-1 text-xs text-red-600">{errors.adminBearPercentage}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Restaurant Bear (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={formData.restaurantBearPercentage}
+                  onChange={(e) => handleFormChange("restaurantBearPercentage", e.target.value)}
+                  placeholder="e.g. 30"
+                  className={`w-full px-3 py-2.5 text-sm rounded-lg border ${errors.restaurantBearPercentage ? "border-red-500" : "border-slate-300"} bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                />
+                {errors.restaurantBearPercentage && <p className="mt-1 text-xs text-red-600">{errors.restaurantBearPercentage}</p>}
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Usage Limit (global)</label>
                 <input
                   type="number"
@@ -756,6 +814,7 @@ export default function Coupons() {
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">Coupon Code</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">Customer Scope</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">Discount</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">Bear Split</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">Price</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">Min Order</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">Usage</th>
@@ -801,6 +860,12 @@ export default function Coupons() {
                             ? `\u20B9${offer.originalPrice - offer.discountedPrice} OFF`
                             : `${offer.discountPercentage}% OFF${Number(offer.maxDiscount) ? ` (up to \u20B9${Number(offer.maxDiscount)})` : ""}`}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-xs text-slate-700 leading-5">
+                          <p>Admin: {Number(offer.adminBearPercentage ?? 100)}%</p>
+                          <p>Restaurant: {Number(offer.restaurantBearPercentage ?? 0)}%</p>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-slate-700">

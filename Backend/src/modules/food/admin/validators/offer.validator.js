@@ -16,7 +16,9 @@ const createOfferSchema = z.object({
     maxDiscount: z.number().min(0).optional(),
     usageLimit: z.number().min(0).optional(),
     perUserLimit: z.number().min(0).optional(),
-    isFirstOrderOnly: z.boolean().optional()
+    isFirstOrderOnly: z.boolean().optional(),
+    adminBearPercentage: z.number().min(0).max(100).optional(),
+    restaurantBearPercentage: z.number().min(0).max(100).optional()
 });
 
 export const validateCreateOfferDto = (body) => {
@@ -37,7 +39,9 @@ export const validateCreateOfferDto = (body) => {
         maxDiscount: body?.maxDiscount !== undefined ? Number(body.maxDiscount) : undefined,
         usageLimit: body?.usageLimit !== undefined ? Number(body.usageLimit) : undefined,
         perUserLimit: body?.perUserLimit !== undefined ? Number(body.perUserLimit) : undefined,
-        isFirstOrderOnly: body?.isFirstOrderOnly !== undefined ? Boolean(body.isFirstOrderOnly) : undefined
+        isFirstOrderOnly: body?.isFirstOrderOnly !== undefined ? Boolean(body.isFirstOrderOnly) : undefined,
+        adminBearPercentage: body?.adminBearPercentage !== undefined ? Number(body.adminBearPercentage) : undefined,
+        restaurantBearPercentage: body?.restaurantBearPercentage !== undefined ? Number(body.restaurantBearPercentage) : undefined
     };
 
     const result = createOfferSchema.safeParse(normalized);
@@ -86,6 +90,11 @@ export const validateCreateOfferDto = (body) => {
             ...(result.data.restaurantId ? [result.data.restaurantId] : [])
         ])]
         : [];
+    const adminBearPercentage = result.data.adminBearPercentage ?? 100;
+    const restaurantBearPercentage = result.data.restaurantBearPercentage ?? 0;
+    if (Math.round((adminBearPercentage + restaurantBearPercentage) * 100) / 100 !== 100) {
+        throw new ValidationError('Admin bear and restaurant bear must total 100%');
+    }
 
     return {
         couponCode: result.data.couponCode.trim().toUpperCase(),
@@ -101,7 +110,9 @@ export const validateCreateOfferDto = (body) => {
         maxDiscount,
         usageLimit: result.data.usageLimit,
         perUserLimit: result.data.perUserLimit,
-        isFirstOrderOnly: result.data.isFirstOrderOnly
+        isFirstOrderOnly: result.data.isFirstOrderOnly,
+        adminBearPercentage,
+        restaurantBearPercentage
     };
 };
 

@@ -2325,7 +2325,9 @@ export async function createRestaurantOffer(restaurantId, body) {
         endDate: body.endDate,
         status: body.endDate && new Date(body.endDate).getTime() <= Date.now() ? 'inactive' : 'active',
         showInCart: true,
-        createdByRole: 'RESTAURANT'
+        createdByRole: 'RESTAURANT',
+        adminBearPercentage: 0,
+        restaurantBearPercentage: 100
     });
 
     return doc;

@@ -167,6 +167,7 @@ export async function createCollectQr(
         platformFee: order.pricing?.platformFee || 0,
         restaurantCommission: order.pricing?.restaurantCommission || 0,
         discount: order.pricing?.discount || 0,
+        couponCode: order.pricing?.couponCode ? String(order.pricing.couponCode).trim().toUpperCase() : null,
         total: order.pricing?.total || 0,
         currency: 'INR',
       },
