@@ -653,6 +653,12 @@ export const adminAPI = {
       {},
       { contextModule: "admin" },
     ),
+  resendDeliveryNotification: (orderId) =>
+    apiClient.post(
+      `/food/admin/orders/${String(orderId)}/resend-notification`,
+      {},
+      { contextModule: "admin" },
+    ),
   processRefund: (orderId, data) =>
     apiClient.post(`/food/admin/orders/${String(orderId)}/refund`, data ?? {}, {
       contextModule: "admin",

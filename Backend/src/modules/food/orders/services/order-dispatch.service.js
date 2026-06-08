@@ -330,3 +330,27 @@ export async function resendDeliveryNotificationRestaurant(orderId, restaurantId
   await tryAutoAssign(order._id);
   return { success: true };
 }
+
+export async function resendDeliveryNotificationAdmin(orderId) {
+  const identity = buildOrderIdentityFilter(orderId);
+  const order = await FoodOrder.findOne(identity);
+
+  if (!order) throw new NotFoundError('Order not found');
+
+  const activeStatuses = ['confirmed', 'preparing', 'ready_for_pickup', 'ready', 'reached_pickup'];
+  if (!activeStatuses.includes(order.orderStatus)) {
+    throw new ValidationError(`Cannot resend notification for order in status: ${order.orderStatus}`);
+  }
+
+  if (order.dispatch?.status === 'accepted') {
+    throw new ValidationError('A delivery partner has already accepted this order. Please use Deassign & Resend instead.');
+  }
+
+  order.dispatch.status = 'unassigned';
+  order.dispatch.deliveryPartnerId = null;
+  order.dispatch.offeredTo = [];
+  await order.save();
+
+  await tryAutoAssign(order._id);
+  return { success: true };
+}

@@ -801,6 +801,32 @@ export default function OrdersPage({ statusKey = "all" }) {
     }
   }
 
+  const handleResendNotification = async (order) => {
+    const orderIdToUse = order.id || order._id || order.orderId
+    if (!orderIdToUse) {
+      toast.error("Order ID not found")
+      return
+    }
+
+    try {
+      setProcessingActionOrderId(order.id || order.orderId)
+      const response = await adminAPI.resendDeliveryNotification(orderIdToUse)
+      toast.success(
+        response?.data?.message ||
+          "Notification resent to delivery partners successfully",
+      )
+      await fetchOrders({ silent: true, withRingCheck: false })
+    } catch (error) {
+      debugError("Error resending notification:", error)
+      toast.error(
+        error?.response?.data?.message || "Failed to resend notification",
+      )
+      await fetchOrders({ silent: true, withRingCheck: false })
+    } finally {
+      setProcessingActionOrderId(null)
+    }
+  }
+
   const handleDeleteOrder = async (order) => {
     const orderIdToUse = order.id || order._id || order.orderId
     if (!orderIdToUse) {
@@ -1045,6 +1071,7 @@ export default function OrdersPage({ statusKey = "all" }) {
         onAcceptOrder={statusKey === "all" || statusKey === "pending" ? handleAcceptOrder : undefined}
         onRejectOrder={statusKey === "all" || statusKey === "pending" ? handleRejectOrder : undefined}
         onDeassignAndResend={handleDeassignAndResend}
+        onResendNotification={handleResendNotification}
         onCancelOrder={
           statusKey === "all" ||
           statusKey === "pending" ||

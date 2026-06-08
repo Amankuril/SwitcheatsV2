@@ -393,6 +393,11 @@ router.patch(
     requireAdminPermission('order_management', 'edit'),
     adminController.deassignAndResendOrder
 );
+router.post(
+    '/orders/:orderId/resend-notification',
+    requireAdminPermission('order_management', 'edit'),
+    orderController.resendDeliveryNotificationAdminController
+);
 router.post('/orders/:orderId/refund', orderController.processRefundAdminController);
 router.delete('/orders/:orderId', orderController.deleteOrderAdminController);
 

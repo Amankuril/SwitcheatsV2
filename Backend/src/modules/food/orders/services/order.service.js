@@ -1402,6 +1402,10 @@ export async function resendDeliveryNotificationRestaurant(orderId, restaurantId
     return dispatchService.resendDeliveryNotificationRestaurant(orderId, restaurantId);
 }
 
+export async function resendDeliveryNotificationAdmin(orderId) {
+    return dispatchService.resendDeliveryNotificationAdmin(orderId);
+}
+
 export async function getCurrentTripDelivery(deliveryPartnerId) {
   return deliveryService.getCurrentTripDelivery(deliveryPartnerId);
 }

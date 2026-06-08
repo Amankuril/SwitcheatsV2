@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { Eye, Printer, ArrowUpDown, Loader2, Check, X, Trash2, RefreshCw } from "lucide-react"
+import { Eye, Printer, ArrowUpDown, Loader2, Check, X, Trash2, RefreshCw, Volume2 } from "lucide-react"
 
 const getStatusColor = (orderStatus) => {
   const colors = {
@@ -38,6 +38,7 @@ export default function OrdersTable({
   onRejectOrder,
   onCancelOrder,
   onDeassignAndResend,
+  onResendNotification,
   actionLoadingOrderId,
   deletingOrderId,
   showAssignedDeliveryPartner = false,
@@ -79,6 +80,18 @@ export default function OrdersTable({
       ["confirmed", "preparing", "ready_for_pickup", "reached_pickup"].includes(backendStatus) &&
       order?.dispatch?.status === "accepted" &&
       Boolean(order?.dispatch?.deliveryPartnerId) &&
+      !order?.deliveryState?.pickedUpAt &&
+      !["en_route_to_delivery", "at_drop", "delivered", "completed"].includes(phase)
+    )
+  }
+
+  const canResendNotification = (order) => {
+    const backendStatus = String(order?.status || "").trim().toLowerCase()
+    const phase = String(order?.deliveryState?.currentPhase || "").trim().toLowerCase()
+    return (
+      ["confirmed", "preparing", "ready_for_pickup", "ready"].includes(backendStatus) &&
+      (!order?.dispatch?.status || order?.dispatch?.status === "unassigned") &&
+      !order?.dispatch?.deliveryPartnerId &&
       !order?.deliveryState?.pickedUpAt &&
       !["en_route_to_delivery", "at_drop", "delivered", "completed"].includes(phase)
     )
@@ -420,6 +433,34 @@ export default function OrdersTable({
                           <span>Cancel</span>
                         </button>
                       ) : null}
+                      {onResendNotification ? (
+                        <button
+                          onClick={() =>
+                            canResendNotification(order) && onResendNotification(order)
+                          }
+                          disabled={
+                            actionLoadingOrderId === (order.id || order.orderId) ||
+                            !canResendNotification(order)
+                          }
+                          className={`inline-flex items-center justify-center gap-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                            canResendNotification(order)
+                              ? "bg-blue-600 text-white hover:bg-blue-700"
+                              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                          } disabled:cursor-not-allowed disabled:opacity-60`}
+                          title={
+                            canResendNotification(order)
+                              ? "Resend delivery notification to nearby partners"
+                              : "Available only after restaurant accepts the order and no delivery partner is assigned"
+                          }
+                        >
+                          {actionLoadingOrderId === (order.id || order.orderId) ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Volume2 className="h-3.5 w-3.5" />
+                          )}
+                          <span>Resend</span>
+                        </button>
+                      ) : null}
                       {onDeassignAndResend ? (
                         <button
                           onClick={() =>
@@ -432,7 +473,7 @@ export default function OrdersTable({
                           className={`inline-flex items-center justify-center gap-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
                             canDeassignAndResend(order)
                               ? "bg-red-600 text-white hover:bg-red-700"
-                              : "cursor-not-allowed bg-slate-100 text-slate-400"
+                              : "bg-slate-100 text-slate-400 cursor-not-allowed"
                           } disabled:cursor-not-allowed disabled:opacity-60`}
                           title={
                             canDeassignAndResend(order)
@@ -454,36 +495,7 @@ export default function OrdersTable({
                 {visibleColumns.actions && (
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center justify-center gap-2">
-                      {order.orderStatus === "Pending" && onAcceptOrder && (
-                        <button
-                          onClick={() => onAcceptOrder(order)}
-                          disabled={actionLoadingOrderId === (order.id || order.orderId)}
-                          className="px-2.5 py-1.5 rounded text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                          title="Accept Order"
-                        >
-                          {actionLoadingOrderId === (order.id || order.orderId) ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Check className="w-3.5 h-3.5" />
-                          )}
-                          <span>Accept</span>
-                        </button>
-                      )}
-                      {order.orderStatus === "Pending" && onRejectOrder && (
-                        <button
-                          onClick={() => onRejectOrder(order)}
-                          disabled={actionLoadingOrderId === (order.id || order.orderId)}
-                          className="px-2.5 py-1.5 rounded text-xs font-medium text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                          title="Reject Order"
-                        >
-                          {actionLoadingOrderId === (order.id || order.orderId) ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <X className="w-3.5 h-3.5" />
-                          )}
-                          <span>Reject</span>
-                        </button>
-                      )}
+
                       <button 
                         onClick={() => onViewOrder(order)}
                         className="p-1.5 rounded text-orange-600 hover:bg-orange-50 transition-colors"
