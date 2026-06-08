@@ -25,7 +25,7 @@ import ProfileV2 from '@/modules/DeliveryV2/pages/ProfileV2';
 import {
   Bell, HelpCircle, AlertTriangle,
   Wallet, History, User as UserIcon, LayoutGrid,
-  Plus, Minus, Navigation2, Target, Play, CheckCircle2, Clock, ChevronDown,
+  Plus, Minus, Navigation2, Target, Play, CheckCircle2, Clock, ChevronDown, Phone,
   Contact, Package, Ambulance, Shield, ShieldCheck
 } from 'lucide-react';
 
@@ -973,6 +973,17 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
                                 </div>
                               </div>
                             </div>
+                            {(() => {
+                              const customerPhone = activeOrder?.userPhone || activeOrder?.user?.phone || activeOrder?.deliveryAddress?.phone || activeOrder?.deliveryAddress?.contactNumber || '';
+                              return customerPhone ? (
+                                <button
+                                  onClick={() => window.location.href = `tel:${customerPhone}`}
+                                  className="w-11 h-11 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-colors active:scale-90 shrink-0"
+                                >
+                                  <Phone className="w-5 h-5" />
+                                </button>
+                              ) : null;
+                            })()}
                           </div>
 
                           {/* Customer Instructions Panel */}

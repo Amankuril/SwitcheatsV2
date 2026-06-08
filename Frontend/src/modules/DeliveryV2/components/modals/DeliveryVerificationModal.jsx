@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ShieldCheck, DollarSign, CheckCircle2, 
-  QrCode, Loader2, Info, X, RefreshCw, Package
+  QrCode, Loader2, Info, X, RefreshCw, Package, Phone
 } from 'lucide-react';
 import { deliveryAPI } from '@food/api';
 import { toast } from 'sonner';
@@ -124,7 +124,20 @@ const OtpModal = ({ order, onVerified, onClose }) => {
                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Step 1 of 2 • Secure Drop</p>
                </div>
              </div>
-             <button onClick={onClose} className="p-3 bg-gray-50 rounded-2xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all active:scale-90"><X className="w-5 h-5"/></button>
+             <div className="flex items-center gap-2">
+               {(() => {
+                 const customerPhone = order?.userPhone || order?.user?.phone || order?.deliveryAddress?.phone || order?.deliveryAddress?.contactNumber || '';
+                 return customerPhone ? (
+                   <button
+                     onClick={() => window.location.href = `tel:${customerPhone}`}
+                     className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-colors active:scale-90 shrink-0"
+                   >
+                     <Phone className="w-5 h-5" />
+                   </button>
+                 ) : null;
+               })()}
+               <button onClick={onClose} className="p-3 bg-gray-50 rounded-2xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all active:scale-90 shrink-0"><X className="w-5 h-5"/></button>
+             </div>
           </div>
 
           <DeliveryInstructionsPanel note={order?.note} />
@@ -307,7 +320,20 @@ const PaymentModal = ({ order, otpString, onComplete, onClose }) => {
                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Step 2 of 2 • Handover</p>
                  </div>
                </div>
-               <button onClick={onClose} className="p-3 bg-gray-50 rounded-2xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all active:scale-90"><X className="w-5 h-5"/></button>
+               <div className="flex items-center gap-2">
+                 {(() => {
+                   const customerPhone = order?.userPhone || order?.user?.phone || order?.deliveryAddress?.phone || order?.deliveryAddress?.contactNumber || '';
+                   return customerPhone ? (
+                     <button
+                       onClick={() => window.location.href = `tel:${customerPhone}`}
+                       className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-colors active:scale-90 shrink-0"
+                     >
+                       <Phone className="w-5 h-5" />
+                     </button>
+                   ) : null;
+                 })()}
+                 <button onClick={onClose} className="p-3 bg-gray-50 rounded-2xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all active:scale-90 shrink-0"><X className="w-5 h-5"/></button>
+               </div>
             </div>
 
             <DeliveryInstructionsPanel note={order?.note} />
