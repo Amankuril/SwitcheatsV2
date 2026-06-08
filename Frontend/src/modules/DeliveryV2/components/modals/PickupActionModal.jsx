@@ -132,7 +132,8 @@ export const PickupActionModal = ({
                   <img src={restaurantLogo} alt="Logo" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <h3 className="text-gray-950 text-2xl font-black tracking-tight leading-none mb-2">{restaurantName}</h3>
+                  <h3 className="text-gray-950 text-2xl font-black tracking-tight leading-none mb-1.5">{restaurantName}</h3>
+                  <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-2.5">Order #{order?.shortId || order?.orderId || order?._id?.slice(-6) || 'N/A'}</p>
                   <div className="flex items-center gap-2">
                     {isAtPickup ? (
                       <div className="bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">

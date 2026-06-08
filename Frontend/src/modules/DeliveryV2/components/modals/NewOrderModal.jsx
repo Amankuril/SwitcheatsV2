@@ -142,7 +142,9 @@ export const NewOrderModal = ({ order, onAccept, onReject, onMinimize }) => {
             }}
           >
             <div>
-              <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] mb-1">New Order Request</p>
+              <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] mb-1">
+                New Order <span className="opacity-50 mx-1">•</span> #{order?.shortId || order?.orderId || order?._id?.slice(-6) || 'N/A'}
+              </p>
               <div className="flex items-baseline gap-1">
                 <span className="text-xl font-bold opacity-80">₹</span>
                 <h2 className="text-4xl font-black tracking-tighter">{Number(earnings || 0).toFixed(2)}</h2>

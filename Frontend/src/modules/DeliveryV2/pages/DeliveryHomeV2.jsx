@@ -26,7 +26,7 @@ import {
   Bell, HelpCircle, AlertTriangle,
   Wallet, History, User as UserIcon, LayoutGrid,
   Plus, Minus, Navigation2, Target, Play, CheckCircle2, Clock, ChevronDown, Phone,
-  Contact, Package, Ambulance, Shield, ShieldCheck
+  Contact, Package, Ambulance, Shield, ShieldCheck, Navigation
 } from 'lucide-react';
 
 import { getHaversineDistance, calculateETA, calculateHeading } from '@/modules/DeliveryV2/utils/geo';
@@ -955,35 +955,80 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
 
                         <div className="flex-1 overflow-y-auto no-scrollbar p-8 pt-4">
                           <div className="flex justify-between w-full items-center mb-8">
-                            <div className="flex items-center gap-4">
-                              <div className="w-16 h-16 rounded-[1.5rem] overflow-hidden border-4 border-gray-50 shadow-xl ring-1 ring-gray-100">
-                                <img
-                                  src={activeOrder?.user?.logo || activeOrder?.user?.profileImage || 'https://cdn-icons-png.flaticon.com/512/1275/1275302.png'}
-                                  className="w-full h-full object-cover"
-                                  alt="User"
-                                />
+                            <div className="flex items-start gap-3 flex-1 min-w-0 pr-2">
+                              <div className="w-14 h-14 bg-emerald-50 rounded-[1.25rem] flex items-center justify-center shrink-0 shadow-inner border border-emerald-100 ring-2 ring-white">
+                                <Target className="w-7 h-7 text-emerald-500" />
                               </div>
-                              <div>
-                                <h3 className="text-gray-950 text-2xl font-black tracking-tight leading-none mb-2 underline decoration-emerald-500/30 decoration-4 underline-offset-4">Handover Drop</h3>
-                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${isWithinRange ? 'bg-emerald-50 border-emerald-100' : 'bg-orange-50 border-orange-100'}`}>
-                                  <div className={`w-1.5 h-1.5 rounded-full ${isWithinRange ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`} />
-                                  <span className={`text-[10px] font-black uppercase tracking-widest ${isWithinRange ? 'text-emerald-600' : 'text-orange-500'}`}>
-                                    {isWithinRange ? 'Ready to Arrive' : `${(distanceToTarget / 1000).toFixed(1)} km • ${eta || '--'} min`}
+                              <div className="flex-1 min-w-0 pt-0.5">
+                                <h3 className="text-gray-950 text-xl font-black tracking-tight leading-tight mb-1 truncate">Handover</h3>
+                                <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-2.5">Order #{activeOrder?.shortId || activeOrder?.orderId || activeOrder?._id?.slice(-6) || 'N/A'}</p>
+                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border shrink-0 ${isWithinRange ? 'bg-emerald-50 border-emerald-100' : 'bg-orange-50 border-orange-100'}`}>
+                                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isWithinRange ? 'bg-emerald-500 animate-pulse' : 'bg-orange-500'}`} />
+                                  <span className={`text-[9px] font-black uppercase tracking-widest whitespace-nowrap truncate ${isWithinRange ? 'text-emerald-600' : 'text-orange-500'}`}>
+                                    {isWithinRange ? 'Ready to Drop' : `${(distanceToTarget / 1000).toFixed(1)} km • ${eta || '--'} min`}
                                   </span>
                                 </div>
                               </div>
                             </div>
-                            {(() => {
-                              const customerPhone = activeOrder?.userPhone || activeOrder?.user?.phone || activeOrder?.deliveryAddress?.phone || activeOrder?.deliveryAddress?.contactNumber || '';
-                              return customerPhone ? (
-                                <button
-                                  onClick={() => window.location.href = `tel:${customerPhone}`}
-                                  className="w-11 h-11 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-colors active:scale-90 shrink-0"
-                                >
-                                  <Phone className="w-5 h-5" />
-                                </button>
-                              ) : null;
-                            })()}
+                            <div className="flex gap-2.5 shrink-0">
+                              {(() => {
+                                const customerPhone = activeOrder?.userPhone || activeOrder?.user?.phone || activeOrder?.deliveryAddress?.phone || activeOrder?.deliveryAddress?.contactNumber || '';
+                                return customerPhone ? (
+                                  <button
+                                    onClick={() => window.location.href = `tel:${customerPhone}`}
+                                    className="w-11 h-11 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-colors active:scale-90 shrink-0"
+                                  >
+                                    <Phone className="w-5 h-5" />
+                                  </button>
+                                ) : null;
+                              })()}
+                              {(() => {
+                                const deliveryAddress = activeOrder?.deliveryAddress || {};
+                                const geoCoords =
+                                  Array.isArray(deliveryAddress.location?.coordinates) &&
+                                  deliveryAddress.location.coordinates.length >= 2
+                                    ? {
+                                        lng: deliveryAddress.location.coordinates[0],
+                                        lat: deliveryAddress.location.coordinates[1],
+                                      }
+                                    : null;
+                                const customerLocation = activeOrder?.customerLocation || activeOrder?.deliveryLocation || geoCoords || null;
+                                if (customerLocation?.lat != null && customerLocation?.lng != null) {
+                                  return (
+                                    <button
+                                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${customerLocation.lat},${customerLocation.lng}`, '_blank')}
+                                      className="w-11 h-11 rounded-2xl bg-gray-950 flex items-center justify-center text-white shadow-xl hover:bg-gray-800 transition-colors active:scale-90 shrink-0"
+                                    >
+                                      <Navigation className="w-5 h-5" />
+                                    </button>
+                                  );
+                                }
+                                const addressPartsFromSchema = [
+                                  deliveryAddress.street,
+                                  deliveryAddress.additionalDetails,
+                                  deliveryAddress.city,
+                                  deliveryAddress.state,
+                                  deliveryAddress.zipCode,
+                                ]
+                                  .map((v) => String(v || '').trim())
+                                  .filter(Boolean);
+                                const customerAddress =
+                                  activeOrder?.customerAddress ||
+                                  activeOrder?.customer_address ||
+                                  (addressPartsFromSchema.length ? addressPartsFromSchema.join(', ') : '');
+                                if (customerAddress) {
+                                  return (
+                                    <button
+                                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customerAddress)}`, '_blank')}
+                                      className="w-11 h-11 rounded-2xl bg-gray-950 flex items-center justify-center text-white shadow-xl hover:bg-gray-800 transition-colors active:scale-90 shrink-0"
+                                    >
+                                      <Navigation className="w-5 h-5" />
+                                    </button>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </div>
                           </div>
 
                           {/* Customer Instructions Panel */}

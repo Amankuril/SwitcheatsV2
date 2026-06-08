@@ -121,7 +121,7 @@ const OtpModal = ({ order, onVerified, onClose }) => {
                </div>
                <div>
                  <h2 className="text-2xl font-black text-gray-900 tracking-tight">Handover Code</h2>
-                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Step 1 of 2 • Secure Drop</p>
+                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Step 1 of 2 • Order #{order?.shortId || order?.orderId || order?._id?.slice(-6) || 'N/A'}</p>
                </div>
              </div>
              <div className="flex items-center gap-2">
@@ -317,7 +317,7 @@ const PaymentModal = ({ order, otpString, onComplete, onClose }) => {
                  </div>
                  <div>
                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Collect Payment</h2>
-                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Step 2 of 2 • Handover</p>
+                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Step 2 of 2 • Order #{order?.shortId || order?.orderId || order?._id?.slice(-6) || 'N/A'}</p>
                  </div>
                </div>
                <div className="flex items-center gap-2">
