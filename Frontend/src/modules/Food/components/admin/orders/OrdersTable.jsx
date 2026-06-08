@@ -493,17 +493,18 @@ export default function OrdersTable({
                     <div className="flex items-center justify-center gap-2">
                       {onAcceptOrder && (
                         <button
-                          onClick={() => order.orderStatus === "Pending" && onAcceptOrder(order)}
+                          onClick={() => onAcceptOrder(order)}
                           disabled={
                             actionLoadingOrderId === (order.id || order.orderId) ||
-                            order.orderStatus !== "Pending"
+                            String(order.orderStatus || "").trim().toLowerCase() !== "pending"
                           }
-                          className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1 ${order.orderStatus === "Pending"
+                          className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                            String(order.orderStatus || "").trim().toLowerCase() === "pending"
                               ? "text-white bg-emerald-600 hover:bg-emerald-700"
                               : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                            } disabled:opacity-60 disabled:cursor-not-allowed`}
+                          } disabled:opacity-60 disabled:cursor-not-allowed`}
                           title={
-                            order.orderStatus === "Pending"
+                            String(order.orderStatus || "").trim().toLowerCase() === "pending"
                               ? "Accept Order"
                               : "Available only for pending orders"
                           }
@@ -518,17 +519,18 @@ export default function OrdersTable({
                       )}
                       {onRejectOrder && (
                         <button
-                          onClick={() => order.orderStatus === "Pending" && onRejectOrder(order)}
+                          onClick={() => onRejectOrder(order)}
                           disabled={
                             actionLoadingOrderId === (order.id || order.orderId) ||
-                            order.orderStatus !== "Pending"
+                            String(order.orderStatus || "").trim().toLowerCase() !== "pending"
                           }
-                          className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1 ${order.orderStatus === "Pending"
+                          className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                            String(order.orderStatus || "").trim().toLowerCase() === "pending"
                               ? "text-white bg-rose-600 hover:bg-rose-700"
                               : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                            } disabled:opacity-60 disabled:cursor-not-allowed`}
+                          } disabled:opacity-60 disabled:cursor-not-allowed`}
                           title={
-                            order.orderStatus === "Pending"
+                            String(order.orderStatus || "").trim().toLowerCase() === "pending"
                               ? "Reject Order"
                               : "Available only for pending orders"
                           }

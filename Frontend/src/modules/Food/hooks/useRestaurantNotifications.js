@@ -621,23 +621,26 @@ export const useRestaurantNotifications = () => {
       debugLog('?? Order status update:', data);
       
       const status = String(data?.orderStatus || data?.status || "").toLowerCase();
-      if (status.includes('cancelled')) {
-        const cancelledId = data?.orderMongoId || data?.orderId || data?.id;
+      
+      // Clear popup if the active order's status changes to anything other than "pending"
+      // This handles cases where an Admin accepts/rejects the order while the popup is open
+      if (status && status !== 'pending') {
+        const updateId = data?.orderMongoId || data?.orderId || data?.id;
         
-        // If the cancelled order is the one currently being alerted, stop the alert
+        // Dispatch a custom event so components can react to the external status change
+        window.dispatchEvent(new CustomEvent('restaurantOrderHandledExternally', { 
+          detail: { 
+            orderId: data.orderId || data.id, 
+            orderMongoId: data.orderMongoId || data.orderId || data.id,
+            status: status 
+          } 
+        }));
+
         if (activeOrderRef.current) {
           const activeId = getOrderAlertKey(activeOrderRef.current);
-          if (activeId === cancelledId) {
-            debugLog('?? Active order was cancelled by user, clearing...');
+          if (activeId === updateId) {
+            debugLog(`?? Active order status changed to ${status}, clearing popup...`);
             clearNewOrder();
-            
-            // Dispatch a custom event so components can react to the cancellation
-            window.dispatchEvent(new CustomEvent('restaurantOrderCancelled', { 
-              detail: { 
-                orderId: data.orderId, 
-                orderMongoId: data.orderMongoId || data.orderId 
-              } 
-            }));
           }
         }
       }

@@ -1215,30 +1215,49 @@ export default function OrdersMain() {
   }, [newOrder]);
   // Handle order cancellation (user cancelled while popup is open)
   useEffect(() => {
-    const handleOrderCancelled = (event) => {
-      const { orderId, orderMongoId } = event.detail;
+    const handleOrderHandledExternally = (event) => {
+      const { orderId, orderMongoId, status } = event.detail;
       const currentPopupOrder = popupOrder || newOrder;
       
       if (currentPopupOrder) {
-        const currentOrderId = currentPopupOrder.orderId;
-        const currentMongoId = currentPopupOrder.orderMongoId || currentPopupOrder._id;
+        const currentOrderId = String(currentPopupOrder.orderId || "").trim();
+        const currentMongoId = String(currentPopupOrder.orderMongoId || currentPopupOrder._id || "").trim();
+        const incomingOrderId = String(orderId || "").trim();
+        const incomingMongoId = String(orderMongoId || "").trim();
         
-        if (currentOrderId === orderId || currentMongoId === orderMongoId) {
-          debugLog("?? Current popup order was cancelled by user:", orderId);
+        const isMatch = 
+          (currentOrderId && incomingOrderId && currentOrderId === incomingOrderId) || 
+          (currentMongoId && incomingMongoId && currentMongoId === incomingMongoId) ||
+          (currentOrderId && incomingMongoId && currentOrderId === incomingMongoId) ||
+          (currentMongoId && incomingOrderId && currentMongoId === incomingOrderId);
+
+        if (isMatch) {
+          debugLog("?? Current popup order was handled externally:", incomingOrderId || incomingMongoId, "new status:", status);
           setShowNewOrderPopup(false);
           setPopupOrder(null);
           clearNewOrder();
-          toast.info(`Order #${orderId || ""} was cancelled by the customer`, {
-            description: "Request has been removed.",
-            duration: 5000
-          });
+          
+          if (status?.includes('cancelled') || status?.includes('rejected')) {
+            toast.info(`Order #${orderId || ""} was cancelled/rejected`, {
+              description: "Request has been removed.",
+              duration: 5000
+            });
+          } else if (status === 'confirmed' || status === 'preparing') {
+            toast.success(`Order #${orderId || ""} was accepted by Admin`, {
+              duration: 5000
+            });
+          }
           requestOrdersRefresh();
         }
       }
     };
 
-    window.addEventListener('restaurantOrderCancelled', handleOrderCancelled);
-    return () => window.removeEventListener('restaurantOrderCancelled', handleOrderCancelled);
+    window.addEventListener('restaurantOrderCancelled', handleOrderHandledExternally);
+    window.addEventListener('restaurantOrderHandledExternally', handleOrderHandledExternally);
+    return () => {
+      window.removeEventListener('restaurantOrderCancelled', handleOrderHandledExternally);
+      window.removeEventListener('restaurantOrderHandledExternally', handleOrderHandledExternally);
+    };
   }, [popupOrder, newOrder, clearNewOrder]);
 
   // Keep refs in sync to avoid stale state inside one-time event handlers.

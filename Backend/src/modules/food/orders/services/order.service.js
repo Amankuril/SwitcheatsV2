@@ -1766,8 +1766,22 @@ export async function updateOrderStatusAdmin(orderId, orderStatus, note = "", ad
         notifyList.push({ ownerType: "DELIVERY_PARTNER", ownerId: order.dispatch.deliveryPartnerId });
     }
 
-    const title = `Order Status Updated 📋`;
-    const body = `Order #${order.order_id || order._id} status changed to ${String(orderStatus).replace(/_/g, " ")} by support.`;
+    let title = `Order Status Updated 📋`;
+    let body = `Order #${order.order_id || order._id} status changed to ${String(orderStatus).replace(/_/g, " ")} by support.`;
+
+    if (orderStatus === "confirmed") {
+        title = "Order Accepted! 🧑‍🍳";
+        body = "The order has been accepted and is starting to be prepared.";
+    } else if (orderStatus === "preparing") {
+        title = "Food is being prepared! 🍳";
+        body = "Your food is currently being prepared by the restaurant.";
+    } else if (orderStatus === "ready_for_pickup") {
+        title = "Food is ready! 🛍️";
+        body = "Your order is ready and waiting to be picked up.";
+    } else if (String(orderStatus).includes("cancel")) {
+        title = "Order Cancelled ❌";
+        body = (note && String(note).trim()) ? note : `Unfortunately, your order has been cancelled by support.`;
+    }
 
     await notifyOwnersSafely(notifyList, {
         title,
@@ -1788,11 +1802,31 @@ export async function updateOrderStatusAdmin(orderId, orderStatus, note = "", ad
                 orderId: order._id.toString(),
                 orderStatus: order.orderStatus,
                 message: body,
+                title: title,
+                note: order.note || note || "",
             };
             io.to(rooms.user(order.userId)).emit("order_status_update", payload);
             io.to(rooms.restaurant(order.restaurantId)).emit("order_status_update", payload);
             if (order.dispatch?.deliveryPartnerId) {
                 io.to(rooms.delivery(order.dispatch.deliveryPartnerId)).emit("order_status_update", payload);
+            }
+
+            // On accept (confirmed or preparing) -> request delivery partners via central logic
+            if (
+                (String(orderStatus) === "preparing" || String(orderStatus) === "confirmed") && 
+                (String(from) !== "preparing" && String(from) !== "confirmed")
+            ) {
+                console.log(
+                    `[DEBUG] Order ${order._id.toString()} status changed to '${orderStatus}' by Admin. Triggering central delivery dispatch.`,
+                );
+                
+                try {
+                    await tryAutoAssign(order._id);
+                    // Refresh local order state after assignment search
+                    order = await FoodOrder.findById(order._id); 
+                } catch (err) {
+                    console.error(`[DEBUG] Auto-assign in updateOrderStatusAdmin failed:`, err);
+                }
             }
         }
     } catch (err) {
