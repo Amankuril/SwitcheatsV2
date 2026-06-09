@@ -2381,7 +2381,7 @@ export default function OrdersMain() {
                   <button
                     onClick={handleAcceptOrder}
                     disabled={isAcceptingOrder}
-                    className="hidden md:flex w-full h-14 rounded-2xl bg-emerald-600 text-white font-bold text-[15px] uppercase tracking-widest shadow-lg hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50 items-center justify-center"
+                    className="hidden md:flex w-full h-14 rounded-2xl bg-[#E11D48] hover:bg-[#BE185D] text-white font-black text-[15px] uppercase tracking-widest shadow-[0_8px_20px_rgba(225,29,72,0.3)] hover:shadow-[0_12px_25px_rgba(225,29,72,0.4)] active:scale-[0.98] transition-all disabled:opacity-50 items-center justify-center"
                   >
                     {isAcceptingOrder ? "Accepting..." : `Accept Order (${formatTime(countdown)})`}
                   </button>
