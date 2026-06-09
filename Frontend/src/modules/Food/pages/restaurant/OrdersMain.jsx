@@ -2377,10 +2377,19 @@ export default function OrdersMain() {
 
                 {/* Action Section */}
                 <div className="px-6 pb-6 flex flex-col gap-4">
-                  {/* Swipe to Accept - Re-styled for light theme */}
+                  {/* Web View Button (Hidden on Mobile) */}
+                  <button
+                    onClick={handleAcceptOrder}
+                    disabled={isAcceptingOrder}
+                    className="hidden md:flex w-full h-14 rounded-2xl bg-emerald-600 text-white font-bold text-[15px] uppercase tracking-widest shadow-lg hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50 items-center justify-center"
+                  >
+                    {isAcceptingOrder ? "Accepting..." : `Accept Order (${formatTime(countdown)})`}
+                  </button>
+
+                  {/* Mobile View Slider (Hidden on Web) */}
                   <div
                     ref={acceptSliderRef}
-                    className="relative h-14 rounded-2xl bg-gray-100 overflow-hidden select-none touch-pan-y shadow-inner border border-gray-200"
+                    className="md:hidden relative h-14 rounded-2xl bg-gray-100 overflow-hidden select-none touch-pan-y shadow-inner border border-gray-200"
                   >
                     {/* Progress Fill (Timer) */}
                     <motion.div
