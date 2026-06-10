@@ -8,6 +8,7 @@ import {
 } from './firebase.service.js';
 import { FoodUser } from '../users/user.model.js';
 import { FoodRestaurant } from '../../modules/food/restaurant/models/restaurant.model.js';
+import { normalizePlatform } from '../../utils/platform.js';
 
 const router = express.Router();
 
@@ -73,7 +74,7 @@ router.post('/save', authMiddleware, async (req, res, next) => {
     try {
         const { ownerType, ownerId } = getOwnerContext(req);
         const token = String(req.body?.token || '').trim();
-        const platform = req.body?.platform === 'mobile' ? 'mobile' : 'web';
+        const platform = normalizePlatform(req.body?.platform);
 
         console.log(`[FCM-DEBUG] /save request received: ownerType=${ownerType}, ownerId=${ownerId}, platform=${platform}, tokenPreview=${token?.slice(0, 10)}...`);
 
@@ -127,7 +128,7 @@ const handleRemoveToken = async (req, res, next) => {
     try {
         const { ownerType, ownerId } = getOwnerContext(req);
         const token = String(req.params?.token || req.body?.token || '').trim();
-        const platform = req.body?.platform === 'mobile' ? 'mobile' : req.body?.platform === 'web' ? 'web' : undefined;
+        const platform = normalizePlatform(req.body?.platform, { allowUndefined: true });
 
         if (!ownerType || !ownerId) {
             return sendError(res, 401, 'Authentication required');
@@ -149,7 +150,7 @@ router.delete('/remove/:token', authMiddleware, handleRemoveToken);
 router.post('/test', authMiddleware, async (req, res, next) => {
     try {
         const { ownerType, ownerId } = getOwnerContext(req);
-        const platform = req.body?.platform === 'mobile' ? 'mobile' : req.body?.platform === 'web' ? 'web' : undefined;
+        const platform = normalizePlatform(req.body?.platform, { allowUndefined: true });
 
         if (!ownerType || !ownerId) {
             return sendError(res, 401, 'Authentication required');

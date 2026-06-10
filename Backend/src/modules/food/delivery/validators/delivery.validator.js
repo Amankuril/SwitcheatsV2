@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ValidationError } from '../../../../core/auth/errors.js';
+import { normalizePlatform } from '../../../../utils/platform.js';
 
 const phoneSchema = z
     .string()
@@ -40,7 +41,10 @@ const deliveryRegisterSchema = z.object({
         .optional()
         .or(z.literal('')),
     fcmToken: z.string().optional().nullable(),
-    platform: z.enum(['web', 'mobile']).optional().default('web')
+    platform: z.preprocess(
+        (value) => normalizePlatform(value, { allowUndefined: true }),
+        z.enum(['web', 'mobile']).optional().default('web')
+    )
 });
 
 export const validateDeliveryRegisterDto = (body) => {
@@ -66,7 +70,10 @@ const deliveryProfileUpdateSchema = z.object({
         .optional()
         .or(z.literal('')),
     fcmToken: z.string().optional().nullable(),
-    platform: z.enum(['web', 'mobile']).optional().default('web')
+    platform: z.preprocess(
+        (value) => normalizePlatform(value, { allowUndefined: true }),
+        z.enum(['web', 'mobile']).optional().default('web')
+    )
 });
 
 export const validateDeliveryProfileUpdateDto = (body) => {
@@ -116,4 +123,3 @@ export const validateDeliveryBankDetailsDto = (body) => {
     }
     return result.data;
 };
-

@@ -7,6 +7,7 @@ import { FoodDeliveryPartner } from '../../modules/food/delivery/models/delivery
 import { FoodAdmin } from '../admin/admin.model.js';
 import { config } from '../../config/env.js';
 import { logger } from '../../utils/logger.js';
+import { isMobilePlatform, normalizePlatform } from '../../utils/platform.js';
 
 const FIREBASE_MESSAGING_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 const OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -233,7 +234,7 @@ const shouldRemoveTokenFromError = (errorJson, response) => {
 
 const getOwnerModel = (ownerType) => OWNER_MODELS[String(ownerType || '').toUpperCase()] || null;
 
-const getTokenFieldForPlatform = (platform) => OWNER_TOKEN_FIELDS[platform === 'mobile' ? 'mobile' : 'web'];
+const getTokenFieldForPlatform = (platform) => OWNER_TOKEN_FIELDS[isMobilePlatform(platform) ? 'mobile' : 'web'];
 
 const normalizeTokenList = (tokens = []) => {
     const normalized = [...new Set((Array.isArray(tokens) ? tokens : [tokens]).map(sanitizeString).filter(Boolean))];
@@ -261,14 +262,16 @@ export const listOwnerTokens = async ({ ownerType, ownerId, platform }) => {
 
 export const upsertFirebaseDeviceToken = async ({ ownerType, ownerId, token, platform = 'web' }) => {
     const normalizedToken = sanitizeString(token);
-    console.log(`[FCM-DEBUG] upsertFirebaseDeviceToken: ownerType=${ownerType}, ownerId=${ownerId}, platform=${platform}, tokenPreview=${normalizedToken?.slice(0, 10)}...`);
+    const normalizedPlatform = normalizePlatform(platform);
+    console.log(
+        `[FCM-DEBUG] upsertFirebaseDeviceToken: ownerType=${ownerType}, ownerId=${ownerId}, platform=${normalizedPlatform}, tokenPreview=${normalizedToken?.slice(0, 10)}...`
+    );
     
     if (!ownerType || !ownerId || !normalizedToken) {
         console.error('[FCM-DEBUG] upsert - Missing required fields');
         throw new Error('ownerType, ownerId, and token are required.');
     }
 
-    const normalizedPlatform = platform === 'mobile' ? 'mobile' : 'web';
     const model = getOwnerModel(ownerType);
     if (!model) {
         console.error(`[FCM-DEBUG] upsert - Unsupported owner type: ${ownerType}`);

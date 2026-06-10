@@ -7,6 +7,7 @@ import { FoodOrder } from '../../orders/models/order.model.js';
 import { uploadImageBuffer } from '../../../../services/cloudinary.service.js';
 import { ValidationError } from '../../../../core/auth/errors.js';
 import { getDeliveryCashLimitSettings } from '../../admin/services/admin.service.js';
+import { isMobilePlatform } from '../../../../utils/platform.js';
 
 export const registerDeliveryPartner = async (payload, files) => {
     const { 
@@ -115,7 +116,7 @@ export const registerDeliveryPartner = async (payload, files) => {
 
     // Update FCM token if provided
     if (fcmToken) {
-        if (platform === 'mobile') {
+        if (isMobilePlatform(platform)) {
             partner.fcmTokenMobile = [fcmToken];
         } else {
             partner.fcmTokens = [fcmToken];
@@ -198,7 +199,7 @@ export const updateDeliveryPartnerProfile = async (userId, payload, files) => {
     if (drivingLicenseNumber !== undefined) partner.drivingLicenseNumber = drivingLicenseNumber;
 
     if (fcmToken) {
-        if (platform === 'mobile') {
+        if (isMobilePlatform(platform)) {
             if (!partner.fcmTokenMobile) partner.fcmTokenMobile = [];
             if (!partner.fcmTokenMobile.includes(fcmToken)) {
                 partner.fcmTokenMobile.push(fcmToken);

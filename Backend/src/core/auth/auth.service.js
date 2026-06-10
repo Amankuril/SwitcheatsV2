@@ -21,6 +21,7 @@ import { getRestaurantSubscriptionSettings } from "../../modules/food/admin/serv
 import { FEATURE_KEYS, isFeatureEnabled } from "../../modules/food/admin/services/featureSettings.service.js";
 import { isSubscriptionExpired, resolveRestaurantPlanEligibility } from "../../modules/food/restaurant/services/subscriptionPlan.service.js";
 import { ADMIN_FULL_PERMISSIONS, sanitizeAdminPermissions } from '../../constants/permissions.js';
+import { isMobilePlatform } from "../../utils/platform.js";
 
 const ROLES = {
   USER: "USER",
@@ -92,7 +93,7 @@ export const verifyUserOtpAndLogin = async (
   // Update FCM token if provided
   if (fcmToken) {
     let isModified = false;
-    if (platform === "mobile") {
+    if (isMobilePlatform(platform)) {
       if (!userDoc.fcmTokenMobile) userDoc.fcmTokenMobile = [];
       if (!userDoc.fcmTokenMobile.includes(fcmToken)) {
         userDoc.fcmTokenMobile.push(fcmToken);
@@ -307,7 +308,7 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
   // Update FCM token if provided
   if (fcmToken) {
     let isModified = false;
-    if (platform === "mobile") {
+    if (isMobilePlatform(platform)) {
       if (!restaurant.fcmTokenMobile) restaurant.fcmTokenMobile = [];
       if (!restaurant.fcmTokenMobile.includes(fcmToken)) {
         restaurant.fcmTokenMobile.push(fcmToken);
@@ -454,7 +455,7 @@ export const verifyDeliveryOtpAndLogin = async (phone, otp, fcmToken, platform) 
   // so we can notify them when approved.
   if (fcmToken) {
     let isModified = false;
-    if (platform === "mobile") {
+    if (isMobilePlatform(platform)) {
       if (!deliveryPartner.fcmTokenMobile) deliveryPartner.fcmTokenMobile = [];
       if (!deliveryPartner.fcmTokenMobile.includes(fcmToken)) {
         deliveryPartner.fcmTokenMobile.push(fcmToken);
@@ -521,7 +522,7 @@ export const logout = async (refreshToken, fcmToken, platform) => {
     
     // We try to remove the token from all 4 possible models regardless of the user ID, 
     // ensuring no stale connections are left across any role or app the user was logged into.
-    const field = platform === "mobile" ? "fcmTokenMobile" : "fcmTokens";
+    const field = isMobilePlatform(platform) ? "fcmTokenMobile" : "fcmTokens";
     const models = [FoodUser, FoodRestaurant, FoodDeliveryPartner, FoodAdmin];
     
     try {
