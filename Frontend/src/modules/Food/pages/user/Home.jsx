@@ -700,7 +700,24 @@ export default function Home() {
   const [isSwitchingOffVegMode, setIsSwitchingOffVegMode] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0, triangleLeft: 0 });
   const vegModeToggleRef = useRef(null);
+
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [topBannersData, setTopBannersData] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    publicGetOnce("/food/top-banners/public")
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.data?.success && Array.isArray(res?.data?.data?.banners)) {
+          setTopBannersData(res.data.data.banners);
+        }
+      })
+      .catch((err) => console.error("Error fetching top banners:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [heroBannerImages, setHeroBannerImages] = useState([]);
   const [heroBannersData, setHeroBannersData] = useState([]); // Store full banner data with linked restaurants
   const [loadingBanners, setLoadingBanners] = useState(true);
@@ -2882,7 +2899,7 @@ export default function Home() {
       </div>
 
       <div className="relative z-10">
-        <HomeHeader
+        <HomeHeader topBanners={topBannersData}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           location={effectiveLocation}

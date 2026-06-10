@@ -7,6 +7,7 @@ import { FoodExploreIcon } from '../models/exploreIcon.model.js';
 import { HomePromotionBanner } from '../models/homePromotionBanner.model.js';
 import { FoodRestaurant } from '../../restaurant/models/restaurant.model.js';
 import { getPublicHomePromotionBanners } from '../services/homePromotionBanner.service.js';
+import TopBanner from '../models/topBanner.model.js';
 import { sendResponse } from '../../../../utils/response.js';
 import mongoose from 'mongoose';
 
@@ -30,6 +31,15 @@ export const getPublicHeroBannersController = async (req, res, next) => {
             };
         });
         return sendResponse(res, 200, 'Hero banners fetched', { banners });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getPublicTopBannersController = async (req, res, next) => {
+    try {
+        const docs = await TopBanner.find({ isActive: true }).sort('order').lean();
+        return sendResponse(res, 200, 'Top banners fetched', { banners: docs });
     } catch (error) {
         next(error);
     }

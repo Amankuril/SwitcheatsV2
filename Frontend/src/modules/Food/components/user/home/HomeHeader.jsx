@@ -32,6 +32,7 @@ export default function HomeHeader({
   isVegMode,
   vegModeToggleRef,
   isCategoryStuck = false,
+  topBanners = [],
 }) {
   const { startVoiceSearch } = useSearchOverlay();
   const navigate = useNavigate();
@@ -118,14 +119,21 @@ export default function HomeHeader({
   const touchEndXRef = useRef(0);
 
   useEffect(() => {
+    const slideCount = topBanners && topBanners.length > 0 ? topBanners.length : 3;
+    
+    if (slideCount <= 1) {
+      setCurrentSlide(0);
+      return;
+    }
+
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return
-      setCurrentSlide((prev) => (prev + 1) % 3);
+      setCurrentSlide((prev) => (prev + 1) % slideCount);
     }, 4000);
 
     const handleVisibilityChange = () => {
       if (typeof document !== "undefined" && !document.hidden) {
-        setCurrentSlide((prev) => (prev + 1) % 3);
+        setCurrentSlide((prev) => (prev + 1) % slideCount);
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -134,7 +142,7 @@ export default function HomeHeader({
       clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [topBanners]);
 
   const handleTouchStart = (event) => {
     touchStartXRef.current = event.touches[0]?.clientX || 0;
@@ -153,12 +161,12 @@ export default function HomeHeader({
 
     if (deltaX > 0) {
       // Swipe left -> next slide
-      setCurrentSlide((prev) => (prev + 1) % slideBanners.length);
+      setCurrentSlide((prev) => (prev + 1) % displayBanners.length);
       return;
     }
 
     // Swipe right -> previous slide
-    setCurrentSlide((prev) => (prev - 1 + slideBanners.length) % slideBanners.length);
+    setCurrentSlide((prev) => (prev - 1 + displayBanners.length) % displayBanners.length);
   };
 
   useEffect(() => {
@@ -256,7 +264,22 @@ export default function HomeHeader({
         </div>
       )
     }
+
   ];
+
+  const displayBanners = topBanners && topBanners.length > 0 
+    ? topBanners.map((banner, index) => ({
+        id: index,
+        bg: "bg-gray-100 dark:bg-gray-800",
+        content: (
+          <img 
+            src={banner.image || banner.imageUrl} 
+            alt={`Banner ${index + 1}`} 
+            className="absolute inset-0 w-full h-full object-cover" 
+          />
+        )
+      }))
+    : slideBanners;
 
   return (
     <>
@@ -272,7 +295,7 @@ export default function HomeHeader({
           className="absolute inset-0 flex transition-transform duration-700 ease-in-out z-0"
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
-          {slideBanners.map((banner) => (
+          {displayBanners.map((banner) => (
             <div key={banner.id} className={`relative w-full h-full shrink-0 ${banner.bg}`}>
               {/* Decorative Glows inside Slide 1 */}
               {banner.id === 0 && (
@@ -283,9 +306,14 @@ export default function HomeHeader({
               )}
               
               {/* Banner Graphic - Positioned safely at the bottom below where the search bar will be */}
-              <div className="absolute inset-x-0 bottom-6 h-[140px] px-2 flex flex-col justify-end">
-                {banner.content}
-              </div>
+              
+              {topBanners && topBanners.length > 0 ? (
+                banner.content
+              ) : (
+                <div className="absolute inset-x-0 bottom-6 h-[140px] px-2 flex flex-col justify-end pointer-events-none">
+                  {banner.content}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -355,17 +383,19 @@ export default function HomeHeader({
         </div>
         
         {/* Carousel Pager Dots */}
-        <div className="absolute bottom-2 inset-x-0 flex justify-center gap-1.5 z-20">
-          {slideBanners.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              aria-label={`Go to slide ${i + 1}`}
-              onClick={() => setCurrentSlide(i)}
-              className={`h-1 rounded-full transition-all duration-300 ${i === currentSlide ? 'bg-black/60 w-3 dark:bg-white/80' : 'bg-black/20 w-1.5 dark:bg-white/30'}`}
-            />
-          ))}
-        </div>
+        {displayBanners.length > 1 && (
+          <div className="absolute bottom-2 inset-x-0 flex justify-center gap-1.5 z-20">
+            {displayBanners.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`Go to slide ${i + 1}`}
+                onClick={() => setCurrentSlide(i)}
+                className={`h-1 rounded-full transition-all duration-300 ${i === currentSlide ? 'bg-black/60 w-3 dark:bg-white/80' : 'bg-black/20 w-1.5 dark:bg-white/30'}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <AnimatePresence>

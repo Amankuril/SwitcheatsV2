@@ -14,8 +14,17 @@ const debugError = (...args) => {}
 
 
 export default function LandingPageManagement() {
-  const [activeTab, setActiveTab] = useState('banners')
+  const [activeTab, setActiveTab] = useState('top-banners')
   const [exploreMoreSubTab, setExploreMoreSubTab] = useState('icons')
+
+
+  // Top Banners
+  const [topBanners, setTopBanners] = useState([])
+  const [topBannersLoading, setTopBannersLoading] = useState(true)
+  const [topBannersUploading, setTopBannersUploading] = useState(false)
+  const [topBannersUploadProgress, setTopBannersUploadProgress] = useState({ current: 0, total: 0 })
+  const [topBannersDeleting, setTopBannersDeleting] = useState(null)
+  const topBannersFileInputRef = useRef(null)
 
   // Hero Banners
   const [banners, setBanners] = useState([])
@@ -138,6 +147,8 @@ export default function LandingPageManagement() {
 
   // Fetch data on mount (authentication is handled by ProtectedRoute)
   useEffect(() => {
+
+    fetchTopBanners()
     fetchBanners()
     fetchUnder250Banners()
     fetchDiningBanners()
@@ -157,6 +168,150 @@ export default function LandingPageManagement() {
       }
     }
   }, [activeTab, exploreMoreSubTab])
+
+
+  // ==================== TOP BANNERS ====================
+  const fetchTopBanners = async () => {
+    try {
+      setTopBannersLoading(true)
+      setError(null)
+      const response = await api.get('/food/top-banners', getAuthConfig())
+      if (response.data.success) {
+        setTopBanners(response.data.data.banners || [])
+      }
+    } catch (err) {
+      if (err.response?.status === 401) {
+        setTopBanners([])
+        setError(null)
+      } else if (err.response?.status === 404) {
+        setTopBanners([])
+        setError(null)
+      } else {
+        setErrorSafely(err.response?.data?.message || 'Failed to load top banners')
+      }
+    } finally {
+      setTopBannersLoading(false)
+    }
+  }
+
+  const handleTopBannerFileSelect = (e) => {
+    const files = Array.from(e.target?.files || e.files || [])
+    if (files.length === 0) return
+    if (files.length > 5) {
+      setError('You can upload a maximum of 5 images at once')
+      return
+    }
+    uploadTopBanners(files)
+  }
+
+  const uploadTopBanners = async (files) => {
+    try {
+      const adminToken = getModuleToken('admin')
+      if (!adminToken || adminToken.trim() === '' || adminToken === 'null' || adminToken === 'undefined') {
+        setErrorSafely('Authentication required. Please login again.')
+        return
+      }
+
+      setTopBannersUploading(true)
+      setError(null)
+      setSuccess(null)
+      setTopBannersUploadProgress({ current: 0, total: files.length })
+
+      const formData = new FormData()
+      files.forEach((file) => {
+        formData.append('files', file)
+      })
+
+      const config = getAuthConfig()
+      const response = await api.post('/food/top-banners/multiple', formData, config)
+
+      if (response.data.success) {
+        const uploadedBanners = response.data.data?.banners || []
+        const errors = response.data.data?.errors || []
+        const successCount = uploadedBanners.length
+        const failCount = errors.length
+
+        await fetchTopBanners()
+        if (topBannersFileInputRef.current) topBannersFileInputRef.current.value = ''
+
+        if (failCount === 0) {
+          setSuccess(`${successCount} top banner${successCount > 1 ? 's' : ''} uploaded successfully!`)
+          setTimeout(() => setSuccess(null), 5000)
+        } else if (successCount > 0) {
+          setSuccess(`${successCount} banner${successCount > 1 ? 's' : ''} uploaded, ${failCount} failed.`)
+          setErrorSafely(errors.join(', '))
+          setTimeout(() => { setSuccess(null); setError(null) }, 5000)
+        } else {
+          setErrorSafely(`Failed to upload banners. ${errors.join(', ')}`)
+        }
+      } else {
+        setErrorSafely(response.data.message || 'Failed to upload banners')
+      }
+
+      setTopBannersUploadProgress({ current: 0, total: 0 })
+    } catch (err) {
+      if (err.response?.status === 401 || err.message === 'Authentication token not found') {
+        setError(null)
+      } else {
+        setErrorSafely(err.response?.data?.message || 'Failed to upload banners')
+      }
+      setTopBannersUploadProgress({ current: 0, total: 0 })
+    } finally {
+      setTopBannersUploading(false)
+    }
+  }
+
+  const handleDeleteTopBanner = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this top banner?')) return
+    try {
+      setTopBannersDeleting(id)
+      setError(null)
+      setSuccess(null)
+      const response = await api.delete(`/food/top-banners/${id}`, getAuthConfig())
+      if (response.data.success) {
+        setSuccess('Top banner deleted successfully!')
+        await fetchTopBanners()
+        setTimeout(() => setSuccess(null), 3000)
+      }
+    } catch (err) {
+      setErrorSafely(err.response?.data?.message || 'Failed to delete banner.')
+    } finally {
+      setTopBannersDeleting(null)
+    }
+  }
+
+  const handleToggleTopBannerStatus = async (id, currentStatus) => {
+    try {
+      setError(null)
+      setSuccess(null)
+      const response = await api.patch(`/food/top-banners/${id}/status`, {}, getAuthConfig())
+      if (response.data.success) {
+        setSuccess(`Banner ${currentStatus ? 'deactivated' : 'activated'} successfully!`)
+        await fetchTopBanners()
+        setTimeout(() => setSuccess(null), 3000)
+      }
+    } catch (err) {
+      setErrorSafely(err.response?.data?.message || 'Failed to update banner status.')
+    }
+  }
+
+  const handleTopBannerOrderChange = async (id, direction) => {
+    const banner = topBanners.find(b => b._id === id)
+    if (!banner) return
+    const newOrder = direction === 'up' ? banner.order - 1 : banner.order + 1
+    const otherBanner = topBanners.find(b => b.order === newOrder && b._id !== id)
+    if (!otherBanner && newOrder < 0) return
+    try {
+      setError(null)
+      await api.patch(`/food/top-banners/${id}/order`, { order: newOrder }, getAuthConfig())
+      if (otherBanner) {
+        await api.patch(`/food/top-banners/${otherBanner._id}/order`, { order: banner.order }, getAuthConfig())
+      }
+      await fetchTopBanners()
+    } catch (err) {
+      setErrorSafely('Failed to update banner order.')
+    }
+  }
 
   // ==================== HERO BANNERS ====================
   const fetchBanners = async () => {
@@ -1203,7 +1358,9 @@ export default function LandingPageManagement() {
   }
 
   // ==================== RENDER ====================
+
   const tabs = [
+    { id: 'top-banners', label: 'Top Banners', icon: ImageIcon },
     { id: 'banners', label: 'Hero Banners', icon: ImageIcon },
     { id: 'under-250', label: 'Switch 99 Banner', icon: Tag },
     // { id: 'dining', label: 'Dining', icon: UtensilsCrossed },
@@ -1269,6 +1426,153 @@ export default function LandingPageManagement() {
         )}
 
         {/* Hero Banners Tab */}
+        {activeTab === 'top-banners' && (
+          <>
+            {/* Upload Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Upload New Top Banner(s) (800x680 pixels)</h2>
+              <div
+                className="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center bg-blue-50/30 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50/50"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const files = Array.from(e.dataTransfer.files)
+                  if (files.length > 0) handleTopBannerFileSelect({ files })
+                }}
+                onClick={() => topBannersFileInputRef.current?.click()}
+              >
+                <input
+                  ref={topBannersFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleTopBannerFileSelect}
+                  className="hidden"
+                  disabled={topBannersUploading}
+                />
+                {topBannersUploading ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <p className="text-blue-600 font-medium">
+                      Uploading image {topBannersUploadProgress.current} of {topBannersUploadProgress.total}...
+                    </p>
+                    {topBannersUploadProgress.total > 0 && (
+                      <div className="w-full max-w-xs">
+                        <div className="w-full bg-blue-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${(topBannersUploadProgress.current / topBannersUploadProgress.total) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <Upload className="w-8 h-8 text-blue-600" />
+                    <div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); topBannersFileInputRef.current?.click(); }}
+                        className="text-blue-600 font-medium hover:text-blue-700 underline"
+                      >
+                        Click to upload
+                      </button>
+                      <span className="text-slate-600"> or drag and drop</span>
+                    </div>
+                    <p className="text-xs text-slate-500">PNG, JPG, WEBP up to 5MB each (Max 5 images at once)</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Banners List */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Top Banner List ({topBanners.length})</h2>
+              {topBannersLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                </div>
+              ) : topBanners.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  <ImageIcon className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                  <p>No banners uploaded yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {topBanners.map((banner, index) => (
+                    <div key={banner._id} className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                      <div className="relative aspect-video bg-slate-100">
+                        <img src={banner.image || banner.imageUrl} alt={`Top Banner ${index + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute top-2 right-2">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${banner.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                            {banner.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <div className="absolute top-2 left-2">
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">Order: {banner.order}</span>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-white">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleTopBannerOrderChange(banner._id, 'up')} disabled={index === 0} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
+                              <ArrowUp className="w-4 h-4 text-slate-600" />
+                            </button>
+                            <button onClick={() => handleTopBannerOrderChange(banner._id, 'down')} disabled={index === topBanners.length - 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-50">
+                              <ArrowDown className="w-4 h-4 text-slate-600" />
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* <button
+                              onClick={() => {
+                                setSelectedBannerId(banner._id)
+                                setSelectedRestaurantIds(banner.linkedRestaurants?.map(r => r._id || r) || [])
+                                setShowRestaurantModal(true)
+                              }}
+                              className="px-3 py-1.5 rounded text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 flex items-center gap-1"
+                            >
+                              <Megaphone className="w-4 h-4" />
+                              Advertise
+                            </button> */}
+                            <button onClick={() => handleToggleTopBannerStatus(banner._id, banner.isActive)} className={`px-3 py-1.5 rounded text-sm font-medium ${banner.isActive ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                              {banner.isActive ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button onClick={() => handleDeleteTopBanner(banner._id)} disabled={topBannersDeleting === banner._id} className="p-1.5 rounded hover:bg-red-100 text-red-600 disabled:opacity-50">
+                              {topBannersDeleting === banner._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        {banner.linkedRestaurants && banner.linkedRestaurants.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-slate-200">
+                            <p className="text-xs text-slate-600 mb-1">Linked Restaurants ({banner.linkedRestaurants.length}):</p>
+                            <div className="flex flex-wrap gap-1">
+                              {banner.linkedRestaurants.slice(0, 3).map((restaurant) => (
+                                <span key={restaurant._id || restaurant} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
+                                  {restaurant.name || 'Restaurant'}
+                                </span>
+                              ))}
+                              {banner.linkedRestaurants.length > 3 && (
+                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">
+                                  +{banner.linkedRestaurants.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Switch 99 Banner Tab */}
+        
         {activeTab === 'banners' && (
           <>
             {/* Upload Section */}
