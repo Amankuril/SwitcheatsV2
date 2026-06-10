@@ -50,6 +50,9 @@ export const verifyUserOtpAndLogin = async (
   platform,
   name,
 ) => {
+  console.log(
+    `[FCM-LOGIN] User login platform received: rawPlatform=${String(platform ?? "") || "<empty>"}, hasToken=${Boolean(fcmToken)}`,
+  );
   const result = await verifyOtp(phone, otp);
 
   if (!result.valid) {
@@ -270,6 +273,9 @@ export const requestRestaurantOtp = async (phone) => {
 };
 
 export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform) => {
+  console.log(
+    `[FCM-LOGIN] Restaurant login platform received: rawPlatform=${String(platform ?? "") || "<empty>"}, hasToken=${Boolean(fcmToken)}`,
+  );
   const result = await verifyOtp(phone, otp);
   if (!result.valid) {
     throw new AuthError(result.reason || "OTP verification failed");
@@ -430,6 +436,9 @@ const normalizePhoneForDelivery = (phone) => {
 };
 
 export const verifyDeliveryOtpAndLogin = async (phone, otp, fcmToken, platform) => {
+  console.log(
+    `[FCM-LOGIN] Delivery login platform received: rawPlatform=${String(platform ?? "") || "<empty>"}, hasToken=${Boolean(fcmToken)}`,
+  );
   const result = await verifyOtp(phone, otp);
   if (!result.valid) {
     throw new AuthError(result.reason || "OTP verification failed");
