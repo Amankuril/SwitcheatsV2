@@ -1468,18 +1468,6 @@ export default function RestaurantsList() {
                       <label className="block text-xs text-slate-500 mb-1">Estimated Delivery Time</label>
                       <input type="text" value={detailsForm.estimatedDeliveryTime} onChange={(e) => setDetailsForm((prev) => ({ ...prev, estimatedDeliveryTime: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
                     </div>
-                    <div className="md:col-span-2 flex items-center gap-3">
-                      <input
-                        id="restaurant-status-active"
-                        type="checkbox"
-                        checked={detailsForm.isActive}
-                        onChange={(e) => setDetailsForm((prev) => ({ ...prev, isActive: e.target.checked }))}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600"
-                      />
-                      <label htmlFor="restaurant-status-active" className="text-sm text-slate-700">
-                        Restaurant is active
-                      </label>
-                    </div>
                   </div>
                 </div>
               )}

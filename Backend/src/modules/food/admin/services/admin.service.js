@@ -1254,7 +1254,12 @@ export async function getCustomers(query = {}) {
     const userIds = docs.map((u) => u._id).filter(Boolean);
     const orderStats = userIds.length > 0
         ? await FoodOrder.aggregate([
-            { $match: { userId: { $in: userIds } } },
+            {
+                $match: {
+                    userId: { $in: userIds },
+                    orderStatus: 'delivered'
+                }
+            },
             {
                 $group: {
                     _id: '$userId',
@@ -1309,7 +1314,12 @@ export async function getCustomerById(id) {
     if (!u) return null;
     const customerObjectId = new mongoose.Types.ObjectId(id);
     const orderStats = await FoodOrder.aggregate([
-        { $match: { userId: customerObjectId } },
+        {
+            $match: {
+                userId: customerObjectId,
+                orderStatus: 'delivered'
+            }
+        },
         {
             $group: {
                 _id: '$userId',
