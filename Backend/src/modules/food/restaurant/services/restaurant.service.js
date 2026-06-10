@@ -196,6 +196,138 @@ const parseEstimatedDeliveryMinutes = (value) => {
     return Math.round(numbers[numbers.length - 1]);
 };
 
+const buildActivePublicOfferFilter = (now = new Date()) => {
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    return {
+        status: 'active',
+        showInCart: { $ne: false },
+        $and: [
+            { $or: [{ startDate: { $exists: false } }, { startDate: null }, { startDate: { $lte: now } }] },
+            { $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gte: startOfToday } }] },
+            {
+                $or: [
+                    { usageLimit: { $exists: false } },
+                    { usageLimit: null },
+                    { usageLimit: 0 },
+                    { $expr: { $lt: ['$usedCount', '$usageLimit'] } }
+                ]
+            }
+        ]
+    };
+};
+
+const formatRestaurantOfferSummary = (offer) => {
+    if (!offer) return '';
+
+    const discountType = offer.discountType;
+    const discountValue = Number(offer.discountValue) || 0;
+    const minOrderValue = Number(offer.minOrderValue) || 0;
+
+    let summary = '';
+    if (discountType === 'flat-price') {
+        summary = `Flat ₹${discountValue} OFF`;
+    } else {
+        summary = `${discountValue}% OFF`;
+        const maxDiscount = Number(offer.maxDiscount);
+        if (Number.isFinite(maxDiscount) && maxDiscount > 0) {
+            summary += ` up to ₹${maxDiscount}`;
+        }
+    }
+
+    if (minOrderValue > 0) {
+        summary += ` above ₹${minOrderValue}`;
+    }
+
+    return summary.trim();
+};
+
+const attachPublicOffersToRestaurants = async (restaurants = []) => {
+    if (!Array.isArray(restaurants) || restaurants.length === 0) return restaurants;
+
+    const restaurantIds = restaurants
+        .map((restaurant) => String(restaurant?._id || restaurant?.id || restaurant?.restaurantId || ''))
+        .filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+    if (!restaurantIds.length) {
+        return restaurants.map((restaurant) => ({
+            ...restaurant,
+            activeOffers: [],
+            offerCount: 0
+        }));
+    }
+
+    const objectRestaurantIds = restaurantIds.map((id) => new mongoose.Types.ObjectId(id));
+    const activeOfferFilter = buildActivePublicOfferFilter();
+    const offers = await FoodOffer.find({
+        ...activeOfferFilter,
+        $and: [
+            ...(activeOfferFilter.$and || []),
+            {
+                $or: [
+                    { restaurantScope: 'all' },
+                    { restaurantId: { $in: objectRestaurantIds } },
+                    { restaurantIds: { $in: objectRestaurantIds } }
+                ]
+            }
+        ]
+    })
+        .select('couponCode discountType discountValue minOrderValue maxDiscount restaurantScope restaurantId restaurantIds')
+        .sort({ createdAt: -1 })
+        .lean();
+
+    const globalOfferSummaries = [];
+    const selectedOfferMap = new Map();
+
+    for (const offer of offers) {
+        const summary = formatRestaurantOfferSummary(offer);
+        if (!summary) continue;
+
+        const payload = {
+            id: String(offer._id),
+            couponCode: offer.couponCode || '',
+            summary,
+            discountType: offer.discountType,
+            discountValue: Number(offer.discountValue) || 0,
+            minOrderValue: Number(offer.minOrderValue) || 0,
+            maxDiscount: Number.isFinite(Number(offer.maxDiscount)) ? Number(offer.maxDiscount) : null,
+            restaurantScope: offer.restaurantScope
+        };
+
+        if (offer.restaurantScope === 'all') {
+            globalOfferSummaries.push(payload);
+            continue;
+        }
+
+        const eligibleIds = new Set([
+            ...(Array.isArray(offer.restaurantIds) ? offer.restaurantIds : []),
+            offer.restaurantId
+        ].map((id) => String(id || '')).filter(Boolean));
+
+        for (const restaurantId of eligibleIds) {
+            if (!selectedOfferMap.has(restaurantId)) {
+                selectedOfferMap.set(restaurantId, []);
+            }
+            selectedOfferMap.get(restaurantId).push(payload);
+        }
+    }
+
+    return restaurants.map((restaurant) => {
+        const restaurantId = String(restaurant?._id || restaurant?.id || restaurant?.restaurantId || '');
+        const combinedOffers = [...globalOfferSummaries, ...(selectedOfferMap.get(restaurantId) || [])];
+        const dedupedOffers = Array.from(
+            new Map(combinedOffers.map((offer) => [offer.id, offer])).values()
+        );
+
+        return {
+            ...restaurant,
+            activeOffers: dedupedOffers,
+            offerCount: dedupedOffers.length
+        };
+    });
+};
+
 const toRestaurantProfile = (doc) => {
     if (!doc) return null;
     const loc = doc.location && typeof doc.location === 'object' ? doc.location : null;
@@ -1896,7 +2028,45 @@ export const listApprovedRestaurants = async (query = {}) => {
         filter.cuisines = { $in: [new RegExp(escapeRegex(cuisine), 'i')] };
     }
     if (query.hasOffers === 'true') {
-        filter.offer = { $exists: true, $ne: null, $ne: '' };
+        const activeOfferFilter = buildActivePublicOfferFilter();
+        const [hasGlobalOffers, selectedOffers] = await Promise.all([
+            FoodOffer.exists({
+                ...activeOfferFilter,
+                restaurantScope: 'all'
+            }),
+            FoodOffer.find({
+                ...activeOfferFilter,
+                restaurantScope: 'selected'
+            })
+                .select('restaurantId restaurantIds')
+                .lean()
+        ]);
+
+        if (!hasGlobalOffers) {
+            const eligibleRestaurantIds = Array.from(
+                new Set(
+                    selectedOffers.flatMap((offer) => [
+                        ...(Array.isArray(offer.restaurantIds) ? offer.restaurantIds : []),
+                        offer.restaurantId
+                    ].map((id) => String(id || '')).filter((id) => mongoose.Types.ObjectId.isValid(id)))
+                )
+            ).map((id) => new mongoose.Types.ObjectId(id));
+
+            const hasOfferCondition = [
+                { offer: { $exists: true, $nin: [null, ''] } }
+            ];
+
+            if (eligibleRestaurantIds.length) {
+                hasOfferCondition.push({ _id: { $in: eligibleRestaurantIds } });
+            }
+
+            if (Array.isArray(filter.$or) && filter.$or.length) {
+                filter.$and = [...(filter.$and || []), { $or: filter.$or }];
+                delete filter.$or;
+            }
+
+            filter.$and = [...(filter.$and || []), { $or: hasOfferCondition }];
+        }
     }
     const minRating = toFiniteNumber(query.minRating);
     if (minRating !== null) {
@@ -2047,8 +2217,9 @@ export const listApprovedRestaurants = async (query = {}) => {
                 recommendedItems: recommendedMap[String(r._id)] || []
             };
         });
+        const restaurantsWithOffers = await attachPublicOffersToRestaurants(restaurantsWithRecommended);
 
-        return { restaurants: restaurantsWithRecommended, total, page, limit };
+        return { restaurants: restaurantsWithOffers, total, page, limit };
     }
 
     // Non-geo path: normal query + sort.
@@ -2116,8 +2287,9 @@ export const listApprovedRestaurants = async (query = {}) => {
             recommendedItems: recommendedMap[String(r._id)] || []
         };
     });
+    const restaurantsWithOffers = await attachPublicOffersToRestaurants(restaurantsWithRecommended);
 
-    return { restaurants: restaurantsWithRecommended, total, page, limit };
+    return { restaurants: restaurantsWithOffers, total, page, limit };
 };
 
 export const getApprovedRestaurantByIdOrSlug = async (idOrSlug) => {
@@ -2154,25 +2326,7 @@ export const getApprovedRestaurantByIdOrSlug = async (idOrSlug) => {
 export const listPublicOffers = async (query = {}) => {
     const { subtotal, restaurantId, userId } = query;
     const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const filter = {
-        status: 'active',
-        showInCart: { $ne: false },
-        $and: [
-            { $or: [{ startDate: { $exists: false } }, { startDate: null }, { startDate: { $lte: now } }] },
-            { $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gte: startOfToday } }] },
-            {
-                $or: [
-                    { usageLimit: { $exists: false } },
-                    { usageLimit: null },
-                    { usageLimit: 0 },
-                    { $expr: { $lt: ['$usedCount', '$usageLimit'] } }
-                ]
-            }
-        ]
-    };
+    const filter = buildActivePublicOfferFilter(now);
 
     // If restaurantId is provided, filter for global (all) or specific restaurant coupons
     if (restaurantId && mongoose.Types.ObjectId.isValid(restaurantId)) {

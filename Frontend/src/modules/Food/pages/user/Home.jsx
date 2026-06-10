@@ -456,11 +456,27 @@ const RestaurantCard = React.memo(({
   restaurantSlug: propRestaurantSlug,
 }) => {
   const [slideIndex, setSlideIndex] = useState(0);
+  const [offerIndex, setOfferIndex] = useState(0);
   const validRecommendedItems = useMemo(() => {
     return (restaurant.recommendedItems || []).filter(item => item && item.image);
   }, [restaurant.recommendedItems]);
+  const rotatingOffers = useMemo(() => {
+    const summaries = Array.isArray(restaurant.activeOffers)
+      ? restaurant.activeOffers
+          .map((offer) => String(offer?.summary || "").trim())
+          .filter(Boolean)
+      : [];
+
+    if (!summaries.length && restaurant.offer) {
+      return [String(restaurant.offer).trim()];
+    }
+
+    return Array.from(new Set(summaries));
+  }, [restaurant.activeOffers, restaurant.offer]);
+  const rotatingOffersKey = rotatingOffers.join("|");
 
   const hasRecommended = validRecommendedItems.length > 0;
+  const currentOffer = rotatingOffers[offerIndex] || null;
   
   const currentDish = hasRecommended ? validRecommendedItems[slideIndex] : null;
   const name = currentDish ? currentDish.name : restaurant.featuredDish;
@@ -484,6 +500,20 @@ const RestaurantCard = React.memo(({
   const targetUrl = currentDish 
     ? `/user/restaurants/${restaurantSlug}?dish=${currentDish.id}`
     : `/user/restaurants/${restaurantSlug}`;
+
+  useEffect(() => {
+    setOfferIndex(0);
+  }, [restaurant.id, restaurant.slug, rotatingOffersKey]);
+
+  useEffect(() => {
+    if (rotatingOffers.length <= 1) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      setOfferIndex((prev) => (prev + 1) % rotatingOffers.length);
+    }, 2600);
+
+    return () => window.clearInterval(intervalId);
+  }, [rotatingOffers.length, rotatingOffersKey]);
 
   return (
     <div
@@ -646,22 +676,46 @@ const RestaurantCard = React.memo(({
                 </div>
 
                 {/* Cuisine & Offers */}
-                <div className="flex items-center justify-between mt-auto">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-xs lg:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors duration-300">
+                <div className="mt-auto flex flex-col gap-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="text-xs lg:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors duration-300 shrink min-w-0">
                       {restaurant.cuisine}
                     </p>
-                    {restaurant.pureVegRestaurant && (
-                      <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold uppercase tracking-wider">
-                        <Leaf className="h-3 w-3 fill-emerald-600" />
-                        <span>Pure Veg</span>
-                      </div>
+                    {currentOffer && (
+                      <>
+                        <span className="text-xs text-gray-300 dark:text-gray-600">|</span>
+                        <div
+                          className="flex flex-1 items-center gap-1 min-w-0"
+                          style={{ color: "#16a34a" }}
+                        >
+                          <BadgePercent
+                            className="h-3.5 w-3.5 shrink-0"
+                            style={{ color: "#16a34a" }}
+                          />
+                          <div className="flex-1 overflow-hidden min-w-0">
+                            <AnimatePresence mode="wait">
+                              <motion.span
+                                key={`${restaurantSlug}-offer-${offerIndex}-${currentOffer}`}
+                                initial={{ y: 10, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: -10, opacity: 0 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="block truncate text-[11px] lg:text-xs font-semibold"
+                                style={{ color: "#16a34a" }}
+                                title={currentOffer}
+                              >
+                                {currentOffer}
+                              </motion.span>
+                            </AnimatePresence>
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
-                  {restaurant.offer && (
-                    <div className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl text-[10px] lg:text-xs font-bold shadow-sm border border-blue-100 dark:border-blue-900/30 transform transition-transform duration-300 group-hover:scale-105 group-hover:bg-blue-100">
-                      <BadgePercent className="h-3.5 w-3.5" />
-                      <span className="uppercase">{restaurant.offer}</span>
+                  {restaurant.pureVegRestaurant && (
+                    <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold uppercase tracking-wider">
+                      <Leaf className="h-3 w-3 fill-emerald-600" />
+                      <span>Pure Veg</span>
                     </div>
                   )}
                 </div>
@@ -703,6 +757,7 @@ export default function Home() {
 
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [topBannersData, setTopBannersData] = useState([]);
+  const [topBannersLoaded, setTopBannersLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -713,7 +768,10 @@ export default function Home() {
           setTopBannersData(res.data.data.banners);
         }
       })
-      .catch((err) => console.error("Error fetching top banners:", err));
+      .catch((err) => console.error("Error fetching top banners:", err))
+      .finally(() => {
+        if (!cancelled) setTopBannersLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -1947,7 +2005,10 @@ export default function Home() {
 
               // Keep single image for backward compatibility
               const image = allImages[0] || profileImageUrl || "";
-              const offerText = restaurant.offer || null;
+              const activeOffers = Array.isArray(restaurant.activeOffers)
+                ? restaurant.activeOffers
+                : [];
+              const offerText = activeOffers[0]?.summary || restaurant.offer || null;
 
               return {
                 id: restaurant.restaurantId || restaurant._id,
@@ -1976,6 +2037,11 @@ export default function Home() {
                     : "Special Dish"),
                 featuredPrice: restaurant.featuredPrice || 249, // Use from API or default
                 offer: offerText,
+                activeOffers,
+                offerCount:
+                  Number(restaurant.offerCount) > 0
+                    ? Number(restaurant.offerCount)
+                    : activeOffers.length,
                 slug: restaurant.slug,
                 restaurantId: restaurant.restaurantId,
                 pureVegRestaurant: restaurant.pureVegRestaurant === true,
@@ -2900,6 +2966,7 @@ export default function Home() {
 
       <div className="relative z-10">
         <HomeHeader topBanners={topBannersData}
+          topBannersLoaded={topBannersLoaded}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           location={effectiveLocation}

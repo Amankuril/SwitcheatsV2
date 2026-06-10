@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, ChevronDown, Search, Mic, Bell, CheckCircle2, Tag, Gift, AlertCircle, Clock, BellOff, X, ChevronRight, ShoppingBag, Sparkles } from 'lucide-react';
+import { MapPin, ChevronDown, Search, Mic, Bell, CheckCircle2, Tag, AlertCircle, Clock, BellOff, X, ChevronRight, ShoppingBag } from 'lucide-react';
 import { Badge } from "@food/components/ui/badge";
 import { Avatar, AvatarFallback } from "@food/components/ui/avatar";
 import foodIcon from "@food/assets/category-icons/food.png";
@@ -33,6 +33,7 @@ export default function HomeHeader({
   vegModeToggleRef,
   isCategoryStuck = false,
   topBanners = [],
+  topBannersLoaded = false,
 }) {
   const { startVoiceSearch } = useSearchOverlay();
   const navigate = useNavigate();
@@ -118,9 +119,11 @@ export default function HomeHeader({
   const touchStartXRef = useRef(0);
   const touchEndXRef = useRef(0);
 
+  const hasDynamicBanners = Array.isArray(topBanners) && topBanners.length > 0;
+
   useEffect(() => {
-    const slideCount = topBanners && topBanners.length > 0 ? topBanners.length : 3;
-    
+    const slideCount = hasDynamicBanners ? topBanners.length : 0;
+
     if (slideCount <= 1) {
       setCurrentSlide(0);
       return;
@@ -142,7 +145,7 @@ export default function HomeHeader({
       clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [topBanners]);
+  }, [hasDynamicBanners, topBanners]);
 
   const handleTouchStart = (event) => {
     touchStartXRef.current = event.touches[0]?.clientX || 0;
@@ -202,72 +205,7 @@ export default function HomeHeader({
     setIsNotificationsOpen(false);
   };
 
-  const slideBanners = [
-    {
-      id: 0,
-      bg: "bg-[#FA0272]",
-      content: (
-        <div className="flex justify-between items-end h-full px-2 pb-2">
-          <div className="flex flex-col items-start w-[65%] pb-2">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-[26px] leading-[1] font-black text-white tracking-tight">Get</span>
-              <div className="bg-white text-[#FA0272] px-2 py-0.5 rounded-r-lg font-bold text-[15px] relative ml-2 shadow-sm border-l-2 border-dashed border-[#FA0272]">
-                <div className="absolute -left-[9px] top-1/2 -translate-y-1/2 w-0 h-0 border-y-[12px] border-y-transparent border-r-[8px] border-r-white"></div>
-                50% OFF
-              </div>
-            </div>
-            <div className="text-[26px] leading-[1.1] font-black text-white tracking-tight mb-2">& FREE delivery</div>
-            <div className="text-[12px] font-bold text-pink-100 mb-3 opacity-90 leading-tight">on your first order under 7 km</div>
-            <button className="bg-white text-[#FA0272] text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1 shadow-lg transform active:scale-95 transition-transform pointer-events-auto">
-              Know more <ChevronRight className="w-3.5 h-3.5"/>
-            </button>
-          </div>
-          <div className="w-[35%] flex justify-end pb-0 pr-1">
-            <img src={foodIcon} alt="offer" className="w-[100px] h-[100px] object-contain drop-shadow-2xl translate-x-2" />
-          </div>
-        </div>
-      )
-    },
-    {
-      id: 1,
-      bg: "bg-gradient-to-br from-[#e0e8ff] to-[#bac9fd] dark:from-[#0f172a] dark:to-[#1e3a8a]",
-      content: (
-        <div className="flex justify-between items-end h-full px-2 pb-3">
-          <div className="flex flex-col items-start w-[65%] pb-2">
-            <div className="text-[28px] leading-[1.1] font-black text-[#1e3a8a] dark:text-[#93c5fd] tracking-tight mb-1">Flat ₹150 OFF</div>
-            <div className="text-[12px] font-bold text-gray-800 dark:text-gray-300 mb-3 opacity-90">on Premium Dining restaurants</div>
-            <button className="bg-[#1e3a8a] text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1 shadow-lg transform active:scale-95 transition-transform pointer-events-auto">
-              Explore now <ChevronRight className="w-3.5 h-3.5"/>
-            </button>
-          </div>
-          <div className="w-[35%] flex justify-end pb-3 pr-2">
-            <Sparkles className="w-[85px] h-[85px] text-blue-600/30 dark:text-blue-400/30 fill-blue-600/20 dark:fill-blue-400/20 drop-shadow-2xl" strokeWidth={1} />
-          </div>
-        </div>
-      )
-    },
-    {
-      id: 2,
-      bg: "bg-gradient-to-br from-[#e9fcef] to-[#b3facf] dark:from-[#064e3b] dark:to-[#047857]",
-      content: (
-        <div className="flex justify-between items-end h-full px-3 pb-3">
-          <div className="flex flex-col items-start w-[65%] pb-2">
-            <div className="text-[28px] leading-[1.1] font-black text-[#065f46] dark:text-[#a7f3d0] tracking-tight mb-1">Free Delivery</div>
-            <div className="text-[12px] font-bold text-gray-800 dark:text-gray-200 mb-3 opacity-90">on all fast food orders above ₹199</div>
-            <button className="bg-[#065f46] text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1 shadow-lg transform active:scale-95 transition-transform pointer-events-auto">
-              Order now <ChevronRight className="w-3.5 h-3.5"/>
-            </button>
-          </div>
-          <div className="w-[35%] flex justify-end pb-3 pr-1">
-            <Gift className="w-[85px] h-[85px] text-green-700/30 dark:text-green-400/30 fill-green-700/20 dark:fill-green-400/20 drop-shadow-2xl" strokeWidth={1} />
-          </div>
-        </div>
-      )
-    }
-
-  ];
-
-  const displayBanners = topBanners && topBanners.length > 0 
+  const displayBanners = hasDynamicBanners
     ? topBanners.map((banner, index) => ({
         id: index,
         bg: "bg-gray-100 dark:bg-gray-800",
@@ -279,7 +217,7 @@ export default function HomeHeader({
           />
         )
       }))
-    : slideBanners;
+    : [];
 
   return (
     <>
@@ -291,32 +229,27 @@ export default function HomeHeader({
       >
         
         {/* Sliding Background Track */}
-        <div 
-          className="absolute inset-0 flex transition-transform duration-700 ease-in-out z-0"
-          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-        >
-          {displayBanners.map((banner) => (
-            <div key={banner.id} className={`relative w-full h-full shrink-0 ${banner.bg}`}>
-              {/* Decorative Glows inside Slide 1 */}
-              {banner.id === 0 && (
-                <>
-                  <div className="absolute top-0 left-1/4 w-32 h-32 bg-white/30 blur-[60px] rounded-full pointer-events-none" />
-                  <div className="absolute bottom-0 right-1/4 w-40 h-40 bg-white/20 blur-[80px] rounded-full pointer-events-none" />
-                </>
-              )}
-              
-              {/* Banner Graphic - Positioned safely at the bottom below where the search bar will be */}
-              
-              {topBanners && topBanners.length > 0 ? (
-                banner.content
-              ) : (
-                <div className="absolute inset-x-0 bottom-6 h-[140px] px-2 flex flex-col justify-end pointer-events-none">
-                  {banner.content}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        {hasDynamicBanners ? (
+          <div 
+            className="absolute inset-0 flex transition-transform duration-700 ease-in-out z-0"
+            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+          >
+            {displayBanners.map((banner) => (
+              <div key={banner.id} className={`relative w-full h-full shrink-0 ${banner.bg}`}>
+                {banner.content}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className={`absolute inset-0 z-0 transition-opacity duration-300 ${
+              topBannersLoaded ? "bg-[#FA0272]" : "bg-gradient-to-br from-[#ff2d8d] via-[#FA0272] to-[#ff6a00] animate-pulse"
+            }`}
+          >
+            <div className="absolute top-0 left-1/4 w-32 h-32 bg-white/20 blur-[60px] rounded-full pointer-events-none" />
+            <div className="absolute bottom-0 right-1/4 w-40 h-40 bg-white/10 blur-[80px] rounded-full pointer-events-none" />
+          </div>
+        )}
 
         {/* Static Overlay Location Row */}
         <div className="absolute top-0 inset-x-0 z-20 px-4 pt-5 flex items-center justify-between gap-3">
@@ -383,7 +316,7 @@ export default function HomeHeader({
         </div>
         
         {/* Carousel Pager Dots */}
-        {displayBanners.length > 1 && (
+        {hasDynamicBanners && displayBanners.length > 1 && (
           <div className="absolute bottom-2 inset-x-0 flex justify-center gap-1.5 z-20">
             {displayBanners.map((_, i) => (
               <button
