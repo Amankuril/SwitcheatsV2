@@ -39,7 +39,11 @@ export const ProfileV2 = () => {
     }
     fetchProfile()
     deliveryAPI.getWallet().then(res => {
-      const bal = res?.data?.data?.wallet?.pocketBalance || res?.data?.data?.wallet?.totalBalance || 0;
+      const wallet = res?.data?.data?.wallet || {};
+      const pendingWithdrawals = Number(wallet.pendingWithdrawals ?? wallet.pending_withdrawals) || 0;
+      const lockedAmount = Number(wallet.lockedAmount ?? wallet.locked_amount) || 0;
+      const availableWalletBalance = Math.max(0, (Number(wallet.balance) || 0) - Math.max(lockedAmount, pendingWithdrawals));
+      const bal = wallet?.pocketBalance ?? availableWalletBalance ?? wallet?.totalBalance ?? 0;
       setWalletBalance(Number(bal));
     }).catch(() => {});
   }, [])

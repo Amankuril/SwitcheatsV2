@@ -5118,40 +5118,67 @@ export async function getDeliveryWithdrawals(query = {}) {
 
 export async function updateDeliveryWithdrawalStatus(id, { status, adminNote, rejectionReason, transactionId }) {
     if (!id || !mongoose.Types.ObjectId.isValid(id)) throw new ValidationError('Invalid withdrawal ID');
-    
-    const update = {
-        status: String(status).toLowerCase(),
-        adminNote,
-        rejectionReason,
-        transactionId,
-        processedAt: new Date()
-    };
 
-    const updated = await FoodDeliveryWithdrawal.findByIdAndUpdate(
-        id,
-        { $set: update },
-        { new: true }
-    ).populate('deliveryPartnerId', 'name phone profilePartnerId').lean();
+    const normalizedStatus = String(status || '').toLowerCase() === 'processed'
+        ? 'approved'
+        : String(status || '').toLowerCase();
 
-    if (!updated) throw new ValidationError('Withdrawal request not found');
+    if (!['approved', 'rejected', 'pending'].includes(normalizedStatus)) {
+        throw new ValidationError('Invalid withdrawal status');
+    }
 
-    // If approved, deduct from wallet balance
-    if (status.toLowerCase() === 'approved' || status.toLowerCase() === 'processed') {
-        const amount = Number(updated.amount || 0);
-        if (amount > 0) {
+    const existing = await FoodDeliveryWithdrawal.findById(id);
+    if (!existing) throw new ValidationError('Withdrawal request not found');
+
+    const previousStatus = String(existing.status || '').toLowerCase();
+    const nextStatus = normalizedStatus;
+    const amount = Number(existing.amount || 0);
+    const deliveryPartnerId = existing.deliveryPartnerId;
+
+    if (previousStatus !== 'pending' && previousStatus !== nextStatus) {
+        throw new ValidationError(`Cannot change a ${previousStatus} withdrawal request`);
+    }
+
+    if (amount > 0 && previousStatus === 'pending' && nextStatus !== 'pending') {
+        const wallet = await FoodDeliveryWallet.findOne({ deliveryPartnerId });
+        const currentBalance = Number(wallet?.balance) || 0;
+        const currentLocked = Number(wallet?.lockedAmount) || 0;
+
+        if (nextStatus === 'approved') {
+            if (currentBalance < amount) {
+                throw new ValidationError('Delivery wallet balance is lower than the requested amount');
+            }
+
             await FoodDeliveryWallet.findOneAndUpdate(
-                { deliveryPartnerId: updated.deliveryPartnerId?._id || updated.deliveryPartnerId },
-                { 
-                    $inc: { 
+                { deliveryPartnerId },
+                {
+                    $inc: {
                         balance: -amount,
-                        totalSettled: amount 
-                    } 
+                        totalSettled: amount,
+                        lockedAmount: -Math.min(currentLocked, amount)
+                    }
                 }
+            );
+        }
+
+        if (nextStatus === 'rejected' && currentLocked > 0) {
+            await FoodDeliveryWallet.findOneAndUpdate(
+                { deliveryPartnerId },
+                { $inc: { lockedAmount: -Math.min(currentLocked, amount) } }
             );
         }
     }
 
-    return updated;
+    existing.status = nextStatus;
+    existing.adminNote = adminNote;
+    existing.rejectionReason = rejectionReason;
+    existing.transactionId = transactionId;
+    existing.processedAt = nextStatus === 'pending' ? undefined : new Date();
+    await existing.save();
+
+    return FoodDeliveryWithdrawal.findById(id)
+        .populate('deliveryPartnerId', 'name phone profilePartnerId')
+        .lean();
 }
 
 /**

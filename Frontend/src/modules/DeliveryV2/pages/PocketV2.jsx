@@ -118,13 +118,14 @@ export const PocketV2 = () => {
         const totalBonus = toNum(wallet.totalBonus ?? wallet.total_bonus);
         const totalWithdrawn = toNum(wallet.totalWithdrawn ?? wallet.total_withdrawn);
         const pendingWithdrawals = toNum(wallet.pendingWithdrawals ?? wallet.pending_withdrawals);
+        const lockedAmount = toNum(wallet.lockedAmount ?? wallet.locked_amount);
         const computedPocketBalance = Math.max(0, (totalEarned + totalBonus) - (totalWithdrawn + pendingWithdrawals));
         const transactionDerivedBalance = Math.max(0, derivePocketBalanceFromTransactions(wallet.transactions));
+        const availableWalletBalance = Math.max(0, toNum(wallet.balance) - Math.max(lockedAmount, pendingWithdrawals));
         const pocketBalance = Math.max(
           0,
           toNum(wallet.pocketBalance ?? wallet.pocket_balance),
-          toNum(wallet.balance),
-          toNum(wallet.totalBalance ?? wallet.total_balance),
+          availableWalletBalance,
           computedPocketBalance,
           transactionDerivedBalance
         );

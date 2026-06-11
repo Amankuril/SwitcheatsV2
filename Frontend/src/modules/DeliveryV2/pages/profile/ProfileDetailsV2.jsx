@@ -69,7 +69,13 @@ export const ProfileDetailsV2 = () => {
     const parseWalletBalance = (response) => {
       const data = response?.data
       const wallet = (data?.success && data?.data?.wallet) || data?.wallet || data?.data || data
-      const possibleBalance = wallet?.totalBalance || wallet?.balance || wallet?.pocketBalance || 0
+      const pendingWithdrawals = Number(wallet?.pendingWithdrawals ?? wallet?.pending_withdrawals) || 0
+      const lockedAmount = Number(wallet?.lockedAmount ?? wallet?.locked_amount) || 0
+      const availableWalletBalance = Math.max(
+        0,
+        (Number(wallet?.balance) || 0) - Math.max(lockedAmount, pendingWithdrawals)
+      )
+      const possibleBalance = wallet?.pocketBalance ?? availableWalletBalance ?? wallet?.totalBalance ?? 0
       return Number(possibleBalance) || 0
     }
 

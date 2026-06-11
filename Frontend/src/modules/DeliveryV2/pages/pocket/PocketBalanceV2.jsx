@@ -56,6 +56,8 @@ export const PocketBalanceV2 = () => {
      canWithdraw: false
   });
   const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,13 +80,14 @@ export const PocketBalanceV2 = () => {
         const totalBonus = toNum(wallet.totalBonus ?? wallet.total_bonus);
         const totalWithdrawn = toNum(wallet.totalWithdrawn ?? wallet.total_withdrawn);
         const pendingWithdrawals = toNum(wallet.pendingWithdrawals ?? wallet.pending_withdrawals);
+        const lockedAmount = toNum(wallet.lockedAmount ?? wallet.locked_amount);
         const computedPocketBalance = Math.max(0, (totalEarned + totalBonus) - (totalWithdrawn + pendingWithdrawals));
         const transactionDerivedBalance = Math.max(0, derivePocketBalanceFromTransactions(wallet.transactions));
+        const availableWalletBalance = Math.max(0, toNum(wallet.balance) - Math.max(lockedAmount, pendingWithdrawals));
         const pocketBalance = Math.max(
           0,
           toNum(wallet.pocketBalance ?? wallet.pocket_balance),
-          toNum(wallet.balance),
-          toNum(wallet.totalBalance ?? wallet.total_balance),
+          availableWalletBalance,
           computedPocketBalance,
           transactionDerivedBalance
         );
@@ -113,29 +116,55 @@ export const PocketBalanceV2 = () => {
   }, []);
 
   const handleWithdraw = async () => {
-     // Simplified verification
-     const profileRes = await deliveryAPI.getProfile();
-     const profile = profileRes?.data?.data?.profile || {};
-     const bank = profile?.documents?.bankDetails;
-     
-     if (!bank?.accountNumber) {
-        toast.error("Please add bank details first");
-        navigate("/food/delivery/profile/details");
+     const amount = Number(withdrawAmount);
+
+     if (!Number.isFinite(amount) || amount <= 0) {
+        toast.error("Enter a valid withdrawal amount");
+        return;
+     }
+
+     if (amount < walletState.withdrawalLimit) {
+        toast.error(`Minimum withdrawal amount is ₹${walletState.withdrawalLimit}`);
+        return;
+     }
+
+     if (amount > walletState.withdrawableAmount) {
+        toast.error(`Amount cannot exceed ₹${walletState.withdrawableAmount.toFixed(2)}`);
         return;
      }
 
      setWithdrawSubmitting(true);
      try {
+        const profileRes = await deliveryAPI.getProfile();
+        const profile = profileRes?.data?.data?.profile || {};
+        const bank = profile?.documents?.bankDetails;
+
+        if (!bank?.accountNumber) {
+           toast.error("Please add bank details first");
+           navigate("/food/delivery/profile/details");
+           return;
+        }
+
         const res = await deliveryAPI.createWithdrawalRequest({
-           amount: walletState.withdrawableAmount,
+           amount,
            paymentMethod: 'bank_transfer'
         });
         if (res?.data?.success) {
            toast.success("Withdrawal request submitted");
-           goBack();
+           setShowWithdrawModal(false);
+           setWithdrawAmount("");
+           setWalletState((prev) => {
+             const nextWithdrawable = Math.max(0, prev.withdrawableAmount - amount);
+             return {
+               ...prev,
+               pocketBalance: Math.max(0, prev.pocketBalance - amount),
+               withdrawableAmount: nextWithdrawable,
+               canWithdraw: nextWithdrawable >= prev.withdrawalLimit
+             };
+           });
         }
      } catch (err) {
-        toast.error("Withdrawal failed");
+        toast.error(err?.response?.data?.message || "Withdrawal failed");
      } finally {
         setWithdrawSubmitting(false);
      }
@@ -194,7 +223,10 @@ export const PocketBalanceV2 = () => {
                    <h2 className="text-[56px] font-black text-gray-900 mb-8 tracking-tighter leading-none">₹{walletState.withdrawableAmount.toFixed(0)}</h2>
                    
                    <button 
-                     onClick={handleWithdraw}
+                     onClick={() => {
+                       setWithdrawAmount(String(Math.trunc(walletState.withdrawableAmount || 0)));
+                       setShowWithdrawModal(true);
+                     }}
                      disabled={!walletState.canWithdraw || withdrawSubmitting}
                      className={`w-full py-4 rounded-[20px] font-black text-sm tracking-widest uppercase transition-all active:scale-[0.98] ${
                         walletState.canWithdraw 
@@ -240,6 +272,77 @@ export const PocketBalanceV2 = () => {
           </>
        )}
        </div>
+
+       {showWithdrawModal && (
+         <div className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm px-5 flex items-end sm:items-center justify-center">
+           <div className="w-full max-w-md bg-white rounded-[32px] border border-gray-100 shadow-[0_20px_60px_rgba(0,0,0,0.18)] p-6 mb-6 sm:mb-0">
+             <div className="flex items-start justify-between gap-4 mb-5">
+               <div>
+                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Withdrawal Request</p>
+                 <h3 className="text-2xl font-black text-gray-900 tracking-tight">How much do you want to withdraw?</h3>
+               </div>
+               <button
+                 onClick={() => {
+                   if (withdrawSubmitting) return;
+                   setShowWithdrawModal(false);
+                   setWithdrawAmount("");
+                 }}
+                 className="w-10 h-10 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center"
+               >
+                 <ChevronRight className="w-4 h-4 rotate-45" />
+               </button>
+             </div>
+
+             <div className="mb-4">
+               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.18em] mb-2">
+                 Amount
+               </label>
+               <div className="flex items-center gap-3 rounded-[24px] border border-gray-200 bg-gray-50 px-4 py-4">
+                 <IndianRupee className="w-5 h-5 text-gray-500 shrink-0" />
+                 <input
+                   type="number"
+                   min={walletState.withdrawalLimit}
+                   max={walletState.withdrawableAmount}
+                   step="0.01"
+                   value={withdrawAmount}
+                   onChange={(e) => setWithdrawAmount(e.target.value)}
+                   placeholder="Enter amount"
+                   className="w-full bg-transparent text-2xl font-black text-gray-900 outline-none"
+                 />
+               </div>
+               <div className="mt-3 flex items-center justify-between text-[11px] font-bold text-gray-500">
+                 <span>Min: {formatCurrency(walletState.withdrawalLimit)}</span>
+                 <span>Available: {formatCurrency(walletState.withdrawableAmount)}</span>
+               </div>
+             </div>
+
+             <div className="grid grid-cols-2 gap-3">
+               <button
+                 onClick={() => {
+                   if (withdrawSubmitting) return;
+                   setShowWithdrawModal(false);
+                   setWithdrawAmount("");
+                 }}
+                 className="py-4 rounded-[20px] border border-gray-200 text-sm font-black text-gray-700 tracking-widest uppercase"
+               >
+                 Cancel
+               </button>
+               <button
+                 onClick={handleWithdraw}
+                 disabled={withdrawSubmitting}
+                 className="py-4 rounded-[20px] text-sm font-black text-white tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-70"
+                 style={{
+                   background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 0,183,97), 0.88), var(--module-theme-color, #00B761))",
+                   boxShadow: "0 8px 20px rgba(var(--module-theme-rgb, 0,183,97), 0.30)",
+                 }}
+               >
+                 {withdrawSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                 {withdrawSubmitting ? 'SUBMITTING...' : 'SUBMIT'}
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
     </div>
   );
 };

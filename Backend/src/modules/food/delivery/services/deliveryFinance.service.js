@@ -93,6 +93,7 @@ export const getDeliveryPartnerWalletEnhanced = async (deliveryPartnerId) => {
 
     // Merge computed metrics with wallet ledger values to avoid stale pocket totals across admin bonus/manual wallet updates.
     const walletBalance = Number(walletDoc?.balance) || 0;
+    const walletLockedAmount = Number(walletDoc?.lockedAmount) || 0;
     const walletCashInHand = Number(walletDoc?.cashInHand) || 0;
     const walletTotalEarnings = Number(walletDoc?.totalEarnings) || 0;
     const walletTotalBonus = Number(walletDoc?.totalBonus) || 0;
@@ -109,7 +110,9 @@ export const getDeliveryPartnerWalletEnhanced = async (deliveryPartnerId) => {
     // Pocket Balance = (Earnings + Bonus) - Total Withdrawn (approved) - Pending Withdrawals.
     // Keep max with wallet ledger balance to honor admin/manual wallet adjustments.
     const computedPocketBalance = Math.max(0, (totalEarned + totalBonus) - (totalWithdrawn + pendingWithdrawals));
-    const pocketBalance = Math.max(computedPocketBalance, walletBalance);
+    const effectiveLockedAmount = Math.max(walletLockedAmount, pendingWithdrawals);
+    const availableWalletBalance = Math.max(0, walletBalance - effectiveLockedAmount);
+    const pocketBalance = Math.max(computedPocketBalance, availableWalletBalance);
 
     // Fetch transactions for UI (Orders, Bonuses, Withdrawals)
     const [ordersTx] = await Promise.all([
@@ -158,6 +161,7 @@ export const getDeliveryPartnerWalletEnhanced = async (deliveryPartnerId) => {
         cashInHand, // COD to be deposited/deducted
         totalWithdrawn, // Actually paid out
         pendingWithdrawals, // In process
+        lockedAmount: effectiveLockedAmount,
         totalEarned,
         totalBonus,
         totalCashLimit,
@@ -171,9 +175,10 @@ export const getDeliveryPartnerWalletEnhanced = async (deliveryPartnerId) => {
  * Submits a new withdrawal request for a delivery partner.
  */
 export const requestDeliveryWithdrawal = async (deliveryPartnerId, payload) => {
-    const { amount, bankDetails, paymentMethod = 'bank_transfer' } = payload;
+    const amount = Number(payload?.amount);
+    const { bankDetails, paymentMethod = 'bank_transfer' } = payload;
 
-    if (!amount || amount < 1) throw new ValidationError('Invalid amount');
+    if (!Number.isFinite(amount) || amount < 1) throw new ValidationError('Invalid amount');
 
     const wallet = await getDeliveryPartnerWalletEnhanced(deliveryPartnerId);
     if (amount < wallet.deliveryWithdrawalLimit) {
@@ -183,11 +188,42 @@ export const requestDeliveryWithdrawal = async (deliveryPartnerId, payload) => {
         throw new ValidationError('Insufficient balance for this withdrawal');
     }
 
-    const partner = await FoodDeliveryPartner.findById(deliveryPartnerId).lean();
+    const partnerId = new mongoose.Types.ObjectId(deliveryPartnerId);
+    const [partner, walletDoc, pendingAgg] = await Promise.all([
+        FoodDeliveryPartner.findById(deliveryPartnerId).lean(),
+        FoodDeliveryWallet.findOne({ deliveryPartnerId: partnerId }),
+        FoodDeliveryWithdrawal.aggregate([
+            {
+                $match: {
+                    deliveryPartnerId: partnerId,
+                    status: 'pending'
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalPending: { $sum: { $ifNull: ['$amount', 0] } }
+                }
+            }
+        ])
+    ]);
+
     if (!partner) throw new ValidationError('Delivery partner not found');
 
+    const pendingBefore = Number(pendingAgg?.[0]?.totalPending) || 0;
+    const currentBalance = Number(walletDoc?.balance) || 0;
+    const currentLocked = Number(walletDoc?.lockedAmount) || 0;
+    const effectiveLockedBefore = Math.max(currentLocked, pendingBefore);
+    const computedAvailableBalance = Number(wallet.pocketBalance) || 0;
+    const targetLedgerBalance = Math.max(currentBalance, effectiveLockedBefore + computedAvailableBalance);
+    const availableBalance = Math.max(0, targetLedgerBalance - effectiveLockedBefore);
+
+    if (amount > availableBalance) {
+        throw new ValidationError('Insufficient balance for this withdrawal');
+    }
+
     const withdrawal = await FoodDeliveryWithdrawal.create({
-        deliveryPartnerId,
+        deliveryPartnerId: partnerId,
         amount,
         paymentMethod,
         bankDetails: bankDetails || {
@@ -201,7 +237,18 @@ export const requestDeliveryWithdrawal = async (deliveryPartnerId, payload) => {
         status: 'pending'
     });
 
-    return withdrawal;
+    await FoodDeliveryWallet.findOneAndUpdate(
+        { deliveryPartnerId: partnerId },
+        {
+            $set: {
+                balance: targetLedgerBalance,
+                lockedAmount: effectiveLockedBefore + amount
+            }
+        },
+        { upsert: true, new: true }
+    );
+
+    return withdrawal.toObject();
 };
 
 export const createDeliveryCashDepositOrder = async (deliveryPartnerId, amountInr) => {
