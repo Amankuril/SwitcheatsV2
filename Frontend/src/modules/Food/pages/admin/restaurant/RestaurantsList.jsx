@@ -151,8 +151,13 @@ export default function RestaurantsList() {
     landmark: "",
     pincode: "",
   })
+  const [locationSearchValue, setLocationSearchValue] = useState("")
+  const [locationSuggestions, setLocationSuggestions] = useState([])
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false)
   const locationSearchInputRef = useRef(null)
-  const placesAutocompleteRef = useRef(null)
+  const autocompleteServiceRef = useRef(null)
+  const placesServiceRef = useRef(null)
+  const suggestionsDebounceRef = useRef(null)
 
   // Format Restaurant ID to REST format (e.g., REST422829)
   const formatRestaurantId = (id) => {
@@ -473,8 +478,23 @@ export default function RestaurantsList() {
       )
     }
 
-    const existingScript = document.getElementById("admin-google-maps-script")
-    if (existingScript) {
+    if (window.google?.maps && !window.google?.maps?.places?.Autocomplete) {
+      if (typeof window.google.maps.importLibrary === "function") {
+        try {
+          await window.google.maps.importLibrary("places")
+          if (window.google?.maps?.places?.Autocomplete) return true
+        } catch {}
+      }
+    }
+
+    const scripts = Array.from(document.getElementsByTagName("script"))
+    const existingScript =
+      document.getElementById("admin-google-maps-script") ||
+      scripts.find((s) => s.src?.includes("maps.googleapis.com/maps/api/js"))
+
+    if (existingScript && !existingScript.src.includes("libraries=places")) {
+      existingScript.remove()
+    } else if (existingScript) {
       await new Promise((resolve, reject) => {
         if (window.google?.maps?.places?.Autocomplete) {
           resolve()
@@ -501,63 +521,124 @@ export default function RestaurantsList() {
   }
 
   const initPlacesAutocomplete = async () => {
-    if (!locationSearchInputRef.current) return
-    if (placesAutocompleteRef.current) return
     setLocationEditError("")
     const loaded = await loadGoogleMapsScript()
-    if (!loaded || !window.google?.maps?.places?.Autocomplete) {
+    if (!loaded || !window.google?.maps?.places) {
       setLocationEditError("Unable to load Google Places Autocomplete.")
       return
     }
 
-    placesAutocompleteRef.current = new window.google.maps.places.Autocomplete(
-      locationSearchInputRef.current,
-      {
-        fields: ["formatted_address", "address_components", "geometry"],
-        componentRestrictions: { country: "in" },
-      }
-    )
+    if (!autocompleteServiceRef.current && window.google.maps.places.AutocompleteService) {
+      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+    }
+    if (!placesServiceRef.current && window.google.maps.places.PlacesService) {
+      const host = document.createElement("div")
+      placesServiceRef.current = new window.google.maps.places.PlacesService(host)
+    }
+  }
 
-    const parsePlace = (place) => {
-      const formattedAddress = place?.formatted_address || ""
-      const comps = Array.isArray(place?.address_components) ? place.address_components : []
-      const get = (types) => comps.find((c) => types.some((t) => c.types?.includes(t)))?.long_name || ""
-      const area =
-        get(["sublocality_level_1", "sublocality", "neighborhood"]) ||
-        get(["locality"])
-      const city =
-        get(["locality"]) ||
-        get(["administrative_area_level_2"])
-      const state = get(["administrative_area_level_1"])
-      const pincode = get(["postal_code"])
-      const lat = place?.geometry?.location?.lat?.()
-      const lng = place?.geometry?.location?.lng?.()
-      return {
-        formattedAddress,
-        area,
-        city,
-        state,
-        pincode,
-        latitude: Number.isFinite(lat) ? Number(lat.toFixed(6)) : "",
-        longitude: Number.isFinite(lng) ? Number(lng.toFixed(6)) : "",
-      }
+  const parseGooglePlace = (place) => {
+    const formattedAddress = place?.formatted_address || place?.name || ""
+    const comps = Array.isArray(place?.address_components) ? place.address_components : []
+    const get = (types) => comps.find((c) => types.some((t) => c.types?.includes(t)))?.long_name || ""
+    const area =
+      get(["sublocality_level_1", "sublocality", "neighborhood"]) ||
+      get(["locality"])
+    const city =
+      get(["locality"]) ||
+      get(["administrative_area_level_2"])
+    const state = get(["administrative_area_level_1"])
+    const pincode = get(["postal_code"])
+    const lat = place?.geometry?.location?.lat?.()
+    const lng = place?.geometry?.location?.lng?.()
+    return {
+      formattedAddress,
+      area,
+      city,
+      state,
+      pincode,
+      latitude: Number.isFinite(lat) ? Number(lat.toFixed(6)) : "",
+      longitude: Number.isFinite(lng) ? Number(lng.toFixed(6)) : "",
+    }
+  }
+
+  const fetchLocationSuggestions = async (query) => {
+    const q = String(query || "").trim()
+    if (!q) {
+      setLocationSuggestions([])
+      return
     }
 
-    placesAutocompleteRef.current.addListener("place_changed", () => {
-      const place = placesAutocompleteRef.current.getPlace()
-      const parsed = parsePlace(place)
-      setLocationForm((prev) => ({
-        ...prev,
-        formattedAddress: parsed.formattedAddress || prev.formattedAddress,
-        addressLine1: parsed.formattedAddress || prev.addressLine1,
-        area: parsed.area || prev.area,
-        city: parsed.city || prev.city,
-        state: parsed.state || prev.state,
-        pincode: parsed.pincode || prev.pincode,
-        latitude: parsed.latitude !== "" ? parsed.latitude : prev.latitude,
-        longitude: parsed.longitude !== "" ? parsed.longitude : prev.longitude,
-      }))
-    })
+    await initPlacesAutocomplete()
+    if (!autocompleteServiceRef.current || !window.google?.maps?.places?.PlacesServiceStatus) {
+      setLocationSuggestions([])
+      return
+    }
+
+    autocompleteServiceRef.current.getPlacePredictions(
+      {
+        input: q,
+        componentRestrictions: { country: "in" },
+        types: ["geocode"],
+      },
+      (predictions = [], status) => {
+        const ok = status === window.google?.maps?.places?.PlacesServiceStatus?.OK
+        setLocationSuggestions(ok ? predictions.slice(0, 6) : [])
+      },
+    )
+  }
+
+  const handleLocationSearchChange = (event) => {
+    const value = event.target.value
+    setLocationSearchValue(value)
+    setShowLocationSuggestions(true)
+    setLocationForm((prev) => ({
+      ...prev,
+      formattedAddress: value,
+      addressLine1: value || prev.addressLine1,
+    }))
+
+    if (suggestionsDebounceRef.current) {
+      clearTimeout(suggestionsDebounceRef.current)
+      suggestionsDebounceRef.current = null
+    }
+
+    suggestionsDebounceRef.current = setTimeout(() => {
+      fetchLocationSuggestions(value).catch(() => {
+        setLocationSuggestions([])
+      })
+    }, 180)
+  }
+
+  const handleLocationSuggestionSelect = (suggestion) => {
+    if (!suggestion?.place_id || !placesServiceRef.current) return
+
+    placesServiceRef.current.getDetails(
+      {
+        placeId: suggestion.place_id,
+        fields: ["formatted_address", "address_components", "geometry", "name"],
+      },
+      (place, status) => {
+        const ok = status === window.google?.maps?.places?.PlacesServiceStatus?.OK
+        if (!ok || !place?.geometry?.location) return
+
+        const parsed = parseGooglePlace(place)
+        setLocationSearchValue(parsed.formattedAddress)
+        setLocationForm((prev) => ({
+          ...prev,
+          formattedAddress: parsed.formattedAddress || prev.formattedAddress,
+          addressLine1: parsed.formattedAddress || prev.addressLine1,
+          area: parsed.area || prev.area,
+          city: parsed.city || prev.city,
+          state: parsed.state || prev.state,
+          pincode: parsed.pincode || prev.pincode,
+          latitude: parsed.latitude !== "" ? parsed.latitude : prev.latitude,
+          longitude: parsed.longitude !== "" ? parsed.longitude : prev.longitude,
+        }))
+        setShowLocationSuggestions(false)
+        setLocationSuggestions([])
+      },
+    )
   }
 
   // Handle view restaurant details
@@ -698,6 +779,9 @@ export default function RestaurantsList() {
     const sourceRestaurant = restaurantDetails || selectedRestaurant?.originalData || selectedRestaurant
     const initialForm = normalizeLocationFormFromRestaurant(sourceRestaurant)
     setLocationForm(initialForm)
+    setLocationSearchValue(initialForm.formattedAddress || "")
+    setLocationSuggestions([])
+    setShowLocationSuggestions(false)
     setLocationEditError("")
 
     setZonesLoading(true)
@@ -713,7 +797,12 @@ export default function RestaurantsList() {
     requestAnimationFrame(() => initPlacesAutocomplete())
 
     return () => {
-      placesAutocompleteRef.current = null
+      if (suggestionsDebounceRef.current) {
+        clearTimeout(suggestionsDebounceRef.current)
+        suggestionsDebounceRef.current = null
+      }
+      autocompleteServiceRef.current = null
+      placesServiceRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditingLocation, selectedRestaurant, restaurantDetails?._id])
@@ -2262,12 +2351,49 @@ export default function RestaurantsList() {
 
                           <div className="md:col-span-2">
                             <label className="block text-xs text-slate-600 mb-1 font-semibold">Search location*</label>
-                            <input
-                              ref={locationSearchInputRef}
-                              type="text"
-                              className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
-                              placeholder="Start typing and choose from dropdown..."
-                            />
+                            <div className="relative">
+                              <input
+                                ref={locationSearchInputRef}
+                                type="text"
+                                value={locationSearchValue}
+                                onChange={handleLocationSearchChange}
+                                onFocus={() => {
+                                  if (locationSuggestions.length > 0) setShowLocationSuggestions(true)
+                                }}
+                                onBlur={() => {
+                                  setTimeout(() => setShowLocationSuggestions(false), 150)
+                                }}
+                                className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
+                                placeholder="Start typing and choose from dropdown..."
+                              />
+                              {showLocationSuggestions && locationSuggestions.length > 0 && (
+                                <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] z-50 overflow-hidden">
+                                  {locationSuggestions.map((suggestion) => (
+                                    <button
+                                      key={suggestion.place_id}
+                                      type="button"
+                                      onMouseDown={(event) => {
+                                        event.preventDefault()
+                                        handleLocationSuggestionSelect(suggestion)
+                                      }}
+                                      className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                    >
+                                      <span className="flex items-start gap-3">
+                                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                                        <span className="min-w-0">
+                                          <span className="block text-sm font-medium text-slate-900 truncate">
+                                            {suggestion.structured_formatting?.main_text || suggestion.description}
+                                          </span>
+                                          <span className="block text-xs text-slate-500 truncate">
+                                            {suggestion.structured_formatting?.secondary_text || suggestion.description}
+                                          </span>
+                                        </span>
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                             <p className="text-[11px] text-slate-500 mt-1">
                               Select from dropdown to auto-fill address and coordinates.
                             </p>
