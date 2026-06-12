@@ -154,10 +154,13 @@ export default function RestaurantsList() {
   const [locationSearchValue, setLocationSearchValue] = useState("")
   const [locationSuggestions, setLocationSuggestions] = useState([])
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false)
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false)
   const locationSearchInputRef = useRef(null)
   const autocompleteServiceRef = useRef(null)
   const placesServiceRef = useRef(null)
+  const placesSessionTokenRef = useRef(null)
   const suggestionsDebounceRef = useRef(null)
+  const suppressSuggestionFetchRef = useRef(false)
 
   // Format Restaurant ID to REST format (e.g., REST422829)
   const formatRestaurantId = (id) => {
@@ -535,6 +538,9 @@ export default function RestaurantsList() {
       const host = document.createElement("div")
       placesServiceRef.current = new window.google.maps.places.PlacesService(host)
     }
+    if (!placesSessionTokenRef.current && window.google.maps.places.AutocompleteSessionToken) {
+      placesSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+    }
   }
 
   const parseGooglePlace = (place) => {
@@ -566,79 +572,110 @@ export default function RestaurantsList() {
     const q = String(query || "").trim()
     if (!q) {
       setLocationSuggestions([])
-      return
+      return []
     }
 
     await initPlacesAutocomplete()
     if (!autocompleteServiceRef.current || !window.google?.maps?.places?.PlacesServiceStatus) {
       setLocationSuggestions([])
-      return
+      return []
     }
 
-    autocompleteServiceRef.current.getPlacePredictions(
-      {
-        input: q,
-        componentRestrictions: { country: "in" },
-        types: ["geocode"],
-      },
-      (predictions = [], status) => {
-        const ok = status === window.google?.maps?.places?.PlacesServiceStatus?.OK
-        setLocationSuggestions(ok ? predictions.slice(0, 6) : [])
-      },
-    )
+    return await new Promise((resolve) => {
+      autocompleteServiceRef.current.getPlacePredictions(
+        {
+          input: q,
+          componentRestrictions: { country: "in" },
+          sessionToken: placesSessionTokenRef.current || undefined,
+        },
+        (predictions = [], status) => {
+          const ok = status === window.google?.maps?.places?.PlacesServiceStatus?.OK
+          const mapped = ok && predictions.length > 0
+            ? predictions.slice(0, 6).map((prediction) => ({
+              id: prediction.place_id,
+              placeId: prediction.place_id,
+              display: prediction.description || "",
+              mainText: prediction.structured_formatting?.main_text || "",
+              secondaryText: prediction.structured_formatting?.secondary_text || "",
+              source: "google",
+            }))
+            : []
+          setLocationSuggestions(mapped)
+          resolve(mapped)
+        },
+      )
+    })
   }
 
   const handleLocationSearchChange = (event) => {
     const value = event.target.value
     setLocationSearchValue(value)
     setShowLocationSuggestions(true)
+    setLocationEditError("")
     setLocationForm((prev) => ({
       ...prev,
       formattedAddress: value,
       addressLine1: value || prev.addressLine1,
     }))
-
-    if (suggestionsDebounceRef.current) {
-      clearTimeout(suggestionsDebounceRef.current)
-      suggestionsDebounceRef.current = null
-    }
-
-    suggestionsDebounceRef.current = setTimeout(() => {
-      fetchLocationSuggestions(value).catch(() => {
-        setLocationSuggestions([])
-      })
-    }, 180)
   }
 
   const handleLocationSuggestionSelect = (suggestion) => {
-    if (!suggestion?.place_id || !placesServiceRef.current) return
+    if (suggestion?.source === "google" && suggestion?.placeId && placesServiceRef.current) {
+      placesServiceRef.current.getDetails(
+        {
+          placeId: suggestion.placeId,
+          fields: ["formatted_address", "address_components", "geometry", "name"],
+          sessionToken: placesSessionTokenRef.current || undefined,
+        },
+        (place, status) => {
+          const ok = status === window.google?.maps?.places?.PlacesServiceStatus?.OK
+          if (!ok || !place?.geometry?.location) return
 
-    placesServiceRef.current.getDetails(
-      {
-        placeId: suggestion.place_id,
-        fields: ["formatted_address", "address_components", "geometry", "name"],
-      },
-      (place, status) => {
-        const ok = status === window.google?.maps?.places?.PlacesServiceStatus?.OK
-        if (!ok || !place?.geometry?.location) return
+          const parsed = parseGooglePlace(place)
+          suppressSuggestionFetchRef.current = true
+          setLocationSearchValue(parsed.formattedAddress)
+          setLocationForm((prev) => ({
+            ...prev,
+            formattedAddress: parsed.formattedAddress || prev.formattedAddress,
+            addressLine1: parsed.formattedAddress || prev.addressLine1,
+            area: parsed.area || prev.area,
+            city: parsed.city || prev.city,
+            state: parsed.state || prev.state,
+            pincode: parsed.pincode || prev.pincode,
+            latitude: parsed.latitude !== "" ? parsed.latitude : prev.latitude,
+            longitude: parsed.longitude !== "" ? parsed.longitude : prev.longitude,
+          }))
+          setShowLocationSuggestions(false)
+          setLocationSuggestions([])
+          if (window.google?.maps?.places?.AutocompleteSessionToken) {
+            placesSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+          }
+        },
+      )
+      return
+    }
 
-        const parsed = parseGooglePlace(place)
-        setLocationSearchValue(parsed.formattedAddress)
-        setLocationForm((prev) => ({
-          ...prev,
-          formattedAddress: parsed.formattedAddress || prev.formattedAddress,
-          addressLine1: parsed.formattedAddress || prev.addressLine1,
-          area: parsed.area || prev.area,
-          city: parsed.city || prev.city,
-          state: parsed.state || prev.state,
-          pincode: parsed.pincode || prev.pincode,
-          latitude: parsed.latitude !== "" ? parsed.latitude : prev.latitude,
-          longitude: parsed.longitude !== "" ? parsed.longitude : prev.longitude,
-        }))
-        setShowLocationSuggestions(false)
-        setLocationSuggestions([])
-      },
-    )
+    const { lat, lng, display, addr = {} } = suggestion || {}
+    const area = addr.suburb || addr.neighbourhood || addr.city_district || addr.locality || ""
+    const city = addr.city || addr.town || addr.village || ""
+    const state = addr.state || ""
+    const pincode = addr.postcode || ""
+
+    suppressSuggestionFetchRef.current = true
+    setLocationSearchValue(display || "")
+    setLocationForm((prev) => ({
+      ...prev,
+      formattedAddress: display || prev.formattedAddress,
+      addressLine1: display || prev.addressLine1,
+      area: area || prev.area,
+      city: city || prev.city,
+      state: state || prev.state,
+      pincode: pincode || prev.pincode,
+      latitude: Number.isFinite(lat) ? Number(lat.toFixed(6)) : prev.latitude,
+      longitude: Number.isFinite(lng) ? Number(lng.toFixed(6)) : prev.longitude,
+    }))
+    setShowLocationSuggestions(false)
+    setLocationSuggestions([])
   }
 
   // Handle view restaurant details
@@ -782,6 +819,7 @@ export default function RestaurantsList() {
     setLocationSearchValue(initialForm.formattedAddress || "")
     setLocationSuggestions([])
     setShowLocationSuggestions(false)
+    setIsSearchingLocation(false)
     setLocationEditError("")
 
     setZonesLoading(true)
@@ -803,9 +841,78 @@ export default function RestaurantsList() {
       }
       autocompleteServiceRef.current = null
       placesServiceRef.current = null
+      placesSessionTokenRef.current = null
+      suppressSuggestionFetchRef.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditingLocation, selectedRestaurant, restaurantDetails?._id])
+
+  useEffect(() => {
+    if (!isEditingLocation) return
+
+    if (suppressSuggestionFetchRef.current) {
+      suppressSuggestionFetchRef.current = false
+      return
+    }
+
+    const q = String(locationSearchValue || "").trim()
+    if (q.length < 3) {
+      if (suggestionsDebounceRef.current) {
+        clearTimeout(suggestionsDebounceRef.current)
+        suggestionsDebounceRef.current = null
+      }
+      setLocationSuggestions([])
+      setIsSearchingLocation(false)
+      if (window.google?.maps?.places?.AutocompleteSessionToken) {
+        placesSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+      }
+      return
+    }
+
+    if (suggestionsDebounceRef.current) {
+      clearTimeout(suggestionsDebounceRef.current)
+    }
+
+    suggestionsDebounceRef.current = setTimeout(async () => {
+      try {
+        setIsSearchingLocation(true)
+        await initPlacesAutocomplete()
+
+        if (!placesSessionTokenRef.current && window.google?.maps?.places?.AutocompleteSessionToken) {
+          placesSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken()
+        }
+
+        const googleSuggestions = await fetchLocationSuggestions(q)
+        if (googleSuggestions.length > 0) return
+
+        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&q=${encodeURIComponent(q)}&countrycodes=in`
+        const res = await fetch(url, { headers: { Accept: "application/json" } })
+        const json = await res.json()
+        const mappedFallback = (Array.isArray(json) ? json : []).map((result) => ({
+          id: `n-${result.place_id}`,
+          display: result.display_name || "",
+          lat: Number(result.lat),
+          lng: Number(result.lon),
+          addr: result.address || {},
+          source: "nominatim",
+        }))
+        setLocationSuggestions(mappedFallback)
+      } catch (err) {
+        debugError("Location prediction search failed:", err)
+        setLocationSuggestions([])
+      } finally {
+        setIsSearchingLocation(false)
+      }
+    }, 400)
+
+    return () => {
+      if (suggestionsDebounceRef.current) {
+        clearTimeout(suggestionsDebounceRef.current)
+        suggestionsDebounceRef.current = null
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationSearchValue, isEditingLocation])
 
   const getDetailsEditSource = () => {
     return restaurantDetails || selectedRestaurant?.originalData || selectedRestaurant || null
@@ -872,8 +979,12 @@ export default function RestaurantsList() {
 
   const handleCancelEditDetails = () => {
     setIsEditingDetails(false)
+    setIsEditingLocation(false)
     setProfileImageFile(null)
     setProfileImagePreview("")
+    setLocationSuggestions([])
+    setShowLocationSuggestions(false)
+    setIsSearchingLocation(false)
   }
 
   const handleSaveDetails = async () => {
@@ -955,7 +1066,11 @@ export default function RestaurantsList() {
       }
 
       setIsEditingDetails(false)
+      setIsEditingLocation(false)
       setProfileImageFile(null)
+      setLocationSuggestions([])
+      setShowLocationSuggestions(false)
+      setIsSearchingLocation(false)
       alert("Restaurant details updated successfully")
     } catch (err) {
       debugError("Error updating restaurant details:", err)
@@ -971,6 +1086,9 @@ export default function RestaurantsList() {
     setProfileImagePreview("")
     setIsEditingLocation(false)
     setLocationEditError("")
+    setLocationSuggestions([])
+    setShowLocationSuggestions(false)
+    setIsSearchingLocation(false)
     setSelectedRestaurant(null)
     setRestaurantDetails(null)
     setRestaurantOutletTimings(null)
@@ -1558,6 +1676,162 @@ export default function RestaurantsList() {
                       <input type="text" value={detailsForm.estimatedDeliveryTime} onChange={(e) => setDetailsForm((prev) => ({ ...prev, estimatedDeliveryTime: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
                     </div>
                   </div>
+
+                  {isEditingLocation && (
+                    <div className="border border-indigo-100 bg-indigo-50/40 rounded-2xl p-4 space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h4 className="text-base font-semibold text-slate-900">Location Editor</h4>
+                          <p className="text-xs text-indigo-700 mt-1">
+                            Update restaurant location using dropdown suggestions and service zone selection.
+                          </p>
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-indigo-700 text-xs font-semibold">
+                          <Settings className="w-3.5 h-3.5" />
+                          Editing Live
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="md:col-span-2">
+                          <label className="block text-xs text-slate-600 mb-1 font-semibold">Service Zone*</label>
+                          <select
+                            value={locationForm.zoneId || ""}
+                            onChange={(e) => setLocationForm((prev) => ({ ...prev, zoneId: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
+                          >
+                            <option value="">{zonesLoading ? "Loading zones..." : "Select a zone"}</option>
+                            {zones.map((z) => (
+                              <option key={z._id || z.id} value={z._id || z.id}>
+                                {z.name || z.zoneName || z.serviceLocation || "Zone"}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-xs text-slate-600 mb-1 font-semibold">Search location*</label>
+                          <div className="relative">
+                            <input
+                              ref={locationSearchInputRef}
+                              type="text"
+                              value={locationSearchValue}
+                              onChange={handleLocationSearchChange}
+                              onFocus={() => {
+                                if (locationSuggestions.length > 0) setShowLocationSuggestions(true)
+                              }}
+                              onBlur={() => {
+                                setTimeout(() => setShowLocationSuggestions(false), 150)
+                              }}
+                              className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm pr-10"
+                              placeholder="Start typing your restaurant address..."
+                            />
+                            {isSearchingLocation && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-500 border-t-transparent" />
+                              </div>
+                            )}
+                            {showLocationSuggestions && locationSuggestions.length > 0 && (
+                              <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] z-50 overflow-hidden max-h-60 overflow-y-auto">
+                                {locationSuggestions.map((suggestion) => (
+                                  <button
+                                    key={suggestion.id || suggestion.placeId || suggestion.display}
+                                    type="button"
+                                    onMouseDown={(event) => {
+                                      event.preventDefault()
+                                      handleLocationSuggestionSelect(suggestion)
+                                    }}
+                                    className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                  >
+                                    <span className="flex items-start gap-3">
+                                      <MapPin className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                                      <span className="min-w-0">
+                                        <span className="block text-sm font-medium text-slate-900 truncate">
+                                          {suggestion.mainText || suggestion.display}
+                                        </span>
+                                        <span className="block text-xs text-slate-500 truncate">
+                                          {suggestion.secondaryText || suggestion.display}
+                                        </span>
+                                      </span>
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Same suggestion flow as onboarding. Select from dropdown to auto-fill address and coordinates.
+                          </p>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-xs text-slate-500 mb-1">Formatted Address</label>
+                          <input
+                            type="text"
+                            value={locationForm.formattedAddress}
+                            readOnly
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Area</label>
+                          <input
+                            type="text"
+                            value={locationForm.area}
+                            readOnly
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">City</label>
+                          <input
+                            type="text"
+                            value={locationForm.city}
+                            readOnly
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">State</label>
+                          <input
+                            type="text"
+                            value={locationForm.state}
+                            readOnly
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Pincode</label>
+                          <input
+                            type="text"
+                            value={locationForm.pincode}
+                            readOnly
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs text-slate-500 mb-1">Landmark (optional)</label>
+                          <input
+                            type="text"
+                            value={locationForm.landmark}
+                            onChange={(e) => setLocationForm((prev) => ({ ...prev, landmark: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      {locationEditError && <p className="text-xs text-red-600">{locationEditError}</p>}
+                      <div className="flex justify-end">
+                        <button
+                          onClick={handleSaveLocation}
+                          disabled={savingLocation}
+                          className={`inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold text-white ${savingLocation ? "bg-indigo-300 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"}`}
+                        >
+                          {savingLocation ? "Saving..." : "Save Location"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {!loadingDetails && !isEditingDetails && (restaurantDetails || selectedRestaurant) && (() => {
@@ -2325,147 +2599,6 @@ export default function RestaurantsList() {
                     </div>
                   )}
 
-                  {isEditingLocation && (
-                    <div className="pt-6 border-t border-slate-200">
-                      <h4 className="text-lg font-semibold text-slate-900 mb-4">Location Editor</h4>
-                      <div className="space-y-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-4">
-                        <p className="text-xs text-indigo-700 font-semibold">
-                          Update restaurant location using dropdown (accurate) + select service zone.
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div className="md:col-span-2">
-                            <label className="block text-xs text-slate-600 mb-1 font-semibold">Service Zone*</label>
-                            <select
-                              value={locationForm.zoneId || ""}
-                              onChange={(e) => setLocationForm((prev) => ({ ...prev, zoneId: e.target.value }))}
-                              className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
-                            >
-                              <option value="">{zonesLoading ? "Loading zones..." : "Select a zone"}</option>
-                              {zones.map((z) => (
-                                <option key={z._id || z.id} value={z._id || z.id}>
-                                  {z.name || z.zoneName || z.serviceLocation || "Zone"}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="md:col-span-2">
-                            <label className="block text-xs text-slate-600 mb-1 font-semibold">Search location*</label>
-                            <div className="relative">
-                              <input
-                                ref={locationSearchInputRef}
-                                type="text"
-                                value={locationSearchValue}
-                                onChange={handleLocationSearchChange}
-                                onFocus={() => {
-                                  if (locationSuggestions.length > 0) setShowLocationSuggestions(true)
-                                }}
-                                onBlur={() => {
-                                  setTimeout(() => setShowLocationSuggestions(false), 150)
-                                }}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
-                                placeholder="Start typing and choose from dropdown..."
-                              />
-                              {showLocationSuggestions && locationSuggestions.length > 0 && (
-                                <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.14)] z-50 overflow-hidden">
-                                  {locationSuggestions.map((suggestion) => (
-                                    <button
-                                      key={suggestion.place_id}
-                                      type="button"
-                                      onMouseDown={(event) => {
-                                        event.preventDefault()
-                                        handleLocationSuggestionSelect(suggestion)
-                                      }}
-                                      className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
-                                    >
-                                      <span className="flex items-start gap-3">
-                                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-                                        <span className="min-w-0">
-                                          <span className="block text-sm font-medium text-slate-900 truncate">
-                                            {suggestion.structured_formatting?.main_text || suggestion.description}
-                                          </span>
-                                          <span className="block text-xs text-slate-500 truncate">
-                                            {suggestion.structured_formatting?.secondary_text || suggestion.description}
-                                          </span>
-                                        </span>
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-500 mt-1">
-                              Select from dropdown to auto-fill address and coordinates.
-                            </p>
-                          </div>
-
-                          <div className="md:col-span-2">
-                            <label className="block text-xs text-slate-500 mb-1">Formatted Address</label>
-                            <input
-                              type="text"
-                              value={locationForm.formattedAddress}
-                              readOnly
-                              className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1">Area</label>
-                            <input
-                              type="text"
-                              value={locationForm.area}
-                              readOnly
-                              className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1">City</label>
-                            <input
-                              type="text"
-                              value={locationForm.city}
-                              readOnly
-                              className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1">State</label>
-                            <input
-                              type="text"
-                              value={locationForm.state}
-                              readOnly
-                              className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1">Pincode</label>
-                            <input
-                              type="text"
-                              value={locationForm.pincode}
-                              readOnly
-                              className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <label className="block text-xs text-slate-500 mb-1">Landmark (optional)</label>
-                            <input
-                              type="text"
-                              value={locationForm.landmark}
-                              onChange={(e) => setLocationForm((prev) => ({ ...prev, landmark: e.target.value }))}
-                              className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
-                            />
-                          </div>
-                        </div>
-
-                        {locationEditError && <p className="text-xs text-red-600">{locationEditError}</p>}
-                        <button
-                          onClick={handleSaveLocation}
-                          disabled={savingLocation}
-                          className={`inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold text-white ${savingLocation ? "bg-indigo-300 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"}`}
-                        >
-                          {savingLocation ? "Saving..." : "Save Location"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
                 )
               })()}
