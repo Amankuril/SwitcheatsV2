@@ -10,7 +10,7 @@ import { Button } from "@food/components/ui/button"
 import { Input } from "@food/components/ui/input"
 import { useLocation as useGeoLocation } from "@food/hooks/useLocation"
 import { useZone } from "@food/hooks/useZone"
-import { searchAPI } from "@/services/api"
+import { adminAPI, searchAPI } from "@/services/api"
 import { motion, AnimatePresence } from "framer-motion"
 
 // Helper to resolve media URLs consistently
@@ -42,7 +42,7 @@ export default function ProfessionalSearch() {
   const initialQuery = searchParams.get("q") || ""
   const navigate = useNavigate()
   const { location: userCoords } = useGeoLocation()
-  const { zoneId } = useZone(userCoords)
+  const { zoneId, zoneStatus } = useZone(userCoords)
   
   const [query, setQuery] = useState(initialQuery)
   const debouncedQuery = useDebounce(query, 500)
@@ -58,7 +58,6 @@ export default function ProfessionalSearch() {
   useEffect(() => {
     const savedHistory = localStorage.getItem(SEARCH_HISTORY_KEY)
     if (savedHistory) setHistory(JSON.parse(savedHistory))
-    fetchCategories()
 
     // Trigger voice search if param is present
     if (searchParams.get('voice') === 'true') {
@@ -70,14 +69,32 @@ export default function ProfessionalSearch() {
     }
   }, [])
 
-  const fetchCategories = async () => {
-    try {
-      const res = await searchAPI.getAdminCategories({ zoneId })
-      if (res.data?.success) setCategories(res.data.data.categories)
-    } catch (err) {
-      console.error("Failed to fetch categories", err)
+  useEffect(() => {
+    if (zoneStatus === "loading") return
+
+    let cancelled = false
+
+    const fetchCategories = async () => {
+      try {
+        const res = await adminAPI.getPublicCategories(zoneId ? { zoneId } : {})
+        if (!cancelled && res.data?.success) {
+          const list = res.data?.data?.categories || res.data?.categories || []
+          setCategories(Array.isArray(list) ? list : [])
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setCategories([])
+        }
+        console.error("Failed to fetch categories", err)
+      }
     }
-  }
+
+    fetchCategories()
+
+    return () => {
+      cancelled = true
+    }
+  }, [zoneId, zoneStatus])
 
   const addToHistory = (term) => {
     const newHistory = [term, ...history.filter(h => h !== term)].slice(0, 5)
@@ -98,12 +115,19 @@ export default function ProfessionalSearch() {
         categoryId: catId,
         lat: userCoords?.latitude,
         lng: userCoords?.longitude,
-        zoneId
+        zoneId,
+        strictZone: catId ? "true" : "false",
       })
       
       if (res.data?.success) {
         // Grouping results into Restaurants and potential Dishes
-        const all = res.data.data.restaurants || []
+        const all = (res.data.data.restaurants || []).filter((row) => {
+          const restaurantZoneId = row?.zoneId || row?.zone?._id || row?.zone || null
+          if (zoneId && restaurantZoneId && String(restaurantZoneId) !== String(zoneId)) {
+            return false
+          }
+          return true
+        })
         setResults({
           restaurants: all.filter(r => r.matchType === 'restaurant' || !r.matchType),
           dishes: all.filter(r => r.matchType === 'food')
@@ -146,7 +170,7 @@ export default function ProfessionalSearch() {
   const handleClear = () => {
     setQuery("")
     setSelectedCategoryId(null)
-    setSearchParams({})
+    setSearchParams({}, { replace: true })
     setResults({ restaurants: [], dishes: [] })
   }
 
@@ -154,11 +178,11 @@ export default function ProfessionalSearch() {
     const newCat = selectedCategoryId === id ? null : id
     setSelectedCategoryId(newCat)
     if (newCat) {
-        setSearchParams({ ...Object.fromEntries(searchParams), cat: newCat })
+        setSearchParams({ ...Object.fromEntries(searchParams), cat: newCat }, { replace: true })
     } else {
         const p = Object.fromEntries(searchParams)
         delete p.cat
-        setSearchParams(p)
+        setSearchParams(p, { replace: true })
     }
   }
 
@@ -200,12 +224,12 @@ export default function ProfessionalSearch() {
         {!query && !loading && (
           <div className="mb-8">
             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 px-1">Top Categories</h3>
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-4">
+            <div className="flex gap-4 overflow-x-auto px-1 pt-2 pb-3 snap-x snap-mandatory scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {categories.map((cat) => (
                 <button 
                   key={cat._id} 
                   onClick={() => handleCategoryClick(cat._id)}
-                  className={`flex flex-col items-center group transition-all ${selectedCategoryId === cat._id ? 'scale-110' : ''}`}
+                  className={`flex w-16 min-w-16 flex-shrink-0 snap-start flex-col items-center group transition-all ${selectedCategoryId === cat._id ? 'scale-110' : ''}`}
                 >
                   <div className={`w-14 h-14 rounded-2xl mb-2 flex items-center justify-center overflow-hidden border-2 transition-all ${selectedCategoryId === cat._id ? 'border-rose-500 shadow-lg shadow-rose-100' : 'border-transparent bg-white dark:bg-zinc-900'}`}>
                     {cat.image ? (

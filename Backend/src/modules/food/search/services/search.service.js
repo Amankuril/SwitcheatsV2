@@ -20,7 +20,8 @@ export const searchUnified = async (query = {}, options = {}) => {
         isVeg,
         page = 1,
         limit = 20,
-        zoneId
+        zoneId,
+        strictZone
     } = query;
 
     const skip = (page - 1) * limit;
@@ -167,7 +168,17 @@ export const searchUnified = async (query = {}, options = {}) => {
 
     // FALLBACK: If results are empty and a zoneId was provided, try one more time without zoneId 
     // to ensure user sees SOMETHING if their current zone has no matches.
-    if (results.length === 0 && zoneId && mongoose.Types.ObjectId.isValid(zoneId)) {
+    const shouldSkipZoneFallback =
+        strictZone === true ||
+        strictZone === 'true' ||
+        !!(categoryId && mongoose.Types.ObjectId.isValid(categoryId));
+
+    if (
+        !shouldSkipZoneFallback &&
+        results.length === 0 &&
+        zoneId &&
+        mongoose.Types.ObjectId.isValid(zoneId)
+    ) {
         console.log(`[Search-Service] No results in zone ${zoneId}. Trying global fallback...`);
         const fallbackResults = await searchUnified({ ...query, zoneId: null }, options);
         if (fallbackResults.data.total > 0) {
