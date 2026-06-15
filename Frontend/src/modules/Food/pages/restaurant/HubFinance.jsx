@@ -40,13 +40,9 @@ export default function HubFinance() {
     0
   )
   const currentCycleVisibleBalance = Number(
-    subscriptionDueAmount > 0
-      ? currentCycleEstimatedPayout
-      : (
-          financeData?.currentCycle?.withdrawableBalance ??
-          currentCycleEstimatedPayout ??
-          0
-        )
+    financeData?.currentCycle?.withdrawableBalance ??
+    currentCycleEstimatedPayout ??
+    0
   )
   const currentCycleAvailableAfterPending = Number(
     financeData?.currentCycle?.withdrawableBalance ??
