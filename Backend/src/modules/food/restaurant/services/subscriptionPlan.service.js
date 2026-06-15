@@ -142,7 +142,7 @@ export const computeRestaurantAvailableEarnings = async (restaurantId) => {
     if (!restaurantId || !mongoose.Types.ObjectId.isValid(String(restaurantId))) return 0;
     const rid = new mongoose.Types.ObjectId(String(restaurantId));
 
-    const [earningsAgg, pendingWithdrawalsAgg, restaurant] = await Promise.all([
+    const [earningsAgg, committedWithdrawalsAgg, restaurant] = await Promise.all([
         FoodTransaction.aggregate([
             {
                 $match: {
@@ -157,7 +157,12 @@ export const computeRestaurantAvailableEarnings = async (restaurantId) => {
             {
                 $match: {
                     restaurantId: rid,
-                    $expr: { $eq: [{ $toLower: { $trim: { input: "$status" } } }, "pending"] },
+                    $expr: {
+                        $in: [
+                            { $toLower: { $trim: { input: "$status" } } },
+                            ["pending", "approved"],
+                        ],
+                    },
                 },
             },
             { $group: { _id: null, total: { $sum: "$amount" } } },
@@ -166,9 +171,9 @@ export const computeRestaurantAvailableEarnings = async (restaurantId) => {
     ]);
 
     const earnings = Math.max(0, toNum(earningsAgg?.[0]?.total, 0));
-    const pendingWithdrawals = Math.max(0, toNum(pendingWithdrawalsAgg?.[0]?.total, 0));
+    const committedWithdrawals = Math.max(0, toNum(committedWithdrawalsAgg?.[0]?.total, 0));
     const subscriptionReserved = Math.max(0, toNum(restaurant?.subscriptionAutoDeductedAmount, 0));
-    return Math.max(0, earnings - pendingWithdrawals - subscriptionReserved);
+    return Math.max(0, earnings - committedWithdrawals - subscriptionReserved);
 };
 
 export const attemptAutoSettleSubscriptionDue = async (restaurantId) => {

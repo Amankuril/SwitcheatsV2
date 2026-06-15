@@ -191,9 +191,14 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
         const discountSplit = resolveDiscountSplit({ order, pricing, amounts, offers: relevantOffers, restaurantId: rid });
         const adminDiscountShare = discountSplit.adminDiscountShare;
         const restaurantDiscountShare = discountSplit.restaurantDiscountShare;
+        const storedRestaurantShare = Number(amounts.restaurantShare);
         
         const payout = isEarnedOrder(order)
-            ? subtotal + packagingFee - commission - restaurantDiscountShare
+            ? (
+                Number.isFinite(storedRestaurantShare)
+                    ? storedRestaurantShare
+                    : subtotal + packagingFee - commission - restaurantDiscountShare
+            )
             : 0;
 
         return {
@@ -223,20 +228,25 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
         0
     );
 
-    // Block only pending withdrawals from available balance.
-    // Approved/rejected requests are processed records and should not keep locking payout.
-    const pendingWithdrawalsAgg = await FoodRestaurantWithdrawal.aggregate([
+    // The current-cycle wallet card should only reflect withdrawals created
+    // against the same cycle's earnings. Older approved withdrawals belong to
+    // earlier cycles and should not keep reducing today's cycle card.
+    const committedWithdrawalsAgg = await FoodRestaurantWithdrawal.aggregate([
         {
             $match: {
                 restaurantId: rid,
+                createdAt: { $gte: nowWindow.start, $lte: nowWindow.end },
                 $expr: {
-                    $eq: [{ $toLower: { $trim: { input: '$status' } } }, 'pending']
+                    $in: [
+                        { $toLower: { $trim: { input: '$status' } } },
+                        ['pending', 'approved']
+                    ]
                 }
             }
         },
         { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-    const totalPendingWithdrawals = Number(pendingWithdrawalsAgg?.[0]?.total || 0);
+    const totalCommittedWithdrawals = Number(committedWithdrawalsAgg?.[0]?.total || 0);
     const subscriptionDue = isRestaurantSubscriptionEnabled
         ? Math.max(0, Number(restaurant?.subscriptionDueAmount || 0))
         : 0;
@@ -244,13 +254,13 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
     // NOTE: We no longer automatically deduct subscriptionDue here per user request ("direct deduct na ho").
     // We will instead block the withdrawal in the controller if subscriptionDue > 0.
     const subscriptionReserved = Math.max(0, Number(restaurant?.subscriptionAutoDeductedAmount || 0));
-    const availableBalance = Math.max(0, currentCycleEstimatedPayout - totalPendingWithdrawals - subscriptionReserved);
+    const availableBalance = Math.max(0, currentCycleEstimatedPayout - totalCommittedWithdrawals - subscriptionReserved);
 
     const currentCycle = {
         start: { ...nowWindow.startMeta },
         end: { ...nowWindow.endMeta },
         totalEarnings: currentCycleEstimatedPayout, // We still show current cycle earnings label
-        totalWithdrawn: totalPendingWithdrawals,
+        totalWithdrawn: totalCommittedWithdrawals,
         estimatedPayout: currentCycleEstimatedPayout,
         withdrawableBalance: availableBalance,
         netAvailable: Math.max(0, availableBalance - subscriptionDue), // Net amount that is ACTUALLY withdrawable

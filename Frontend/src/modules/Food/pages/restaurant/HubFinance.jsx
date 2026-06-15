@@ -34,6 +34,30 @@ export default function HubFinance() {
   const [subscriptionHistory, setSubscriptionHistory] = useState([])
   const [loadingSubscriptionHistory, setLoadingSubscriptionHistory] = useState(false)
   const isRestaurantSubscriptionEnabled = financeData?.features?.restaurantSubscriptionEnabled !== false
+  const subscriptionDueAmount = Number(financeData?.restaurant?.subscriptionDueAmount || 0)
+  const currentCycleEstimatedPayout = Number(
+    financeData?.currentCycle?.estimatedPayout ??
+    0
+  )
+  const currentCycleVisibleBalance = Number(
+    subscriptionDueAmount > 0
+      ? currentCycleEstimatedPayout
+      : (
+          financeData?.currentCycle?.withdrawableBalance ??
+          currentCycleEstimatedPayout ??
+          0
+        )
+  )
+  const currentCycleAvailableAfterPending = Number(
+    financeData?.currentCycle?.withdrawableBalance ??
+    currentCycleEstimatedPayout ??
+    0
+  )
+  const currentCycleNetAvailable = Number(
+    financeData?.currentCycle?.netAvailable ??
+    currentCycleEstimatedPayout ??
+    0
+  )
 
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false)
 
@@ -901,14 +925,14 @@ export default function HubFinance() {
                 ) : (
                   <>
                     <p className="text-4xl font-bold text-gray-900 mb-2">
-                      ₹{(financeData?.currentCycle?.netAvailable ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₹{currentCycleVisibleBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     <p className="text-sm text-gray-600 mb-4">
                       {financeData?.currentCycle?.totalOrders || 0} {financeData?.currentCycle?.totalOrders === 1 ? 'order' : 'orders'}
                     </p>
                     <button
                       onClick={() => {
-                        const netAvailable = financeData?.currentCycle?.netAvailable ?? (financeData?.currentCycle?.estimatedPayout || 0);
+                        const netAvailable = currentCycleNetAvailable;
                         const hasDues = isRestaurantSubscriptionEnabled && (financeData?.restaurant?.subscriptionDueAmount || 0) > 0;
                         
                         if (hasDues && netAvailable <= 0) {
@@ -917,13 +941,13 @@ export default function HubFinance() {
                         }
                         setShowWithdrawalModal(true);
                       }}
-                      disabled={!((financeData?.currentCycle?.netAvailable ?? 0) > 0)}
+                      disabled={!(currentCycleNetAvailable > 0)}
                       className={`w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 mt-4 transition-colors ${
-                        (financeData?.currentCycle?.netAvailable ?? 0) > 0
+                        currentCycleNetAvailable > 0
                           ? "text-white"
                           : "bg-gray-200 text-gray-500 cursor-not-allowed"
                       }`}
-                      style={(financeData?.currentCycle?.netAvailable ?? 0) > 0 ? {
+                      style={currentCycleNetAvailable > 0 ? {
                         background: "linear-gradient(135deg, rgba(var(--module-theme-rgb, 37,99,235), 0.9), var(--module-theme-color, #2563EB))",
                         boxShadow: "0 10px 20px rgba(var(--module-theme-rgb, 37,99,235), 0.28)",
                       } : undefined}
