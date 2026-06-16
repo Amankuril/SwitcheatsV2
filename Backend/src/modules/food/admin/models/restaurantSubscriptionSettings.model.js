@@ -10,6 +10,7 @@ const restaurantSubscriptionSettingsSchema = new mongoose.Schema(
         growthMinGmv: { type: Number, required: true, default: 30000.01 },
         growthMaxGmv: { type: Number, required: true, default: 60000 },
         premiumMinGmv: { type: Number, required: true, default: 60000.01 },
+        starterAutoDeductThreshold: { type: Number, required: true, default: 2950 },
         onboardingFee: { type: Number, required: true, default: 799 }
     },
     { collection: 'food_restaurant_subscription_settings', timestamps: true }

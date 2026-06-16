@@ -1,11 +1,13 @@
 import mongoose from "mongoose";
 import { FoodRestaurant } from "../models/restaurant.model.js";
 import { FoodTransaction } from "../../orders/models/foodTransaction.model.js";
+import { FoodOrder } from "../../orders/models/order.model.js";
 import { FoodRestaurantWithdrawal } from "../models/foodRestaurantWithdrawal.model.js";
 import { getRestaurantSubscriptionSettings } from "../../admin/services/admin.service.js";
 import { logRestaurantSubscriptionHistory } from "./subscriptionHistory.service.js";
 
 const GST_RATE = 0.18;
+const STARTER_THRESHOLD_LATE_WINDOW_DAYS = 3;
 
 export const SUBSCRIPTION_PLAN_KEYS = {
     STARTER: "starter",
@@ -23,6 +25,67 @@ const LEGACY_PLAN_MAP = {
 const toNum = (value, fallback = 0) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const isEarnedOrder = (order) => {
+    const orderStatus = String(order?.orderStatus || "").trim().toLowerCase();
+    const deliveryPhase = String(order?.deliveryState?.currentPhase || "").trim().toLowerCase();
+    return (
+        orderStatus === "delivered" ||
+        deliveryPhase === "delivered" ||
+        deliveryPhase === "completed"
+    );
+};
+
+const calculateOrderPayout = (order) => {
+    if (!isEarnedOrder(order)) return 0;
+
+    const tx = order?.transactionId || {};
+    const pricing = tx?.pricing || order?.pricing || {};
+    const amounts = tx?.amounts || {};
+    const storedRestaurantShare = Number(amounts?.restaurantShare);
+    if (Number.isFinite(storedRestaurantShare)) {
+        return Math.max(0, storedRestaurantShare);
+    }
+
+    const subtotal = Number(pricing?.subtotal) || 0;
+    const packagingFee = Number(pricing?.packagingFee) || 0;
+    const commission = Number(amounts?.restaurantCommission) || Number(pricing?.restaurantCommission) || 0;
+    const restaurantDiscountShare = Number(amounts?.restaurantDiscountShare) || 0;
+    return Math.max(0, subtotal + packagingFee - commission - restaurantDiscountShare);
+};
+
+const getFixedCurrentCycleWindow = (now = new Date()) => {
+    const startDay = 15;
+    let year = now.getFullYear();
+    let month = now.getMonth();
+
+    if (now.getDate() < startDay) {
+        month -= 1;
+        if (month < 0) {
+            month = 11;
+            year -= 1;
+        }
+    }
+
+    return {
+        start: new Date(year, month, startDay, 0, 0, 0, 0),
+        end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999),
+    };
+};
+
+const sumRestaurantOrderPayouts = async ({ restaurantId, startDate, endDate }) => {
+    if (!restaurantId || !mongoose.Types.ObjectId.isValid(String(restaurantId))) return 0;
+
+    const orders = await FoodOrder.find({
+        restaurantId: new mongoose.Types.ObjectId(String(restaurantId)),
+        orderStatus: { $nin: ["pending_payment"] },
+        createdAt: { $gte: startDate, $lte: endDate },
+    })
+        .populate("transactionId")
+        .lean();
+
+    return orders.reduce((sum, order) => sum + calculateOrderPayout(order), 0);
 };
 
 export const normalizePlanName = (value) => {
@@ -81,7 +144,16 @@ export const getRestaurantGmvLast30Days = async (restaurantId) => {
         { $group: { _id: null, total: { $sum: { $ifNull: ["$amounts.restaurantShare", 0] } } } },
     ]);
 
-    return Math.max(0, toNum(agg?.[0]?.total, 0));
+    const totalFromTransactions = Math.max(0, toNum(agg?.[0]?.total, 0));
+    if (totalFromTransactions > 0) {
+        return totalFromTransactions;
+    }
+
+    return sumRestaurantOrderPayouts({
+        restaurantId,
+        startDate: start,
+        endDate: now,
+    });
 };
 
 export const resolveRestaurantPlanEligibility = async (restaurantId, settingsOverride = null) => {
@@ -138,9 +210,166 @@ export const buildSubscriptionTotals = (planBase, paymentType = "later", partial
     };
 };
 
+export const getStarterPlanTotalWithGst = (settings = {}) => {
+    const starterPrice = Math.max(0, toNum(settings?.starterPrice, 999));
+    const gstAmount = Math.round(starterPrice * GST_RATE);
+    return starterPrice + gstAmount;
+};
+
+export const getStarterAutoDeductThreshold = (settings = {}) => {
+    const starterPlanTotal = getStarterPlanTotalWithGst(settings);
+    return Math.max(
+        starterPlanTotal,
+        toNum(settings?.starterAutoDeductThreshold, starterPlanTotal)
+    );
+};
+
+const getSubscriptionCycleWindow = (restaurant, now = new Date()) => {
+    const endsAt = restaurant?.subscriptionValidTill ? new Date(restaurant.subscriptionValidTill) : null;
+    if (!endsAt || Number.isNaN(endsAt.getTime())) return null;
+
+    const startsAt = new Date(endsAt);
+    startsAt.setDate(startsAt.getDate() - 30);
+
+    const effectiveEnd = now.getTime() < endsAt.getTime() ? now : endsAt;
+    return {
+        startsAt,
+        endsAt,
+        effectiveEnd,
+    };
+};
+
+export const getRestaurantCycleGmv = async (restaurantId, restaurant, now = new Date()) => {
+    if (!restaurantId || !mongoose.Types.ObjectId.isValid(String(restaurantId))) return 0;
+    const cycleWindow = getSubscriptionCycleWindow(restaurant, now);
+    if (!cycleWindow) return 0;
+
+    const agg = await FoodTransaction.aggregate([
+        {
+            $match: {
+                restaurantId: new mongoose.Types.ObjectId(String(restaurantId)),
+                status: { $in: ["authorized", "captured"] },
+                createdAt: { $gte: cycleWindow.startsAt, $lte: cycleWindow.effectiveEnd },
+            },
+        },
+        { $group: { _id: null, total: { $sum: { $ifNull: ["$amounts.restaurantShare", 0] } } } },
+    ]);
+
+    const totalFromTransactions = Math.max(0, toNum(agg?.[0]?.total, 0));
+    if (totalFromTransactions > 0) {
+        return totalFromTransactions;
+    }
+
+    return sumRestaurantOrderPayouts({
+        restaurantId,
+        startDate: cycleWindow.startsAt,
+        endDate: cycleWindow.effectiveEnd,
+    });
+};
+
+export const getStarterThresholdContext = async (restaurant, settingsOverride = null, now = new Date()) => {
+    const plan = normalizePlanName(restaurant?.subscriptionPlan);
+    const defaultContext = {
+        enabled: false,
+        plan,
+        thresholdAmount: 0,
+        currentCycleGmv: 0,
+        lastThreeDaysWindowActive: false,
+        shouldDiscountDue: false,
+        cycleStartsAt: null,
+        cycleEndsAt: restaurant?.subscriptionValidTill || null,
+    };
+
+    if (!restaurant?._id || plan !== SUBSCRIPTION_PLAN_KEYS.STARTER) {
+        return defaultContext;
+    }
+
+    const cycleWindow = getSubscriptionCycleWindow(restaurant, now);
+    if (!cycleWindow) {
+        return defaultContext;
+    }
+
+    const settings = settingsOverride || (await getRestaurantSubscriptionSettings()) || {};
+    const thresholdAmount = getStarterAutoDeductThreshold(settings);
+    const currentCycleGmv = await getRestaurantCycleGmv(restaurant._id, restaurant, now);
+    const lateWindowStartsAt = new Date(cycleWindow.endsAt);
+    lateWindowStartsAt.setDate(lateWindowStartsAt.getDate() - STARTER_THRESHOLD_LATE_WINDOW_DAYS);
+    const belowThreshold = currentCycleGmv < thresholdAmount;
+    const lastThreeDaysWindowActive =
+        belowThreshold &&
+        now.getTime() >= lateWindowStartsAt.getTime() &&
+        now.getTime() < cycleWindow.endsAt.getTime();
+    const shouldDiscountDue =
+        belowThreshold &&
+        now.getTime() >= cycleWindow.endsAt.getTime() &&
+        Math.max(0, toNum(restaurant?.subscriptionDueAmount, 0)) > 0;
+
+    return {
+        enabled: true,
+        plan,
+        thresholdAmount,
+        currentCycleGmv,
+        lastThreeDaysWindowActive,
+        shouldDiscountDue,
+        cycleStartsAt: cycleWindow.startsAt,
+        cycleEndsAt: cycleWindow.endsAt,
+    };
+};
+
+export const applyStarterThresholdDiscountIfEligible = async (restaurant, settingsOverride = null, now = new Date()) => {
+    if (!restaurant?._id) {
+        return { applied: false, reason: "missing_restaurant" };
+    }
+
+    const thresholdContext = await getStarterThresholdContext(restaurant, settingsOverride, now);
+    if (!thresholdContext.enabled) {
+        return { applied: false, reason: "starter_threshold_not_applicable", thresholdContext };
+    }
+    if (!thresholdContext.shouldDiscountDue) {
+        return { applied: false, reason: "discount_not_due", thresholdContext };
+    }
+
+    const dueAmount = Math.max(0, toNum(restaurant.subscriptionDueAmount, 0));
+    if (dueAmount <= 0) {
+        return { applied: false, reason: "no_due", thresholdContext };
+    }
+
+    const paidBefore = Math.max(0, toNum(restaurant.subscriptionPaidAmount, 0));
+    restaurant.subscriptionPaidAmount = paidBefore + dueAmount;
+    restaurant.subscriptionDueAmount = 0;
+    restaurant.subscriptionStatus = "paid";
+    await restaurant.save();
+
+    await logRestaurantSubscriptionHistory({
+        restaurantId: restaurant._id,
+        eventType: "subscription_payment",
+        plan: restaurant.subscriptionPlan,
+        paymentType: "discounted",
+        amount: 0,
+        dueBefore: dueAmount,
+        dueAfter: 0,
+        paidBefore,
+        paidAfter: Math.max(0, toNum(restaurant.subscriptionPaidAmount, 0)),
+        gmvLast30Days: thresholdContext.currentCycleGmv,
+        note: `Starter subscription due waived because cycle GMV stayed below threshold of ₹${thresholdContext.thresholdAmount}`,
+        metadata: {
+            discountApplied: true,
+            thresholdAmount: thresholdContext.thresholdAmount,
+            currentCycleGmv: thresholdContext.currentCycleGmv,
+        },
+    }).catch(() => null);
+
+    return {
+        applied: true,
+        discountedAmount: dueAmount,
+        thresholdContext,
+    };
+};
+
 export const computeRestaurantAvailableEarnings = async (restaurantId) => {
     if (!restaurantId || !mongoose.Types.ObjectId.isValid(String(restaurantId))) return 0;
     const rid = new mongoose.Types.ObjectId(String(restaurantId));
+    const currentCycleWindow = getFixedCurrentCycleWindow(new Date());
 
     const [earningsAgg, committedWithdrawalsAgg, restaurant] = await Promise.all([
         FoodTransaction.aggregate([
@@ -157,6 +386,7 @@ export const computeRestaurantAvailableEarnings = async (restaurantId) => {
             {
                 $match: {
                     restaurantId: rid,
+                    createdAt: { $gte: currentCycleWindow.start, $lte: currentCycleWindow.end },
                     $expr: {
                         $in: [
                             { $toLower: { $trim: { input: "$status" } } },
@@ -170,7 +400,14 @@ export const computeRestaurantAvailableEarnings = async (restaurantId) => {
         FoodRestaurant.findById(rid).select("subscriptionAutoDeductedAmount").lean(),
     ]);
 
-    const earnings = Math.max(0, toNum(earningsAgg?.[0]?.total, 0));
+    let earnings = Math.max(0, toNum(earningsAgg?.[0]?.total, 0));
+    if (earnings <= 0) {
+        earnings = await sumRestaurantOrderPayouts({
+            restaurantId,
+            startDate: currentCycleWindow.start,
+            endDate: currentCycleWindow.end,
+        });
+    }
     const committedWithdrawals = Math.max(0, toNum(committedWithdrawalsAgg?.[0]?.total, 0));
     const subscriptionReserved = Math.max(0, toNum(restaurant?.subscriptionAutoDeductedAmount, 0));
     return Math.max(0, earnings - committedWithdrawals - subscriptionReserved);
@@ -183,10 +420,32 @@ export const attemptAutoSettleSubscriptionDue = async (restaurantId) => {
 
     const dueAmount = Math.max(0, toNum(restaurant.subscriptionDueAmount, 0));
     if (dueAmount <= 0) return { settled: false, reason: "no_due" };
+    const settings = await getRestaurantSubscriptionSettings();
+    const thresholdDiscount = await applyStarterThresholdDiscountIfEligible(restaurant, settings);
+    if (thresholdDiscount.applied) {
+        return {
+            settled: false,
+            discounted: true,
+            discountedAmount: thresholdDiscount.discountedAmount,
+            reason: "starter_due_discounted",
+            thresholdContext: thresholdDiscount.thresholdContext,
+        };
+    }
     const dueBefore = dueAmount;
     const paidBefore = toNum(restaurant.subscriptionPaidAmount, 0);
 
     const availableEarnings = await computeRestaurantAvailableEarnings(restaurantId);
+    const thresholdContext = await getStarterThresholdContext(restaurant, settings);
+    if (thresholdContext.enabled && availableEarnings < thresholdContext.thresholdAmount) {
+        return {
+            settled: false,
+            reason: "starter_threshold_not_reached",
+            availableEarnings,
+            dueAmount,
+            thresholdAmount: thresholdContext.thresholdAmount,
+            currentCycleGmv: thresholdContext.currentCycleGmv,
+        };
+    }
     if (availableEarnings < dueAmount) {
         return { settled: false, reason: "insufficient_earnings", availableEarnings, dueAmount };
     }

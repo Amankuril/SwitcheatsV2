@@ -2,7 +2,7 @@ import { FoodRestaurant } from '../models/restaurant.model.js';
 import { FoodNotification } from '../../../../core/notifications/models/notification.model.js';
 import { notifyOwnerSafely, notifyAdminsSafely } from '../../../../core/notifications/firebase.service.js';
 import { getRestaurantSubscriptionSettings } from '../../admin/services/admin.service.js';
-import { getRestaurantGmvLast30Days, resolvePlanPricingFromEligibility } from './subscriptionPlan.service.js';
+import { applyStarterThresholdDiscountIfEligible, getRestaurantGmvLast30Days, resolvePlanPricingFromEligibility } from './subscriptionPlan.service.js';
 import { logRestaurantSubscriptionHistory } from './subscriptionHistory.service.js';
 
 /**
@@ -28,6 +28,7 @@ export const processSubscriptionExpiries = async () => {
     for (const restaurant of expiredRestaurants) {
         try {
             const settings = await getRestaurantSubscriptionSettings();
+            await applyStarterThresholdDiscountIfEligible(restaurant, settings, now).catch(() => null);
             const { planName, baseAmount: planBase } = await resolvePlanPricingFromEligibility(restaurant._id, settings);
             const planGST = Math.round(planBase * 0.18);
             const renewalTotal = planBase + planGST;

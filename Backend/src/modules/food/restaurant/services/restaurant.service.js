@@ -13,6 +13,7 @@ import { FoodRestaurantOutletTimings } from '../models/outletTimings.model.js';
 import { getRestaurantSubscriptionSettings } from '../../admin/services/admin.service.js';
 import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
 import {
+    applyStarterThresholdDiscountIfEligible,
     attemptAutoSettleSubscriptionDue,
     buildSubscriptionTotals,
     getRestaurantGmvLast30Days,
@@ -802,6 +803,9 @@ export const createPostApprovalOnboardingPaymentOrder = async (restaurantId, pay
     }
 
     const settings = await getRestaurantSubscriptionSettings();
+    if (isExpiredRenewal) {
+        await applyStarterThresholdDiscountIfEligible(restaurant, settings).catch(() => null);
+    }
     const onboardingFeeBase = Number(settings?.onboardingFee ?? 799);
     const onboardingFeeGST = Math.round(onboardingFeeBase * GST_RATE);
     const onboardingFeeTotal = needsOnboardingPayment ? onboardingFeeBase + onboardingFeeGST : 0;
@@ -949,6 +953,9 @@ export const verifyPostApprovalOnboardingPayment = async (restaurantId, payload 
     }
 
     const settings = await getRestaurantSubscriptionSettings();
+    if (isExpiredRenewal) {
+        await applyStarterThresholdDiscountIfEligible(restaurant, settings).catch(() => null);
+    }
     const { planName, baseAmount: planBase } = await resolvePlanPricingFromEligibility(restaurant._id, settings);
     const subscription = buildSubscriptionTotals(
         planBase,

@@ -20,6 +20,7 @@ const SubscriptionSettings = () => {
         growthMinGmv: 30000.01,
         growthMaxGmv: 60000,
         premiumMinGmv: 60000.01,
+        starterAutoDeductThreshold: 2950,
         onboardingFee: 799
     });
 
@@ -52,6 +53,7 @@ const SubscriptionSettings = () => {
                     growthMinGmv: Number(data?.growthMinGmv ?? 30000.01),
                     growthMaxGmv: Number(data?.growthMaxGmv ?? 60000),
                     premiumMinGmv: Number(data?.premiumMinGmv ?? 60000.01),
+                    starterAutoDeductThreshold: Number(data?.starterAutoDeductThreshold ?? Math.round(Number(data?.starterPrice ?? 999) * 1.18)),
                     onboardingFee: Number(data?.onboardingFee ?? 799),
                 });
             }
@@ -66,6 +68,11 @@ const SubscriptionSettings = () => {
     const handleSave = async () => {
         if (!featureEnabled) {
             toast.error('Restaurant Subscription feature is disabled. Enable it from Feature Settings first.');
+            return;
+        }
+        const starterPlanTotal = Number(settings.starterPrice || 0) + Math.round(Number(settings.starterPrice || 0) * 0.18);
+        if (Number(settings.starterAutoDeductThreshold || 0) < starterPlanTotal) {
+            toast.error(`Starter threshold must be at least ₹${starterPlanTotal.toLocaleString('en-IN')}.`);
             return;
         }
         try {
@@ -147,6 +154,19 @@ const SubscriptionSettings = () => {
                                         onChange={(e) => setSettings({ ...settings, starterMaxGmv: Math.max(0, Number(e.target.value)) })}
                                     />
                                 </div>
+                            </div>
+                            <div className="space-y-1 pt-3">
+                                <Label htmlFor="starterAutoDeductThreshold">Starter Threshold (₹)</Label>
+                                <Input
+                                    id="starterAutoDeductThreshold"
+                                    type="number"
+                                    min="0"
+                                    value={settings.starterAutoDeductThreshold}
+                                    onChange={(e) => setSettings({ ...settings, starterAutoDeductThreshold: Math.max(0, Number(e.target.value)) })}
+                                />
+                                <p className="text-xs text-gray-500">
+                                    Auto-deduct and withdrawal reserve for starter dues will wait until this amount is reached. Minimum allowed: ₹{(Number(settings.starterPrice || 0) + Math.round(Number(settings.starterPrice || 0) * 0.18)).toLocaleString('en-IN')}.
+                                </p>
                             </div>
                         </div>
                     </CardContent>

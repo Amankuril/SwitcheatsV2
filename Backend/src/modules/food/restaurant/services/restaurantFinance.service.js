@@ -4,7 +4,7 @@ import { FoodRestaurant } from '../models/restaurant.model.js';
 import { FoodRestaurantWithdrawal } from '../models/foodRestaurantWithdrawal.model.js';
 import { FoodOffer } from '../../admin/models/offer.model.js';
 import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
-import { attemptAutoSettleSubscriptionDue } from './subscriptionPlan.service.js';
+import { attemptAutoSettleSubscriptionDue, getStarterThresholdContext } from './subscriptionPlan.service.js';
 
 function toTwoDigitYearString(dateObj) {
     const y = String(dateObj.getFullYear());
@@ -144,7 +144,7 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
 
     // Fetch restaurant profile for header display.
     const restaurant = await FoodRestaurant.findById(rid)
-        .select('restaurantName addressLine1 addressLine2 area city state pincode location subscriptionDueAmount subscriptionStatus subscriptionAutoDeductedAmount')
+        .select('restaurantName addressLine1 addressLine2 area city state pincode location subscriptionPlan subscriptionDueAmount subscriptionStatus subscriptionValidTill subscriptionAutoDeductedAmount')
         .lean();
 
     const address =
@@ -250,11 +250,28 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
     const subscriptionDue = isRestaurantSubscriptionEnabled
         ? Math.max(0, Number(restaurant?.subscriptionDueAmount || 0))
         : 0;
+    const starterThresholdContext = isRestaurantSubscriptionEnabled
+        ? await getStarterThresholdContext(restaurant)
+        : {
+            enabled: false,
+            thresholdAmount: 0,
+            currentCycleGmv: 0,
+            lastThreeDaysWindowActive: false,
+          };
     // Calculate final balance for withdrawal.
     // NOTE: We no longer automatically deduct subscriptionDue here per user request ("direct deduct na ho").
     // We will instead block the withdrawal in the controller if subscriptionDue > 0.
     const subscriptionReserved = Math.max(0, Number(restaurant?.subscriptionAutoDeductedAmount || 0));
     const availableBalance = Math.max(0, currentCycleEstimatedPayout - totalCommittedWithdrawals - subscriptionReserved);
+    let subscriptionReserveAmount = subscriptionDue;
+    let subscriptionReserveMode = subscriptionDue > 0 ? 'due' : 'none';
+
+    if (subscriptionDue > 0 && starterThresholdContext.enabled) {
+        subscriptionReserveMode = 'starter_threshold';
+        subscriptionReserveAmount = starterThresholdContext.lastThreeDaysWindowActive
+            ? 0
+            : Math.max(0, Number(starterThresholdContext.thresholdAmount || 0));
+    }
 
     const currentCycle = {
         start: { ...nowWindow.startMeta },
@@ -263,7 +280,7 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
         totalWithdrawn: totalCommittedWithdrawals,
         estimatedPayout: currentCycleEstimatedPayout,
         withdrawableBalance: availableBalance,
-        netAvailable: Math.max(0, availableBalance - subscriptionDue), // Net amount that is ACTUALLY withdrawable
+        netAvailable: Math.max(0, availableBalance - subscriptionReserveAmount), // Net amount that is ACTUALLY withdrawable
         totalOrders: currentCycleOrders.length,
         payoutDate: null,
         orders: currentCycleOrders
@@ -306,7 +323,12 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
             restaurantId: restaurant?._id ? `REST${restaurant._id.toString().slice(-6).padStart(6, '0')}` : 'N/A',
             address,
             subscriptionDueAmount: Number(restaurant?.subscriptionDueAmount || 0),
-            subscriptionStatus: restaurant?.subscriptionStatus || 'paid'
+            subscriptionStatus: restaurant?.subscriptionStatus || 'paid',
+            subscriptionReserveAmount,
+            subscriptionReserveMode,
+            starterThresholdAmount: Number(starterThresholdContext?.thresholdAmount || 0),
+            starterCycleGmv: Number(starterThresholdContext?.currentCycleGmv || 0),
+            lastThreeDaysWindowActive: Boolean(starterThresholdContext?.lastThreeDaysWindowActive),
         },
         features: {
             restaurantSubscriptionEnabled: isRestaurantSubscriptionEnabled

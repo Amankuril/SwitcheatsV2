@@ -22,9 +22,14 @@ export const createWithdrawalRequestController = async (req, res, next) => {
 
         const subscriptionDue = Number(restaurant?.subscriptionDueAmount || 0);
         const netAvailable = Math.max(0, Number(finance?.currentCycle?.netAvailable || 0));
+        const reserveAmount = Math.max(0, Number(finance?.restaurant?.subscriptionReserveAmount || subscriptionDue));
+        const reserveMode = String(finance?.restaurant?.subscriptionReserveMode || 'due');
 
         if (amount > netAvailable) {
             if (isRestaurantSubscriptionEnabled && subscriptionDue > 0) {
+                if (reserveMode === 'starter_threshold') {
+                    return sendError(res, 400, `Withdrawal restricted. You can withdraw a maximum of ₹${netAvailable.toLocaleString('en-IN')} after reserving ₹${reserveAmount.toLocaleString('en-IN')} until your starter threshold is reached.`);
+                }
                 return sendError(res, 400, `Withdrawal restricted. You can withdraw a maximum of ₹${netAvailable.toLocaleString('en-IN')} after reserving ₹${subscriptionDue.toLocaleString('en-IN')} for your outstanding subscription dues.`);
             }
             return sendError(res, 400, `Insufficient balance. Available to withdraw: ₹${netAvailable.toLocaleString('en-IN')}`);

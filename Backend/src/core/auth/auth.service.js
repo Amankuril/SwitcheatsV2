@@ -19,7 +19,7 @@ import mongoose from "mongoose";
 import { creditReferralReward } from "../../modules/food/user/services/userWallet.service.js";
 import { getRestaurantSubscriptionSettings } from "../../modules/food/admin/services/admin.service.js";
 import { FEATURE_KEYS, isFeatureEnabled } from "../../modules/food/admin/services/featureSettings.service.js";
-import { isSubscriptionExpired, resolveRestaurantPlanEligibility } from "../../modules/food/restaurant/services/subscriptionPlan.service.js";
+import { applyStarterThresholdDiscountIfEligible, isSubscriptionExpired, resolveRestaurantPlanEligibility } from "../../modules/food/restaurant/services/subscriptionPlan.service.js";
 import { ADMIN_FULL_PERMISSIONS, sanitizeAdminPermissions } from '../../constants/permissions.js';
 import { isMobilePlatform } from "../../utils/platform.js";
 
@@ -355,6 +355,9 @@ export const verifyRestaurantOtpAndLogin = async (phone, otp, fcmToken, platform
   const isRestaurantSubscriptionEnabled = await isFeatureEnabled(FEATURE_KEYS.RESTAURANT_SUBSCRIPTION, true);
   if (isRestaurantSubscriptionEnabled && (!restaurant.onboardingFeePaid || isSubscriptionExpired(restaurant))) {
     const settings = await getRestaurantSubscriptionSettings();
+    if (restaurant.onboardingFeePaid && isSubscriptionExpired(restaurant)) {
+      await applyStarterThresholdDiscountIfEligible(restaurant, settings).catch(() => null);
+    }
     const onboardingFeeBase = Number(settings?.onboardingFee ?? 799);
     const onboardingFeeGST = Math.round(onboardingFeeBase * 0.18);
     const needsOnboardingPayment = !restaurant.onboardingFeePaid;

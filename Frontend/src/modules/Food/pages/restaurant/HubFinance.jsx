@@ -35,6 +35,11 @@ export default function HubFinance() {
   const [loadingSubscriptionHistory, setLoadingSubscriptionHistory] = useState(false)
   const isRestaurantSubscriptionEnabled = financeData?.features?.restaurantSubscriptionEnabled !== false
   const subscriptionDueAmount = Number(financeData?.restaurant?.subscriptionDueAmount || 0)
+  const subscriptionReserveAmount = Number(financeData?.restaurant?.subscriptionReserveAmount || 0)
+  const subscriptionReserveMode = String(financeData?.restaurant?.subscriptionReserveMode || 'none')
+  const starterThresholdAmount = Number(financeData?.restaurant?.starterThresholdAmount || 0)
+  const starterCycleGmv = Number(financeData?.restaurant?.starterCycleGmv || 0)
+  const lastThreeDaysWindowActive = Boolean(financeData?.restaurant?.lastThreeDaysWindowActive)
   const currentCycleEstimatedPayout = Number(
     financeData?.currentCycle?.estimatedPayout ??
     0
@@ -54,6 +59,13 @@ export default function HubFinance() {
     currentCycleEstimatedPayout ??
     0
   )
+  const starterThresholdModeActive = subscriptionReserveMode === 'starter_threshold'
+  const thresholdBannerText = lastThreeDaysWindowActive
+    ? `You are in the final 3 days of this starter cycle. Since your cycle GMV is still below ₹${starterThresholdAmount.toLocaleString('en-IN')}, withdrawals are unlocked now. If the threshold is not reached by expiry, this month's due will be waived automatically.`
+    : `You have an outstanding balance of ₹${subscriptionDueAmount.toLocaleString('en-IN')}. For starter plan, auto-deduct and withdrawal reserve will apply only after your cycle GMV reaches ₹${starterThresholdAmount.toLocaleString('en-IN')}.`
+  const thresholdRestrictionText = lastThreeDaysWindowActive
+    ? `Your starter cycle is in its final 3 days and the GMV is still below ₹${starterThresholdAmount.toLocaleString('en-IN')}, so the remaining amount is unlocked for withdrawal. If the threshold is not reached by expiry, this month's due will be waived automatically.`
+    : `Withdrawals are temporarily restricted because your starter cycle must keep ₹${subscriptionReserveAmount.toLocaleString('en-IN')} reserved until the threshold of ₹${starterThresholdAmount.toLocaleString('en-IN')} is reached. Current cycle GMV: ₹${starterCycleGmv.toLocaleString('en-IN')}.`
 
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false)
 
@@ -783,7 +795,13 @@ export default function HubFinance() {
                 
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Withdrawal Restricted</h3>
                 <p className="text-sm text-gray-600 leading-relaxed mb-8">
-                  To ensure financial compliance, withdrawals are temporarily restricted while you have an outstanding subscription balance of <span className="font-bold text-gray-900">₹{(financeData?.restaurant?.subscriptionDueAmount || restaurantData?.subscriptionDueAmount || 0).toLocaleString('en-IN')}</span>. 
+                  {starterThresholdModeActive
+                    ? thresholdRestrictionText
+                    : (
+                        <>
+                          To ensure financial compliance, withdrawals are temporarily restricted while you have an outstanding subscription balance of <span className="font-bold text-gray-900">₹{(financeData?.restaurant?.subscriptionDueAmount || restaurantData?.subscriptionDueAmount || 0).toLocaleString('en-IN')}</span>.
+                        </>
+                      )}
                 </p>
 
                 <div className="w-full space-y-3">
@@ -905,8 +923,14 @@ export default function HubFinance() {
                 <div className="flex-1">
                   <h3 className="text-sm font-bold text-amber-900">Subscription Dues Pending</h3>
                   <p className="text-[11px] text-amber-800 mt-1 leading-relaxed font-medium">
-                    You have an outstanding balance of <span className="text-sm font-bold">₹{financeData.restaurant.subscriptionDueAmount.toLocaleString('en-IN')}</span>. 
-                    Withdrawals are partially restricted until this is settled.
+                    {starterThresholdModeActive
+                      ? thresholdBannerText
+                      : (
+                          <>
+                            You have an outstanding balance of <span className="text-sm font-bold">₹{financeData.restaurant.subscriptionDueAmount.toLocaleString('en-IN')}</span>. 
+                            Withdrawals are partially restricted until this is settled.
+                          </>
+                        )}
                   </p>
                 </div>
               </motion.div>
@@ -1441,7 +1465,14 @@ export default function HubFinance() {
                   {isRestaurantSubscriptionEnabled && financeData?.restaurant?.subscriptionDueAmount > 0 && (
                     <div className="px-3 py-2.5 bg-amber-50/50 border border-amber-100 rounded-xl mb-4">
                       <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
-                        <span className="font-bold">Compliance Note:</span> You can withdraw your earnings after reserving ₹{financeData.restaurant.subscriptionDueAmount.toLocaleString('en-IN')} for your outstanding subscription dues.
+                        <span className="font-bold">Compliance Note:</span>{" "}
+                        {starterThresholdModeActive
+                          ? (
+                              lastThreeDaysWindowActive
+                                ? `Your starter threshold was not reached, so the final 3-day withdrawal window is active. You can withdraw the unlocked balance now, and if the cycle still ends below ₹${starterThresholdAmount.toLocaleString('en-IN')}, this month's due will be discounted automatically.`
+                                : `Your starter plan keeps ₹${subscriptionReserveAmount.toLocaleString('en-IN')} reserved until cycle GMV reaches ₹${starterThresholdAmount.toLocaleString('en-IN')}. Once the threshold is reached, the due can auto-deduct from earnings.`
+                            )
+                          : `You can withdraw your earnings after reserving ₹${financeData.restaurant.subscriptionDueAmount.toLocaleString('en-IN')} for your outstanding subscription dues.`}
                       </p>
                     </div>
                   )}

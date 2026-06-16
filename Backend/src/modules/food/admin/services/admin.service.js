@@ -3908,6 +3908,12 @@ export const getRestaurantSubscriptionSettings = async () => {
     const onboardingFee = Number.isFinite(onboardingFeeValue)
         ? Math.max(0, onboardingFeeValue)
         : 799;
+    const starterPlanGST = Math.round(starterPrice * 0.18);
+    const starterPlanTotal = starterPrice + starterPlanGST;
+    const starterAutoDeductThresholdValue = Number(raw?.starterAutoDeductThreshold ?? starterPlanTotal);
+    const starterAutoDeductThreshold = Number.isFinite(starterAutoDeductThresholdValue)
+        ? Math.max(starterPlanTotal, starterAutoDeductThresholdValue)
+        : starterPlanTotal;
 
     return {
         ...raw,
@@ -3919,6 +3925,7 @@ export const getRestaurantSubscriptionSettings = async () => {
         growthMinGmv,
         growthMaxGmv,
         premiumMinGmv,
+        starterAutoDeductThreshold,
         onboardingFee
     };
 };
@@ -3938,6 +3945,7 @@ export const updateRestaurantSubscriptionSettings = async (data) => {
     if (data.growthMinGmv !== undefined) settings.growthMinGmv = Math.max(0, Number(data.growthMinGmv) || 0);
     if (data.growthMaxGmv !== undefined) settings.growthMaxGmv = Math.max(0, Number(data.growthMaxGmv) || 0);
     if (data.premiumMinGmv !== undefined) settings.premiumMinGmv = Math.max(0, Number(data.premiumMinGmv) || 0);
+    if (data.starterAutoDeductThreshold !== undefined) settings.starterAutoDeductThreshold = Math.max(0, Number(data.starterAutoDeductThreshold) || 0);
     if (data.onboardingFee !== undefined) settings.onboardingFee = Math.max(0, Number(data.onboardingFee) || 0);
 
     // Keep ranges monotonic and contiguous by default.
@@ -3950,6 +3958,13 @@ export const updateRestaurantSubscriptionSettings = async (data) => {
     }
     if (Number(settings.premiumMinGmv || 0) < Number(settings.growthMaxGmv || 0)) {
         settings.premiumMinGmv = Number(settings.growthMaxGmv || 0);
+    }
+
+    const starterPrice = Math.max(0, Number(settings.starterPrice || 0));
+    const starterPlanGST = Math.round(starterPrice * 0.18);
+    const starterPlanTotal = starterPrice + starterPlanGST;
+    if (Number(settings.starterAutoDeductThreshold || 0) < starterPlanTotal) {
+        throw new ValidationError(`Starter auto-deduct threshold must be at least ₹${starterPlanTotal.toLocaleString('en-IN')}`);
     }
 
     await settings.save();
