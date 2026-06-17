@@ -359,38 +359,37 @@ const RestaurantImageCarousel = React.memo(
           </div>
         )}
 
-        <div className="absolute inset-0 transition-transform duration-700 ease-out group-hover:scale-110">
-          <AnimatePresence mode="wait" initial={false}>
-            {renderSrc && (
-              <motion.img
-                key={renderSrc}
-                ref={imageElementRef}
-                src={renderSrc}
-                alt={`${restaurant.name} - Image ${safeIndex + 1}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.5, ease: "easeInOut" }}
-                className="w-full h-full absolute inset-0 object-cover"
-                loading={priority ? "eager" : "lazy"}
-                fetchPriority={priority ? "high" : "auto"}
+        <div className="absolute inset-0 transition-transform duration-700 ease-out group-hover:scale-110 overflow-hidden">
+          <div
+            className="flex w-full h-full transition-transform duration-500 ease-in-out"
+            style={{ transform: `translateX(-${safeIndex * 100}%)` }}
+          >
+            {images.map((src, idx) => (
+              <img
+                key={src || idx}
+                ref={idx === safeIndex ? imageElementRef : null}
+                src={src}
+                alt={`${restaurant.name} - Image ${idx + 1}`}
+                className="w-full h-full flex-shrink-0 object-cover"
+                loading={priority && idx === 0 ? "eager" : "lazy"}
+                fetchPriority={priority && idx === 0 ? "high" : "auto"}
                 decoding="async"
                 onLoad={() => {
-                  setLoadedBySrc((prev) => ({ ...prev, [renderSrc]: true }));
-                  setLastGoodSrc(renderSrc);
-                  setShowShimmer(false);
+                  setLoadedBySrc((prev) => ({ ...prev, [src]: true }));
+                  if (idx === safeIndex) {
+                    setLastGoodSrc(src);
+                    setShowShimmer(false);
+                  }
                 }}
                 onError={() => {
                   setAttemptedSrcs((prev) => {
-                    const next = { ...prev, [primarySrc]: true };
+                    const next = { ...prev, [src]: true };
                     const attemptedCount = Object.keys(next).length;
 
                     if (attemptedCount >= images.length) {
                       setIsImageUnavailable(true);
-                    } else if (images.length > 1) {
-                      setCurrentIndex(
-                        (prevIndex) => (prevIndex + 1) % images.length,
-                      );
+                    } else if (images.length > 1 && idx === safeIndex) {
+                      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
                     }
 
                     return next;
@@ -400,8 +399,8 @@ const RestaurantImageCarousel = React.memo(
                   }
                 }}
               />
-            )}
-          </AnimatePresence>
+            ))}
+          </div>
         </div>
 
         {isImageUnavailable && (
