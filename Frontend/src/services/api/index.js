@@ -2418,23 +2418,27 @@ export const zoneAPI = {
 };
 export const uploadAPI = {
   /**
-   * Upload a single image file to the backend (Cloudinary-backed).
+   * Upload a single image file to the backend (VPS storage, nginx-served).
    * @param {File|Blob} file
-   * @param {{ folder?: string }} options
+   * @param {{ folder: string }} options - folder is required
    */
   uploadMedia: async (file, options = {}) => {
     if (!file) {
       return Promise.reject(new Error("File is required for upload"));
     }
-    const uploadFile = await toUploadReadyImage(file);
-
-    const formData = new FormData();
-    formData.append("file", uploadFile);
-    if (options.folder) {
-      formData.append("folder", options.folder);
+    if (!options.folder || !String(options.folder).trim()) {
+      return Promise.reject(new Error("Folder is required for upload"));
     }
 
+    const uploadFile = await toUploadReadyImage(file);
+    const folder = String(options.folder).trim();
+
+    const formData = new FormData();
+    formData.append("folder", folder);
+    formData.append("file", uploadFile);
+
     return apiClient.post("/uploads/image", formData, {
+      params: { folder },
       headers: { "Content-Type": "multipart/form-data" },
     });
   },

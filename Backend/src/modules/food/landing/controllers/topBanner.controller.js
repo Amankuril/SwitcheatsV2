@@ -1,5 +1,7 @@
 import TopBanner from '../models/topBanner.model.js';
-import { v2 as cloudinary } from 'cloudinary';
+import { saveImageFile, deleteStoredFile } from '../../../../services/storage.service.js';
+
+const BANNER_FOLDER = 'food/top-banners';
 
 export const listTopBannersController = async (req, res) => {
     try {
@@ -21,24 +23,14 @@ export const uploadTopBannersController = async (req, res) => {
 
         for (const file of req.files) {
             try {
-                const uploadResult = await new Promise((resolve, reject) => {
-                    const stream = cloudinary.uploader.upload_stream(
-                        { folder: 'food/top-banners', resource_type: 'image' },
-                        (error, result) => {
-                            if (error) return reject(error);
-                            return resolve(result);
-                        }
-                    );
-                    stream.end(file.buffer);
-                });
+                const saved = await saveImageFile(file, BANNER_FOLDER);
 
-                // Find max order
                 const maxOrderBanner = await TopBanner.findOne().sort('-order');
                 const nextOrder = maxOrderBanner ? maxOrderBanner.order + 1 : 0;
 
                 const newBanner = new TopBanner({
-                    image: uploadResult.secure_url,
-                    publicId: uploadResult.public_id,
+                    image: saved.url,
+                    publicId: saved.path,
                     order: nextOrder,
                     isActive: true
                 });
@@ -69,9 +61,9 @@ export const deleteTopBannerController = async (req, res) => {
 
         if (banner.publicId) {
             try {
-                await cloudinary.uploader.destroy(banner.publicId);
+                await deleteStoredFile(banner.publicId);
             } catch (err) {
-                console.error("Cloudinary deletion failed:", err.message);
+                console.error('Storage deletion failed:', err.message);
             }
         }
 

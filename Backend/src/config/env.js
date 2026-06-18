@@ -41,8 +41,16 @@ export const config = {
     // Security
     bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS || 10),
 
-    // Uploads
-    uploadPath: process.env.UPLOAD_PATH || 'uploads/',
+    // Uploads (local VPS storage — served by nginx, not Node)
+    uploadStorageRoot: process.env.UPLOAD_STORAGE_ROOT
+        || (process.env.NODE_ENV === 'production' ? '/var/www/uploads' : 'uploads'),
+    uploadBaseUrl: process.env.UPLOAD_BASE_URL
+        || (process.env.NODE_ENV === 'production' ? '/uploads' : '/uploads'),
+    uploadMaxFileSizeBytes: Number(process.env.UPLOAD_MAX_FILE_SIZE_MB || 5) * 1024 * 1024,
+    uploadRateLimitWindowMinutes: Number(process.env.UPLOAD_RATE_LIMIT_WINDOW || 15),
+    uploadRateLimitMax: Number(process.env.UPLOAD_RATE_LIMIT_MAX || 60),
+    /** @deprecated Use uploadStorageRoot — kept for backward compatibility */
+    uploadPath: process.env.UPLOAD_PATH || process.env.UPLOAD_STORAGE_ROOT || '/var/www/uploads',
 
     // Redis
     redisEnabled: process.env.REDIS_ENABLED === 'true',
@@ -51,10 +59,7 @@ export const config = {
     // BullMQ
     bullmqEnabled: process.env.BULLMQ_ENABLED === 'true',
 
-    // Cloudinary
-    cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME,
-    cloudinaryApiKey: process.env.CLOUDINARY_API_KEY,
-    cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET,
+    // Storage (local VPS — legacy Cloudinary env vars no longer required)
 
     // Firebase / FCM
     firebaseProjectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
