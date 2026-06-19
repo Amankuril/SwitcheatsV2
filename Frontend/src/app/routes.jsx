@@ -2,7 +2,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { AppShellSkeleton } from '@food/components/ui/loading-skeletons'
 import LandingPage from './LandingPage'
-import { adminAPI } from '@/services/api'
+import { isFeatureEnabled, loadCorePublicAppConfig } from '@food/services/publicAppConfig'
 
 const NATIVE_LAST_ROUTE_KEY = 'native_last_route'
 
@@ -37,20 +37,6 @@ const RedirectToFood = () => {
   return <Navigate to={`/food${location.pathname}${location.search}`} replace />;
 };
 
-const parseFeatureEnabled = (value, fallback = true) => {
-  if (typeof value === 'boolean') return value
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase()
-    if (normalized === 'true') return true
-    if (normalized === 'false') return false
-  }
-  if (typeof value === 'number') {
-    if (value === 1) return true
-    if (value === 0) return false
-  }
-  return fallback
-}
-
 const RootEntryRoute = () => {
   const [loading, setLoading] = useState(true)
   const [showLandingAtRoot, setShowLandingAtRoot] = useState(true)
@@ -58,12 +44,10 @@ const RootEntryRoute = () => {
   useEffect(() => {
     const loadFeatureSettings = async () => {
       try {
-        const res = await adminAPI.getPublicFeatureSettings()
-        const rows = Array.isArray(res?.data?.data) ? res.data.data : []
-        const feature = rows.find((row) => row.key === 'root_landing_and_unregistered_control')
-        if (feature) {
-          setShowLandingAtRoot(parseFeatureEnabled(feature.isEnabled, true))
-        }
+        await loadCorePublicAppConfig()
+        setShowLandingAtRoot(
+          isFeatureEnabled("root_landing_and_unregistered_control", true),
+        )
       } catch (_error) {
         // fallback to landing page when API is unavailable
       } finally {

@@ -1,5 +1,6 @@
 import http from 'http';
 import crypto from 'crypto';
+import path from 'path';
 import { exec } from 'child_process';
 
 import app from './src/app.js';
@@ -14,6 +15,7 @@ import { syncExpiredFssaiNotifications } from './src/modules/food/restaurant/ser
 
 import { logger } from './src/utils/logger.js';
 import { initializeFirebaseRealtime } from './src/config/firebase.js';
+import { ensureUploadStorageReady } from './src/services/storage.service.js';
 
 const SHUTDOWN_TIMEOUT_MS = 10000;
 let server = null;
@@ -50,6 +52,9 @@ const startServer = async () => {
     try {
         validateConfig();
         initializeFirebaseRealtime();
+
+        await ensureUploadStorageReady();
+        logger.info(`Upload storage ready at ${path.resolve(config.uploadStorageRoot)}`);
 
         // 1. Connect to Database (MongoDB)
         await connectDB();

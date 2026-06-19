@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import api, { publicGetOnce } from "@food/api";
+import api, { publicConfigGetOnce } from "@food/api";
 
 const PromotionBannerCarousel = ({ zoneId: propZoneId }) => {
   const [banners, setBanners] = useState([]);
@@ -16,7 +16,9 @@ const PromotionBannerCarousel = ({ zoneId: propZoneId }) => {
     if (!zoneId) return;
     try {
       setLoading(true);
-      const response = await publicGetOnce(`/food/hero-banners/home-promotion/public?zoneId=${zoneId}`);
+      const response = await publicConfigGetOnce("/food/hero-banners/home-promotion/public", {
+        params: { zoneId },
+      });
       if (response.data?.success && response.data?.data?.banners) {
         setBanners(response.data.data.banners);
       }

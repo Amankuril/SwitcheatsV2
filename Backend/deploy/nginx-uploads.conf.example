@@ -1,12 +1,13 @@
 # Serve uploaded images directly from disk (Node.js is NOT involved for GET requests).
 # Place this inside your server { } block on the VPS.
 
-location /uploads/ {
-    alias /var/www/uploads/;
-    access_log off;
-    expires 30d;
-    add_header Cache-Control "public, max-age=2592000, immutable";
-    add_header X-Content-Type-Options nosniff;
+    location /uploads/ {
+        alias /var/www/uploads/;
+        access_log off;
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000, immutable";
+        add_header X-Content-Type-Options nosniff;
+        add_header Cross-Origin-Resource-Policy "cross-origin" always;
 
     # Only allow image files
     location ~* \.(jpg|jpeg|png|webp|gif)$ {

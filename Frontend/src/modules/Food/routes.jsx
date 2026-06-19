@@ -7,7 +7,8 @@ import PushSoundEnableButton from "@food/components/PushSoundEnableButton"
 import { registerWebPushForCurrentModule } from "@food/utils/firebaseMessaging"
 import { isModuleAuthenticated } from "@food/utils/auth"
 import { useRestaurantNotifications } from "@food/hooks/useRestaurantNotifications"
-import { applyModulePowerScanning, getCachedSettings, loadBusinessSettings } from "@food/utils/businessSettings"
+import { applyModulePowerScanning, getCachedSettings } from "@food/utils/businessSettings"
+import { PublicAppConfigProvider } from "@food/context/PublicAppConfigContext"
 
 // Lazy Loading Components
 const UserRouter = lazy(() => import("@food/components/user/UserRouter"))
@@ -91,29 +92,14 @@ export default function App() {
       return "user"
     }
 
-    const applyPowerScanning = async () => {
-      const moduleName = resolveModule()
-      const cached = getCachedSettings()
-      if (cached) {
-        applyModulePowerScanning(moduleName, cached)
-      }
-
-      // Always revalidate from server so theme updates propagate across browsers/devices
-      // even when an older localStorage cache exists.
-      const settings = await loadBusinessSettings()
-      if (settings) {
-        applyModulePowerScanning(moduleName, settings)
-      }
+    const cached = getCachedSettings()
+    if (cached) {
+      applyModulePowerScanning(resolveModule(), cached)
     }
-
-    applyPowerScanning()
-    const handleSettingsUpdate = () => applyPowerScanning()
-    window.addEventListener("businessSettingsUpdated", handleSettingsUpdate)
-    return () => window.removeEventListener("businessSettingsUpdated", handleSettingsUpdate)
   }, [location.pathname])
 
   return (
-    <>
+    <PublicAppConfigProvider>
       <ScrollToTop />
       <RestaurantGlobalNotificationListener />
       <PushSoundEnableButton />
@@ -144,6 +130,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="/food/user" replace />} />
         </Routes>
       </Suspense>
-    </>
+    </PublicAppConfigProvider>
   )
 }

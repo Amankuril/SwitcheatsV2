@@ -1,5 +1,4 @@
 import multer from 'multer';
-import rateLimit from 'express-rate-limit';
 import { config } from '../../../config/env.js';
 
 const memoryStorage = multer.memoryStorage();
@@ -19,13 +18,4 @@ export const imageUpload = multer({
     }
 });
 
-export const uploadRateLimiter = rateLimit({
-    windowMs: config.uploadRateLimitWindowMinutes * 60 * 1000,
-    max: config.nodeEnv === 'development' ? 200 : config.uploadRateLimitMax,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        success: false,
-        message: 'Too many upload requests, please try again later.'
-    }
-});
+export { uploadRateLimiter } from '../../../middleware/rateLimit.js';

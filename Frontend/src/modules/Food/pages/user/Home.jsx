@@ -90,7 +90,8 @@ import { useLocation } from "@food/hooks/useLocation";
 import { useZone } from "@food/hooks/useZone";
 import quickSpicyLogo from "@food/assets/switcheats-logo.png";
 import offerImage from "@food/assets/offerimage.png";
-import api, { publicGetOnce, restaurantAPI, adminAPI } from "@food/api";
+import api, { restaurantAPI, adminAPI } from "@food/api";
+import { usePublicAppConfig } from "@food/context/PublicAppConfigContext";
 import { API_BASE_URL } from "@food/api/config";
 import OptimizedImage from "@food/components/OptimizedImage";
 import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailability";
@@ -757,24 +758,22 @@ export default function Home() {
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [topBannersData, setTopBannersData] = useState([]);
   const [topBannersLoaded, setTopBannersLoaded] = useState(false);
+  const {
+    topBanners,
+    heroBanners,
+    exploreIcons,
+    refreshUserHome,
+    refreshLanding,
+  } = usePublicAppConfig();
 
   useEffect(() => {
-    let cancelled = false;
-    publicGetOnce("/food/top-banners/public")
-      .then((res) => {
-        if (cancelled) return;
-        if (res?.data?.success && Array.isArray(res?.data?.data?.banners)) {
-          setTopBannersData(res.data.data.banners);
-        }
-      })
-      .catch((err) => console.error("Error fetching top banners:", err))
-      .finally(() => {
-        if (!cancelled) setTopBannersLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void refreshUserHome();
+  }, [refreshUserHome]);
+
+  useEffect(() => {
+    setTopBannersData(Array.isArray(topBanners) ? topBanners : []);
+    if (topBanners) setTopBannersLoaded(true);
+  }, [topBanners]);
   const [heroBannerImages, setHeroBannerImages] = useState([]);
   const [heroBannersData, setHeroBannersData] = useState([]); // Store full banner data with linked restaurants
   const [loadingBanners, setLoadingBanners] = useState(true);
@@ -1239,39 +1238,21 @@ export default function Home() {
     };
   }, [showVegModePopup]);
 
-  // Fetch hero banners from public API (no auth required)
+  // Hero banners from centralized public config
   useEffect(() => {
-    let cancelled = false;
-    setLoadingBanners(true);
-    publicGetOnce("/food/hero-banners/public")
-      .then((response) => {
-        if (cancelled) return;
-        const data = response?.data?.data;
-        const list = Array.isArray(data?.banners)
-          ? data.banners
-          : Array.isArray(data)
-            ? data
-            : [];
-        const images = list
-          .map((b) => (b && typeof b.imageUrl === "string" ? b.imageUrl : ""))
-          .filter(Boolean);
-        setHeroBannerImages(images);
-        setHeroBannersData(list);
-        setCurrentBannerIndex(0);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        debugError("Failed to fetch hero banners", err);
-        setHeroBannerImages([]);
-        setHeroBannersData([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingBanners(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (!Array.isArray(heroBanners)) {
+      setLoadingBanners(true);
+      return;
+    }
+
+    const images = heroBanners
+      .map((b) => (b && typeof b.imageUrl === "string" ? b.imageUrl : ""))
+      .filter(Boolean);
+    setHeroBannerImages(images);
+    setHeroBannersData(heroBanners);
+    setCurrentBannerIndex(0);
+    setLoadingBanners(false);
+  }, [heroBanners]);
 
   // Old backend endpoint removed: keep UI stable with empty categories.
   useEffect(() => {
@@ -1513,47 +1494,26 @@ export default function Home() {
     refreshZone,
   } = useZone(effectiveLocation);
 
-  // Fetch explore icons and landing settings from public APIs
+  useEffect(() => {
+    if (Array.isArray(exploreIcons)) {
+      setLandingExploreMore(exploreIcons);
+    }
+  }, [exploreIcons]);
+
+  // Landing settings (zone-specific) from centralized public config
   useEffect(() => {
     let cancelled = false;
     setLoadingLandingConfig(true);
-    
-    // Construct the settings endpoint with zoneId if available
-    const settingsEndpoint = zoneId 
-      ? `/food/landing/settings/public?zoneId=${zoneId}`
-      : "/food/landing/settings/public";
 
-    Promise.all([
-      publicGetOnce("/food/explore-icons/public")
-        .catch(() => ({ data: { data: {} } })),
-      publicGetOnce(settingsEndpoint)
-        .catch(() => ({ data: { data: {} } })),
-    ])
-      .then(([exploreRes, settingsRes]) => {
-        if (cancelled) return;
-        const exploreData = exploreRes?.data?.data;
-        const items = Array.isArray(exploreData?.items)
-          ? exploreData.items
-          : Array.isArray(exploreData)
-            ? exploreData
-            : [];
-        setLandingExploreMore(
-          items.map((it) => ({
-            ...it,
-            imageUrl: it.imageUrl || it.iconUrl,
-            label: it.label || it.name,
-          })),
-        );
-        const settings = settingsRes?.data?.data || {};
-        setExploreMoreHeading(settings.exploreMoreHeading || "Explore More");
-        setRecommendedRestaurantIds(settings.recommendedRestaurantIds || []);
-        
-        const allRecommended = settings.recommendedRestaurants || [];
-        setRecommendedRestaurantsFromSettings(allRecommended);
+    void refreshLanding(zoneId)
+      .then((landing) => {
+        if (cancelled || !landing) return;
+        setExploreMoreHeading(landing.exploreMoreHeading || "Explore More");
+        setRecommendedRestaurantIds(landing.recommendedRestaurantIds || []);
+        setRecommendedRestaurantsFromSettings(landing.recommendedRestaurants || []);
       })
       .catch(() => {
         if (!cancelled) {
-          setLandingExploreMore([]);
           setExploreMoreHeading("Explore More");
           setRecommendedRestaurantsFromSettings([]);
         }
@@ -1561,10 +1521,11 @@ export default function Home() {
       .finally(() => {
         if (!cancelled) setLoadingLandingConfig(false);
       });
+
     return () => {
       cancelled = true;
     };
-  }, [zoneId]);
+  }, [zoneId, refreshLanding]);
   const [showToast, setShowToast] = useState(false);
   const [showManageCollections, setShowManageCollections] = useState(false);
   const [selectedRestaurantSlug, setSelectedRestaurantSlug] = useState(null);
@@ -2108,62 +2069,6 @@ export default function Home() {
           startTransition(() => {
             setRestaurantsData(sortRestaurantsForDisplay(transformedRestaurants));
           });
-
-          const restaurantsNeedingOutletTimings = transformedRestaurants.filter(
-            (restaurant) => restaurant.mongoId && !restaurant.outletTimings,
-          );
-
-          if (restaurantsNeedingOutletTimings.length > 0) {
-            void (async () => {
-              const resolvedOutletTimings = new Map();
-
-              for (const restaurant of restaurantsNeedingOutletTimings) {
-                try {
-                  const outletResponse =
-                    await restaurantAPI.getOutletTimingsByRestaurantId(
-                      restaurant.mongoId,
-                      { noCache: true },
-                    );
-                  const outletTimings =
-                    outletResponse?.data?.data?.outletTimings ||
-                    outletResponse?.data?.outletTimings ||
-                    null;
-
-                  if (outletTimings) {
-                    resolvedOutletTimings.set(restaurant.mongoId, outletTimings);
-                  }
-                } catch (_) {
-                  // Keep the existing restaurant data if enrichment fails.
-                }
-              }
-
-              if (
-                requestSeq !== restaurantsRequestSeqRef.current ||
-                resolvedOutletTimings.size === 0
-              ) {
-                return;
-              }
-
-              startTransition(() => {
-                setRestaurantsData((currentRestaurants) => {
-                  let hasChanges = false;
-                  const nextRestaurants = currentRestaurants.map((restaurant) => {
-                    if (!restaurant.mongoId) return restaurant;
-                    const outletTimings = resolvedOutletTimings.get(
-                      restaurant.mongoId,
-                    );
-                    if (!outletTimings) return restaurant;
-                    hasChanges = true;
-                    return { ...restaurant, outletTimings };
-                  });
-
-                  return hasChanges
-                    ? sortRestaurantsForDisplay(nextRestaurants)
-                    : currentRestaurants;
-                });
-              });
-            })();
-          }
         } else {
           debugWarn("Invalid API response structure:", response.data);
           setRestaurantsData([]);

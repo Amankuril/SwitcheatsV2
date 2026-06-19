@@ -292,9 +292,10 @@ export const adminAPI = {
     apiClient.get("/food/admin/feature-settings", {
       contextModule: "admin",
     }),
-  getPublicFeatureSettings: () =>
-    apiClient.get("/food/admin/feature-settings/public", {
+  getPublicFeatureSettings: (config = {}) =>
+    publicConfigGetOnce("/food/admin/feature-settings/public", {
       contextModule: "user",
+      ...config,
     }),
   updateFeatureSetting: (key, body) =>
     apiClient.patch(`/food/admin/feature-settings/${String(key)}`, body ?? {}, {
@@ -924,8 +925,8 @@ export const adminAPI = {
   /** Fee Settings (admin) */
   getFeeSettings: () =>
     apiClient.get("/food/admin/fee-settings", { contextModule: "admin" }),
-  getPublicFeeSettings: () =>
-    apiClient.get("/food/admin/fee-settings/public"),
+  getPublicFeeSettings: (config = {}) =>
+    publicConfigGetOnce("/food/admin/fee-settings/public", config),
   createOrUpdateFeeSettings: (body) =>
     apiClient.put("/food/admin/fee-settings", body ?? {}, {
       contextModule: "admin",
@@ -1015,8 +1016,8 @@ export const adminAPI = {
     apiClient.get("/food/admin/power-scanning", {
       contextModule: "admin",
     }),
-  getPublicPowerScanningSettings: () =>
-    apiClient.get("/food/admin/power-scanning/public"),
+  getPublicPowerScanningSettings: (config = {}) =>
+    publicConfigGetOnce("/food/admin/power-scanning/public", config),
   updatePowerScanningSettings: (body = {}) =>
     apiClient.patch("/food/admin/power-scanning", body ?? {}, {
       contextModule: "admin",
@@ -1259,9 +1260,10 @@ export const restaurantAPI = {
     apiClient.get("/food/admin/restaurant-subscription-settings/public", {
       contextModule: "restaurant",
     }),
-  getFeatureSettingsPublic: () =>
-    apiClient.get("/food/admin/feature-settings/public", {
+  getFeatureSettingsPublic: (config = {}) =>
+    publicConfigGetOnce("/food/admin/feature-settings/public", {
       contextModule: "restaurant",
+      ...config,
     }),
   getOrderById: (orderId) =>
     apiClient.get(`/food/restaurant/orders/${String(orderId)}`, {
@@ -1532,6 +1534,9 @@ export const restaurantAPI = {
   /** Public: get outlet timings by restaurant id */
   getOutletTimingsByRestaurantId: (id, config = {}) =>
     getPublicRestaurantOutletTimingsOnce(id, config),
+  /** Public: approved foods for user category/search pages (zone + optional category slug) */
+  getPublicFoods: (params = {}, config = {}) =>
+    getPublicFoodsOnce(params, config),
   /** Public (user app): approved add-ons by restaurant id/slug */
   getAddonsByRestaurantId: (id, config = {}) =>
     apiClient.get(`/food/restaurant/restaurants/${String(id)}/addons`, {
@@ -1601,14 +1606,49 @@ function createInFlightCache({ ttlMs }) {
     return p;
   };
 
-  return { getOrCreate };
+  const invalidate = () => {
+    inFlight.clear();
+    cached.clear();
+  };
+
+  return { getOrCreate, invalidate };
 }
+
+// Long-lived cache for public app config (banners, settings, fees) — shared across routes.
+const PUBLIC_CONFIG_CACHE_TTL_MS = 15 * 60 * 1000;
+const publicConfigCache = createInFlightCache({ ttlMs: PUBLIC_CONFIG_CACHE_TTL_MS });
+
+export const invalidatePublicConfigCache = () => {
+  publicConfigCache.invalidate();
+};
+
+export const publicConfigGetOnce = (url, config = {}) => {
+  const safeUrl = typeof url === "string" ? url.trim() : "";
+  const { noCache, params, ...axiosConfig } = config || {};
+  if (!safeUrl) return Promise.reject(new Error("url is required"));
+
+  if (noCache) {
+    return apiClient.get(safeUrl, { params, ...axiosConfig });
+  }
+
+  const keyParams =
+    params && typeof params === "object" ? { ...params } : params;
+  if (keyParams && typeof keyParams === "object") {
+    delete keyParams._ts;
+  }
+
+  const key = `CONFIG:${safeUrl}:${stableStringify(keyParams)}`;
+  return publicConfigCache.getOrCreate(key, () =>
+    apiClient.get(safeUrl, { params, ...axiosConfig }),
+  );
+};
 
 // Public user-app endpoints can be called by multiple components/effects on refresh (and React StrictMode in dev).
 // A small in-flight + short TTL cache collapses duplicate requests without changing functionality.
 const publicRestaurantsCache = createInFlightCache({ ttlMs: 3000 });
-const publicRestaurantMenuCache = createInFlightCache({ ttlMs: 3000 });
-const publicRestaurantOutletTimingsCache = createInFlightCache({ ttlMs: 3000 });
+const publicRestaurantMenuCache = createInFlightCache({ ttlMs: 5 * 60 * 1000 });
+const publicRestaurantOutletTimingsCache = createInFlightCache({ ttlMs: 5 * 60 * 1000 });
+const publicFoodsCache = createInFlightCache({ ttlMs: 3 * 60 * 1000 });
 const publicGenericGetCache = createInFlightCache({ ttlMs: 3000 });
 
 export const publicGetOnce = (url, config = {}) => {
@@ -1706,69 +1746,29 @@ const getPublicRestaurantOutletTimingsOnce = (id, config = {}) => {
   );
 };
 
-const shouldConvertImageToWebP = (file) => {
-  const type = String(file?.type || "").toLowerCase();
-  if (!type.startsWith("image/")) return false;
-  if (type === "image/webp") return false;
-  if (type === "image/gif") return false;
-  if (type === "image/svg+xml") return false;
-  return true;
-};
-
-const loadImageFromFile = async (file) => {
-  const objectUrl = URL.createObjectURL(file);
-  try {
-    const image = new Image();
-    image.decoding = "async";
-    const loaded = new Promise((resolve, reject) => {
-      image.onload = () => resolve(image);
-      image.onerror = reject;
-    });
-    image.src = objectUrl;
-    return await loaded;
-  } finally {
-    URL.revokeObjectURL(objectUrl);
+const getPublicFoodsOnce = (params = {}, config = {}) => {
+  const { noCache, ...axiosConfig } = config || {};
+  const keyParams = { ...(params || {}) };
+  if (keyParams && typeof keyParams === "object") {
+    delete keyParams._ts;
   }
-};
-
-const convertImageToWebPForUpload = async (file, { quality = 0.98 } = {}) => {
-  if (!shouldConvertImageToWebP(file)) return file;
-  if (typeof document === "undefined") return file;
-
-  try {
-    const img = await loadImageFromFile(file);
-    const width = Number(img.naturalWidth || img.width || 0);
-    const height = Number(img.naturalHeight || img.height || 0);
-    if (!width || !height) return file;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-    ctx.drawImage(img, 0, 0, width, height);
-
-    const webpBlob = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/webp", quality),
-    );
-    if (!webpBlob) return file;
-
-    // Keep original when WebP does not reduce payload enough.
-    if (webpBlob.size >= file.size * 0.98) return file;
-
-    const baseName = String(file.name || "upload").replace(/\.[^.]+$/, "");
-    return new File([webpBlob], `${baseName}.webp`, {
-      type: "image/webp",
-      lastModified: Date.now(),
+  if (noCache) {
+    return apiClient.get("/food/restaurant/public/foods", {
+      params: keyParams,
+      ...axiosConfig,
     });
-  } catch {
-    return file;
   }
+  const key = `publicFoods:${stableStringify(keyParams)}`;
+  return publicFoodsCache.getOrCreate(key, () =>
+    apiClient.get("/food/restaurant/public/foods", {
+      params: keyParams,
+      ...axiosConfig,
+    }),
+  );
 };
 
-const toUploadReadyImage = async (file) => convertImageToWebPForUpload(file);
-const toUploadReadyImages = async (files = []) =>
-  Promise.all(Array.from(files || []).map((file) => toUploadReadyImage(file)));
+const toUploadReadyImage = async (file) => file;
+const toUploadReadyImages = async (files = []) => Array.from(files || []).filter(Boolean);
 
 /** Single in-flight + short cache for delivery /auth/me - one call per page load / refresh. */
 let deliveryMeInFlight = null;

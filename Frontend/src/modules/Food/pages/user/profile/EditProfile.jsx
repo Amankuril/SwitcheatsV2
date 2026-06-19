@@ -26,6 +26,7 @@ import { toast } from "sonner"
 import useAppBackNavigation from "@food/hooks/useAppBackNavigation"
 import { ImageSourcePicker } from "@food/components/ImageSourcePicker"
 import { isFlutterBridgeAvailable } from "@food/utils/imageUploadUtils"
+import { resolveMediaUrl } from "@food/utils/common"
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
@@ -128,7 +129,7 @@ export default function EditProfile() {
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [profileImage, setProfileImage] = useState(initialProfile?.profileImage || "")
-  const [imagePreview, setImagePreview] = useState(initialProfile?.profileImage || "")
+  const [imagePreview, setImagePreview] = useState(resolveMediaUrl(initialProfile?.profileImage || ""))
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({
     name: "",
@@ -151,7 +152,7 @@ export default function EditProfile() {
     // Update profile image
     if (profile.profileImage) {
       setProfileImage(profile.profileImage)
-      setImagePreview(profile.profileImage)
+      setImagePreview(resolveMediaUrl(profile.profileImage))
     }
   }, [userProfile])
 
@@ -324,7 +325,7 @@ export default function EditProfile() {
 
       if (imageUrl) {
         setProfileImage(imageUrl)
-        setImagePreview(imageUrl)
+        setImagePreview(resolveMediaUrl(imageUrl))
         toast.success('Profile image uploaded successfully')
 
         const mergedProfile = {
@@ -526,7 +527,7 @@ export default function EditProfile() {
             <Avatar className="h-24 w-24 bg-[#EB590E] border-0">
               {imagePreview && (
                 <AvatarImage
-                  src={imagePreview}
+                  src={resolveMediaUrl(imagePreview) || undefined}
                   alt={formData.name || 'User'}
                 />
               )}

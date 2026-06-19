@@ -46,6 +46,7 @@ import {
     deleteCategoryController
 } from '../controllers/restaurantCategory.controller.js';
 import { getMenuController, updateMenuController, getPublicRestaurantMenuController } from '../controllers/restaurantMenu.controller.js';
+import { listPublicFoodsController } from '../controllers/publicFoods.controller.js';
 import { getPublicRestaurantAddonsController } from '../controllers/publicAddons.controller.js';
 import * as feedbackExperienceController from '../../admin/controllers/feedbackExperience.controller.js';
 import {
@@ -100,6 +101,7 @@ router.post('/upload-attachment', upload.single('file'), uploadRestaurantAttachm
 router.get('/restaurants', cacheResponse(300, 'restaurants'), listApprovedRestaurantsController);
 router.get('/restaurants/:id', cacheResponse(600, 'restaurant_detail'), getApprovedRestaurantController);
 router.get('/restaurants/:id/menu', cacheResponse(600, 'restaurant_menu'), getPublicRestaurantMenuController);
+router.get('/public/foods', cacheResponse(300, 'public_foods'), listPublicFoodsController);
 router.get('/restaurants/:id/outlet-timings', cacheResponse(600, 'restaurant_timings'), getOutletTimingsByRestaurantIdController);
 router.get('/offers', optionalAuth, listPublicOffersController);
 // Public: categories list (zone-aware; returns zone categories + global)

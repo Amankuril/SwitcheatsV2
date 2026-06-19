@@ -107,3 +107,43 @@ export async function upsertOutletTimingsForRestaurant(restaurantId, outletTimin
     return { outletTimings: toClientShape(doc) };
 }
 
+export async function getOutletTimingsMapForRestaurants(restaurantIds = []) {
+    const ids = [
+        ...new Set(
+            (restaurantIds || [])
+                .map((id) => String(id || '').trim())
+                .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        )
+    ];
+
+    if (!ids.length) return new Map();
+
+    const defaultShape = toClientShape({ timings: defaultTimings() });
+    const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+    const docs = await FoodRestaurantOutletTimings.find({ restaurantId: { $in: objectIds } })
+        .select('restaurantId timings')
+        .lean();
+
+    const map = new Map(ids.map((id) => [id, defaultShape]));
+    for (const doc of docs) {
+        map.set(String(doc.restaurantId), toClientShape(doc));
+    }
+    return map;
+}
+
+export async function attachOutletTimingsToRestaurants(restaurants = []) {
+    if (!Array.isArray(restaurants) || restaurants.length === 0) return restaurants;
+
+    const map = await getOutletTimingsMapForRestaurants(
+        restaurants.map((r) => r._id || r.id || r.restaurantId)
+    );
+
+    return restaurants.map((r) => {
+        const key = String(r._id || r.id || r.restaurantId || '');
+        return {
+            ...r,
+            outletTimings: map.get(key) || null
+        };
+    });
+}
+

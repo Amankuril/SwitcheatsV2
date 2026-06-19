@@ -356,6 +356,13 @@ apiClient.interceptors.response.use(
   async (err) => {
     const original = err?.config;
     if (err?.response?.status === 429) {
+      const retryAfter = err?.response?.data?.retryAfterSeconds;
+      const message =
+        err?.response?.data?.message ||
+        "Too many requests. Please wait and try again.";
+      err.rateLimitMessage = retryAfter
+        ? `${message} (retry in ~${retryAfter}s)`
+        : message;
       return Promise.reject(err);
     }
     if (err?.response?.status !== 401 || !original || original._retry) {

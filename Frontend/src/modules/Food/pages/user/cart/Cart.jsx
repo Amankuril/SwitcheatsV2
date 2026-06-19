@@ -18,6 +18,7 @@ import { API_BASE_URL } from "@food/api/config"
 import { initRazorpayPayment } from "@food/utils/razorpay"
 import { toast } from "sonner"
 import { getCompanyNameAsync } from "@food/utils/businessSettings"
+import { getCachedFeeSettings, loadCorePublicAppConfig } from "@food/services/publicAppConfig"
 import { useCompanyName } from "@food/hooks/useCompanyName"
 import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailability"
 import useAppBackNavigation from "@food/hooks/useAppBackNavigation"
@@ -1028,52 +1029,33 @@ export default function Cart() {
     fetchOrderCount()
   }, [])
 
-  // Fetch fee settings on mount
+  // Fee settings from centralized public config (cached; refresh on admin update only)
   useEffect(() => {
-    const fetchFeeSettings = async () => {
-      try {
-        const response = await adminAPI.getPublicFeeSettings()
-        if (response.data.success && response.data.data.feeSettings) {
-          setFeeSettings({
-            deliveryFee: response.data.data.feeSettings.deliveryFee ?? 25,
-            deliveryFeeRanges: response.data.data.feeSettings.deliveryFeeRanges || [],
-            freeDeliveryThreshold: response.data.data.feeSettings.freeDeliveryThreshold ?? 999999,
-            platformFee: response.data.data.feeSettings.platformFee ?? 0,
-            gstRate: response.data.data.feeSettings.gstRate ?? 0,
-          })
-        }
-      } catch (error) {
-        debugError('Error fetching fee settings:', error)
-        // Keep default values on error
-      }
+    const applyFeeSettings = (raw) => {
+      if (!raw) return
+      setFeeSettings({
+        deliveryFee: raw.deliveryFee ?? 25,
+        deliveryFeeRanges: raw.deliveryFeeRanges || [],
+        freeDeliveryThreshold: raw.freeDeliveryThreshold ?? 999999,
+        platformFee: raw.platformFee ?? 0,
+        gstRate: raw.gstRate ?? 0,
+      })
     }
 
-    const handleFocus = () => {
-      if (typeof document !== "undefined" && document.hidden) return
-      fetchFeeSettings()
+    applyFeeSettings(getCachedFeeSettings())
+
+    void loadCorePublicAppConfig().then((snapshot) => {
+      applyFeeSettings(snapshot.feeSettings)
+    })
+
+    const handleSettingsUpdate = () => {
+      void loadCorePublicAppConfig({ force: true }).then((snapshot) => {
+        applyFeeSettings(snapshot.feeSettings)
+      })
     }
 
-    const pollFeeSettings = () => {
-      if (typeof document !== "undefined" && document.hidden) return
-      fetchFeeSettings()
-    }
-
-    const handleVisibilityChange = () => {
-      if (typeof document !== "undefined" && !document.hidden) {
-        fetchFeeSettings()
-      }
-    }
-
-    fetchFeeSettings()
-    window.addEventListener("focus", handleFocus)
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    const intervalId = setInterval(pollFeeSettings, 30000)
-
-    return () => {
-      window.removeEventListener("focus", handleFocus)
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-      clearInterval(intervalId)
-    }
+    window.addEventListener("businessSettingsUpdated", handleSettingsUpdate)
+    return () => window.removeEventListener("businessSettingsUpdated", handleSettingsUpdate)
   }, [])
 
   // Use backend pricing if available, otherwise fallback to database fee settings

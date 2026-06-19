@@ -602,18 +602,20 @@ function RestaurantDetailsContent() {
           fetchedRestaurantRef.current = true // Mark as fetched
           fetchedSlugRef.current = slug
 
-          // Load outlet timings from public endpoint (source of truth for daily opening slots)
-          try {
-            const outletRestaurantId = transformedRestaurant.mongoId || actualRestaurant?._id || apiRestaurant?._id
-            if (outletRestaurantId) {
-              const outletResponse = await restaurantAPI.getOutletTimingsByRestaurantId(outletRestaurantId, { noCache: true })
-              const outletTimingsData = outletResponse?.data?.data?.outletTimings || outletResponse?.data?.outletTimings
-              if (outletTimingsData) {
-                setRestaurant((prev) => ({ ...prev, outletTimings: outletTimingsData }))
+          // Outlet timings are included in the restaurant API; fetch only as fallback.
+          if (!transformedRestaurant.outletTimings) {
+            try {
+              const outletRestaurantId = transformedRestaurant.mongoId || actualRestaurant?._id || apiRestaurant?._id
+              if (outletRestaurantId) {
+                const outletResponse = await restaurantAPI.getOutletTimingsByRestaurantId(outletRestaurantId)
+                const outletTimingsData = outletResponse?.data?.data?.outletTimings || outletResponse?.data?.outletTimings
+                if (outletTimingsData) {
+                  setRestaurant((prev) => ({ ...prev, outletTimings: outletTimingsData }))
+                }
               }
+            } catch (outletError) {
+              debugWarn("Outlet timings fetch failed, falling back to delivery timings:", outletError?.message)
             }
-          } catch (outletError) {
-            debugWarn("Outlet timings fetch failed, falling back to delivery timings:", outletError?.message)
           }
 
           // Fetch menu and inventory for this restaurant

@@ -5,7 +5,11 @@
 
 import apiClient from "@food/api/axios";
 import { API_ENDPOINTS } from "@food/api/config";
-import { publicGetOnce } from "@food/api";
+import {
+  getCachedBusinessSettings,
+  loadCorePublicAppConfig,
+  invalidatePublicAppConfig,
+} from "@food/services/publicAppConfig";
 
 const SETTINGS_KEY = 'food_business_settings';
 const DEFAULT_MODULE_POWER_SCANNING = {
@@ -334,38 +338,33 @@ let inFlightSettingsPromise = null;
 /**
  * Load business settings from backend (public endpoint - no auth required)
  */
-export const loadBusinessSettings = async () => {
+export const loadBusinessSettings = async ({ force = false } = {}) => {
   try {
-    // If we have no cached settings, we MUST fetch
-    // If we have cached settings, we still try to fetch in background to ensure they are fresh
     const endpoint = API_ENDPOINTS.ADMIN.BUSINESS_SETTINGS_PUBLIC;
     if (!endpoint || (typeof endpoint === "string" && !endpoint.trim())) {
       return cachedSettings;
     }
 
-    if (inFlightSettingsPromise) {
+    if (!force && cachedSettings) {
+      const fromService = getCachedBusinessSettings();
+      if (fromService) return fromService;
+      return cachedSettings;
+    }
+
+    if (inFlightSettingsPromise && !force) {
       return await inFlightSettingsPromise;
     }
 
     inFlightSettingsPromise = (async () => {
-      // Use public endpoint that doesn't require authentication
-      // Use noCache to ensure we get fresh data from server this time
-      const [settingsResponse, powerScanningResponse] = await Promise.all([
-        publicGetOnce(endpoint, { noCache: true }),
-        publicGetOnce("/food/admin/power-scanning/public", { noCache: true }).catch(() => null),
-      ]);
-      const settings = settingsResponse?.data?.data || settingsResponse?.data;
-      const publicPowerScanning = powerScanningResponse?.data?.data || powerScanningResponse?.data || null;
+      const snapshot = await loadCorePublicAppConfig({ force });
+      const mergedSettings = snapshot.businessSettings || cachedSettings;
 
-      if (settings) {
-        const mergedSettings = publicPowerScanning
-          ? { ...settings, powerScanning: publicPowerScanning }
-          : settings;
+      if (mergedSettings) {
         cachedSettings = mergedSettings;
         try {
           localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings));
         } catch (e) {}
-        
+
         updateFavicon(mergedSettings.favicon?.url);
         updateTitle(mergedSettings.companyName);
         return mergedSettings;
@@ -375,7 +374,6 @@ export const loadBusinessSettings = async () => {
 
     return await inFlightSettingsPromise;
   } catch (error) {
-    // Return cached if failed
     return cachedSettings;
   } finally {
     inFlightSettingsPromise = null;
@@ -516,6 +514,7 @@ export const applyModulePowerScanning = (moduleName = "user", settingsOverride =
  */
 export const clearCache = () => {
   cachedSettings = null;
+  invalidatePublicAppConfig();
   try {
     localStorage.removeItem(SETTINGS_KEY);
   } catch (e) {}

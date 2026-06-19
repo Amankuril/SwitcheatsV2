@@ -18,12 +18,20 @@ import { requireRoles } from '../core/roles/role.middleware.js';
 import { getQueuesController } from '../controllers/admin.controller.js';
 import webhookRoutes from '../core/payments/routes/webhook.routes.js'; // ✅ NEW
 import searchRoutes from '../modules/food/search/routes/search.routes.js';
+import { config } from '../config/env.js';
+import { getRateLimitSummary } from '../middleware/rateLimit.js';
 
 const router = express.Router();
 
 router.get('/v1/health', (req, res) => {
     res.status(200).json({ status: 'UP', message: 'Server is healthy' });
 });
+
+if (config.nodeEnv !== 'production') {
+    router.get('/v1/health/rate-limit', (_req, res) => {
+        res.status(200).json({ success: true, data: getRateLimitSummary() });
+    });
+}
 
 // Food-prefixed auth routes (preferred)
 router.use('/v1/food/auth', authRoutes);

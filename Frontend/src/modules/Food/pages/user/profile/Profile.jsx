@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 
 import AnimatedPage from "@food/components/user/AnimatedPage";
+import { resolveMediaUrl } from "@food/utils/common";
 import { Card, CardContent } from "@food/components/ui/card";
 import { Button } from "@food/components/ui/button";
 import { useProfile } from "@food/context/ProfileContext";
@@ -453,12 +454,7 @@ export default function Profile() {
                 <Avatar className="h-16 w-16 bg-blue-300 border-0">
                   {userProfile?.profileImage && (
                     <AvatarImage
-                      src={
-                        userProfile.profileImage &&
-                          userProfile.profileImage.trim()
-                          ? userProfile.profileImage
-                          : undefined
-                      }
+                      src={resolveMediaUrl(userProfile.profileImage) || undefined}
                       alt={displayName}
                     />
                   )}

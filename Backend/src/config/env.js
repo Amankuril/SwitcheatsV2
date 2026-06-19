@@ -33,10 +33,13 @@ export const config = {
     smsDltTemplateId: process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID,
 
     // Rate limiting
+    rateLimitEnabled: process.env.RATE_LIMIT_ENABLED !== 'false',
     rateLimitWindowMinutes: Number(process.env.RATE_LIMIT_WINDOW || 15),
     rateLimitMaxRequests: Number(process.env.RATE_LIMIT_MAX || 100),
+    rateLimitDevMaxRequests: Number(process.env.RATE_LIMIT_DEV_MAX || 2000),
     authRateLimitWindowMinutes: Number(process.env.AUTH_RATE_LIMIT_WINDOW || 15),
     authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX || 30),
+    authRateLimitDevMax: Number(process.env.AUTH_RATE_LIMIT_DEV_MAX || 100),
 
     // Security
     bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS || 10),
@@ -49,6 +52,11 @@ export const config = {
     uploadMaxFileSizeBytes: Number(process.env.UPLOAD_MAX_FILE_SIZE_MB || 5) * 1024 * 1024,
     uploadRateLimitWindowMinutes: Number(process.env.UPLOAD_RATE_LIMIT_WINDOW || 15),
     uploadRateLimitMax: Number(process.env.UPLOAD_RATE_LIMIT_MAX || 60),
+    uploadRateLimitDevMax: Number(process.env.UPLOAD_RATE_LIMIT_DEV_MAX || 200),
+    /** WebP output quality (1–100). 90 = high quality, small size reduction. */
+    uploadWebpQuality: Number(process.env.UPLOAD_WEBP_QUALITY || 90),
+    /** Max width in px; larger images are resized (aspect ratio kept). */
+    uploadWebpMaxWidth: Number(process.env.UPLOAD_WEBP_MAX_WIDTH || 2560),
     /** @deprecated Use uploadStorageRoot — kept for backward compatibility */
     uploadPath: process.env.UPLOAD_PATH || process.env.UPLOAD_STORAGE_ROOT || '/var/www/uploads',
 

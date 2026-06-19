@@ -10,6 +10,7 @@ import { FoodRestaurantMenu } from '../models/restaurantMenu.model.js';
 import { FoodItem } from '../../admin/models/food.model.js';
 import { FoodOrder } from '../../orders/models/order.model.js';
 import { FoodRestaurantOutletTimings } from '../models/outletTimings.model.js';
+import { attachOutletTimingsToRestaurants } from './outletTimings.service.js';
 import { getRestaurantSubscriptionSettings } from '../../admin/services/admin.service.js';
 import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
 import {
@@ -2225,8 +2226,9 @@ export const listApprovedRestaurants = async (query = {}) => {
             };
         });
         const restaurantsWithOffers = await attachPublicOffersToRestaurants(restaurantsWithRecommended);
+        const restaurantsWithTimings = await attachOutletTimingsToRestaurants(restaurantsWithOffers);
 
-        return { restaurants: restaurantsWithOffers, total, page, limit };
+        return { restaurants: restaurantsWithTimings, total, page, limit };
     }
 
     // Non-geo path: normal query + sort.
@@ -2295,8 +2297,9 @@ export const listApprovedRestaurants = async (query = {}) => {
         };
     });
     const restaurantsWithOffers = await attachPublicOffersToRestaurants(restaurantsWithRecommended);
+    const restaurantsWithTimings = await attachOutletTimingsToRestaurants(restaurantsWithOffers);
 
-    return { restaurants: restaurantsWithOffers, total, page, limit };
+    return { restaurants: restaurantsWithTimings, total, page, limit };
 };
 
 export const getApprovedRestaurantByIdOrSlug = async (idOrSlug) => {
@@ -2307,11 +2310,12 @@ export const getApprovedRestaurantByIdOrSlug = async (idOrSlug) => {
     if (/^[0-9a-fA-F]{24}$/.test(value)) {
         const doc = await FoodRestaurant.findOne({ _id: value, status: 'approved' }).lean();
         if (!doc) return null;
-        return {
+        const [withTimings] = await attachOutletTimingsToRestaurants([{
             ...doc,
             rating: normalizeRatingValue(doc.rating),
             totalRatings: normalizeTotalRatingsValue(doc.totalRatings)
-        };
+        }]);
+        return withTimings;
     }
 
     // Slug path: use normalized field for index-friendly exact match.
@@ -2323,11 +2327,12 @@ export const getApprovedRestaurantByIdOrSlug = async (idOrSlug) => {
         restaurantNameNormalized
     }).lean();
     if (!doc) return null;
-    return {
+    const [withTimings] = await attachOutletTimingsToRestaurants([{
         ...doc,
         rating: normalizeRatingValue(doc.rating),
         totalRatings: normalizeTotalRatingsValue(doc.totalRatings)
-    };
+    }]);
+    return withTimings;
 };
 
 export const listPublicOffers = async (query = {}) => {
