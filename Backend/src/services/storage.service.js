@@ -54,6 +54,30 @@ export const buildPublicUrl = (relativePath) => {
     return `${base}/${cleanPath}`;
 };
 
+/**
+ * Normalize any media URL before saving to MongoDB.
+ * Strips localhost origins so production DB never stores http://localhost:5000/uploads/...
+ */
+export const normalizeMediaUrlForStorage = (url) => {
+    const trimmed = String(url || '').trim();
+    if (!trimmed) return '';
+
+    if (trimmed.startsWith('/uploads/')) {
+        return trimmed;
+    }
+
+    try {
+        const parsed = new URL(trimmed);
+        if (/^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname) && parsed.pathname.startsWith('/uploads/')) {
+            return parsed.pathname;
+        }
+    } catch {
+        /* not a full URL */
+    }
+
+    return trimmed;
+};
+
 const getAbsolutePath = (relativePath) => {
     const root = path.resolve(config.uploadStorageRoot);
     const absolute = path.resolve(root, relativePath);
