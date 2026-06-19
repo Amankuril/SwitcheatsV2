@@ -39,11 +39,18 @@ const buildFilename = (extension) => {
 };
 
 export const buildPublicUrl = (relativePath) => {
-    const base = String(config.uploadBaseUrl || '').replace(/\/+$/, '');
     const cleanPath = String(relativePath || '').replace(/^\/+/, '');
-    if (!base) {
-        return `/${cleanPath}`;
+    const base = String(config.uploadBaseUrl || '').replace(/\/+$/, '');
+
+    // Never persist localhost URLs — frontend/nginx resolve /uploads/... per environment
+    if (
+        !base
+        || base === '/uploads'
+        || /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/uploads)?$/i.test(base)
+    ) {
+        return `/uploads/${cleanPath}`;
     }
+
     return `${base}/${cleanPath}`;
 };
 

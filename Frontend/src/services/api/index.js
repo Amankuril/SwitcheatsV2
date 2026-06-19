@@ -5,6 +5,7 @@
 import apiClient from "./axios.js";
 import { API_BASE_URL, API_ENDPOINTS } from "./config.js";
 import * as authService from "./auth.js";
+import { resolveMediaUrl } from "../../shared/utils/mediaUrl.js";
 
 const stub = () =>
   Promise.resolve({
@@ -2437,10 +2438,17 @@ export const uploadAPI = {
     formData.append("folder", folder);
     formData.append("file", uploadFile);
 
-    return apiClient.post("/uploads/image", formData, {
+    const response = await apiClient.post("/uploads/image", formData, {
       params: { folder },
       headers: { "Content-Type": "multipart/form-data" },
     });
+
+    const payload = response?.data?.data;
+    if (payload?.url) {
+      payload.url = resolveMediaUrl(payload.url);
+    }
+
+    return response;
   },
 };
 /** Order API (user app – Bearer USER token). Minimal calls: single create/verify, list/details cached by caller. */

@@ -56,22 +56,54 @@ const extractUrlString = (value) => {
   return "";
 };
 
+const isLocalhostHost = (hostname) => /^(localhost|127\.0\.0\.1)$/i.test(String(hostname || ""));
+
+/** Origin used when rewriting bad localhost media URLs in production. */
+const getMediaRewriteOrigin = () => {
+  const uploadBase = getUploadBaseUrl();
+  if (/^https?:\/\//i.test(uploadBase)) {
+    try {
+      return new URL(uploadBase).origin;
+    } catch {
+      /* fall through */
+    }
+  }
+
+  const backendOrigin = getBackendOrigin();
+  if (backendOrigin && !isLocalhostHost(new URL(backendOrigin).hostname)) {
+    return backendOrigin;
+  }
+
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+
+  return "";
+};
+
 const finalizeAbsoluteUrl = (url) => {
   const appProtocol = typeof window !== "undefined" ? window.location?.protocol : "";
   const appHost = typeof window !== "undefined" ? window.location?.hostname : "";
+  const isProdBuild = typeof import.meta !== "undefined" && Boolean(import.meta.env?.PROD);
 
   try {
     const parsed = new URL(url, typeof window !== "undefined" ? window.location.origin : undefined);
 
-    if (
-      appHost &&
-      !/^(localhost|127\.0\.0\.1)$/i.test(appHost) &&
-      /^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname)
-    ) {
-      const backendUrl = new URL(getBackendOrigin() || window.location.origin);
-      parsed.protocol = backendUrl.protocol;
-      parsed.hostname = backendUrl.hostname;
-      parsed.port = backendUrl.port;
+    const shouldRewriteLocalhost =
+      isLocalhostHost(parsed.hostname)
+      && (
+        (appHost && !isLocalhostHost(appHost))
+        || isProdBuild
+      );
+
+    if (shouldRewriteLocalhost) {
+      const rewriteOrigin = getMediaRewriteOrigin();
+      if (rewriteOrigin) {
+        const rewrite = new URL(rewriteOrigin);
+        parsed.protocol = rewrite.protocol;
+        parsed.hostname = rewrite.hostname;
+        parsed.port = rewrite.port;
+      }
     }
 
     if (appProtocol === "https:" && parsed.protocol === "http:") {
