@@ -23,6 +23,7 @@ import { useCompanyName } from "@food/hooks/useCompanyName"
 import { getGoogleMapsApiKey } from "@food/utils/googleMapsApiKey"
 import { clearModuleAuth, clearAuthData } from "@food/utils/auth"
 import { ImageSourcePicker } from "@food/components/ImageSourcePicker"
+import { resolveMediaUrl } from "@food/utils/common"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -736,8 +737,8 @@ export default function RestaurantOnboarding() {
 
   const getPreviewImageUrl = (value) => {
     if (!value) return null
-    if (typeof value === "string") return value
-    if (value?.url && typeof value.url === "string") return value.url
+    if (typeof value === "string") return resolveMediaUrl(value)
+    if (value?.url && typeof value.url === "string") return resolveMediaUrl(value.url)
 
     if (isUploadableFile(value)) {
       const cache = previewUrlCacheRef.current
