@@ -1,5 +1,6 @@
 import { FoodRestaurant } from '../models/restaurant.model.js';
 import { uploadImageBuffer } from '../../../../services/cloudinary.service.js';
+import { normalizeMediaUrlForStorage } from '../../../../services/storage.service.js';
 import { ValidationError, NotFoundError } from '../../../../core/auth/errors.js';
 import mongoose from 'mongoose';
 import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyPaymentSignature } from '../../orders/helpers/razorpay.helper.js';
@@ -98,7 +99,10 @@ const normalizeTotalRatingsValue = (value) => {
     return Math.max(0, Math.floor(numeric));
 };
 
-const toUrl = (v) => (v && (typeof v === 'string' ? v : v.url)) ? (typeof v === 'string' ? v : v.url) : '';
+const toUrl = (v) => {
+    const raw = (v && (typeof v === 'string' ? v : v.url)) ? (typeof v === 'string' ? v : v.url) : '';
+    return normalizeMediaUrlForStorage(raw);
+};
 
 const normalizeRestaurantTime = (value) => {
     const raw = String(value || '').trim();
