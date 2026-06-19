@@ -3,7 +3,6 @@ import { config } from '../config/env.js';
 import { RedisRateLimitStore } from './rateLimitStore.js';
 
 const isDev = config.nodeEnv === 'development';
-const isProd = config.nodeEnv === 'production';
 
 const resolveMax = (productionMax, devFloor) => {
     if (!config.rateLimitEnabled) return Number.MAX_SAFE_INTEGER;
@@ -16,6 +15,38 @@ const clientIp = (req) => {
         .split(',')[0]
         .trim();
     return forwarded || req.ip || req.socket?.remoteAddress || 'unknown';
+};
+
+const requestPath = (req) => String(req.originalUrl || req.url || '').split('?')[0];
+
+/**
+ * SPA-friendly skips for the global limiter only.
+ * Auth/upload routes keep their own stricter limiters.
+ */
+export const shouldSkipGlobalRateLimit = (req) => {
+    if (req.method === 'OPTIONS') return true;
+
+    const path = requestPath(req);
+
+    // Session maintenance — must stay reachable (documented as exempt)
+    if (/^\/api\/v1\/food\/auth\/(me|refresh-token|logout)(\/|$)/.test(path)) {
+        return true;
+    }
+    if (/^\/api\/v1\/health/.test(path)) {
+        return true;
+    }
+
+    // Cached public config/banners — high volume on every route, not abuse-prone
+    if (req.method === 'GET' && /\/public(\/|$)/.test(path)) {
+        return true;
+    }
+
+    // Zone detection — called on every GPS/location update
+    if (req.method === 'GET' && /\/zones\/detect/.test(path)) {
+        return true;
+    }
+
+    return false;
 };
 
 /** HTTP rate limits are keyed by IP (industry default for public/auth endpoints). */
@@ -53,33 +84,42 @@ const buildHandler = (defaultMessage, limiterId) => (req, res, _next, options) =
     });
 };
 
-const createLazyLimiter = ({ name, windowMs, max, message, keyGenerator, prefix, validate }) => {
-    let limiter = null;
+/** Create limiter at module load — express-rate-limit v7 forbids lazy init per request. */
+const createLimiter = ({
+    name,
+    windowMs,
+    max,
+    message,
+    keyGenerator,
+    prefix,
+    skip,
+}) => {
+    if (!config.rateLimitEnabled) {
+        const passthrough = (_req, _res, next) => next();
+        passthrough.resetKey = async () => {};
+        return passthrough;
+    }
 
-    const middleware = (req, res, next) => {
-        if (!config.rateLimitEnabled) {
-            return next();
-        }
+    const limiter = rateLimit({
+        windowMs,
+        max,
+        standardHeaders: true,
+        legacyHeaders: false,
+        keyGenerator,
+        handler: buildHandler(message, name),
+        store: new RedisRateLimitStore({ prefix }),
+        skip: skip || ((request) => request.method === 'OPTIONS'),
+        validate: {
+            creationStack: false,
+            ip: false,
+            trustProxy: false,
+            xForwardedForHeader: false,
+        },
+    });
 
-        if (!limiter) {
-            limiter = rateLimit({
-                windowMs,
-                max,
-                standardHeaders: true,
-                legacyHeaders: false,
-                keyGenerator,
-                handler: buildHandler(message, name),
-                store: new RedisRateLimitStore({ prefix }),
-                skip: (request) => request.method === 'OPTIONS',
-                ...(validate ? { validate } : {}),
-            });
-        }
-
-        return limiter(req, res, next);
-    };
-
+    const middleware = (req, res, next) => limiter(req, res, next);
     middleware.resetKey = async (key) => {
-        if (limiter?.store?.resetKey) {
+        if (limiter.store?.resetKey) {
             await limiter.store.resetKey(key);
         }
     };
@@ -92,17 +132,18 @@ const authWindowMs = config.authRateLimitWindowMinutes * 60 * 1000;
 const uploadWindowMs = config.uploadRateLimitWindowMinutes * 60 * 1000;
 
 /** Layer 1 — Global API protection (all /api routes). Key: IP */
-export const apiRateLimiter = createLazyLimiter({
+export const apiRateLimiter = createLimiter({
     name: 'global-api',
     prefix: 'rl:api',
     windowMs: apiWindowMs,
     max: resolveMax(config.rateLimitMaxRequests, config.rateLimitDevMaxRequests),
     message: 'Too many requests, please try again later.',
     keyGenerator: ipRateLimitKey,
+    skip: shouldSkipGlobalRateLimit,
 });
 
 /** Layer 2 — Auth / OTP / login brute-force protection. Key: IP (stacked on global). */
-export const authRateLimiter = createLazyLimiter({
+export const authRateLimiter = createLimiter({
     name: 'auth',
     prefix: 'rl:auth',
     windowMs: authWindowMs,
@@ -112,14 +153,13 @@ export const authRateLimiter = createLazyLimiter({
 });
 
 /** Layer 3 — Upload abuse protection. Key: user id when logged in, else IP */
-export const uploadRateLimiter = createLazyLimiter({
+export const uploadRateLimiter = createLimiter({
     name: 'upload',
     prefix: 'rl:upload',
     windowMs: uploadWindowMs,
     max: resolveMax(config.uploadRateLimitMax, config.uploadRateLimitDevMax),
     message: 'Too many upload requests, please try again later.',
     keyGenerator: userOrIpRateLimitKey,
-    validate: { keyGenerator: false },
 });
 
 export const getRateLimitSummary = () => ({
@@ -156,7 +196,15 @@ export const getRateLimitSummary = () => ({
         },
     },
     protectedRoutes: {
-        global: 'ALL /api/*',
+        global: 'ALL /api/* (except skipped public GETs and auth session routes)',
+        globalSkipped: [
+            'GET */public/*',
+            'GET */zones/detect',
+            'GET /api/v1/food/auth/me',
+            'POST /api/v1/food/auth/refresh-token',
+            'POST /api/v1/food/auth/logout',
+            'GET /api/v1/health/*',
+        ],
         auth: [
             'POST /api/v1/food/auth/user/request-otp',
             'POST /api/v1/food/auth/user/verify-otp',
