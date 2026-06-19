@@ -21,7 +21,6 @@ import { useProfile } from "@food/context/ProfileContext"
 import { useLocation } from "@food/hooks/useLocation"
 import { useZone } from "@food/hooks/useZone"
 import { useDelayedLoading } from "@food/hooks/useDelayedLoading"
-import { getMenuFromResponse } from "@food/utils/menuItems"
 import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailability"
 
 // Filter options
@@ -57,9 +56,6 @@ export default function CategoryPage() {
   const filterSectionRefs = useRef({})
   const rightContentRef = useRef(null)
   const categoryScrollRef = useRef(null)
-  const menuEnrichmentRequestRef = useRef(0)
-  const approvedFoodsCacheRef = useRef(null)
-  const approvedFoodsInFlightRef = useRef(null)
   const hasRestoredCategoryFiltersRef = useRef(false)
 
   // State for categories from admin
@@ -68,8 +64,8 @@ export default function CategoryPage() {
 
   const [restaurantsData, setRestaurantsData] = useState([])
   const [loadingRestaurants, setLoadingRestaurants] = useState(true)
-  const [isEnrichingMenus, setIsEnrichingMenus] = useState(false)
-  const [approvedFoodsData, setApprovedFoodsData] = useState([])
+  const [loadingCategoryFoods, setLoadingCategoryFoods] = useState(false)
+  const [categoryFoodsData, setCategoryFoodsData] = useState([])
   const [categoryKeywords, setCategoryKeywords] = useState({})
   const [availabilityTick, setAvailabilityTick] = useState(Date.now())
 
@@ -128,148 +124,45 @@ export default function CategoryPage() {
     })
   }
 
-  const toArray = (value) => {
-    if (Array.isArray(value)) return value
-    if (!value || typeof value !== "object") return []
-    return Object.values(value).filter((entry) => entry && typeof entry === "object")
-  }
-
-  const normalizeMenu = (menu) => {
-    const rawSections = toArray(menu?.sections)
-    return {
-      ...menu,
-      sections: rawSections.map((section, sectionIndex) => ({
-        ...section,
-        id: String(section?.id || section?._id || `section-${sectionIndex}`),
-        name: section?.name || section?.title || "Unnamed Section",
-        items: toArray(section?.items).map((item, itemIndex) => ({
-          ...item,
-          id: String(item?.id || item?._id || `${sectionIndex}-${itemIndex}`),
-        })),
-        subsections: toArray(section?.subsections).map((subsection, subsectionIndex) => ({
-          ...subsection,
-          id: String(subsection?.id || subsection?._id || `subsection-${sectionIndex}-${subsectionIndex}`),
-          name: subsection?.name || "Unnamed Subsection",
-          items: toArray(subsection?.items).map((item, itemIndex) => ({
-            ...item,
-            id: String(item?.id || item?._id || `${sectionIndex}-${subsectionIndex}-${itemIndex}`),
-          })),
-        })),
-      })),
-    }
-  }
-
-  const fetchApprovedFoods = async () => {
-    if (Array.isArray(approvedFoodsCacheRef.current)) {
-      return approvedFoodsCacheRef.current
-    }
-
-    if (approvedFoodsInFlightRef.current) {
-      return approvedFoodsInFlightRef.current
-    }
-
-    approvedFoodsInFlightRef.current = (async () => {
-      try {
-        const response = await adminAPI.getFoods({ limit: 1000 })
-        const list = response?.data?.data?.foods || []
-        const approvedFoods = Array.isArray(list)
-          ? list.filter((food) =>
-            String(food?.approvalStatus || "").toLowerCase() === "approved" &&
-            food?.isAvailable !== false
-          )
-          : []
-
-        approvedFoodsCacheRef.current = approvedFoods
-        return approvedFoods
-      } catch {
-        approvedFoodsCacheRef.current = []
-        return []
-      } finally {
-        approvedFoodsInFlightRef.current = null
-      }
-    })()
-
-    return approvedFoodsInFlightRef.current
-  }
-
   useEffect(() => {
     let cancelled = false
+    const categorySlug = String(selectedCategory || category || "all").toLowerCase()
 
+    if (!zoneId || categorySlug === "all") {
+      setCategoryFoodsData([])
+      setLoadingCategoryFoods(false)
+      return () => {
+        cancelled = true
+      }
+    }
+
+    setLoadingCategoryFoods(true)
     void (async () => {
-      const foods = await fetchApprovedFoods()
-      if (!cancelled) {
-        setApprovedFoodsData(Array.isArray(foods) ? foods : [])
+      try {
+        const response = await restaurantAPI.getPublicFoods({
+          zoneId,
+          categorySlug,
+          limit: 1000,
+        })
+        const foods = response?.data?.data?.foods || []
+        if (!cancelled) {
+          setCategoryFoodsData(Array.isArray(foods) ? foods : [])
+        }
+      } catch {
+        if (!cancelled) setCategoryFoodsData([])
+      } finally {
+        if (!cancelled) setLoadingCategoryFoods(false)
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [zoneId, selectedCategory, category])
 
-  const buildFallbackMenuFromFoods = (foods, restaurant) => {
-    const restaurantIds = new Set(
-      [
-        restaurant?.restaurantId,
-        restaurant?.id,
-        restaurant?.mongoId,
-      ]
-        .filter(Boolean)
-        .map((value) => String(value).trim())
-    )
-
-    const restaurantName = String(restaurant?.name || "").trim().toLowerCase()
-    const matchingFoods = foods.filter((food) => {
-      const foodRestaurantId = String(food?.restaurantId || "").trim()
-      const foodRestaurantName = String(food?.restaurantName || "").trim().toLowerCase()
-      return (
-        (foodRestaurantId && restaurantIds.has(foodRestaurantId)) ||
-        (restaurantName && foodRestaurantName === restaurantName)
-      )
-    })
-
-    if (matchingFoods.length === 0) {
-      return null
-    }
-
-    const sectionsMap = new Map()
-    matchingFoods.forEach((food, index) => {
-      const sectionName = String(food?.categoryName || food?.category || "Varieties").trim() || "Varieties"
-      const sectionKey = slugify(sectionName)
-      if (!sectionsMap.has(sectionKey)) {
-        sectionsMap.set(sectionKey, {
-          id: sectionKey || `section-${index}`,
-          name: sectionName,
-          items: [],
-          subsections: [],
-        })
-      }
-
-      sectionsMap.get(sectionKey).items.push({
-        id: String(food?.id || food?._id || `${sectionKey}-${index}`),
-        _id: food?._id,
-        name: food?.name || "Unnamed Item",
-        description: food?.description || "",
-        price: Number(food?.price || 0),
-        originalPrice: Number(food?.originalPrice || food?.price || 0),
-        image: normalizeImageUrl(food?.image),
-        foodType: food?.foodType || "Non-Veg",
-        isAvailable: food?.isAvailable !== false,
-        categoryName: food?.categoryName || sectionName,
-        category: food?.categoryName || sectionName,
-        preparationTime: food?.preparationTime || "",
-        approvalStatus: food?.approvalStatus || "approved",
-      })
-    })
-
-    return {
-      sections: Array.from(sectionsMap.values()),
-    }
-  }
-
-  const getCategoryFallbackDishesFromApprovedFoods = (categoryId, restaurants) => {
+  const getCategoryFallbackDishesFromApprovedFoods = (categoryId, restaurants, foods = categoryFoodsData) => {
     const keywords = getCategoryKeywords(categoryId)
-    if (keywords.length === 0 || !Array.isArray(approvedFoodsData) || approvedFoodsData.length === 0) {
+    if (keywords.length === 0 || !Array.isArray(foods) || foods.length === 0) {
       return []
     }
 
@@ -296,7 +189,7 @@ export default function CategoryPage() {
         }
       })
 
-    return approvedFoodsData
+    return foods
       .filter((food) => {
         if (food?.isAvailable === false) return false
         if (String(food?.approvalStatus || "").toLowerCase() !== "approved") return false
@@ -668,160 +561,6 @@ export default function CategoryPage() {
     return keywords
   }
 
-  const checkCategoryInMenu = (menu, categoryId) => {
-    if (!menu || !menu.sections || !Array.isArray(menu.sections)) {
-      return false
-    }
-
-    const keywords = getCategoryKeywords(categoryId)
-    if (keywords.length === 0) {
-      return false
-    }
-
-    for (const section of menu.sections) {
-      const sectionNameLower = (section.name || '').toLowerCase()
-      if (matchesCategoryText(sectionNameLower, keywords)) {
-        return true
-      }
-
-      if (section.items && Array.isArray(section.items)) {
-        for (const item of section.items) {
-          const itemNameLower = (item.name || '').toLowerCase()
-          const itemCategoryLower = (item.categoryName || item.category || '').toLowerCase()
-
-          if (
-            matchesCategoryText(itemNameLower, keywords) ||
-            matchesCategoryText(itemCategoryLower, keywords)
-          ) {
-            return true
-          }
-        }
-      }
-
-      // Also check subsection items (new menu builder can nest items)
-      if (section.subsections && Array.isArray(section.subsections)) {
-        for (const subsection of section.subsections) {
-          const subsectionNameLower = (subsection?.name || "").toLowerCase()
-          if (matchesCategoryText(subsectionNameLower, keywords)) {
-            return true
-          }
-
-          const subItems = Array.isArray(subsection?.items) ? subsection.items : []
-          for (const item of subItems) {
-            const itemNameLower = (item?.name || "").toLowerCase()
-            const itemCategoryLower = (item?.categoryName || item?.category || "").toLowerCase()
-            if (
-              matchesCategoryText(itemNameLower, keywords) ||
-              matchesCategoryText(itemCategoryLower, keywords)
-            ) {
-              return true
-            }
-          }
-        }
-      }
-    }
-
-    return false
-  }
-
-  // Helper function to get ALL dishes matching a category from menu (returns array of dish info)
-  const getAllCategoryDishesFromMenu = (menu, categoryId) => {
-    if (!menu || !menu.sections || !Array.isArray(menu.sections)) {
-      return []
-    }
-
-    const keywords = getCategoryKeywords(categoryId)
-    if (keywords.length === 0) {
-      return []
-    }
-
-    const matchingDishes = []
-
-    for (const section of menu.sections) {
-      const sectionNameLower = (section?.name || "").toLowerCase()
-      const sectionMatches = matchesCategoryText(sectionNameLower, keywords)
-
-      if (section.items && Array.isArray(section.items)) {
-        for (const item of section.items) {
-          const itemNameLower = (item.name || '').toLowerCase()
-          const itemCategoryLower = (item.categoryName || item.category || '').toLowerCase()
-
-          const itemMatches =
-            matchesCategoryText(itemNameLower, keywords) ||
-            matchesCategoryText(itemCategoryLower, keywords)
-
-          // If the section name matches the category, include all items in it.
-          if (sectionMatches || itemMatches) {
-            // Calculate final price considering discounts
-            const originalPrice = item.originalPrice || item.price || 0
-            const discountPercent = item.discountPercent || 0
-            const finalPrice = discountPercent > 0
-              ? Math.round(originalPrice * (1 - discountPercent / 100))
-              : originalPrice
-
-            // Get dish image (prioritize item image, then section image)
-            const dishImage = normalizeImageUrl(item.image?.url || item.image || section.image?.url || section.image)
-
-            matchingDishes.push({
-              name: item.name,
-              price: finalPrice,
-              image: dishImage,
-              originalPrice: originalPrice,
-              itemId: item._id || item.id || `${item.name}-${finalPrice}`,
-              foodType: item.foodType, // Include foodType for vegMode filtering
-            })
-          }
-        }
-      }
-
-      // Include subsection items too
-      if (section.subsections && Array.isArray(section.subsections)) {
-        for (const subsection of section.subsections) {
-          const subsectionNameLower = (subsection?.name || "").toLowerCase()
-          const subsectionMatches = matchesCategoryText(subsectionNameLower, keywords)
-          const subItems = Array.isArray(subsection?.items) ? subsection.items : []
-
-          for (const item of subItems) {
-            const itemNameLower = (item?.name || "").toLowerCase()
-            const itemCategoryLower = (item?.categoryName || item?.category || "").toLowerCase()
-            const itemMatches =
-              matchesCategoryText(itemNameLower, keywords) ||
-              matchesCategoryText(itemCategoryLower, keywords)
-
-            if (sectionMatches || subsectionMatches || itemMatches) {
-              const originalPrice = item?.originalPrice || item?.price || 0
-              const discountPercent = item?.discountPercent || 0
-              const finalPrice = discountPercent > 0
-                ? Math.round(originalPrice * (1 - discountPercent / 100))
-                : originalPrice
-
-              const dishImage = normalizeImageUrl(
-                item?.image?.url || item?.image || subsection?.image?.url || subsection?.image || section?.image?.url || section?.image
-              )
-
-              matchingDishes.push({
-                name: item?.name,
-                price: finalPrice,
-                image: dishImage,
-                originalPrice: originalPrice,
-                itemId: item?._id || item?.id || `${item?.name}-${finalPrice}`,
-                foodType: item?.foodType,
-              })
-            }
-          }
-        }
-      }
-    }
-
-    return matchingDishes
-  }
-
-  // Helper function to get FIRST featured dish for a category from menu (for backward compatibility)
-  const getCategoryDishFromMenu = (menu, categoryId) => {
-    const allDishes = getAllCategoryDishesFromMenu(menu, categoryId)
-    return allDishes.length > 0 ? allDishes[0] : null
-  }
-
   // Fetch restaurants from API
   useEffect(() => {
     const fetchRestaurants = async () => {
@@ -925,110 +664,6 @@ export default function CategoryPage() {
           startTransition(() => {
             setRestaurantsData(restaurantsWithIds)
           })
-
-          setIsEnrichingMenus(true)
-          const enrichmentRequestId = ++menuEnrichmentRequestRef.current
-          void (async () => {
-            try {
-              const transformedRestaurants = []
-
-              for (let index = 0; index < restaurantsWithIds.length; index += 4) {
-                const batchRestaurants = restaurantsWithIds.slice(index, index + 4)
-                const batchResults = await Promise.all(
-                  batchRestaurants.map(async (restaurant) => {
-                    try {
-                      const lookupIds = [
-                        restaurant.restaurantId,
-                        restaurant.id,
-                        restaurant.mongoId,
-                        restaurant.slug,
-                      ]
-                        .filter(Boolean)
-                        .map((value) => String(value).trim())
-                        .filter((value, valueIndex, arr) => arr.indexOf(value) === valueIndex)
-
-                      let menu = null
-                      for (const lookupId of lookupIds) {
-                        try {
-                          const menuResponse = await restaurantAPI.getMenuByRestaurantId(lookupId, { noCache: true })
-                          const rawMenu = getMenuFromResponse(menuResponse)
-                          const normalizedMenu = normalizeMenu(rawMenu)
-                          if (menuResponse?.data?.success && normalizedMenu?.sections?.length > 0) {
-                            menu = normalizedMenu
-                            break
-                          }
-                        } catch (lookupError) {
-                          if (lookupError?.response?.status !== 404) {
-                            throw lookupError
-                          }
-                        }
-                      }
-
-                      if (!menu || menu.sections.length === 0) {
-                        const approvedFoods = await fetchApprovedFoods()
-                        menu = buildFallbackMenuFromFoods(approvedFoods, restaurant)
-                      }
-
-                      if (menu?.sections?.length > 0) {
-                        const hasPaneer = checkCategoryInMenu(menu, 'paneer-tikka')
-
-                        let featuredDish = restaurant.featuredDish
-                        let featuredPrice = restaurant.featuredPrice
-
-                        if (!featuredDish || !featuredPrice) {
-                          for (const section of (menu.sections || [])) {
-                            if (section.items && section.items.length > 0) {
-                              const firstItem = section.items[0]
-                              if (!featuredDish) featuredDish = firstItem.name
-                              if (!featuredPrice) {
-                                const originalPrice = firstItem.originalPrice || firstItem.price || 0
-                                const discountPercent = firstItem.discountPercent || 0
-                                featuredPrice = discountPercent > 0
-                                  ? Math.round(originalPrice * (1 - discountPercent / 100))
-                                  : originalPrice
-                              }
-                              break
-                            }
-                          }
-                        }
-
-                        return {
-                          ...restaurant,
-                          menu: menu,
-                          hasPaneer: hasPaneer,
-                          featuredDish: featuredDish || null,
-                          featuredPrice: featuredPrice || null,
-                          categoryMatches: {},
-                        }
-                      }
-                    } catch (error) {
-                      debugWarn(`Failed to fetch menu for restaurant ${restaurant.restaurantId}:`, error)
-                    }
-
-                    return {
-                      ...restaurant,
-                      menu: null,
-                      hasPaneer: false,
-                      categoryMatches: {},
-                    }
-                  })
-                )
-
-                if (enrichmentRequestId !== menuEnrichmentRequestRef.current) return
-                transformedRestaurants.push(...batchResults)
-              }
-
-              if (enrichmentRequestId === menuEnrichmentRequestRef.current) {
-                startTransition(() => {
-                  setRestaurantsData(transformedRestaurants)
-                })
-              }
-            } finally {
-              if (enrichmentRequestId === menuEnrichmentRequestRef.current) {
-                setIsEnrichingMenus(false)
-              }
-            }
-          })()
         } else {
           setRestaurantsData([])
         }
@@ -1180,46 +815,12 @@ export default function CategoryPage() {
     const sourceData = restaurantsData.length > 0 ? restaurantsData : []
     let filtered = [...sourceData]
 
-    // Filter by category - Dynamic filtering based on menu items
+    // Filter by category — expand restaurants into dish cards from public foods API
     if (selectedCategory && selectedCategory !== 'all') {
-      const expandedDishes = []
-
-      filtered.forEach(r => {
-        if (r.menu) {
-          const hasCategoryItem = checkCategoryInMenu(r.menu, selectedCategory)
-          if (hasCategoryItem) {
-            // Get ALL matching dishes for this category
-            const categoryDishes = getAllCategoryDishesFromMenu(r.menu, selectedCategory)
-
-            if (categoryDishes.length > 0) {
-              const validDishes = vegMode
-                ? categoryDishes.filter((dish) => dish.foodType === "Veg")
-                : categoryDishes;
-
-              validDishes.forEach((dishForCard) => {
-                expandedDishes.push({
-                  ...r,
-                  id: `${r.id || r.restaurantId}-${dishForCard.itemId}`,
-                  dishId: dishForCard.itemId || `${r.id}-dish`,
-                  categoryDish: dishForCard,
-                  categoryDishName: dishForCard.name,
-                  categoryDishPrice: dishForCard.price,
-                  categoryDishImage: dishForCard.image,
-                })
-              })
-            }
-          }
-        }
-      })
-
-      filtered = expandedDishes
-
-      if (filtered.length === 0) {
-        const fallbackDishes = getCategoryFallbackDishesFromApprovedFoods(selectedCategory, sourceData)
-        filtered = vegMode
-          ? fallbackDishes.filter((dish) => dish.categoryDishFoodType === "Veg")
-          : fallbackDishes
-      }
+      const categoryDishes = getCategoryFallbackDishesFromApprovedFoods(selectedCategory, sourceData)
+      filtered = vegMode
+        ? categoryDishes.filter((dish) => dish.categoryDishFoodType === "Veg")
+        : categoryDishes
     }
 
     // Strict zone filter: double check that restaurant belongs to current zone
@@ -1238,53 +839,18 @@ export default function CategoryPage() {
     })
 
     return applyFiltersAndSorting(filtered)
-  }, [selectedCategory, activeFilters, deferredSearchQuery, restaurantsData, categoryKeywords, vegMode, approvedFoodsData, sortBy, availabilityTick, zoneId])
+  }, [selectedCategory, activeFilters, deferredSearchQuery, restaurantsData, categoryKeywords, vegMode, categoryFoodsData, sortBy, availabilityTick, zoneId])
 
   const filteredAllRestaurants = useMemo(() => {
     const sourceData = restaurantsData.length > 0 ? restaurantsData : []
     let filtered = [...sourceData]
 
-    // Filter by category - Dynamic filtering based on menu items
-    // If category is selected, expand restaurants into dish cards (one card per matching dish)
+    // Filter by category — expand restaurants into dish cards from public foods API
     if (selectedCategory && selectedCategory !== 'all') {
-      const expandedDishes = []
-
-      filtered.forEach(r => {
-        if (r.menu) {
-          const hasCategoryItem = checkCategoryInMenu(r.menu, selectedCategory)
-          if (hasCategoryItem) {
-            // Get ALL matching dishes for this category
-            const categoryDishes = getAllCategoryDishesFromMenu(r.menu, selectedCategory)
-
-            if (categoryDishes.length > 0) {
-              const validDishes = vegMode
-                ? categoryDishes.filter((dish) => dish.foodType === "Veg")
-                : categoryDishes;
-
-              validDishes.forEach((dishForCard) => {
-                expandedDishes.push({
-                  ...r,
-                  id: `${r.id || r.restaurantId}-${dishForCard.itemId}`,
-                  dishId: dishForCard.itemId || `${r.id}-dish`,
-                  categoryDish: dishForCard,
-                  categoryDishName: dishForCard.name,
-                  categoryDishPrice: dishForCard.price,
-                  categoryDishImage: dishForCard.image,
-                })
-              })
-            }
-          }
-        }
-      })
-
-      filtered = expandedDishes
-
-      if (filtered.length === 0) {
-        const fallbackDishes = getCategoryFallbackDishesFromApprovedFoods(selectedCategory, sourceData)
-        filtered = vegMode
-          ? fallbackDishes.filter((dish) => dish.categoryDishFoodType === "Veg")
-          : fallbackDishes
-      }
+      const categoryDishes = getCategoryFallbackDishesFromApprovedFoods(selectedCategory, sourceData)
+      filtered = vegMode
+        ? categoryDishes.filter((dish) => dish.categoryDishFoodType === "Veg")
+        : categoryDishes
     }
 
     // Strict zone filter: double check that restaurant belongs to current zone
@@ -1303,10 +869,10 @@ export default function CategoryPage() {
     })
 
     return applyFiltersAndSorting(filtered)
-  }, [selectedCategory, activeFilters, deferredSearchQuery, restaurantsData, categoryKeywords, vegMode, approvedFoodsData, sortBy, availabilityTick, zoneId])
+  }, [selectedCategory, activeFilters, deferredSearchQuery, restaurantsData, categoryKeywords, vegMode, categoryFoodsData, sortBy, availabilityTick, zoneId])
 
   const showRestaurantSkeleton = useDelayedLoading(
-    isLoadingFilterResults || loadingRestaurants || (isEnrichingMenus && selectedCategory !== 'all' && filteredRecommended.length === 0),
+    isLoadingFilterResults || loadingRestaurants || (loadingCategoryFoods && selectedCategory !== 'all' && filteredRecommended.length === 0),
     { delay: 140, minDuration: 360 }
   )
 
@@ -1772,9 +1338,6 @@ export default function CategoryPage() {
                     setActiveFilters(new Set())
                     setSearchQuery("")
                     setSortBy(null)
-                    // Trigger a gentle refresh to ensure data freshness
-                    menuEnrichmentRequestRef.current += 1
-                    setIsEnrichingMenus(false)
                     setTimeout(() => setIsLoadingFilterResults(false), 500)
                   }}
                 >

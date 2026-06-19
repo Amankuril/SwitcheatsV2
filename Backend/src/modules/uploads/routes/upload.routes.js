@@ -1,37 +1,16 @@
 import express from 'express';
-import { upload } from '../../../middleware/upload.js';
-import { uploadImageBuffer } from '../../../services/cloudinary.service.js';
+import { uploadImage } from '../controllers/upload.controller.js';
+import { imageUpload, uploadRateLimiter } from '../middleware/upload.middleware.js';
 
 const router = express.Router();
 
-// POST /v1/uploads/image
-router.post('/image', upload.single('file'), async (req, res, next) => {
-    try {
-        if (!req.file || !req.file.buffer) {
-            return res.status(400).json({
-                success: false,
-                message: 'No file provided'
-            });
-        }
-
-        const folder = typeof req.body?.folder === 'string' && req.body.folder.trim()
-            ? req.body.folder.trim()
-            : 'uploads';
-
-        const url = await uploadImageBuffer(req.file.buffer, folder);
-
-        return res.status(200).json({
-            success: true,
-            message: 'Image uploaded successfully',
-            data: {
-                url,
-                publicId: null
-            }
-        });
-    } catch (error) {
-        next(error);
-    }
-});
+// POST /v1/uploads/image?folder=food/users/profile
+// multipart field: file (required)
+router.post(
+    '/image',
+    uploadRateLimiter,
+    imageUpload.single('file'),
+    uploadImage
+);
 
 export default router;
-

@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -36,6 +37,7 @@ app.get('/ready', (_req, res) => {
 // Security & parsing middlewares
 app.use(helmet({
     contentSecurityPolicy: { directives: { defaultSrc: ["'self'"] } },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
     hsts: config.nodeEnv === 'production' ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
     xssFilter: true,
     noSniff: true,
@@ -70,6 +72,11 @@ app.use('/api', responseTimeLogger);
 
 // API Routes
 app.use('/api', routes);
+
+// Dev-only: serve uploaded files when nginx is not in front (production uses nginx)
+if (config.nodeEnv === 'development') {
+    app.use('/uploads', express.static(path.resolve(config.uploadStorageRoot)));
+}
 
 // Error Handling
 app.use(errorHandler);

@@ -21,7 +21,6 @@ import OptimizedImage from "@food/components/OptimizedImage"
 import api from "@food/api"
 import { restaurantAPI, adminAPI } from "@food/api"
 import { isModuleAuthenticated } from "@food/utils/auth"
-import { flattenMenuItems, getMenuFromResponse } from "@food/utils/menuItems"
 import { calculateDistance, formatDistance } from "@food/utils/common"
 import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailability"
 const debugLog = (...args) => { }
@@ -29,7 +28,88 @@ const debugWarn = (...args) => { }
 const debugError = (...args) => { }
 const RUPEE_SYMBOL = "\u20B9"
 const UNDER_250_FILTERS_STORAGE_KEY = "food-under-250-filters"
-const MENU_FETCH_CONCURRENCY = 6
+
+const buildSwitch99MenuItem = (food, restaurant, restaurantId) => {
+  const foodType = String(food?.foodType || "").toLowerCase()
+  const isVeg = foodType.includes("veg") && !foodType.includes("non")
+  return {
+    ...food,
+    id: String(food?.id || food?._id || `${restaurantId}-${food?.name || "dish"}`),
+    price: Number(food?.price || 0),
+    isVeg,
+    category: food?.categoryName || food?.category || "",
+    sectionName: food?.categoryName || food?.category || "",
+    image:
+      food?.image ||
+      restaurant?.coverImages?.[0]?.url ||
+      restaurant?.coverImages?.[0] ||
+      restaurant?.menuImages?.[0]?.url ||
+      restaurant?.menuImages?.[0] ||
+      restaurant?.profileImage?.url ||
+      restaurant?.profileImage ||
+      "",
+  }
+}
+
+const buildSwitch99RestaurantRow = (restaurant, menuItems, index, effectiveLocation) => {
+  const restaurantId = restaurant?.restaurantId || restaurant?._id || restaurant?.id
+  if (!restaurantId || !Array.isArray(menuItems) || menuItems.length === 0) return null
+
+  const deliveryMinutes =
+    Number(restaurant?.estimatedDeliveryTimeMinutes) ||
+    Number(restaurant?.estimatedDeliveryTime) ||
+    null
+  const restaurantLocation = restaurant?.location
+  const restaurantLat = Number(
+    restaurantLocation?.latitude ??
+    (Array.isArray(restaurantLocation?.coordinates) ? restaurantLocation.coordinates[1] : null)
+  )
+  const restaurantLng = Number(
+    restaurantLocation?.longitude ??
+    (Array.isArray(restaurantLocation?.coordinates) ? restaurantLocation.coordinates[0] : null)
+  )
+  const userLat = Number(effectiveLocation?.latitude)
+  const userLng = Number(effectiveLocation?.longitude)
+  const distanceInKm = (
+    Number.isFinite(userLat) &&
+    Number.isFinite(userLng) &&
+    Number.isFinite(restaurantLat) &&
+    Number.isFinite(restaurantLng)
+  )
+    ? calculateDistance(userLat, userLng, restaurantLat, restaurantLng)
+    : null
+  const fallbackDistance =
+    typeof restaurant?.distance === "number"
+      ? formatDistance(restaurant.distance)
+      : (restaurant?.distance || "")
+
+  return {
+    id: String(restaurantId),
+    restaurantId: String(restaurantId),
+    slug:
+      restaurant?.slug ||
+      String(restaurant?.restaurantName || restaurant?.name || "")
+        .toLowerCase()
+        .replace(/\s+/g, "-"),
+    name: restaurant?.restaurantName || restaurant?.name || "Restaurant",
+    rating: Number(restaurant?.rating || 0),
+    totalRatings: Number(restaurant?.totalRatings || restaurant?.ratingCount || 0),
+    deliveryTime:
+      restaurant?.estimatedDeliveryTime ||
+      (deliveryMinutes ? `${deliveryMinutes} mins` : "30 mins"),
+    distance: distanceInKm !== null ? formatDistance(distanceInKm) : fallbackDistance,
+    distanceInKm,
+    originalIndex: index,
+    menuItems,
+    isActive: restaurant.isActive,
+    isAcceptingOrders: restaurant.isAcceptingOrders,
+    outletTimings: restaurant.outletTimings,
+    openDays: restaurant.openDays,
+    deliveryTimings: restaurant.deliveryTimings,
+    openingTime: restaurant.openingTime,
+    closingTime: restaurant.closingTime,
+  }
+}
 
 const readUnder250Filters = () => {
   if (typeof window === "undefined") {
@@ -184,7 +264,7 @@ export default function Under250() {
 
   const isSwitch99EligibleItem = useCallback((item = {}) => {
     if (!item || item?.isAvailable === false) return false
-    const rawPrice = String(item?.price || "")
+    const rawPrice = String(item?.price ?? "")
     return rawPrice.includes("99")
   }, [])
 
@@ -196,27 +276,6 @@ export default function Under250() {
       // Keep candidate set broad; final eligibility is menu-item based (price contains "99").
       return true
     })
-  }, [])
-
-  const mapWithConcurrency = useCallback(async (list, mapper, concurrency = MENU_FETCH_CONCURRENCY) => {
-    const output = new Array(list.length)
-    let cursor = 0
-
-    const worker = async () => {
-      while (true) {
-        const index = cursor
-        cursor += 1
-        if (index >= list.length) return
-        output[index] = await mapper(list[index], index)
-      }
-    }
-
-    const workers = Array.from(
-      { length: Math.max(1, Math.min(concurrency, list.length)) },
-      () => worker(),
-    )
-    await Promise.all(workers)
-    return output
   }, [])
 
   const sortOptions = [
@@ -504,116 +563,66 @@ export default function Under250() {
       const fetchGeneration = ++fetchGenerationRef.current
       try {
         setLoadingRestaurants(true)
-        // Strict zone-only listing: do not fetch global restaurants when zone is unavailable.
         if (!zoneId) {
           setUnder250Restaurants([])
           return
         }
-        const response = await restaurantAPI.getRestaurants({ zoneId, limit: 1000 })
-        const restaurantsRaw = Array.isArray(response?.data?.data?.restaurants)
-          ? response.data.data.restaurants
-          : []
-        const candidateRestaurants = filterCandidateRestaurants(restaurantsRaw)
-        const userLat = Number(effectiveLocation?.latitude)
-        const userLng = Number(effectiveLocation?.longitude)
 
-        const restaurantsWithUnder250Dishes = await mapWithConcurrency(
-          candidateRestaurants,
-          async (restaurant, index) => {
-            if (fetchGeneration !== fetchGenerationRef.current) return null
-            const restaurantId = restaurant?.restaurantId || restaurant?._id
-            if (!restaurantId) return null
-
-            try {
-              const menuResponse = await restaurantAPI.getMenuByRestaurantId(restaurantId)
-              const menu = getMenuFromResponse(menuResponse)
-              const menuItems = flattenMenuItems(menu)
-                .filter(isSwitch99EligibleItem)
-                .map((item) => {
-                  const foodType = String(item?.foodType || "").toLowerCase()
-                  const isVeg = foodType.includes("veg") && !foodType.includes("non")
-                  return {
-                    ...item,
-                    id: String(item?.id || item?._id || `${restaurantId}-${item?.name || "dish"}`),
-                    price: Number(item?.price || 0),
-                    isVeg,
-                    image:
-                      item?.image ||
-                      restaurant?.coverImages?.[0]?.url ||
-                      restaurant?.coverImages?.[0] ||
-                      restaurant?.menuImages?.[0]?.url ||
-                      restaurant?.menuImages?.[0] ||
-                      restaurant?.profileImage?.url ||
-                      "",
-                  }
-                })
-
-              if (menuItems.length === 0) return null
-
-              const deliveryMinutes =
-                Number(restaurant?.estimatedDeliveryTimeMinutes) ||
-                Number(restaurant?.estimatedDeliveryTime) ||
-                null
-              const restaurantLocation = restaurant?.location
-              const restaurantLat = Number(
-                restaurantLocation?.latitude ??
-                (Array.isArray(restaurantLocation?.coordinates) ? restaurantLocation.coordinates[1] : null)
-              )
-              const restaurantLng = Number(
-                restaurantLocation?.longitude ??
-                (Array.isArray(restaurantLocation?.coordinates) ? restaurantLocation.coordinates[0] : null)
-              )
-              const distanceInKm = (
-                Number.isFinite(userLat) &&
-                Number.isFinite(userLng) &&
-                Number.isFinite(restaurantLat) &&
-                Number.isFinite(restaurantLng)
-              )
-                ? calculateDistance(userLat, userLng, restaurantLat, restaurantLng)
-                : null
-              const fallbackDistance =
-                typeof restaurant?.distance === "number"
-                  ? formatDistance(restaurant.distance)
-                  : (restaurant?.distance || "")
-
-              return {
-                id: String(restaurantId),
-                restaurantId: String(restaurantId),
-                slug:
-                  restaurant?.slug ||
-                  String(restaurant?.restaurantName || restaurant?.name || "")
-                    .toLowerCase()
-                    .replace(/\s+/g, "-"),
-                name: restaurant?.restaurantName || restaurant?.name || "Restaurant",
-                rating: Number(restaurant?.rating || 0),
-                totalRatings: Number(restaurant?.totalRatings || restaurant?.ratingCount || 0),
-                deliveryTime:
-                  restaurant?.estimatedDeliveryTime ||
-                  (deliveryMinutes ? `${deliveryMinutes} mins` : "30 mins"),
-                distance: distanceInKm !== null ? formatDistance(distanceInKm) : fallbackDistance,
-                distanceInKm,
-                originalIndex: index,
-                menuItems,
-                // Include timing data for reactive filtering in useMemo
-                isActive: restaurant.isActive,
-                isAcceptingOrders: restaurant.isAcceptingOrders,
-                outletTimings: restaurant.outletTimings,
-                openDays: restaurant.openDays,
-                deliveryTimings: restaurant.deliveryTimings,
-                openingTime: restaurant.openingTime,
-                closingTime: restaurant.closingTime,
-              }
-            } catch {
-              return null
-            }
-          },
-          MENU_FETCH_CONCURRENCY,
-        )
+        const [restaurantsResponse, foodsResponse] = await Promise.all([
+          restaurantAPI.getRestaurants({ zoneId, limit: 1000 }),
+          restaurantAPI.getPublicFoods({
+            zoneId,
+            promo: "switch99",
+            limit: 1000,
+          }),
+        ])
 
         if (fetchGeneration !== fetchGenerationRef.current) return
-        setUnder250Restaurants(restaurantsWithUnder250Dishes.filter(Boolean))
+
+        const restaurantsRaw = Array.isArray(restaurantsResponse?.data?.data?.restaurants)
+          ? restaurantsResponse.data.data.restaurants
+          : []
+        const candidateRestaurants = filterCandidateRestaurants(restaurantsRaw)
+        const foods = Array.isArray(foodsResponse?.data?.data?.foods)
+          ? foodsResponse.data.data.foods
+          : []
+
+        const foodsByRestaurantId = new Map()
+        foods.forEach((food) => {
+          if (!isSwitch99EligibleItem(food)) return
+          const restaurantId = String(food?.restaurantId || "").trim()
+          if (!restaurantId) return
+          if (!foodsByRestaurantId.has(restaurantId)) {
+            foodsByRestaurantId.set(restaurantId, [])
+          }
+          foodsByRestaurantId.get(restaurantId).push(food)
+        })
+
+        const restaurantsWithUnder250Dishes = candidateRestaurants
+          .map((restaurant, index) => {
+            const restaurantId = String(restaurant?.restaurantId || restaurant?._id || "").trim()
+            if (!restaurantId) return null
+
+            const restaurantFoods = foodsByRestaurantId.get(restaurantId) || []
+            if (restaurantFoods.length === 0) return null
+
+            const menuItems = restaurantFoods.map((food) =>
+              buildSwitch99MenuItem(food, restaurant, restaurantId),
+            )
+
+            return buildSwitch99RestaurantRow(
+              restaurant,
+              menuItems,
+              index,
+              effectiveLocation,
+            )
+          })
+          .filter(Boolean)
+
+        if (fetchGeneration !== fetchGenerationRef.current) return
+        setUnder250Restaurants(restaurantsWithUnder250Dishes)
       } catch (error) {
-        debugError('Error fetching restaurants under 250:', error)
+        debugError("Error fetching restaurants under 250:", error)
         if (fetchGeneration === fetchGenerationRef.current) {
           setUnder250Restaurants([])
         }
@@ -625,7 +634,7 @@ export default function Under250() {
     }
 
     fetchRestaurantsUnder250()
-  }, [zoneId, filterCandidateRestaurants, mapWithConcurrency, isSwitch99EligibleItem])
+  }, [zoneId, effectiveLocation, filterCandidateRestaurants, isSwitch99EligibleItem])
 
   // Fetch categories from backend (no static fallback list)
   useEffect(() => {

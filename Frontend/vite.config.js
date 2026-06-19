@@ -70,6 +70,11 @@ export default defineConfig({
         target: process.env.VITE_BACKEND_PROXY_TARGET || 'http://localhost:5000',
         changeOrigin: true,
       },
+      // Uploaded images — same origin as frontend in dev (avoids CORP / NotSameOrigin)
+      '/uploads': {
+        target: process.env.VITE_BACKEND_PROXY_TARGET || 'http://localhost:5000',
+        changeOrigin: true,
+      },
     },
   },
 })

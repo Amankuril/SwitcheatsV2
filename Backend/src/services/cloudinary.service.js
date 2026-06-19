@@ -1,49 +1,21 @@
-import { v2 as cloudinary } from 'cloudinary';
-import { config } from '../config/env.js';
+import { saveImageBuffer } from './storage.service.js';
 
-cloudinary.config({
-    cloud_name: config.cloudinaryCloudName,
-    api_key: config.cloudinaryApiKey,
-    api_secret: config.cloudinaryApiSecret
-});
-
+/**
+ * Legacy name kept so existing services keep working without Cloudinary.
+ * All image uploads are stored on the VPS and served by nginx.
+ */
 export const uploadImageBuffer = async (buffer, folder = 'uploads') => {
-    if (!buffer) {
-        throw new Error('File buffer is required');
-    }
-
-    return new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-            { folder, resource_type: 'image' },
-            (error, result) => {
-                if (error) {
-                    return reject(error);
-                }
-                return resolve(result.secure_url);
-            }
-        );
-
-        stream.end(buffer);
-    });
+    const saved = await saveImageBuffer(buffer, folder);
+    return saved.url;
 };
 
 export const uploadImageBufferDetailed = async (buffer, folder = 'uploads') => {
-    if (!buffer) {
-        throw new Error('File buffer is required');
-    }
-
-    return new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-            { folder, resource_type: 'image' },
-            (error, result) => {
-                if (error) {
-                    return reject(error);
-                }
-                return resolve(result);
-            }
-        );
-
-        stream.end(buffer);
-    });
+    const saved = await saveImageBuffer(buffer, folder);
+    return {
+        secure_url: saved.url,
+        public_id: saved.path,
+        url: saved.url,
+        path: saved.path,
+        filename: saved.filename
+    };
 };
-

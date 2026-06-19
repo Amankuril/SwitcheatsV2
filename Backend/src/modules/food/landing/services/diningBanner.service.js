@@ -1,5 +1,7 @@
 import { FoodDiningBanner } from '../models/diningBanner.model.js';
-import { v2 as cloudinary } from 'cloudinary';
+import { saveImageFile, deleteStoredFile } from '../../../../services/storage.service.js';
+
+const BANNER_FOLDER = 'food/dining-banners';
 
 export const listDiningBanners = async () => {
     return FoodDiningBanner.find().sort({ sortOrder: 1, createdAt: -1 }).lean();
@@ -14,20 +16,11 @@ export const createDiningBannersFromFiles = async (files, meta = {}) => {
 
     for (const file of files) {
         try {
-            const uploadResult = await new Promise((resolve, reject) => {
-                const stream = cloudinary.uploader.upload_stream(
-                    { folder: 'food/dining-banners', resource_type: 'image' },
-                    (error, result) => {
-                        if (error) return reject(error);
-                        return resolve(result);
-                    }
-                );
-                stream.end(file.buffer);
-            });
+            const saved = await saveImageFile(file, BANNER_FOLDER);
 
             const banner = await FoodDiningBanner.create({
-                imageUrl: uploadResult.secure_url,
-                publicId: uploadResult.public_id,
+                imageUrl: saved.url,
+                publicId: saved.path,
                 title: meta.title,
                 ctaText: meta.ctaText,
                 ctaLink: meta.ctaLink,
@@ -53,9 +46,9 @@ export const deleteDiningBanner = async (id) => {
 
     if (doc.publicId) {
         try {
-            await cloudinary.uploader.destroy(doc.publicId);
+            await deleteStoredFile(doc.publicId);
         } catch {
-            // ignore cloudinary deletion errors
+            // ignore storage deletion errors
         }
     }
 
@@ -80,4 +73,3 @@ export const toggleDiningBannerStatus = async (id, isActive) => {
     ).lean();
     return updated;
 };
-
