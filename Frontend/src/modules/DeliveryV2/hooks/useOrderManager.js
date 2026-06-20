@@ -1,4 +1,5 @@
 import { useDeliveryStore } from '@/modules/DeliveryV2/store/useDeliveryStore';
+import { resolveCustomerAddress } from '@/modules/DeliveryV2/utils/orderAddress';
 import { deliveryAPI } from '@food/api';
 import { toast } from 'sonner';
 
@@ -57,11 +58,15 @@ export const useOrderManager = () => {
 
         console.log('[OrderManager] Locations Mapped Result:', { resLoc, cusLoc });
 
+        const customerAddress =
+          resolveCustomerAddress(fullOrder) || resolveCustomerAddress(order);
+
         setActiveOrder({
           ...fullOrder,
           orderId: orderId,
           restaurantLocation: resLoc,
-          customerLocation: cusLoc
+          customerLocation: cusLoc,
+          customerAddress,
         });
 
         updateTripStatus('PICKING_UP');

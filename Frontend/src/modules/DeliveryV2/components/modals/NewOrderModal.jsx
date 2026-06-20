@@ -4,6 +4,7 @@ import { User, MapPin, FastForward, Clock, Phone, ChefHat, ChevronDown } from 'l
 import { ActionSlider } from '@/modules/DeliveryV2/components/ui/ActionSlider';
 import { useDeliveryStore } from '@/modules/DeliveryV2/store/useDeliveryStore';
 import { getHaversineDistance, calculateETA } from '@/modules/DeliveryV2/utils/geo';
+import { resolveCustomerAddress } from '@/modules/DeliveryV2/utils/orderAddress';
 
 /**
  * NewOrderModal - Ported to Original 1:1 Theme with Slider Accept.
@@ -71,43 +72,10 @@ export const NewOrderModal = ({ order, onAccept, onReject, onMinimize }) => {
     order.restaurantId?.name ||
     'Restaurant';
   const restaurantAddress = order.restaurantAddress || order.restaurant_address || (order.restaurantId?.location?.address) || 'Address not available';
-  const deliveryAddress = order?.deliveryAddress || {};
-
-  const geoCoords =
-    Array.isArray(deliveryAddress?.location?.coordinates) &&
-    deliveryAddress.location.coordinates.length >= 2
-      ? {
-          lng: deliveryAddress.location.coordinates[0],
-          lat: deliveryAddress.location.coordinates[1],
-        }
-      : null;
-
-  const customerLocation = order.customerLocation || order.deliveryLocation || geoCoords || null;
-
-  const addressPartsFromSchema = [
-    deliveryAddress.street,
-    deliveryAddress.additionalDetails,
-    deliveryAddress.city,
-    deliveryAddress.state,
-    deliveryAddress.zipCode,
-  ]
-    .map((v) => String(v || '').trim())
-    .filter(Boolean);
-
-  const customerAddress =
-    order.customerAddress ||
-    order.customer_address ||
-    (addressPartsFromSchema.length ? addressPartsFromSchema.join(', ') : '') ||
-    (customerLocation?.lat != null && customerLocation?.lng != null
-      ? `Lat ${Number(customerLocation.lat).toFixed(5)}, Lng ${Number(customerLocation.lng).toFixed(5)}`
-      : 'Location not available');
-
-  const mapsLink =
-    customerLocation?.lat != null && customerLocation?.lng != null
-      ? `https://www.google.com/maps?q=${encodeURIComponent(
-          `${customerLocation.lat},${customerLocation.lng}`,
-        )}`
-      : null;
+  const customerAddress = resolveCustomerAddress(order) || 'Location not available';
+  const mapsLink = customerAddress !== 'Location not available'
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customerAddress)}`
+    : null;
 
   return (
     <motion.div

@@ -15,6 +15,7 @@ import { PickupActionModal } from '@/modules/DeliveryV2/components/modals/Pickup
 import { DeliveryVerificationModal } from '@/modules/DeliveryV2/components/modals/DeliveryVerificationModal';
 import { OrderSummaryModal } from '@/modules/DeliveryV2/components/modals/OrderSummaryModal';
 import ActionSlider from '@/modules/DeliveryV2/components/ui/ActionSlider';
+import { openGoogleMapsForAddress, resolveCustomerAddress } from '@/modules/DeliveryV2/utils/orderAddress';
 
 // Sub Pages
 import PocketV2 from '@/modules/DeliveryV2/pages/PocketV2';
@@ -331,7 +332,8 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
           const syncedOrder = {
             ...serverData,
             restaurantLocation: resLoc,
-            customerLocation: cusLoc
+            customerLocation: cusLoc,
+            customerAddress: resolveCustomerAddress(serverData),
           };
 
           setActiveOrder(syncedOrder);
@@ -983,50 +985,16 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
                                 ) : null;
                               })()}
                               {(() => {
-                                const deliveryAddress = activeOrder?.deliveryAddress || {};
-                                const geoCoords =
-                                  Array.isArray(deliveryAddress.location?.coordinates) &&
-                                  deliveryAddress.location.coordinates.length >= 2
-                                    ? {
-                                        lng: deliveryAddress.location.coordinates[0],
-                                        lat: deliveryAddress.location.coordinates[1],
-                                      }
-                                    : null;
-                                const customerLocation = activeOrder?.customerLocation || activeOrder?.deliveryLocation || geoCoords || null;
-                                if (customerLocation?.lat != null && customerLocation?.lng != null) {
-                                  return (
-                                    <button
-                                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${customerLocation.lat},${customerLocation.lng}`, '_blank')}
-                                      className="w-11 h-11 rounded-2xl bg-gray-950 flex items-center justify-center text-white shadow-xl hover:bg-gray-800 transition-colors active:scale-90 shrink-0"
-                                    >
-                                      <Navigation className="w-5 h-5" />
-                                    </button>
-                                  );
-                                }
-                                const addressPartsFromSchema = [
-                                  deliveryAddress.street,
-                                  deliveryAddress.additionalDetails,
-                                  deliveryAddress.city,
-                                  deliveryAddress.state,
-                                  deliveryAddress.zipCode,
-                                ]
-                                  .map((v) => String(v || '').trim())
-                                  .filter(Boolean);
-                                const customerAddress =
-                                  activeOrder?.customerAddress ||
-                                  activeOrder?.customer_address ||
-                                  (addressPartsFromSchema.length ? addressPartsFromSchema.join(', ') : '');
-                                if (customerAddress) {
-                                  return (
-                                    <button
-                                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customerAddress)}`, '_blank')}
-                                      className="w-11 h-11 rounded-2xl bg-gray-950 flex items-center justify-center text-white shadow-xl hover:bg-gray-800 transition-colors active:scale-90 shrink-0"
-                                    >
-                                      <Navigation className="w-5 h-5" />
-                                    </button>
-                                  );
-                                }
-                                return null;
+                                const customerAddress = resolveCustomerAddress(activeOrder);
+                                if (!customerAddress) return null;
+                                return (
+                                  <button
+                                    onClick={() => openGoogleMapsForAddress(customerAddress)}
+                                    className="w-11 h-11 rounded-2xl bg-gray-950 flex items-center justify-center text-white shadow-xl hover:bg-gray-800 transition-colors active:scale-90 shrink-0"
+                                  >
+                                    <Navigation className="w-5 h-5" />
+                                  </button>
+                                );
                               })()}
                             </div>
                           </div>
