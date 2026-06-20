@@ -1128,9 +1128,14 @@ export const restaurantAPI = {
     const uploadFile = await toUploadReadyImage(file);
     const formData = new FormData();
     formData.append("file", uploadFile);
-    return apiClient.post("/food/restaurant/profile/profile-image", formData, {
+    const response = await apiClient.post("/food/restaurant/profile/profile-image", formData, {
       contextModule: "restaurant",
     });
+    const profileImage = response?.data?.data?.profileImage;
+    if (profileImage?.url) {
+      profileImage.url = resolveMediaUrl(profileImage.url);
+    }
+    return response;
   },
   /** Upload a menu/cover image (multipart). Does not auto-attach; use updateProfile(menuImages) after. */
   uploadMenuImage: async (file) => {
@@ -1138,9 +1143,14 @@ export const restaurantAPI = {
     const uploadFile = await toUploadReadyImage(file);
     const formData = new FormData();
     formData.append("file", uploadFile);
-    return apiClient.post("/food/restaurant/profile/menu-image", formData, {
+    const response = await apiClient.post("/food/restaurant/profile/menu-image", formData, {
       contextModule: "restaurant",
     });
+    const menuImage = response?.data?.data?.menuImage;
+    if (menuImage?.url) {
+      menuImage.url = resolveMediaUrl(menuImage.url);
+    }
+    return response;
   },
   uploadCoverImages: async (files = []) => {
     const normalizedFiles = Array.from(files || []).filter(Boolean);

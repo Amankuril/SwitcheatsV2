@@ -10,11 +10,17 @@ const resolveMax = (productionMax, devFloor) => {
     return Number(productionMax) || 0;
 };
 
+const normalizeIp = (ip) => String(ip || '').trim().replace(/^::ffff:/i, '');
+
 const clientIp = (req) => {
-    const forwarded = String(req.headers['x-forwarded-for'] || '')
-        .split(',')[0]
-        .trim();
-    return forwarded || req.ip || req.socket?.remoteAddress || 'unknown';
+    // Behind nginx: X-Forwarded-For (chain) then X-Real-IP; without these every
+    // proxied request looks like 127.0.0.1 and shares one global bucket.
+    const forwarded = normalizeIp(
+        String(req.headers['x-forwarded-for'] || '').split(',')[0],
+    );
+    const realIp = normalizeIp(req.headers['x-real-ip']);
+    const direct = normalizeIp(req.ip || req.socket?.remoteAddress);
+    return forwarded || realIp || direct || 'unknown';
 };
 
 const requestPath = (req) => String(req.originalUrl || req.url || '').split('?')[0];
@@ -43,6 +49,21 @@ export const shouldSkipGlobalRateLimit = (req) => {
 
     // Zone detection — called on every GPS/location update
     if (req.method === 'GET' && /\/zones\/detect/.test(path)) {
+        return true;
+    }
+
+    // Cached restaurant catalog reads (high volume on home/browse, server-side cache)
+    if (req.method === 'GET' && /\/food\/restaurant\/restaurants/.test(path)) {
+        return true;
+    }
+
+    // Dining browse listings
+    if (req.method === 'GET' && /\/food\/dining\/(categories|restaurants)\/public/.test(path)) {
+        return true;
+    }
+
+    // Search reads (unified search on every keystroke / page load)
+    if (req.method === 'GET' && /\/food\/search\//.test(path)) {
         return true;
     }
 
@@ -200,6 +221,9 @@ export const getRateLimitSummary = () => ({
         globalSkipped: [
             'GET */public/*',
             'GET */zones/detect',
+            'GET /api/v1/food/restaurant/restaurants/*',
+            'GET /api/v1/food/dining/*/public',
+            'GET /api/v1/food/search/*',
             'GET /api/v1/food/auth/me',
             'POST /api/v1/food/auth/refresh-token',
             'POST /api/v1/food/auth/logout',

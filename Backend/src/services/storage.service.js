@@ -38,9 +38,15 @@ const buildFilename = (extension) => {
     return `${stamp}-${random}${extension}`;
 };
 
+export const fixMediaUrlProtocol = (url) => String(url || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^(https?):\/(?!\/)/i, '$1://')
+    .replace(/^(https?:\/\/)(https?:\/\/)+/i, '$1');
+
 export const buildPublicUrl = (relativePath) => {
     const cleanPath = String(relativePath || '').replace(/^\/+/, '');
-    const base = String(config.uploadBaseUrl || '').replace(/\/+$/, '');
+    const base = fixMediaUrlProtocol(String(config.uploadBaseUrl || '').replace(/\/+$/, ''));
 
     // Never persist localhost URLs — frontend/nginx resolve /uploads/... per environment
     if (
@@ -56,10 +62,10 @@ export const buildPublicUrl = (relativePath) => {
 
 /**
  * Normalize any media URL before saving to MongoDB.
- * Strips localhost origins so production DB never stores http://localhost:5000/uploads/...
+ * Strips localhost origins; fixes protocol typos (https:/ → https://).
  */
 export const normalizeMediaUrlForStorage = (url) => {
-    const trimmed = String(url || '').trim();
+    const trimmed = fixMediaUrlProtocol(url);
     if (!trimmed) return '';
 
     if (trimmed.startsWith('/uploads/')) {
@@ -70,6 +76,9 @@ export const normalizeMediaUrlForStorage = (url) => {
         const parsed = new URL(trimmed);
         if (/^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname) && parsed.pathname.startsWith('/uploads/')) {
             return parsed.pathname;
+        }
+        if (parsed.pathname.startsWith('/uploads/')) {
+            return fixMediaUrlProtocol(parsed.toString());
         }
     } catch {
         /* not a full URL */
