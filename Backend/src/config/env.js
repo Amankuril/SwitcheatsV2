@@ -2,6 +2,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const sanitizeUploadBaseUrl = (value) => String(value || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^(https?):\/(?!\/)/i, '$1://')
+    .replace(/\/+$/, '');
+
 export const config = {
     // Basic server config
     port: process.env.PORT || 5000,
@@ -35,7 +41,7 @@ export const config = {
     // Rate limiting
     rateLimitEnabled: process.env.RATE_LIMIT_ENABLED !== 'false',
     rateLimitWindowMinutes: Number(process.env.RATE_LIMIT_WINDOW || 15),
-    rateLimitMaxRequests: Number(process.env.RATE_LIMIT_MAX || 500),
+    rateLimitMaxRequests: Number(process.env.RATE_LIMIT_MAX || 2500),
     rateLimitDevMaxRequests: Number(process.env.RATE_LIMIT_DEV_MAX || 2000),
     authRateLimitWindowMinutes: Number(process.env.AUTH_RATE_LIMIT_WINDOW || 15),
     authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX || 30),
@@ -47,7 +53,7 @@ export const config = {
     // Uploads (local VPS storage — served by nginx, not Node)
     uploadStorageRoot: process.env.UPLOAD_STORAGE_ROOT
         || (process.env.NODE_ENV === 'production' ? '/var/www/uploads' : 'uploads'),
-    uploadBaseUrl: process.env.UPLOAD_BASE_URL
+    uploadBaseUrl: sanitizeUploadBaseUrl(process.env.UPLOAD_BASE_URL)
         || (process.env.NODE_ENV === 'production' ? '/uploads' : '/uploads'),
     uploadMaxFileSizeBytes: Number(process.env.UPLOAD_MAX_FILE_SIZE_MB || 5) * 1024 * 1024,
     uploadRateLimitWindowMinutes: Number(process.env.UPLOAD_RATE_LIMIT_WINDOW || 15),
@@ -61,7 +67,9 @@ export const config = {
     uploadPath: process.env.UPLOAD_PATH || process.env.UPLOAD_STORAGE_ROOT || '/var/www/uploads',
 
     // Redis
-    redisEnabled: process.env.REDIS_ENABLED === 'true',
+    // Auto-enable when REDIS_URL is set (SOP sets URL but often omits REDIS_ENABLED=true)
+    redisEnabled: process.env.REDIS_ENABLED === 'true'
+        || (!!process.env.REDIS_URL && process.env.REDIS_ENABLED !== 'false'),
     redisUrl: process.env.REDIS_URL,
 
     // BullMQ

@@ -23,9 +23,11 @@ import { restaurantAPI, uploadAPI } from "@food/api"
 import { toast } from "sonner"
 import { ImageSourcePicker } from "@food/components/ImageSourcePicker"
 import { isFlutterBridgeAvailable } from "@food/utils/imageUploadUtils"
+import { resolveMediaUrl } from "@food/utils/common"
 
 const debugLog = (...args) => {}
 const debugError = (...args) => {}
+const toDisplayImageUrl = (value) => resolveMediaUrl(value) || ""
 const OUTLET_APPROVAL_STATUS_KEY = "restaurant_outlet_update_approval_status"
 const OWNER_NAME_REGEX = /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/
 const EMAIL_REGEX = /^(?!.*\.\.)([A-Za-z0-9]+[._%+-]?)*[A-Za-z0-9]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}$/
@@ -266,21 +268,21 @@ export default function OutletInfo() {
       }
 
       if (data.profileImage?.url) {
-        setThumbnailImage(data.profileImage.url)
+        setThumbnailImage(toDisplayImageUrl(data.profileImage.url))
       }
 
       if (data.coverImages && Array.isArray(data.coverImages) && data.coverImages.length > 0) {
         setCoverImages(data.coverImages.map((img) => ({
-          url: img.url || img,
+          url: toDisplayImageUrl(img.url || img),
           publicId: img.publicId
         })))
-        setMainImage(data.coverImages[0].url || data.coverImages[0])
+        setMainImage(toDisplayImageUrl(data.coverImages[0].url || data.coverImages[0]))
       } else if (data.menuImages && Array.isArray(data.menuImages) && data.menuImages.length > 0) {
         setCoverImages(data.menuImages.map((img) => ({
-          url: img.url,
+          url: toDisplayImageUrl(img.url),
           publicId: img.publicId
         })))
-        setMainImage(data.menuImages[0].url)
+        setMainImage(toDisplayImageUrl(data.menuImages[0].url))
       } else {
         setCoverImages([])
       }
@@ -477,7 +479,7 @@ export default function OutletInfo() {
 
       if (uploadedImage) {
         if (uploadedImage.url) {
-          setThumbnailImage(uploadedImage.url)
+          setThumbnailImage(toDisplayImageUrl(uploadedImage.url))
         }
         
         // Refresh restaurant data
@@ -485,7 +487,7 @@ export default function OutletInfo() {
         if (data) {
           setRestaurantData(data)
           if (data.profileImage?.url) {
-            setThumbnailImage(data.profileImage.url)
+            setThumbnailImage(toDisplayImageUrl(data.profileImage.url))
           }
         }
       }
@@ -512,7 +514,7 @@ export default function OutletInfo() {
       const currentData = await getCurrentRestaurantCached()
       const existingImages = currentData?.menuImages && Array.isArray(currentData.menuImages)
         ? currentData.menuImages.map(img => ({
-            url: img.url,
+            url: toDisplayImageUrl(img.url),
             publicId: img.publicId
           }))
         : []
@@ -526,7 +528,7 @@ export default function OutletInfo() {
           const uploadedImage = uploadResponse?.data?.data?.menuImage
           if (uploadedImage?.url) {
             uploadedImageData.push({
-              url: uploadedImage.url,
+              url: toDisplayImageUrl(uploadedImage.url),
               publicId: uploadedImage.publicId || null
             })
           }
@@ -651,7 +653,7 @@ export default function OutletInfo() {
       if (data) {
         setRestaurantData(data)
         if (data.profileImage?.url) {
-          setThumbnailImage(data.profileImage.url)
+          setThumbnailImage(toDisplayImageUrl(data.profileImage.url))
         }
       }
       toast.success("Outlet image deleted successfully")
@@ -1016,7 +1018,7 @@ export default function OutletInfo() {
 
         {/* Outlet Image Section */}
         <div className="relative w-full h-[200px] overflow-hidden">
-          <img src={thumbnailImage} alt="Outlet" className="w-full h-full object-cover" />
+            <img src={toDisplayImageUrl(thumbnailImage)} alt="Outlet" className="w-full h-full object-cover" />
           <input
             ref={menuImageInputRef}
             type="file"
@@ -1065,7 +1067,7 @@ export default function OutletInfo() {
                       mainImage === img.url ? "border-slate-900" : "border-slate-200"
                     }`}
                   >
-                    <img src={img.url} alt={`Menu ${index + 1}`} className="h-full w-full object-cover" />
+                    <img src={toDisplayImageUrl(img.url)} alt={`Menu ${index + 1}`} className="h-full w-full object-cover" />
                   </button>
                 ))
               ) : (
@@ -1661,7 +1663,7 @@ export default function OutletInfo() {
               <X size={16} />
             </button>
             <img
-              src={previewImageUrl}
+              src={toDisplayImageUrl(previewImageUrl)}
               alt="Preview"
               className="w-full max-h-[80vh] object-contain rounded-md"
             />
