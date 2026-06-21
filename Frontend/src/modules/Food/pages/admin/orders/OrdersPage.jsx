@@ -770,6 +770,29 @@ export default function OrdersPage({ statusKey = "all" }) {
     }
   }
 
+  const handleMarkDelivered = async (order) => {
+    const orderIdToUse = order.id || order._id || order.orderId
+    if (!orderIdToUse) {
+      toast.error("Order ID not found")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Mark order ${order.orderId} as delivered? This will complete the order at its current stage.`,
+    )
+    if (!confirmed) return
+
+    try {
+      setProcessingActionOrderId(order.id || order.orderId)
+      await adminAPI.markOrderDelivered(orderIdToUse)
+      await fetchOrders({ silent: true, withRingCheck: false })
+    } catch (error) {
+      debugError("Error marking order as delivered:", error)
+    } finally {
+      setProcessingActionOrderId(null)
+    }
+  }
+
   const handleDeassignAndResend = async (order) => {
     const orderIdToUse = order.id || order._id || order.orderId
     if (!orderIdToUse) {
@@ -1070,6 +1093,7 @@ export default function OrdersPage({ statusKey = "all" }) {
         onDeleteOrder={statusKey === "all" ? handleDeleteOrder : undefined}
         onAcceptOrder={statusKey === "all" || statusKey === "pending" ? handleAcceptOrder : undefined}
         onRejectOrder={statusKey === "all" || statusKey === "pending" ? handleRejectOrder : undefined}
+        onMarkDelivered={handleMarkDelivered}
         onDeassignAndResend={handleDeassignAndResend}
         onResendNotification={handleResendNotification}
         onCancelOrder={

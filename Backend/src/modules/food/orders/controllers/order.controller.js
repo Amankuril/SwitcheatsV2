@@ -422,6 +422,18 @@ export async function rejectOrderAdminController(req, res, next) {
     }
 }
 
+export async function markOrderDeliveredAdminController(req, res, next) {
+    try {
+        const adminId = req.user?.userId;
+        const orderId = req.params.orderId;
+        const { note } = req.body || {};
+        const order = await orderService.markOrderDeliveredAdmin(orderId, adminId, note);
+        return sendResponse(res, 200, 'Order marked as delivered', { order });
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function processRefundAdminController(req, res, next) {
     try {
         const adminId = req.user?.userId;

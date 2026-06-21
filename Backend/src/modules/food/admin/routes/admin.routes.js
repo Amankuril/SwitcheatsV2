@@ -389,6 +389,11 @@ router.get('/orders/:orderId', orderController.getOrderByIdAdminController);
 router.patch('/orders/:orderId/accept', orderController.acceptOrderAdminController);
 router.patch('/orders/:orderId/reject', orderController.rejectOrderAdminController);
 router.patch(
+    '/orders/:orderId/mark-delivered',
+    requireAdminPermission('order_management', 'edit'),
+    orderController.markOrderDeliveredAdminController
+);
+router.patch(
     '/orders/:orderId/deassign-resend',
     requireAdminPermission('order_management', 'edit'),
     adminController.deassignAndResendOrder

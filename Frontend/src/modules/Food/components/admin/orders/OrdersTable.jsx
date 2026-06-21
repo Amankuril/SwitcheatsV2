@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { Eye, Printer, ArrowUpDown, Loader2, Check, X, Trash2, RefreshCw, Volume2 } from "lucide-react"
+import { Eye, Printer, ArrowUpDown, Loader2, Check, X, Trash2, RefreshCw, Volume2, PackageCheck } from "lucide-react"
 
 const getStatusColor = (orderStatus) => {
   const colors = {
@@ -39,6 +39,7 @@ export default function OrdersTable({
   onCancelOrder,
   onDeassignAndResend,
   onResendNotification,
+  onMarkDelivered,
   actionLoadingOrderId,
   deletingOrderId,
   showAssignedDeliveryPartner = false,
@@ -95,6 +96,18 @@ export default function OrdersTable({
       !order?.deliveryState?.pickedUpAt &&
       !["en_route_to_delivery", "at_drop", "delivered", "completed"].includes(phase)
     )
+  }
+
+  const canMarkAsDelivered = (order) => {
+    const status = String(order?.orderStatus || "").trim().toLowerCase()
+    return ![
+      "delivered",
+      "canceled",
+      "cancelled by restaurant",
+      "cancelled by user",
+      "payment failed",
+      "refunded",
+    ].includes(status)
   }
 
   if (orders.length === 0) {
@@ -543,6 +556,32 @@ export default function OrdersTable({
                           <span>Reject</span>
                         </button>
                       )}
+                      {onMarkDelivered ? (
+                        <button
+                          onClick={() => canMarkAsDelivered(order) && onMarkDelivered(order)}
+                          disabled={
+                            actionLoadingOrderId === (order.id || order.orderId) ||
+                            !canMarkAsDelivered(order)
+                          }
+                          className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                            canMarkAsDelivered(order)
+                              ? "text-white bg-emerald-700 hover:bg-emerald-800"
+                              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                          } disabled:opacity-60 disabled:cursor-not-allowed`}
+                          title={
+                            canMarkAsDelivered(order)
+                              ? "Mark order as delivered"
+                              : "Not available for delivered or cancelled orders"
+                          }
+                        >
+                          {actionLoadingOrderId === (order.id || order.orderId) ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <PackageCheck className="w-3.5 h-3.5" />
+                          )}
+                          <span>Delivered</span>
+                        </button>
+                      ) : null}
                       <button
                         onClick={() => onViewOrder(order)}
                         className="p-1.5 rounded text-orange-600 hover:bg-orange-50 transition-colors"

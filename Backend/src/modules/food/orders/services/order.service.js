@@ -1836,6 +1836,113 @@ export async function updateOrderStatusAdmin(orderId, orderStatus, note = "", ad
     return normalizeOrderForClient(order);
 }
 
+export async function markOrderDeliveredAdmin(orderId, adminId, note = "") {
+    const identity = buildOrderIdentityFilter(orderId);
+    const order = await FoodOrder.findOne(identity);
+    if (!order) throw new NotFoundError("Order not found");
+
+    const from = String(order.orderStatus || "");
+    if (from === "delivered") {
+        throw new ValidationError("Order is already delivered");
+    }
+    if (from.includes("cancel") || from === "pending_payment") {
+        throw new ValidationError(`Cannot mark order as delivered from status '${from}'`);
+    }
+
+    const normalizedPaymentMethod = String(order.payment?.method || "cash").toLowerCase();
+    const prevPaymentStatus = String(order.payment?.status || "cod_pending").toLowerCase();
+
+    order.orderStatus = "delivered";
+    order.deliveryState = {
+        ...(order.deliveryState?.toObject?.() || order.deliveryState || {}),
+        currentPhase: "delivered",
+        status: "delivered",
+        deliveredAt: order.deliveryState?.deliveredAt || new Date(),
+    };
+
+    if (normalizedPaymentMethod === "cash" && prevPaymentStatus === "cod_pending") {
+        order.payment.status = "paid";
+    }
+
+    pushStatusHistory(order, {
+        byRole: "ADMIN",
+        byId: adminId,
+        from,
+        to: "delivered",
+        note: note || "Order marked as delivered by admin",
+    });
+
+    await order.save();
+
+    try {
+        const ledgerKind =
+            normalizedPaymentMethod === "cash" && prevPaymentStatus === "cod_pending"
+                ? "cod_marked_paid_on_delivery"
+                : "payment_snapshot_sync";
+        await foodTransactionService.updateTransactionStatus(order._id, ledgerKind, {
+            status: "captured",
+            recordedByRole: "ADMIN",
+            recordedById: adminId,
+            note: `Delivery completed by admin override. Prev payment status: ${prevPaymentStatus}`,
+        });
+    } catch (err) {
+        logger.warn(`markOrderDeliveredAdmin transaction sync failed: ${err?.message || err}`);
+    }
+
+    const orderLabel = order.order_id || order._id?.toString?.() || "";
+    const notifyList = [
+        { ownerType: "USER", ownerId: order.userId },
+        { ownerType: "RESTAURANT", ownerId: order.restaurantId },
+    ];
+    if (order.dispatch?.deliveryPartnerId) {
+        notifyList.push({ ownerType: "DELIVERY_PARTNER", ownerId: order.dispatch.deliveryPartnerId });
+    }
+
+    await notifyOwnersSafely(notifyList, {
+        title: "Order Delivered! 🎉",
+        body: `Order #${orderLabel} has been marked as delivered by support.`,
+        data: {
+            type: "order_status_update",
+            orderId: order._id.toString(),
+            orderStatus: "delivered",
+        },
+    });
+
+    try {
+        const io = getIO();
+        if (io) {
+            const payload = {
+                orderMongoId: order._id.toString(),
+                orderId: order._id.toString(),
+                orderStatus: "delivered",
+                deliveryState: order.deliveryState,
+                message: `Order #${orderLabel} marked as delivered by admin.`,
+                title: "Order Delivered! 🎉",
+            };
+            io.to(rooms.user(order.userId)).emit("order_status_update", payload);
+            io.to(rooms.restaurant(order.restaurantId)).emit("order_status_update", payload);
+            if (order.dispatch?.deliveryPartnerId) {
+                io.to(rooms.delivery(order.dispatch.deliveryPartnerId)).emit("order_status_update", payload);
+                io.to(rooms.delivery(order.dispatch.deliveryPartnerId)).emit("order_completed", payload);
+            }
+        }
+    } catch (err) {
+        logger.warn(`markOrderDeliveredAdmin socket emit failed: ${err?.message || err}`);
+    }
+
+    enqueueOrderEvent("delivery_completed", {
+        orderMongoId: order._id?.toString?.(),
+        orderId: order._id.toString(),
+        adminId: adminId ? String(adminId) : null,
+        payMethod: normalizedPaymentMethod,
+        prevPayStatus,
+        paymentStatus: order.payment?.status,
+        source: "admin_override",
+    });
+
+    return normalizeOrderForClient(order);
+}
+
 export async function processRefundAdmin(orderId, amount, adminId) {
     const identity = buildOrderIdentityFilter(orderId);
     let order = await FoodOrder.findOne(identity);
