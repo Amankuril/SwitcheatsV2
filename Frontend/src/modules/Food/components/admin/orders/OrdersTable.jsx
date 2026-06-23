@@ -43,21 +43,42 @@ export default function OrdersTable({
   actionLoadingOrderId,
   deletingOrderId,
   showAssignedDeliveryPartner = false,
+  serverPagination = false,
+  totalCount = 0,
+  currentPage: externalCurrentPage,
+  totalPages: externalTotalPages,
+  pageSize = 10,
+  onPageChange,
 }) {
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
-  const totalPages = Math.ceil(orders.length / itemsPerPage)
+  const [internalCurrentPage, setInternalCurrentPage] = useState(1)
+  const currentPage = serverPagination ? externalCurrentPage || 1 : internalCurrentPage
+  const itemsPerPage = serverPagination ? pageSize : 10
+  const resolvedTotalCount = serverPagination ? totalCount : orders.length
+  const totalPages = serverPagination
+    ? Math.max(1, externalTotalPages || Math.ceil(resolvedTotalCount / itemsPerPage))
+    : Math.ceil(orders.length / itemsPerPage)
 
-  // Reset to page 1 when orders change
+  // Reset to page 1 when orders change (client-side pagination only)
   useEffect(() => {
-    setCurrentPage(1)
-  }, [orders.length])
+    if (!serverPagination) {
+      setInternalCurrentPage(1)
+    }
+  }, [orders.length, serverPagination])
 
   const paginatedOrders = useMemo(() => {
+    if (serverPagination) return orders
     const start = (currentPage - 1) * itemsPerPage
     const end = start + itemsPerPage
     return orders.slice(start, end)
-  }, [orders, currentPage])
+  }, [orders, currentPage, itemsPerPage, serverPagination])
+
+  const handlePageChange = (page) => {
+    if (serverPagination) {
+      onPageChange?.(page)
+      return
+    }
+    setInternalCurrentPage(page)
+  }
 
   const formatRestaurantName = (name) => {
     if (name === "Cafe Monarch") return "Café Monarch"
@@ -675,12 +696,12 @@ export default function OrdersTable({
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
           <div className="text-sm text-slate-600">
             Showing <span className="font-semibold">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
-            <span className="font-semibold">{Math.min(currentPage * itemsPerPage, orders.length)}</span> of{" "}
-            <span className="font-semibold">{orders.length}</span> orders
+            <span className="font-semibold">{Math.min(currentPage * itemsPerPage, resolvedTotalCount)}</span> of{" "}
+            <span className="font-semibold">{resolvedTotalCount}</span> orders
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
               className="px-3 py-1.5 text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
@@ -701,7 +722,7 @@ export default function OrdersTable({
                 return (
                   <button
                     key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
+                    onClick={() => handlePageChange(pageNum)}
                     className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${currentPage === pageNum
                         ? "bg-emerald-500 text-white shadow-md"
                         : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -713,7 +734,7 @@ export default function OrdersTable({
               })}
             </div>
             <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
               className="px-3 py-1.5 text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >

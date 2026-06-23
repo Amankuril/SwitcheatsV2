@@ -634,7 +634,7 @@ export const adminAPI = {
   /** Orders (admin) – list, get by id, assign delivery partner */
   getOrders: (params = {}) =>
     apiClient.get("/food/admin/orders", {
-      params: { limit: 50, page: 1, ...params },
+      params: { limit: 200, page: 1, ...params },
       contextModule: "admin",
     }),
   getOrderById: (orderId) =>

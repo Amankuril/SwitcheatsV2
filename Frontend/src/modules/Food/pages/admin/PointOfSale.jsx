@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, TrendingUp, TrendingDown, DollarSign, ShoppingCart, XCircle, Star, Calendar, BarChart3, Users, Award, Package } from 'lucide-react'
+import { Search, TrendingUp, TrendingDown, DollarSign, ShoppingCart, XCircle, Star, Calendar, BarChart3, Users, Award, Package, Clock } from 'lucide-react'
 import { adminAPI } from '@food/api'
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
@@ -65,6 +65,12 @@ export default function PointOfSale() {
   const [analyticsData, setAnalyticsData] = useState({
     totalOrders: 0,
     cancelledOrders: 0,
+    notDeliveredOrders: 0,
+    explicitlyCancelledOrders: 0,
+    inProgressOrders: 0,
+    cancelledByRestaurant: 0,
+    cancelledByAdmin: 0,
+    cancelledByUser: 0,
     completedOrders: 0,
     averageRating: 0,
     totalRatings: 0,
@@ -85,7 +91,8 @@ export default function PointOfSale() {
     totalCustomers: 0,
     repeatCustomers: 0,
     cancellationRate: 0,
-    completionRate: 0
+    completionRate: 0,
+    inProgressRate: 0
   })
 
   // Fetch restaurants list
@@ -103,6 +110,12 @@ export default function PointOfSale() {
       setAnalyticsData({
         totalOrders: 0,
         cancelledOrders: 0,
+        notDeliveredOrders: 0,
+        explicitlyCancelledOrders: 0,
+        inProgressOrders: 0,
+        cancelledByRestaurant: 0,
+        cancelledByAdmin: 0,
+        cancelledByUser: 0,
         completedOrders: 0,
         averageRating: 0,
         totalRatings: 0,
@@ -123,7 +136,8 @@ export default function PointOfSale() {
         totalCustomers: 0,
         repeatCustomers: 0,
         cancellationRate: 0,
-        completionRate: 0
+        completionRate: 0,
+        inProgressRate: 0
       })
     }
   }, [selectedRestaurant])
@@ -181,7 +195,13 @@ export default function PointOfSale() {
         // Set analytics data - ensure all values are numbers, not null/undefined
         setAnalyticsData({
           totalOrders: Number(analytics.totalOrders) || 0,
-          cancelledOrders: Number(analytics.cancelledOrders) || 0,
+          cancelledOrders: Number(analytics.cancelledOrders ?? analytics.explicitlyCancelledOrders) || 0,
+          notDeliveredOrders: Number(analytics.notDeliveredOrders) || 0,
+          explicitlyCancelledOrders: Number(analytics.explicitlyCancelledOrders ?? analytics.cancelledOrders) || 0,
+          inProgressOrders: Number(analytics.inProgressOrders) || 0,
+          cancelledByRestaurant: Number(analytics.cancelledByRestaurant) || 0,
+          cancelledByAdmin: Number(analytics.cancelledByAdmin) || 0,
+          cancelledByUser: Number(analytics.cancelledByUser) || 0,
           completedOrders: Number(analytics.completedOrders) || 0,
           averageRating: Number(analytics.averageRating) || 0,
           totalRatings: Number(analytics.totalRatings) || 0,
@@ -202,7 +222,8 @@ export default function PointOfSale() {
           totalCustomers: analytics.totalCustomers || 0,
           repeatCustomers: analytics.repeatCustomers || 0,
           cancellationRate: analytics.cancellationRate || 0,
-          completionRate: analytics.completionRate || 0
+          completionRate: analytics.completionRate || 0,
+          inProgressRate: analytics.inProgressRate || 0
         })
       } else {
         // Fallback to empty data if API fails
@@ -210,6 +231,12 @@ export default function PointOfSale() {
         setAnalyticsData({
           totalOrders: 0,
           cancelledOrders: 0,
+          notDeliveredOrders: 0,
+          explicitlyCancelledOrders: 0,
+          inProgressOrders: 0,
+          cancelledByRestaurant: 0,
+          cancelledByAdmin: 0,
+          cancelledByUser: 0,
           completedOrders: 0,
           averageRating: 0,
           totalRatings: 0,
@@ -230,7 +257,8 @@ export default function PointOfSale() {
           totalCustomers: 0,
           repeatCustomers: 0,
           cancellationRate: 0,
-          completionRate: 0
+          completionRate: 0,
+          inProgressRate: 0
         })
       }
     } catch (error) {
@@ -256,6 +284,12 @@ export default function PointOfSale() {
       setAnalyticsData({
         totalOrders: 0,
         cancelledOrders: 0,
+        notDeliveredOrders: 0,
+        explicitlyCancelledOrders: 0,
+        inProgressOrders: 0,
+        cancelledByRestaurant: 0,
+        cancelledByAdmin: 0,
+        cancelledByUser: 0,
         completedOrders: 0,
         averageRating: 0,
         totalRatings: 0,
@@ -276,7 +310,8 @@ export default function PointOfSale() {
         totalCustomers: 0,
         repeatCustomers: 0,
         cancellationRate: 0,
-        completionRate: 0
+        completionRate: 0,
+        inProgressRate: 0
       })
     } finally {
       setLoading(false)
@@ -458,7 +493,7 @@ export default function PointOfSale() {
             </div>
 
             {/* Key Metrics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
               {/* Total Orders */}
               <div className="bg-white rounded-lg shadow-sm border border-[#e3e6ef] p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -482,7 +517,22 @@ export default function PointOfSale() {
                 </div>
                 <h3 className="text-sm font-medium text-[#8a94aa] mb-1">Cancelled Orders</h3>
                 <p className="text-2xl font-bold text-[#334257]">{formatNumber(analyticsData.cancelledOrders)}</p>
-                <p className="text-xs text-[#8a94aa] mt-2">Cancellation Rate</p>
+                <p className="text-xs text-[#8a94aa] mt-2">
+                  Restaurant: {formatNumber(analyticsData.cancelledByRestaurant)} | Admin: {formatNumber(analyticsData.cancelledByAdmin)} | User: {formatNumber(analyticsData.cancelledByUser)}
+                </p>
+                </div>
+
+              {/* In Processing Orders */}
+              <div className="bg-white rounded-lg shadow-sm border border-[#e3e6ef] p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-orange-100 rounded-lg">
+                    <Clock className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <span className="text-sm font-semibold text-orange-600">{analyticsData.inProgressRate.toFixed(1)}%</span>
+                </div>
+                <h3 className="text-sm font-medium text-[#8a94aa] mb-1">In Processing</h3>
+                <p className="text-2xl font-bold text-[#334257]">{formatNumber(analyticsData.inProgressOrders)}</p>
+                <p className="text-xs text-[#8a94aa] mt-2">Pending, accepted, preparing, on the way</p>
                 </div>
 
               {/* Average Rating */}
@@ -753,7 +803,7 @@ export default function PointOfSale() {
             {/* Order Statistics Summary */}
             <div className="bg-white rounded-lg shadow-sm border border-[#e3e6ef] p-6">
               <h3 className="text-lg font-semibold text-[#334257] mb-4">Order Statistics Summary</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
                   <p className="text-2xl font-bold text-blue-600">{formatNumber(analyticsData.totalOrders)}</p>
                   <p className="text-xs text-[#8a94aa] mt-1">Total Orders</p>
@@ -765,6 +815,13 @@ export default function PointOfSale() {
                 <div className="text-center p-4 bg-red-50 rounded-lg">
                   <p className="text-2xl font-bold text-red-600">{formatNumber(analyticsData.cancelledOrders)}</p>
                   <p className="text-xs text-[#8a94aa] mt-1">Cancelled</p>
+                  <p className="text-[10px] text-[#8a94aa] mt-1">
+                    R: {formatNumber(analyticsData.cancelledByRestaurant)} | A: {formatNumber(analyticsData.cancelledByAdmin)} | U: {formatNumber(analyticsData.cancelledByUser)}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-orange-50 rounded-lg">
+                  <p className="text-2xl font-bold text-orange-600">{formatNumber(analyticsData.inProgressOrders)}</p>
+                  <p className="text-xs text-[#8a94aa] mt-1">In Processing</p>
                 </div>
                 <div className="text-center p-4 bg-yellow-50 rounded-lg">
                   <p className="text-2xl font-bold text-yellow-600">{analyticsData.completionRate.toFixed(1)}%</p>

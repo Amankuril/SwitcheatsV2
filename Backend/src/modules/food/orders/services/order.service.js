@@ -1481,13 +1481,11 @@ export async function switchToCash(orderId, deliveryPartnerId) {
 
 // ----- Admin -----
 export async function listOrdersAdmin(query) {
-  const { page, limit, skip } = buildPaginationOptions(query);
-  const filter = {
-    $or: [
-      { "payment.method": { $in: ["cash", "wallet"] } },
-      { "payment.status": { $in: ["paid", "authorized", "captured", "settled", "refunded"] } },
-    ],
-  };
+  const page = Math.max(parseInt(query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 2000);
+  const skip = (page - 1) * limit;
+  // Admin should see every order in the database (no payment-status gate).
+  const filter = {};
 
   const rawStatus =
     typeof query.status === "string" ? query.status.trim().toLowerCase() : "";
@@ -1505,18 +1503,39 @@ export async function listOrdersAdmin(query) {
     typeof query.endDate === "string" ? query.endDate.trim() : "";
 
   if (rawStatus && rawStatus !== "all") {
+    const terminalCancelledStatuses = [
+      "cancelled_by_user",
+      "cancelled_by_restaurant",
+      "cancelled_by_admin",
+    ];
+
     switch (rawStatus) {
       case "pending":
-        filter.orderStatus = { $in: ["created", "confirmed"] };
-        break;
-      case "accepted":
-        filter.orderStatus = "confirmed";
+        // Placed by customer; restaurant has not accepted yet.
+        filter.orderStatus = "created";
         break;
       case "processing":
-        filter.orderStatus = { $in: ["preparing", "ready_for_pickup"] };
+        // Active orders not delivered/cancelled, delivery partner not accepted yet.
+        // Includes pending_payment (online checkout started) and post-acceptance kitchen states.
+        filter.orderStatus = {
+          $nin: [
+            "created",
+            "delivered",
+            ...terminalCancelledStatuses,
+          ],
+        };
+        filter.$or = [
+          { "dispatch.status": { $ne: "accepted" } },
+          { "dispatch.status": { $exists: false } },
+          { dispatch: { $exists: false } },
+        ];
         break;
       case "food-on-the-way":
-        filter.orderStatus = "picked_up";
+        // Delivery partner accepted; not yet delivered.
+        filter["dispatch.status"] = "accepted";
+        filter.orderStatus = {
+          $nin: ["delivered", ...terminalCancelledStatuses],
+        };
         break;
       case "delivered":
         filter.orderStatus = "delivered";
@@ -1543,9 +1562,6 @@ export async function listOrdersAdmin(query) {
       case "offline-payments":
         filter["payment.method"] = "cash";
         filter.orderStatus = { $in: ["created", "confirmed", "delivered"] };
-        break;
-      case "scheduled":
-        filter.scheduledAt = { $ne: null };
         break;
       default:
         break;
