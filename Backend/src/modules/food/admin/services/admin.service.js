@@ -30,6 +30,7 @@ import { FoodAddon } from '../../restaurant/models/foodAddon.model.js';
 import { FoodSupportTicket } from '../../user/models/supportTicket.model.js';
 import { FoodRestaurantSupportTicket } from '../../restaurant/models/supportTicket.model.js';
 import { FoodOrder } from '../../orders/models/order.model.js';
+import { isCancelledOrder, CANCELLED_ORDER_STATUSES } from '../../orders/services/order.helpers.js';
 import { FoodTransaction } from '../../orders/models/foodTransaction.model.js';
 import { FoodRestaurantWithdrawal } from '../../restaurant/models/foodRestaurantWithdrawal.model.js';
 import { FoodDeliveryWithdrawal } from '../../delivery/models/foodDeliveryWithdrawal.model.js';
@@ -347,7 +348,7 @@ export async function getRestaurants(query) {
     return { restaurants, total, page, limit };
 }
 
-const CANCELLED_ORDER_STATUSES = ['cancelled_by_user', 'cancelled_by_restaurant', 'cancelled_by_admin'];
+
 const PENDING_ORDER_STATUSES = ['created', 'confirmed', 'preparing', 'ready_for_pickup', 'picked_up'];
 
 const getDateRangeByPeriod = (periodRaw) => {
@@ -2217,15 +2218,98 @@ export async function getRestaurantById(id) {
 export async function getRestaurantAnalytics(restaurantId) {
     if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) return null;
     const rId = new mongoose.Types.ObjectId(restaurantId);
+    const restaurantOrderMatch = {
+        $or: [
+            { restaurantId: rId },
+            { restaurantId: String(restaurantId) },
+        ],
+    };
 
-    const [restaurant, commissionDoc, orders, txRows] = await Promise.all([
+    const [restaurant, commissionDoc, orders, txRows, orderStatsRows] = await Promise.all([
         FoodRestaurant.findById(rId).lean(),
         FoodRestaurantCommission.findOne({ restaurantId: rId, status: { $ne: false } }).lean(),
-        FoodOrder.find({ restaurantId: rId }).lean(),
+        FoodOrder.find(restaurantOrderMatch).lean(),
         FoodTransaction.find({ restaurantId: rId })
             .populate('orderId', 'orderStatus deliveryState createdAt pricing')
             .sort({ createdAt: -1 })
             .lean(),
+        FoodOrder.aggregate([
+            { $match: restaurantOrderMatch },
+            {
+                $addFields: {
+                    statusNormalized: {
+                        $toLower: {
+                            $trim: {
+                                input: { $ifNull: ['$orderStatus', '$status', ''] },
+                            },
+                        },
+                    },
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalOrders: { $sum: 1 },
+                    completedOrders: {
+                        $sum: {
+                            $cond: [{ $eq: ['$statusNormalized', 'delivered'] }, 1, 0],
+                        },
+                    },
+                    notDeliveredOrders: {
+                        $sum: {
+                            $cond: [{ $ne: ['$statusNormalized', 'delivered'] }, 1, 0],
+                        },
+                    },
+                    explicitlyCancelledOrders: {
+                        $sum: {
+                            $cond: [
+                                { $in: ['$statusNormalized', CANCELLED_ORDER_STATUSES] },
+                                1,
+                                0,
+                            ],
+                        },
+                    },
+                    cancelledByRestaurant: {
+                        $sum: {
+                            $cond: [{ $eq: ['$statusNormalized', 'cancelled_by_restaurant'] }, 1, 0],
+                        },
+                    },
+                    cancelledByAdmin: {
+                        $sum: {
+                            $cond: [{ $eq: ['$statusNormalized', 'cancelled_by_admin'] }, 1, 0],
+                        },
+                    },
+                    cancelledByUser: {
+                        $sum: {
+                            $cond: [{ $eq: ['$statusNormalized', 'cancelled_by_user'] }, 1, 0],
+                        },
+                    },
+                    inProgressOrders: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $in: [
+                                        '$statusNormalized',
+                                        [
+                                            'created',
+                                            'confirmed',
+                                            'preparing',
+                                            'ready_for_pickup',
+                                            'reached_pickup',
+                                            'picked_up',
+                                            'reached_drop',
+                                            'pending_payment',
+                                        ],
+                                    ],
+                                },
+                                1,
+                                0,
+                            ],
+                        },
+                    },
+                },
+            },
+        ]),
     ]);
 
     if (!restaurant) return null;
@@ -2236,6 +2320,7 @@ export async function getRestaurantAnalytics(restaurantId) {
 
     const toStatus = (value) => String(value || '').trim().toLowerCase();
     const isCompletedOrder = (order) => {
+        if (isCancelledOrder(order)) return false;
         const orderStatus = toStatus(order?.orderStatus || order?.status);
         const deliveryPhase = toStatus(order?.deliveryState?.currentPhase);
         return orderStatus === 'delivered' || deliveryPhase === 'delivered' || deliveryPhase === 'completed';
@@ -2256,7 +2341,12 @@ export async function getRestaurantAnalytics(restaurantId) {
     };
 
     const completedOrders = orders.filter(isCompletedOrder);
-    const cancelledOrders = orders.filter(o => ['cancelled_by_user', 'cancelled_by_restaurant', 'cancelled_by_admin'].includes(o.orderStatus));
+    const orderStats = orderStatsRows?.[0] || {};
+    const totalOrdersCount = Number(orderStats.totalOrders) || orders.length;
+    const completedOrdersCount = Number(orderStats.completedOrders) || 0;
+    const notDeliveredOrdersCount = Number(orderStats.notDeliveredOrders) || 0;
+    const explicitlyCancelledOrdersCount = Number(orderStats.explicitlyCancelledOrders) || 0;
+    const inProgressOrdersCount = Number(orderStats.inProgressOrders) || 0;
 
     // Money metrics should come from the ledger (FoodTransaction), not FoodOrder.
     const completedTxByOrderId = new Map(
@@ -2304,7 +2394,6 @@ export async function getRestaurantAnalytics(restaurantId) {
     });
     const yearlyProfit = sum(yearlyCompletedMoneyRows, getRestaurantShare);
 
-    const totalOrdersCount = orders.length;
     const avgOrderValue = completedMoneyRows.length > 0 ? totalRevenue / completedMoneyRows.length : 0;
 
     const uniqueCustomers = new Set(orders.map(o => String(o.userId))).size;
@@ -2326,8 +2415,14 @@ export async function getRestaurantAnalytics(restaurantId) {
 
     const analytics = {
         totalOrders: totalOrdersCount,
-        cancelledOrders: cancelledOrders.length,
-        completedOrders: completedOrders.length,
+        cancelledOrders: explicitlyCancelledOrdersCount,
+        explicitlyCancelledOrders: explicitlyCancelledOrdersCount,
+        inProgressOrders: inProgressOrdersCount,
+        notDeliveredOrders: notDeliveredOrdersCount,
+        completedOrders: completedOrdersCount,
+        cancelledByRestaurant: Number(orderStats.cancelledByRestaurant) || 0,
+        cancelledByAdmin: Number(orderStats.cancelledByAdmin) || 0,
+        cancelledByUser: Number(orderStats.cancelledByUser) || 0,
         averageRating: Number(restaurant.rating || 0),
         totalRatings: Number(restaurant.totalRatings || 0),
         commissionPercentage: computedCommissionPercent,
@@ -2346,8 +2441,9 @@ export async function getRestaurantAnalytics(restaurantId) {
         joinDate: restaurant.createdAt,
         totalCustomers: uniqueCustomers,
         repeatCustomers,
-        cancellationRate: totalOrdersCount > 0 ? (cancelledOrders.length / totalOrdersCount) * 100 : 0,
-        completionRate: totalOrdersCount > 0 ? (completedOrders.length / totalOrdersCount) * 100 : 0
+        cancellationRate: totalOrdersCount > 0 ? (explicitlyCancelledOrdersCount / totalOrdersCount) * 100 : 0,
+        completionRate: totalOrdersCount > 0 ? (completedOrdersCount / totalOrdersCount) * 100 : 0,
+        inProgressRate: totalOrdersCount > 0 ? (inProgressOrdersCount / totalOrdersCount) * 100 : 0,
     };
 
     const paymentSummary = {

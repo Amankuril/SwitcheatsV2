@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useSearchParams } from "react-router-dom"
 import io from "socket.io-client"
-import { FileText, Calendar, Package } from "lucide-react"
+import { FileText, Package } from "lucide-react"
 import { adminAPI } from "@food/api"
 import { API_BASE_URL } from "@food/api/config"
 import { toast } from "sonner"
@@ -25,11 +25,24 @@ const debugError = (...args) => {}
 // Status configuration with titles, colors, and icons
 const statusConfig = {
   "all": { title: "All Orders", color: "emerald", icon: FileText },
-  "scheduled": { title: "Scheduled Orders", color: "blue", icon: Calendar },
-  "pending": { title: "Pending Orders", color: "amber", icon: Package },
-  "accepted": { title: "Accepted Orders", color: "green", icon: Package },
-  "processing": { title: "Processing Orders", color: "orange", icon: Package },
-  "food-on-the-way": { title: "Food On The Way Orders", color: "amber", icon: Package },
+  "pending": {
+    title: "Pending Orders",
+    subtitle: "Cash orders awaiting restaurant acceptance",
+    color: "amber",
+    icon: Package,
+  },
+  "processing": {
+    title: "Processing Orders",
+    subtitle: "Active orders awaiting delivery partner (includes payment-pending online orders)",
+    color: "orange",
+    icon: Package,
+  },
+  "food-on-the-way": {
+    title: "Food On The Way Orders",
+    subtitle: "Delivery partner accepted — not yet delivered",
+    color: "amber",
+    icon: Package,
+  },
   "delivered": { title: "Delivered Orders", color: "emerald", icon: Package },
   "canceled": { title: "Canceled Orders", color: "rose", icon: Package },
   "restaurant-cancelled": { title: "Restaurant Cancelled Orders", color: "red", icon: Package },
@@ -38,9 +51,14 @@ const statusConfig = {
   "offline-payments": { title: "Offline Payments", color: "slate", icon: Package },
 }
 
+const PAGE_SIZE = 50
+
 export default function OrdersPage({ statusKey = "all" }) {
   const config = statusConfig[statusKey] || statusConfig["all"]
   const [orders, setOrders] = useState([])
+  const [apiPage, setApiPage] = useState(1)
+  const [totalOrdersCount, setTotalOrdersCount] = useState(0)
+  const [apiTotalPages, setApiTotalPages] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [processingRefund, setProcessingRefund] = useState(null)
   const [processingActionOrderId, setProcessingActionOrderId] = useState(null)
@@ -333,14 +351,37 @@ export default function OrdersPage({ statusKey = "all" }) {
     }
   }, [statusKey])
 
+  const extractOrdersFromResponse = useCallback((response) => {
+    const rawOrders =
+      response?.data?.data?.orders ??
+      response?.data?.orders ??
+      response?.data?.data?.docs ??
+      response?.data?.data
+    return Array.isArray(rawOrders) ? rawOrders : []
+  }, [])
+
+  const getTotalPagesFromResponse = useCallback((response) => {
+    return (
+      response?.data?.data?.meta?.totalPages ??
+      response?.data?.data?.pagination?.totalPages ??
+      response?.data?.data?.pagination?.pages ??
+      1
+    )
+  }, [])
+
+  const getTotalCountFromResponse = useCallback((response) => {
+    const total =
+      response?.data?.data?.meta?.total ??
+      response?.data?.data?.pagination?.total
+    return Number.isFinite(Number(total)) ? Number(total) : null
+  }, [])
+
   const fetchOrders = useCallback(async (options = {}) => {
-    const { silent = false, withRingCheck = false } = options
+    const { silent = false, withRingCheck = false, page = apiPage } = options
 
     try {
       if (!silent) setIsLoading(true)
-      const params = {
-        page: 1,
-        limit: 1000,
+      const baseParams = {
         status:
           statusKey === "all"
             ? undefined
@@ -350,24 +391,26 @@ export default function OrdersPage({ statusKey = "all" }) {
         cancelledBy: statusKey === "restaurant-cancelled" ? "restaurant" : undefined,
       }
 
-      const response = await adminAPI.getOrders(params)
+      if (withRingCheck && statusKey === "all") {
+        const pollResponse = await adminAPI.getOrders({
+          ...baseParams,
+          page: 1,
+          limit: PAGE_SIZE,
+        })
 
-      const rawOrders =
-        response?.data?.data?.orders ??
-        response?.data?.orders ??
-        response?.data?.data?.docs ??
-        response?.data?.data
-      const nextOrders = Array.isArray(rawOrders) ? rawOrders : []
+        if (!pollResponse.data?.success) {
+          return
+        }
 
-      if (response.data?.success) {
-        const nextOrderIds = new Set(
-          nextOrders
+        const latestOrders = extractOrdersFromResponse(pollResponse)
+        const latestOrderIds = new Set(
+          latestOrders
             .map((order) => order.id || order._id || order.orderId)
             .filter(Boolean),
         )
 
-        if (withRingCheck && !isFirstLoadRef.current && statusKey === "all") {
-          const hasNewOrder = [...nextOrderIds].some(
+        if (!isFirstLoadRef.current) {
+          const hasNewOrder = [...latestOrderIds].some(
             (id) => !seenOrderIdsRef.current.has(id),
           )
           if (hasNewOrder) {
@@ -382,27 +425,72 @@ export default function OrdersPage({ statusKey = "all" }) {
               )
             }
             toast.info("New order received")
+            if (apiPage === 1) {
+              setTotalOrdersCount(getTotalCountFromResponse(pollResponse) ?? latestOrders.length)
+              setApiTotalPages(getTotalPagesFromResponse(pollResponse))
+              setOrders(latestOrders)
+            } else {
+              setTotalOrdersCount((prev) => prev + 1)
+            }
           }
         }
 
-        seenOrderIdsRef.current = nextOrderIds
+        latestOrderIds.forEach((id) => seenOrderIdsRef.current.add(id))
         isFirstLoadRef.current = false
-        setOrders(nextOrders)
-      } else {
+        return
+      }
+
+      const response = await adminAPI.getOrders({
+        ...baseParams,
+        page,
+        limit: PAGE_SIZE,
+      })
+
+      if (!response.data?.success) {
         debugError("Failed to fetch orders:", response.data)
         if (!silent) toast.error("Failed to fetch orders")
         setOrders([])
+        setTotalOrdersCount(0)
+        setApiTotalPages(1)
+        return
       }
+
+      const nextOrders = extractOrdersFromResponse(response)
+      const total = getTotalCountFromResponse(response) ?? nextOrders.length
+      const totalPages = Math.max(1, getTotalPagesFromResponse(response))
+
+      const nextOrderIds = new Set(
+        nextOrders
+          .map((order) => order.id || order._id || order.orderId)
+          .filter(Boolean),
+      )
+
+      seenOrderIdsRef.current = nextOrderIds
+      isFirstLoadRef.current = false
+      setOrders(nextOrders)
+      setTotalOrdersCount(total)
+      setApiTotalPages(totalPages)
     } catch (error) {
       debugError("Error fetching orders:", error)
       if (!silent) {
         toast.error(error.response?.data?.message || "Failed to fetch orders")
       }
       setOrders([])
+      setTotalOrdersCount(0)
+      setApiTotalPages(1)
     } finally {
       if (!silent) setIsLoading(false)
     }
-  }, [statusKey, playDefaultRing, showBrowserNotification, startAlertLoop])
+  }, [
+    statusKey,
+    apiPage,
+    playDefaultRing,
+    showBrowserNotification,
+    startAlertLoop,
+    extractOrdersFromResponse,
+    getTotalPagesFromResponse,
+    getTotalCountFromResponse,
+  ])
 
   const normalizedOrders = useMemo(() => {
     const safeOrders = Array.isArray(orders) ? orders : []
@@ -470,9 +558,15 @@ export default function OrdersPage({ statusKey = "all" }) {
       }
 
       let displayStatus = order.orderStatus
-      if (!backendStatus || backendStatus === "created" || backendStatus === "confirmed") {
+      if (backendStatus === "pending_payment") {
+        displayStatus = "Pending Payment"
+      } else if (!backendStatus || backendStatus === "created" || backendStatus === "confirmed") {
         displayStatus = "Pending"
-      } else if (backendStatus === "preparing" || backendStatus === "ready_for_pickup") {
+      } else if (
+        backendStatus === "preparing" ||
+        backendStatus === "ready_for_pickup" ||
+        backendStatus === "reached_pickup"
+      ) {
         displayStatus = "Processing"
       } else if (backendStatus === "picked_up") {
         displayStatus = "Food On The Way"
@@ -557,7 +651,6 @@ export default function OrdersPage({ statusKey = "all" }) {
     setFilters,
     visibleColumns,
     filteredOrders,
-    count,
     activeFiltersCount,
     restaurants,
     handleApplyFilters,
@@ -569,11 +662,18 @@ export default function OrdersPage({ statusKey = "all" }) {
     resetColumns,
   } = useOrdersManagement(normalizedOrders, statusKey, config.title)
 
+  const hasClientFiltering = Boolean(searchQuery.trim()) || activeFiltersCount > 0
+  const displayCount = hasClientFiltering ? filteredOrders.length : totalOrdersCount
+
+  useEffect(() => {
+    setApiPage(1)
+  }, [statusKey])
+
   useEffect(() => {
     isFirstLoadRef.current = true
     seenOrderIdsRef.current = new Set()
-    fetchOrders({ silent: false, withRingCheck: false })
-  }, [fetchOrders])
+    fetchOrders({ silent: false, withRingCheck: false, page: apiPage })
+  }, [statusKey, apiPage, fetchOrders])
 
   useEffect(() => {
     if (statusKey !== "all") return undefined
@@ -1031,7 +1131,7 @@ export default function OrdersPage({ statusKey = "all" }) {
     <div className="p-4 lg:p-6 bg-slate-50 min-h-screen w-full max-w-full overflow-x-hidden">
       <OrdersTopbar 
         title={config.title} 
-        count={count} 
+        count={displayCount} 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onFilterClick={() => setIsFilterOpen(true)}
@@ -1087,6 +1187,12 @@ export default function OrdersPage({ statusKey = "all" }) {
       <OrdersTable 
         orders={filteredOrders} 
         visibleColumns={visibleColumns}
+        serverPagination
+        totalCount={totalOrdersCount}
+        currentPage={apiPage}
+        totalPages={apiTotalPages}
+        pageSize={PAGE_SIZE}
+        onPageChange={setApiPage}
         onViewOrder={handleViewOrder}
         onPrintOrder={handlePrintOrder}
         onRefund={handleRefund}
@@ -1099,7 +1205,6 @@ export default function OrdersPage({ statusKey = "all" }) {
         onCancelOrder={
           statusKey === "all" ||
           statusKey === "pending" ||
-          statusKey === "accepted" ||
           statusKey === "processing" ||
           statusKey === "food-on-the-way"
             ? handleCancelOrder
@@ -1107,7 +1212,11 @@ export default function OrdersPage({ statusKey = "all" }) {
         }
         actionLoadingOrderId={processingActionOrderId}
         deletingOrderId={deletingOrderId}
-        showAssignedDeliveryPartner={statusKey === "all"}
+        showAssignedDeliveryPartner={
+          statusKey === "all" ||
+          statusKey === "processing" ||
+          statusKey === "food-on-the-way"
+        }
       />
     </div>
   )
