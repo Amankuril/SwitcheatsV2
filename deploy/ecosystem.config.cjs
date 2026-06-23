@@ -10,8 +10,23 @@ module.exports = {
       max_memory_restart: '500M',
       env: {
         NODE_ENV: 'production',
+        PORT: 5000,
+        SOCKET_PORT: 5001,
         SERVER_BACKGROUND_JOBS_ENABLED: 'false',
         SERVER_QUEUE_BOOTSTRAP_ENABLED: 'false'
+      }
+    },
+    {
+      name: 'switcheats-socket',
+      cwd: './Backend',
+      script: 'socket-server.js',
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: true,
+      max_memory_restart: '350M',
+      env: {
+        NODE_ENV: 'production',
+        SOCKET_PORT: 5001
       }
     },
     {

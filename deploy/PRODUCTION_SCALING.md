@@ -5,16 +5,21 @@
 - Cached endpoints now generate stable keys even if query parameters arrive in different order.
 - API background intervals were separated from clustered API processes.
 - Added a standalone scheduler process for offer expiry, FSSAI sync, and stuck-order recovery.
-- Added a PM2 ecosystem file for clustered API + dedicated workers.
+- Added a dedicated socket server process on port 5001.
+- Clustered API processes still initialize Socket.IO internally so Redis-backed emits from API code keep working.
+- Added a PM2 ecosystem file for clustered API + dedicated socket + workers.
 
 ## Recommended process layout
-- `switcheats-api`: PM2 cluster mode, `instances: max`
+- `switcheats-api`: PM2 cluster mode, `instances: max`, port `5000`
+- `switcheats-socket`: single dedicated socket server, port `5001`
 - `switcheats-scheduler`: single instance
 - BullMQ workers: single-purpose forked processes
 
 ## Environment variables for API cluster
 Set these for the clustered API app:
 - `NODE_ENV=production`
+- `PORT=5000`
+- `SOCKET_PORT=5001`
 - `REDIS_ENABLED=true`
 - `BULLMQ_ENABLED=true`
 - `SERVER_BACKGROUND_JOBS_ENABLED=false`
@@ -31,7 +36,9 @@ pm2 startup
 ## Nginx
 Use `deploy/nginx-hostinger-kvm2.conf.example` as the starting point.
 Important pieces already included:
-- websocket proxying for `/socket.io/`
+- `/api/` proxied to `127.0.0.1:5000`
+- `/socket.io/` proxied to `127.0.0.1:5001`
+- websocket upgrade headers
 - gzip for JSON/text payloads
 - direct file serving for `/uploads/`
 - basic request throttling
