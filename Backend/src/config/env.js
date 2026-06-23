@@ -75,6 +75,10 @@ export const config = {
     // BullMQ
     bullmqEnabled: process.env.BULLMQ_ENABLED === 'true',
 
+    // Runtime roles / background jobs
+    serverBackgroundJobsEnabled: process.env.SERVER_BACKGROUND_JOBS_ENABLED !== 'false',
+    serverQueueBootstrapEnabled: process.env.SERVER_QUEUE_BOOTSTRAP_ENABLED !== 'false',
+
     // Storage (local VPS — legacy Cloudinary env vars no longer required)
 
     // Firebase / FCM

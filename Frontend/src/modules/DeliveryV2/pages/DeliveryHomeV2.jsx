@@ -213,38 +213,13 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
                 status: 'on_the_way',
                 polyline: activePolyline // Include polyline in every stream update for resilience
               };
-              // A. HTTP Backup
-              deliveryAPI.updateLocation(lat, lng, true, { heading }).catch(() => { });
-
-              // B. ADMIN LIVE TRACKING NODE
-              const deliveryPartnerId = deliveryPartnerIdRef.current || getStoredDeliveryPartnerId();
-              deliveryPartnerIdRef.current = deliveryPartnerId;
-              if (deliveryPartnerId) {
-                writeDeliveryLocation({
-                  deliveryId: deliveryPartnerId,
-                  lat,
-                  lng,
-                  heading,
-                  speed: 0,
-                  isOnline: true,
-                  activeOrderId: payload.orderId || null,
-                  timestamp: now
-                }).catch(() => { });
-              }
-
-              // C. SOCKET LIVE (SILKY SMOOTH)
-              if (payload.orderId) emitLocation(payload);
-
-              // D. FIREBASE REALTIME DB (Persistent Route for Customer Map)
+              // Socket is the primary active-order tracking path.
+              // Only fall back to HTTP when socket transport is unavailable.
               if (payload.orderId) {
-                writeOrderTracking(payload.orderId, {
-                  lat,
-                  lng,
-                  heading,
-                  polyline: activePolyline,
-                  status: tripStatus,
-                  eta: eta // Publish live ETA to Firebase
-                }).catch(() => { });
+                const emitted = emitLocation(payload);
+                if (!emitted) {
+                  deliveryAPI.updateLocation(lat, lng, true, { heading }).catch(() => { });
+                }
               }
             }
           }
@@ -447,42 +422,23 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
           polyline: activePolyline
         };
 
-        // A. HTTP Backup
-        deliveryAPI.updateLocation(lat, lng, true, {
-          heading: heading || 0,
-          speed: speed || 0,
-          accuracy: pos.coords.accuracy
-        }).catch(() => { });
+        const hasActiveOrder = Boolean(payload.orderId);
 
-        // B. ADMIN LIVE TRACKING NODE
-        const deliveryPartnerId = deliveryPartnerIdRef.current || getStoredDeliveryPartnerId();
-        deliveryPartnerIdRef.current = deliveryPartnerId;
-        if (deliveryPartnerId) {
-          writeDeliveryLocation({
-            deliveryId: deliveryPartnerId,
-            lat,
-            lng,
+        if (hasActiveOrder) {
+          const emitted = emitLocation(payload);
+          if (!emitted) {
+            deliveryAPI.updateLocation(lat, lng, true, {
+              heading: heading || 0,
+              speed: speed || 0,
+              accuracy: pos.coords.accuracy
+            }).catch(() => { });
+          }
+        } else {
+          // Keep availability/dispatch location fresh when rider is online but not on an active trip.
+          deliveryAPI.updateLocation(lat, lng, true, {
             heading: heading || 0,
             speed: speed || 0,
-            accuracy: pos.coords.accuracy,
-            isOnline: true,
-            activeOrderId: payload.orderId || null,
-            timestamp: now
-          }).catch(() => { });
-        }
-
-        // C. SOCKET LIVE (SILKY SMOOTH)
-        if (payload.orderId) emitLocation(payload);
-
-        // D. FIREBASE REALTIME DB (Persistent)
-        if (payload.orderId) {
-          writeOrderTracking(payload.orderId, {
-            lat,
-            lng,
-            heading: heading || 0,
-            polyline: activePolyline,
-            status: tripStatus,
-            eta: eta // Publish live ETA to Firebase for customer
+            accuracy: pos.coords.accuracy
           }).catch(() => { });
         }
       }
@@ -505,30 +461,19 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
     const pingInterval = setInterval(() => {
       const now = Date.now();
       // If no natural GPS update happened in the last 15 seconds, force a ping
-      if (now - lastLocationSentAt.current >= 15000 && lastCoordRef.current) {
+      if (now - lastLocationSentAt.current >= 30000 && lastCoordRef.current) {
         lastLocationSentAt.current = now;
-        deliveryAPI.updateLocation(
-          lastCoordRef.current.lat,
-          lastCoordRef.current.lng,
-          true,
-          { heading: 0, speed: 0, accuracy: null }
-        ).catch(() => { });
-        const deliveryPartnerId = deliveryPartnerIdRef.current || getStoredDeliveryPartnerId();
-        deliveryPartnerIdRef.current = deliveryPartnerId;
-        if (deliveryPartnerId) {
-          writeDeliveryLocation({
-            deliveryId: deliveryPartnerId,
-            lat: lastCoordRef.current.lat,
-            lng: lastCoordRef.current.lng,
-            heading: 0,
-            speed: 0,
-            isOnline: true,
-            activeOrderId: activeOrder?.orderId || activeOrder?._id || null,
-            timestamp: now
-          }).catch(() => { });
+        // Heartbeat is only needed as a backup when there is no active trip socket stream.
+        if (!(activeOrder?.orderId || activeOrder?._id) || !isSocketConnected) {
+          deliveryAPI.updateLocation(
+            lastCoordRef.current.lat,
+            lastCoordRef.current.lng,
+            true,
+            { heading: 0, speed: 0, accuracy: null }
+          ).catch(() => { });
         }
       }
-    }, 10000); // Check every 10 seconds
+    }, 15000); // Check every 15 seconds
 
     return () => clearInterval(pingInterval);
   }, [activeOrder, isOnline]);
@@ -603,7 +548,7 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
       if (!document.hidden) {
         void hydrateAvailableOrder();
       }
-    }, isSocketConnected ? 12000 : 5000);
+    }, isSocketConnected ? 30000 : 15000);
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         void hydrateAvailableOrder();
@@ -1165,3 +1110,4 @@ export default function DeliveryHomeV2({ tab = 'feed' }) {
     </div>
   );
 }
+

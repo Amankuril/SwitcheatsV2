@@ -29,6 +29,53 @@ import {
   sanitizeOrderForExternal,
   isStatusAdvance,
 } from './order.helpers.js';
+const DELIVERY_ORDER_BASE_SELECT = [
+  '_id',
+  'order_id',
+  'orderId',
+  'userId',
+  'restaurantId',
+  'deliveryAddress',
+  'customerName',
+  'customerPhone',
+  'items',
+  'pricing',
+  'payment',
+  'orderStatus',
+  'dispatch',
+  'deliveryState',
+  'note',
+  'createdAt',
+  'updatedAt',
+  'riderEarning',
+  'lastRiderLocation',
+  'deliveryFleet',
+  'ratings'
+].join(' ');
+
+const DELIVERY_USER_POPULATE = {
+  path: 'userId',
+  select: 'name phone email',
+};
+
+const DELIVERY_RESTAURANT_POPULATE = {
+  path: 'restaurantId',
+  select: 'restaurantName name phone ownerPhone location addressLine1 area city state profileImage',
+};
+
+const DELIVERY_TRANSACTION_SELECT = 'orderId payment paymentMethod pricing amounts status';
+
+function mergeTransactionIntoOrder(orderDoc, txDoc) {
+  if (!txDoc) return orderDoc;
+  return {
+    ...orderDoc,
+    paymentMethod: txDoc.payment?.method || txDoc.paymentMethod || orderDoc.paymentMethod,
+    payment: txDoc.payment || orderDoc.payment,
+    pricing: txDoc.pricing || orderDoc.pricing,
+    amounts: txDoc.amounts || orderDoc.amounts,
+    transactionStatus: txDoc.status || orderDoc.transactionStatus,
+  };
+}
 
 function emitOrderUpdate(order, deliveryPartnerId) {
   try {
@@ -153,25 +200,19 @@ export async function getCurrentTripDelivery(deliveryPartnerId) {
       $in: ['confirmed', 'preparing', 'ready_for_pickup', 'picked_up'],
     },
   })
-    .populate({
-      path: 'restaurantId',
-      select: 'restaurantName name phone location addressLine1 area city state profileImage',
-    })
+    .select(DELIVERY_ORDER_BASE_SELECT)
+    .populate(DELIVERY_RESTAURANT_POPULATE)
     .populate({ path: 'userId', select: 'name phone' })
     .sort({ updatedAt: -1 })
     .lean();
 
   if (!order) return null;
-  const tx = await FoodTransaction.findOne({ orderId: order._id }).lean();
-  const out = sanitizeOrderForExternal(order);
-  if (tx) {
-    out.paymentMethod = tx.payment?.method || tx.paymentMethod || out.paymentMethod;
-    out.payment = tx.payment || out.payment;
-    out.pricing = tx.pricing || out.pricing;
-    out.amounts = tx.amounts || out.amounts;
-    out.transactionStatus = tx.status || out.transactionStatus;
-  }
-  return out;
+
+  const tx = await FoodTransaction.findOne({ orderId: order._id })
+    .select(DELIVERY_TRANSACTION_SELECT)
+    .lean();
+
+  return sanitizeOrderForExternal(mergeTransactionIntoOrder(order, tx));
 }
 
 export async function listOrdersAvailableDelivery(deliveryPartnerId, query) {
@@ -207,36 +248,27 @@ export async function listOrdersAvailableDelivery(deliveryPartnerId, query) {
 
   const [docs, total] = await Promise.all([
     FoodOrder.find(filter)
+      .select(DELIVERY_ORDER_BASE_SELECT)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('userId', 'name phone email')
-      .populate(
-        'restaurantId',
-        'restaurantName name address phone ownerPhone location profileImage',
-      )
+      .populate(DELIVERY_USER_POPULATE)
+      .populate(DELIVERY_RESTAURANT_POPULATE)
       .lean(),
     FoodOrder.countDocuments(filter),
   ]);
 
-  const orderIds = (docs || []).map((d) => d?._id).filter(Boolean);
+  const orderIds = docs.map((doc) => doc?._id).filter(Boolean);
   const txRows = orderIds.length
-    ? await FoodTransaction.find({ orderId: { $in: orderIds } }).lean()
+    ? await FoodTransaction.find({ orderId: { $in: orderIds } })
+        .select(DELIVERY_TRANSACTION_SELECT)
+        .lean()
     : [];
-  const txByOrderId = new Map(txRows.map((t) => [String(t.orderId), t]));
+  const txByOrderId = new Map(txRows.map((tx) => [String(tx.orderId), tx]));
 
-  const enriched = (docs || []).map((doc) => {
-    const tx = txByOrderId.get(String(doc?._id)) || null;
-    if (!tx) return doc;
-    return {
-      ...doc,
-      paymentMethod: tx.payment?.method || tx.paymentMethod || doc.paymentMethod,
-      payment: tx.payment || doc.payment,
-      pricing: tx.pricing || doc.pricing,
-      amounts: tx.amounts || doc.amounts,
-      transactionStatus: tx.status || doc.transactionStatus,
-    };
-  });
+  const enriched = docs.map((doc) =>
+    mergeTransactionIntoOrder(doc, txByOrderId.get(String(doc._id)) || null)
+  );
 
   return buildPaginatedResult({ docs: enriched, total, page, limit });
 }
@@ -895,3 +927,4 @@ export async function updateOrderStatusDelivery(orderId, deliveryPartnerId, orde
   });
   return order.toObject();
 }
+

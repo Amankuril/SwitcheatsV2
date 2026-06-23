@@ -238,7 +238,7 @@ export const useRestaurantNotifications = () => {
   useEffect(() => {
     if (!restaurantId) return;
 
-    const ALERT_POLL_MS = 8000;
+    const ALERT_POLL_MS = 20000;
     let isCancelled = false;
 
     const pollOrders = async () => {
@@ -493,7 +493,7 @@ export const useRestaurantNotifications = () => {
     // Use polling only to avoid repeated "WebSocket connection failed" when backend is down
     socketRef.current = io(socketUrl, {
       path: '/socket.io/',
-      transports: ['polling'],
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
@@ -771,5 +771,6 @@ export const useRestaurantNotifications = () => {
     playNotificationSound
   };
 };
+
 
 

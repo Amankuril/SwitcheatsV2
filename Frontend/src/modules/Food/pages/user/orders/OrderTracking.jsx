@@ -916,7 +916,7 @@ export default function OrderTracking() {
       if (pollRef.current) pollRef.current(false);
     };
 
-    const pollInterval = (isSocketConnected || window.orderSocketConnected) ? 12000 : 5000;
+    const pollInterval = (isSocketConnected || window.orderSocketConnected) ? 25000 : 10000;
     const interval = setInterval(tick, pollInterval);
 
     return () => clearInterval(interval);
@@ -1692,3 +1692,4 @@ export default function OrderTracking() {
     </div>
   )
 }
+

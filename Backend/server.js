@@ -48,6 +48,40 @@ const gracefulShutdown = async (signal) => {
     }, SHUTDOWN_TIMEOUT_MS);
 };
 
+const startBackgroundJobs = async () => {
+    if (!config.serverBackgroundJobsEnabled) {
+        logger.info('Server background jobs are disabled for this process.');
+        return;
+    }
+
+    try {
+        const { recoverStuckOrders } = await import('./src/modules/food/orders/services/order.service.js');
+        await recoverStuckOrders();
+    } catch (err) {
+        logger.error(`Watchdog startup error: ${err.message}`);
+    }
+
+    const runExpire = async () => {
+        try {
+            await expireExpiredOffers();
+        } catch (err) {
+            logger.error(`Expire offers error: ${err.message}`);
+        }
+    };
+    await runExpire();
+    expireOffersInterval = setInterval(runExpire, 5 * 60 * 1000);
+
+    const runFssaiExpirySync = async () => {
+        try {
+            await syncExpiredFssaiNotifications();
+        } catch (err) {
+            logger.error(`FSSAI expiry sync error: ${err.message}`);
+        }
+    };
+    await runFssaiExpirySync();
+    fssaiExpiryInterval = setInterval(runFssaiExpirySync, 60 * 60 * 1000);
+};
+
 const startServer = async () => {
     try {
         validateConfig();
@@ -56,30 +90,17 @@ const startServer = async () => {
         await ensureUploadStorageReady();
         logger.info(`Upload storage ready at ${path.resolve(config.uploadStorageRoot)}`);
 
-        // 1. Connect to Database (MongoDB)
         await connectDB();
 
-        // 2. Create HTTP server from Express app
         const httpServer = http.createServer(app);
 
-        // 3. Initialize Socket.IO with the HTTP server (Redis adapter when Redis enabled)
         await initSocket(httpServer);
 
         if (config.redisEnabled) {
             await connectRedis();
         }
 
-        // 5a. Watchdog: Recover stuck orders from previous run
-        try {
-            const { recoverStuckOrders } = await import('./src/modules/food/orders/services/order.service.js');
-            await recoverStuckOrders();
-        } catch (err) {
-            logger.error(`Watchdog startup error: ${err.message}`);
-        }
-
-        // 5. Conditionally initialize BullMQ queues.
-        // BullMQ requires Redis; skip queue bootstrap when Redis is disabled.
-        if (config.bullmqEnabled && config.redisEnabled) {
+        if (config.bullmqEnabled && config.redisEnabled && config.serverQueueBootstrapEnabled) {
             try {
                 initializeQueues();
             } catch (err) {
@@ -87,6 +108,8 @@ const startServer = async () => {
             }
         } else if (config.bullmqEnabled && !config.redisEnabled) {
             logger.warn('BullMQ is enabled but Redis is disabled. Queue initialization skipped.');
+        } else if (config.bullmqEnabled && !config.serverQueueBootstrapEnabled) {
+            logger.info('BullMQ queue bootstrap disabled for this server process.');
         }
 
         app.post('/api/deploy', (req, res) => {
@@ -102,7 +125,7 @@ const startServer = async () => {
                 return res.status(403).send('Unauthorized');
             }
 
-            exec('cd ~ && ./deploy.sh', (err, stdout, stderr) => {
+            exec('cd ~ && ./deploy.sh', (err, stdout) => {
                 if (err) {
                     console.error(err);
                     return res.send('Deploy failed');
@@ -113,37 +136,16 @@ const startServer = async () => {
             });
         });
 
-        // 6. Start the HTTP server
-
         server = httpServer.listen(config.port, config.host, () => {
             logger.info(`Server running in ${config.nodeEnv} mode on ${config.host}:${config.port}`);
-            console.log(`🌐 [URL] http://localhost:${config.port}`);
+            console.log(`Server URL http://localhost:${config.port}`);
         });
 
-        const runExpire = async () => {
-            try {
-                await expireExpiredOffers();
-            } catch (err) {
-                logger.error(`Expire offers error: ${err.message}`);
-            }
-        };
-        runExpire();
-        expireOffersInterval = setInterval(runExpire, 5 * 60 * 1000);
-
-        const runFssaiExpirySync = async () => {
-            try {
-                await syncExpiredFssaiNotifications();
-            } catch (err) {
-                logger.error(`FSSAI expiry sync error: ${err.message}`);
-            }
-        };
-        runFssaiExpirySync();
-        fssaiExpiryInterval = setInterval(runFssaiExpirySync, 60 * 60 * 1000);
+        await startBackgroundJobs();
 
         process.on('SIGINT', () => gracefulShutdown('SIGINT'));
         process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-        // Handle server errors (like EADDRINUSE)
         server.on('error', (err) => {
             if (err.code === 'EADDRINUSE') {
                 logger.error(`Port ${config.port} is already in use. Please kill the process or use a different port.`);
@@ -153,7 +155,6 @@ const startServer = async () => {
             process.exit(1);
         });
 
-        // Handle unhandled promise rejections
         process.on('unhandledRejection', (err) => {
             logger.error(`Unhandled Rejection: ${err?.message || err}`);
             if (config.nodeEnv === 'production') {
@@ -176,4 +177,3 @@ const startServer = async () => {
 };
 
 startServer();
-

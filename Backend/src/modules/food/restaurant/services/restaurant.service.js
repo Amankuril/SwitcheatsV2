@@ -2200,14 +2200,17 @@ export const listApprovedRestaurants = async (query = {}) => {
 
         const total = totalDocs?.[0]?.count || 0;
         const restaurants = pageDocs || [];
-
-        // Fetch recommended items for each restaurant from FoodItem model
         const restaurantIds = restaurants.map(r => r._id);
-        const recommendedItemsRaw = await FoodItem.find({
-            restaurantId: { $in: restaurantIds },
-            isRecommended: true,
-            approvalStatus: 'approved'
-        }).sort({ createdAt: -1 }).lean();
+        const recommendedItemsRaw = restaurantIds.length
+            ? await FoodItem.find({
+                restaurantId: { $in: restaurantIds },
+                isRecommended: true,
+                approvalStatus: 'approved'
+            })
+                .select('restaurantId name price image')
+                .sort({ createdAt: -1 })
+                .lean()
+            : [];
 
         const recommendedMap = recommendedItemsRaw.reduce((acc, item) => {
             const rId = String(item.restaurantId);
@@ -2272,13 +2275,17 @@ export const listApprovedRestaurants = async (query = {}) => {
         menuImages: Array.isArray(r.menuImages) ? r.menuImages : []
     }));
 
-    // Fetch recommended items for each restaurant from FoodItem model
     const restaurantIds = restaurants.map(r => r._id);
-    const recommendedItemsRaw = await FoodItem.find({
-        restaurantId: { $in: restaurantIds },
-        isRecommended: true,
-        approvalStatus: 'approved'
-    }).sort({ createdAt: -1 }).lean();
+    const recommendedItemsRaw = restaurantIds.length
+        ? await FoodItem.find({
+            restaurantId: { $in: restaurantIds },
+            isRecommended: true,
+            approvalStatus: 'approved'
+        })
+            .select('restaurantId name price image')
+            .sort({ createdAt: -1 })
+            .lean()
+        : [];
 
     const recommendedMap = recommendedItemsRaw.reduce((acc, item) => {
         const rId = String(item.restaurantId);
