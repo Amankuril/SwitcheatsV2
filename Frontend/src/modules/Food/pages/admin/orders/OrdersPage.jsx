@@ -53,19 +53,30 @@ const statusConfig = {
 
 const PAGE_SIZE = 50
 
+const EMPTY_ORDER_FILTERS = {
+  paymentStatus: "",
+  minAmount: "",
+  maxAmount: "",
+  fromDate: "",
+  toDate: "",
+  restaurantId: "",
+}
+
 export default function OrdersPage({ statusKey = "all" }) {
   const config = statusConfig[statusKey] || statusConfig["all"]
   const [orders, setOrders] = useState([])
   const [apiPage, setApiPage] = useState(1)
   const [totalOrdersCount, setTotalOrdersCount] = useState(0)
   const [apiTotalPages, setApiTotalPages] = useState(1)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+  const [isTableLoading, setIsTableLoading] = useState(false)
+  const hasLoadedOnceRef = useRef(false)
   const [processingRefund, setProcessingRefund] = useState(null)
   const [processingActionOrderId, setProcessingActionOrderId] = useState(null)
   const [deletingOrderId, setDeletingOrderId] = useState(null)
   const [refundModalOpen, setRefundModalOpen] = useState(false)
   const [selectedOrderForRefund, setSelectedOrderForRefund] = useState(null)
-  const showLoadingSkeleton = useDelayedLoading(isLoading, { delay: 120, minDuration: 360 })
+  const showLoadingSkeleton = useDelayedLoading(isInitialLoading, { delay: 120, minDuration: 360 })
   const seenOrderIdsRef = useRef(new Set())
   const isFirstLoadRef = useRef(true)
   const fallbackAudioRef = useRef(null)
@@ -77,6 +88,19 @@ export default function OrdersPage({ statusKey = "all" }) {
   const activeOrderAlertRef = useRef(null)
   const alertLoopTimerRef = useRef(null)
   const alertLoopStartedAtRef = useRef(0)
+  const fetchAbortRef = useRef(null)
+  const fetchInFlightRef = useRef(false)
+  const lastFetchAtRef = useRef(0)
+  const socketConnectedRef = useRef(false)
+  const apiPageRef = useRef(apiPage)
+  const statusKeyRef = useRef(statusKey)
+  const searchQueryRef = useRef("")
+  const appliedFiltersRef = useRef(EMPTY_ORDER_FILTERS)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
+  const [draftFilters, setDraftFilters] = useState(EMPTY_ORDER_FILTERS)
+  const [appliedFilters, setAppliedFilters] = useState(EMPTY_ORDER_FILTERS)
+  const [restaurantOptions, setRestaurantOptions] = useState([])
   const ALERT_LOOP_INTERVAL_MS = 4500
   const ALERT_LOOP_MAX_MS = 120000
   const sanitizeNotificationText = useCallback((value) => {
@@ -376,35 +400,90 @@ export default function OrdersPage({ statusKey = "all" }) {
     return Number.isFinite(Number(total)) ? Number(total) : null
   }, [])
 
+  const buildServerQueryParams = useCallback(() => {
+    const filters = appliedFiltersRef.current
+    return {
+      search: searchQueryRef.current || undefined,
+      paymentStatus: filters.paymentStatus
+        ? String(filters.paymentStatus).toLowerCase()
+        : undefined,
+      minAmount: filters.minAmount !== "" ? filters.minAmount : undefined,
+      maxAmount: filters.maxAmount !== "" ? filters.maxAmount : undefined,
+      startDate: filters.fromDate || undefined,
+      endDate: filters.toDate || undefined,
+      restaurantId: filters.restaurantId || undefined,
+    }
+  }, [])
+
   const fetchOrders = useCallback(async (options = {}) => {
-    const { silent = false, withRingCheck = false, page = apiPage } = options
+    const {
+      silent = false,
+      withRingCheck = false,
+      page = apiPageRef.current,
+      force = false,
+    } = options
+
+    if (withRingCheck) {
+      if (socketConnectedRef.current) return
+      if (fetchInFlightRef.current) return
+      if (Date.now() - lastFetchAtRef.current < 4000) return
+    }
+
+    fetchAbortRef.current?.abort()
+    const controller = new AbortController()
+    fetchAbortRef.current = controller
+    fetchInFlightRef.current = true
 
     try {
-      if (!silent) setIsLoading(true)
+      if (!silent) {
+        if (!hasLoadedOnceRef.current) {
+          setIsInitialLoading(true)
+        } else {
+          setIsTableLoading(true)
+        }
+      }
+      const currentStatusKey = statusKeyRef.current
       const baseParams = {
         status:
-          statusKey === "all"
+          currentStatusKey === "all"
             ? undefined
-            : statusKey === "restaurant-cancelled"
+            : currentStatusKey === "restaurant-cancelled"
               ? "cancelled"
-              : statusKey,
-        cancelledBy: statusKey === "restaurant-cancelled" ? "restaurant" : undefined,
+              : currentStatusKey,
+        cancelledBy: currentStatusKey === "restaurant-cancelled" ? "restaurant" : undefined,
+        ...buildServerQueryParams(),
       }
 
-      if (withRingCheck && statusKey === "all") {
-        const pollResponse = await adminAPI.getOrders({
+      const requestPage = withRingCheck ? 1 : page
+      const requestLimit = withRingCheck ? 15 : PAGE_SIZE
+
+      const response = await adminAPI.getOrders(
+        {
           ...baseParams,
-          page: 1,
-          limit: PAGE_SIZE,
-        })
+          page: requestPage,
+          limit: requestLimit,
+        },
+        { force: force || !withRingCheck, signal: controller.signal },
+      )
 
-        if (!pollResponse.data?.success) {
-          return
+      if (controller.signal.aborted) return
+
+      if (!response.data?.success) {
+        if (!withRingCheck) {
+          debugError("Failed to fetch orders:", response.data)
+          if (!silent) toast.error("Failed to fetch orders")
+          setOrders([])
+          setTotalOrdersCount(0)
+          setApiTotalPages(1)
         }
+        return
+      }
 
-        const latestOrders = extractOrdersFromResponse(pollResponse)
+      const nextOrders = extractOrdersFromResponse(response)
+
+      if (withRingCheck && currentStatusKey === "all") {
         const latestOrderIds = new Set(
-          latestOrders
+          nextOrders
             .map((order) => order.id || order._id || order.orderId)
             .filter(Boolean),
         )
@@ -425,10 +504,10 @@ export default function OrdersPage({ statusKey = "all" }) {
               )
             }
             toast.info("New order received")
-            if (apiPage === 1) {
-              setTotalOrdersCount(getTotalCountFromResponse(pollResponse) ?? latestOrders.length)
-              setApiTotalPages(getTotalPagesFromResponse(pollResponse))
-              setOrders(latestOrders)
+            if (apiPageRef.current === 1) {
+              setTotalOrdersCount(getTotalCountFromResponse(response) ?? nextOrders.length)
+              setApiTotalPages(getTotalPagesFromResponse(response))
+              setOrders(nextOrders)
             } else {
               setTotalOrdersCount((prev) => prev + 1)
             }
@@ -437,25 +516,10 @@ export default function OrdersPage({ statusKey = "all" }) {
 
         latestOrderIds.forEach((id) => seenOrderIdsRef.current.add(id))
         isFirstLoadRef.current = false
+        lastFetchAtRef.current = Date.now()
         return
       }
 
-      const response = await adminAPI.getOrders({
-        ...baseParams,
-        page,
-        limit: PAGE_SIZE,
-      })
-
-      if (!response.data?.success) {
-        debugError("Failed to fetch orders:", response.data)
-        if (!silent) toast.error("Failed to fetch orders")
-        setOrders([])
-        setTotalOrdersCount(0)
-        setApiTotalPages(1)
-        return
-      }
-
-      const nextOrders = extractOrdersFromResponse(response)
       const total = getTotalCountFromResponse(response) ?? nextOrders.length
       const totalPages = Math.max(1, getTotalPagesFromResponse(response))
 
@@ -470,27 +534,43 @@ export default function OrdersPage({ statusKey = "all" }) {
       setOrders(nextOrders)
       setTotalOrdersCount(total)
       setApiTotalPages(totalPages)
+      lastFetchAtRef.current = Date.now()
+      hasLoadedOnceRef.current = true
     } catch (error) {
+      if (controller.signal.aborted || error?.code === "ERR_CANCELED" || error?.name === "CanceledError") {
+        return
+      }
       debugError("Error fetching orders:", error)
-      if (!silent) {
+      if (!silent && !withRingCheck) {
         toast.error(error.response?.data?.message || "Failed to fetch orders")
       }
-      setOrders([])
-      setTotalOrdersCount(0)
-      setApiTotalPages(1)
+      if (!withRingCheck) {
+        setOrders([])
+        setTotalOrdersCount(0)
+        setApiTotalPages(1)
+      }
     } finally {
-      if (!silent) setIsLoading(false)
+      if (fetchAbortRef.current === controller) {
+        fetchAbortRef.current = null
+      }
+      fetchInFlightRef.current = false
+      if (!silent) {
+        setIsInitialLoading(false)
+        setIsTableLoading(false)
+      }
     }
   }, [
-    statusKey,
-    apiPage,
-    playDefaultRing,
-    showBrowserNotification,
-    startAlertLoop,
     extractOrdersFromResponse,
     getTotalPagesFromResponse,
     getTotalCountFromResponse,
+    buildServerQueryParams,
+    playDefaultRing,
+    showBrowserNotification,
+    startAlertLoop,
   ])
+
+  const fetchOrdersRef = useRef(fetchOrders)
+  fetchOrdersRef.current = fetchOrders
 
   const normalizedOrders = useMemo(() => {
     const safeOrders = Array.isArray(orders) ? orders : []
@@ -638,8 +718,6 @@ export default function OrdersPage({ statusKey = "all" }) {
   }, [orders])
 
   const {
-    searchQuery,
-    setSearchQuery,
     isFilterOpen,
     setIsFilterOpen,
     isSettingsOpen,
@@ -647,43 +725,118 @@ export default function OrdersPage({ statusKey = "all" }) {
     isViewOrderOpen,
     setIsViewOrderOpen,
     selectedOrder,
-    filters,
-    setFilters,
     visibleColumns,
-    filteredOrders,
-    activeFiltersCount,
-    restaurants,
-    handleApplyFilters,
-    handleResetFilters,
     handleExport,
     handleViewOrder,
     handlePrintOrder,
     toggleColumn,
     resetColumns,
-  } = useOrdersManagement(normalizedOrders, statusKey, config.title)
+  } = useOrdersManagement(normalizedOrders, statusKey, config.title, {
+    serverSideFiltering: true,
+  })
 
-  const hasClientFiltering = Boolean(searchQuery.trim()) || activeFiltersCount > 0
-  const displayCount = hasClientFiltering ? filteredOrders.length : totalOrdersCount
+  const activeFiltersCount = useMemo(
+    () => Object.values(appliedFilters).filter((value) => value !== "").length,
+    [appliedFilters],
+  )
+
+  const handleApplyFilters = () => {
+    setAppliedFilters({ ...draftFilters })
+    setIsFilterOpen(false)
+  }
+
+  const handleResetFilters = () => {
+    setDraftFilters(EMPTY_ORDER_FILTERS)
+    setAppliedFilters(EMPTY_ORDER_FILTERS)
+    appliedFiltersRef.current = EMPTY_ORDER_FILTERS
+  }
+
+  const displayCount = totalOrdersCount
 
   useEffect(() => {
-    setApiPage(1)
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim())
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  useEffect(() => {
+    searchQueryRef.current = debouncedSearchQuery
+  }, [debouncedSearchQuery])
+
+  useEffect(() => {
+    appliedFiltersRef.current = appliedFilters
+  }, [appliedFilters])
+
+  useEffect(() => {
+    const fetchRestaurantOptions = async () => {
+      try {
+        const response = await adminAPI.getRestaurants({
+          status: "approved",
+          limit: 1000,
+          page: 1,
+        })
+        const rows =
+          response?.data?.data?.restaurants ||
+          response?.data?.data?.data ||
+          []
+        setRestaurantOptions(
+          rows
+            .map((row) => ({
+              id: row._id || row.id,
+              name: row.restaurantName || row.name || "Restaurant",
+            }))
+            .filter((row) => row.id)
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        )
+      } catch {
+        setRestaurantOptions([])
+      }
+    }
+
+    fetchRestaurantOptions()
+  }, [])
+
+  useEffect(() => {
+    apiPageRef.current = apiPage
+  }, [apiPage])
+
+  useEffect(() => {
+    statusKeyRef.current = statusKey
   }, [statusKey])
 
   useEffect(() => {
     isFirstLoadRef.current = true
     seenOrderIdsRef.current = new Set()
-    fetchOrders({ silent: false, withRingCheck: false, page: apiPage })
-  }, [statusKey, apiPage, fetchOrders])
+    hasLoadedOnceRef.current = false
+    searchQueryRef.current = ""
+    appliedFiltersRef.current = EMPTY_ORDER_FILTERS
+    setSearchQuery("")
+    setDebouncedSearchQuery("")
+    setDraftFilters(EMPTY_ORDER_FILTERS)
+    setAppliedFilters(EMPTY_ORDER_FILTERS)
+  }, [statusKey])
+
+  useEffect(() => {
+    apiPageRef.current = 1
+    setApiPage(1)
+    fetchOrdersRef.current({ silent: false, withRingCheck: false, page: 1, force: true })
+  }, [statusKey, debouncedSearchQuery, appliedFilters])
+
+  useEffect(() => {
+    if (apiPage === 1) return
+    fetchOrdersRef.current({ silent: false, withRingCheck: false, page: apiPage, force: true })
+  }, [apiPage])
 
   useEffect(() => {
     if (statusKey !== "all") return undefined
 
     const pollId = setInterval(() => {
-      fetchOrders({ silent: true, withRingCheck: true })
-    }, 5000)
+      fetchOrdersRef.current({ silent: true, withRingCheck: true })
+    }, 12000)
 
     return () => clearInterval(pollId)
-  }, [statusKey, fetchOrders])
+  }, [statusKey])
 
   useEffect(() => {
     if (statusKey !== "all") return undefined
@@ -716,7 +869,7 @@ export default function OrdersPage({ statusKey = "all" }) {
           "A new order arrived",
           `admin-order-socket-${Date.now()}`,
         )
-        fetchOrders({ silent: true, withRingCheck: false })
+        fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
         return
       }
 
@@ -735,22 +888,28 @@ export default function OrdersPage({ statusKey = "all" }) {
       startAlertLoop()
       toast.info(title, { description: body })
       showBrowserNotification(title, body, `admin-order-${orderId}`)
-      fetchOrders({ silent: true, withRingCheck: false })
+      fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
     }
 
     socket.on("connect", () => {
+      socketConnectedRef.current = true
       socket.emit("join-admin-orders")
+    })
+    socket.on("disconnect", () => {
+      socketConnectedRef.current = false
     })
     socket.on("admin_new_order", handleIncomingRealtimeOrder)
     socket.on("play_notification_sound", handleIncomingRealtimeOrder)
 
     return () => {
+      socketConnectedRef.current = false
       socket.off("admin_new_order", handleIncomingRealtimeOrder)
       socket.off("play_notification_sound", handleIncomingRealtimeOrder)
       socket.disconnect()
       socketRef.current = null
+      fetchAbortRef.current?.abort()
     }
-  }, [statusKey, fetchOrders, playDefaultRing, showBrowserNotification, startAlertLoop])
+  }, [statusKey, playDefaultRing, showBrowserNotification, startAlertLoop])
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -796,7 +955,7 @@ export default function OrdersPage({ statusKey = "all" }) {
       const response = await adminAPI.acceptOrder(orderIdToUse)
       if (response.data?.success) {
         toast.success(response.data?.message || `Order ${order.orderId} accepted`)
-        await fetchOrders({ silent: true, withRingCheck: false })
+        await fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
       } else {
         toast.error(response.data?.message || "Failed to accept order")
       }
@@ -827,7 +986,7 @@ export default function OrdersPage({ statusKey = "all" }) {
       const response = await adminAPI.rejectOrder(orderIdToUse, reason)
       if (response.data?.success) {
         toast.success(response.data?.message || `Order ${order.orderId} rejected`)
-        await fetchOrders({ silent: true, withRingCheck: false })
+        await fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
       } else {
         toast.error(response.data?.message || "Failed to reject order")
       }
@@ -858,7 +1017,7 @@ export default function OrdersPage({ statusKey = "all" }) {
       const response = await adminAPI.rejectOrder(orderIdToUse, reason)
       if (response.data?.success) {
         toast.success(response.data?.message || `Order ${order.orderId} cancelled`)
-        await fetchOrders({ silent: true, withRingCheck: false })
+        await fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
       } else {
         toast.error(response.data?.message || "Failed to cancel order")
       }
@@ -885,7 +1044,7 @@ export default function OrdersPage({ statusKey = "all" }) {
     try {
       setProcessingActionOrderId(order.id || order.orderId)
       await adminAPI.markOrderDelivered(orderIdToUse)
-      await fetchOrders({ silent: true, withRingCheck: false })
+      await fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
     } catch (error) {
       debugError("Error marking order as delivered:", error)
     } finally {
@@ -912,13 +1071,13 @@ export default function OrdersPage({ statusKey = "all" }) {
         response?.data?.message ||
           "Delivery partner deassigned and order dispatch restarted",
       )
-      await fetchOrders({ silent: true, withRingCheck: false })
+      await fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
     } catch (error) {
       debugError("Error reassigning order:", error)
       toast.error(
         error?.response?.data?.message || "Failed to deassign and resend order",
       )
-      await fetchOrders({ silent: true, withRingCheck: false })
+      await fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
     } finally {
       setProcessingActionOrderId(null)
     }
@@ -938,13 +1097,13 @@ export default function OrdersPage({ statusKey = "all" }) {
         response?.data?.message ||
           "Notification resent to delivery partners successfully",
       )
-      await fetchOrders({ silent: true, withRingCheck: false })
+      await fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
     } catch (error) {
       debugError("Error resending notification:", error)
       toast.error(
         error?.response?.data?.message || "Failed to resend notification",
       )
-      await fetchOrders({ silent: true, withRingCheck: false })
+      await fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
     } finally {
       setProcessingActionOrderId(null)
     }
@@ -968,7 +1127,7 @@ export default function OrdersPage({ statusKey = "all" }) {
       const response = await adminAPI.deleteOrder(orderIdToUse)
       if (response.data?.success) {
         toast.success(response.data?.message || `Order ${order.orderId} deleted`)
-        await fetchOrders({ silent: true, withRingCheck: false })
+        await fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
       } else {
         toast.error(response.data?.message || "Failed to delete order")
       }
@@ -1052,7 +1211,7 @@ export default function OrdersPage({ statusKey = "all" }) {
           )
         )
         // Refresh the orders list to get updated data
-        await fetchOrders({ silent: true, withRingCheck: false })
+        await fetchOrdersRef.current({ silent: true, withRingCheck: false, force: true })
       } else {
         toast.error(response.data?.message || "Failed to process refund")
       }
@@ -1142,11 +1301,11 @@ export default function OrdersPage({ statusKey = "all" }) {
       <FilterPanel
         isOpen={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}
-        filters={filters}
-        setFilters={setFilters}
+        filters={draftFilters}
+        setFilters={setDraftFilters}
         onApply={handleApplyFilters}
         onReset={handleResetFilters}
-        restaurants={restaurants}
+        restaurantOptions={restaurantOptions}
       />
       <SettingsDialog
         isOpen={isSettingsOpen}
@@ -1185,8 +1344,9 @@ export default function OrdersPage({ statusKey = "all" }) {
         isProcessing={processingRefund !== null}
       />
       <OrdersTable 
-        orders={filteredOrders} 
+        orders={normalizedOrders} 
         visibleColumns={visibleColumns}
+        isLoading={isTableLoading}
         serverPagination
         totalCount={totalOrdersCount}
         currentPage={apiPage}

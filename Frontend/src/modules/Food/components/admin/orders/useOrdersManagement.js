@@ -88,7 +88,8 @@ const imageUrlToDataUrl = async (url) => {
   }
 }
 
-export function useOrdersManagement(orders, statusKey, title) {
+export function useOrdersManagement(orders, statusKey, title, options = {}) {
+  const { serverSideFiltering = false } = options
   const [searchQuery, setSearchQuery] = useState("")
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -96,12 +97,11 @@ export function useOrdersManagement(orders, statusKey, title) {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [filters, setFilters] = useState({
     paymentStatus: "",
-    deliveryType: "",
     minAmount: "",
     maxAmount: "",
     fromDate: "",
     toDate: "",
-    restaurant: "",
+    restaurantId: "",
   })
   const [visibleColumns, setVisibleColumns] = useState({
     si: true,
@@ -124,8 +124,10 @@ export function useOrdersManagement(orders, statusKey, title) {
     return [...new Set(orders.map(o => o.restaurant))]
   }, [orders])
 
-  // Apply search and filters
+  // Apply search and filters (client-side only when serverSideFiltering is false)
   const filteredOrders = useMemo(() => {
+    if (serverSideFiltering) return orders
+
     let result = [...orders]
 
     // Apply search query
@@ -164,12 +166,6 @@ export function useOrdersManagement(orders, statusKey, title) {
       })
     }
 
-    if (filters.deliveryType) {
-      result = result.filter(
-        (order) => String(order.deliveryType || "").toLowerCase() === filters.deliveryType.toLowerCase(),
-      )
-    }
-
     if (filters.minAmount) {
       const min = parseFloat(filters.minAmount)
       result = result.filter(order => {
@@ -194,8 +190,15 @@ export function useOrdersManagement(orders, statusKey, title) {
       })
     }
 
-    if (filters.restaurant) {
-      result = result.filter(order => order.restaurant === filters.restaurant)
+    if (filters.restaurantId) {
+      result = result.filter((order) => {
+        const orderRestaurantId = String(
+          order.restaurantId?._id || order.restaurantId || "",
+        )
+        return orderRestaurantId === String(filters.restaurantId)
+      })
+    } else if (filters.restaurant) {
+      result = result.filter((order) => order.restaurant === filters.restaurant)
     }
 
     // Helper function to parse date format "16 JUL 2025"
@@ -232,7 +235,7 @@ export function useOrdersManagement(orders, statusKey, title) {
     }
 
     return result
-  }, [orders, searchQuery, filters])
+  }, [orders, searchQuery, filters, serverSideFiltering])
 
   const count = filteredOrders.length
 
@@ -248,12 +251,11 @@ export function useOrdersManagement(orders, statusKey, title) {
   const handleResetFilters = () => {
     setFilters({
       paymentStatus: "",
-      deliveryType: "",
       minAmount: "",
       maxAmount: "",
       fromDate: "",
       toDate: "",
-      restaurant: "",
+      restaurantId: "",
     })
   }
 

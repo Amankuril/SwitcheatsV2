@@ -131,7 +131,14 @@ async function deletePendingPaymentOrder(orderLike) {
   return true;
 }
 
+let lastExpiredCleanupAt = 0;
+const EXPIRE_CLEANUP_INTERVAL_MS = 60_000;
+
 async function expireStalePendingPaymentOrders() {
+  const now = Date.now();
+  if (now - lastExpiredCleanupAt < EXPIRE_CLEANUP_INTERVAL_MS) return;
+  lastExpiredCleanupAt = now;
+
   const cutoff = new Date(Date.now() - PENDING_PAYMENT_TTL_MS);
   const stale = await FoodOrder.find({
     orderStatus: "pending_payment",
@@ -1565,6 +1572,115 @@ export async function switchToCash(orderId, deliveryPartnerId) {
 
 
 // ----- Admin -----
+
+function escapeAdminSearchRegex(value) {
+  return String(value || '').slice(0, 80).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function appendAdminAndCondition(filter, condition) {
+  if (!condition || Object.keys(condition).length === 0) return;
+  if (!filter.$and) filter.$and = [];
+  filter.$and.push(condition);
+}
+
+async function applyAdminOrderSearchFilter(filter, searchRaw) {
+  const search = String(searchRaw || '').trim();
+  if (!search) return;
+
+  const escaped = escapeAdminSearchRegex(search);
+  const phoneDigits = search.replace(/\D/g, '');
+  const orConditions = [
+    { orderId: { $regex: escaped, $options: 'i' } },
+    { order_id: { $regex: escaped, $options: 'i' } },
+    { customerName: { $regex: escaped, $options: 'i' } },
+    { customerPhone: { $regex: escaped, $options: 'i' } },
+  ];
+
+  if (phoneDigits.length >= 4) {
+    orConditions.push({ customerPhone: { $regex: phoneDigits } });
+  }
+
+  const matchingRestaurants = await FoodRestaurant.find({
+    restaurantName: { $regex: escaped, $options: 'i' },
+  })
+    .select('_id')
+    .lean();
+
+  if (matchingRestaurants.length > 0) {
+    orConditions.push({
+      restaurantId: { $in: matchingRestaurants.map((row) => row._id) },
+    });
+  }
+
+  appendAdminAndCondition(filter, { $or: orConditions });
+}
+
+function applyAdminPaymentStatusFilter(filter, paymentStatusRaw) {
+  const paymentStatus = String(paymentStatusRaw || '').trim().toLowerCase();
+  if (!paymentStatus) return;
+
+  if (paymentStatus === 'paid') {
+    appendAdminAndCondition(filter, {
+      $or: [
+        { 'payment.status': { $in: ['paid', 'authorized'] } },
+        {
+          $and: [
+            { 'payment.method': 'cash' },
+            { orderStatus: 'delivered' },
+          ],
+        },
+        {
+          $and: [
+            { 'payment.method': 'wallet' },
+            { 'payment.status': { $nin: ['failed', 'refunded', 'created', 'cod_pending', 'pending_qr'] } },
+          ],
+        },
+      ],
+    });
+    return;
+  }
+
+  if (paymentStatus === 'pending') {
+    appendAdminAndCondition(filter, {
+      $or: [
+        { 'payment.status': { $in: ['created', 'cod_pending', 'pending_qr'] } },
+        {
+          $and: [
+            { 'payment.method': 'cash' },
+            { orderStatus: { $ne: 'delivered' } },
+          ],
+        },
+      ],
+    });
+    return;
+  }
+
+  if (paymentStatus === 'failed') {
+    filter['payment.status'] = 'failed';
+    return;
+  }
+
+  if (paymentStatus === 'refunded') {
+    filter['payment.status'] = 'refunded';
+  }
+}
+
+function applyAdminAmountFilter(filter, minAmountRaw, maxAmountRaw) {
+  const minAmount = Number(minAmountRaw);
+  const maxAmount = Number(maxAmountRaw);
+  const totalFilter = {};
+
+  if (Number.isFinite(minAmount) && minAmount >= 0) {
+    totalFilter.$gte = minAmount;
+  }
+  if (Number.isFinite(maxAmount) && maxAmount >= 0) {
+    totalFilter.$lte = maxAmount;
+  }
+  if (Object.keys(totalFilter).length > 0) {
+    filter['pricing.total'] = totalFilter;
+  }
+}
+
 export async function listOrdersAdmin(query) {
   await expireStalePendingPaymentOrders();
 
@@ -1587,6 +1703,12 @@ export async function listOrdersAdmin(query) {
     typeof query.startDate === "string" ? query.startDate.trim() : "";
   const endDateRaw =
     typeof query.endDate === "string" ? query.endDate.trim() : "";
+  const searchRaw =
+    typeof query.search === "string" ? query.search.trim() : "";
+  const paymentStatusRaw =
+    typeof query.paymentStatus === "string" ? query.paymentStatus.trim() : "";
+  const minAmountRaw = query.minAmount;
+  const maxAmountRaw = query.maxAmount;
 
   if (!rawStatus || rawStatus === "all") {
     filter.orderStatus = { $ne: "pending_payment" };
@@ -1693,12 +1815,17 @@ export async function listOrdersAdmin(query) {
       createdAt.$gte = start;
     }
     if (end && !Number.isNaN(end.getTime())) {
+      end.setHours(23, 59, 59, 999);
       createdAt.$lte = end;
     }
     if (Object.keys(createdAt).length > 0) {
       filter.createdAt = createdAt;
     }
   }
+
+  await applyAdminOrderSearchFilter(filter, searchRaw);
+  applyAdminPaymentStatusFilter(filter, paymentStatusRaw);
+  applyAdminAmountFilter(filter, minAmountRaw, maxAmountRaw);
 
   const [docs, total] = await Promise.all([
     FoodOrder.find(filter)

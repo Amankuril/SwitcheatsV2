@@ -642,11 +642,59 @@ export const adminAPI = {
       { contextModule: "admin" },
     ),
   /** Orders (admin) – list, get by id, assign delivery partner */
-  getOrders: (params = {}) =>
-    apiClient.get("/food/admin/orders", {
-      params: { limit: 200, page: 1, ...params },
-      contextModule: "admin",
-    }),
+  getOrders: (() => {
+    const inFlight = new Map();
+    const cache = new Map();
+    const CACHE_MS = 2000;
+
+    const stableKey = (params = {}) => {
+      const normalized = { limit: 50, page: 1, ...params };
+      delete normalized._ts;
+      return JSON.stringify(
+        Object.keys(normalized)
+          .sort()
+          .reduce((acc, key) => {
+            acc[key] = normalized[key];
+            return acc;
+          }, {}),
+      );
+    };
+
+    const fetchOrders = (params = {}, options = {}) =>
+      apiClient.get("/food/admin/orders", {
+        params: { limit: 50, page: 1, ...params },
+        contextModule: "admin",
+        signal: options.signal,
+      });
+
+    return (params = {}, options = {}) => {
+      if (options.force || options.signal) {
+        return fetchOrders(params, options);
+      }
+
+      const key = stableKey(params);
+      const now = Date.now();
+      const cached = cache.get(key);
+      if (cached && now - cached.at < CACHE_MS) {
+        return Promise.resolve(cached.res);
+      }
+
+      const pending = inFlight.get(key);
+      if (pending) return pending;
+
+      const request = fetchOrders(params, options)
+        .then((res) => {
+          cache.set(key, { at: Date.now(), res });
+          return res;
+        })
+        .finally(() => {
+          inFlight.delete(key);
+        });
+
+      inFlight.set(key, request);
+      return request;
+    };
+  })(),
   getOrderById: (orderId) =>
     apiClient.get(`/food/admin/orders/${String(orderId)}`, {
       contextModule: "admin",

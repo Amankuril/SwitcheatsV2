@@ -30,6 +30,7 @@ const getPaymentStatusColor = (paymentStatus) => {
 export default function OrdersTable({
   orders,
   visibleColumns,
+  isLoading = false,
   onViewOrder,
   onPrintOrder,
   onRefund,
@@ -131,7 +132,7 @@ export default function OrdersTable({
     ].includes(status)
   }
 
-  if (orders.length === 0) {
+  if (orders.length === 0 && !isLoading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="flex flex-col items-center justify-center py-20">
@@ -147,8 +148,23 @@ export default function OrdersTable({
     )
   }
 
+  if (orders.length === 0 && isLoading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden w-full max-w-full">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden w-full max-w-full relative">
+      {isLoading && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/75 backdrop-blur-[1px]">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full min-w-full">
           <thead className="bg-slate-50 border-b border-slate-200">
