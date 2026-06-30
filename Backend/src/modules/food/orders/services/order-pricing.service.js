@@ -6,16 +6,54 @@ import { FoodOffer } from '../../admin/models/offer.model.js';
 import { FoodOfferUsage } from '../../admin/models/offerUsage.model.js';
 import { ValidationError } from '../../../../core/auth/errors.js';
 import { haversineKm } from './order.helpers.js';
+import { attachOutletTimingsToRestaurants } from '../../restaurant/services/outletTimings.service.js';
+import { getRestaurantAvailabilityStatus } from '../../restaurant/helpers/restaurantAvailability.helper.js';
+import { resolveOrderCartItems } from '../helpers/order-cart-items.helper.js';
 
-export async function calculateOrderPricing(userId, dto) {
-  const restaurant = await FoodRestaurant.findById(dto.restaurantId)
-    .select("status location")
+export async function loadRestaurantForOrdering(restaurantId) {
+  if (!restaurantId || !mongoose.Types.ObjectId.isValid(String(restaurantId))) {
+    throw new ValidationError('Restaurant not found');
+  }
+
+  const doc = await FoodRestaurant.findById(restaurantId)
+    .select(
+      'status restaurantName zoneId location isAcceptingOrders openingTime closingTime openDays deliveryTimings isActive',
+    )
     .lean();
-  if (!restaurant) throw new ValidationError("Restaurant not found");
-  if (restaurant.status !== "approved")
-    throw new ValidationError("Restaurant not available");
 
-  const items = Array.isArray(dto.items) ? dto.items : [];
+  if (!doc) throw new ValidationError('Restaurant not found');
+  if (doc.status !== 'approved') throw new ValidationError('Restaurant not available');
+
+  const [withTimings] = await attachOutletTimingsToRestaurants([doc]);
+  return withTimings;
+}
+
+export function assertRestaurantOpenForOrdering(restaurant, at = new Date()) {
+  const availability = getRestaurantAvailabilityStatus(restaurant, at);
+  if (availability.isOpen) return availability;
+
+  if (availability.reason === 'not-accepting-orders') {
+    throw new ValidationError('Restaurant is currently offline. Please try again later.');
+  }
+
+  throw new ValidationError('Restaurant is currently closed. Please try again later.');
+}
+
+export async function calculateOrderPricing(userId, dto, options = {}) {
+  const at = options.at instanceof Date ? options.at : new Date();
+  const restaurant =
+    options.restaurant || (await loadRestaurantForOrdering(dto.restaurantId));
+
+  if (!options.skipAvailabilityCheck) {
+    assertRestaurantOpenForOrdering(restaurant, at);
+  }
+
+  const resolvedItems = await resolveOrderCartItems(dto.restaurantId, dto.items);
+  const items = resolvedItems.map((item) => ({
+    ...item,
+    price: Number(item.price) || 0,
+    quantity: Number(item.quantity) || 1,
+  }));
   const subtotal = items.reduce(
     (sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 1),
     0,
@@ -186,7 +224,28 @@ export async function calculateOrderPricing(userId, dto) {
     subtotal + packagingFee + deliveryFee + platformFee + tax - discount,
   );
 
+  const priceChanges = (Array.isArray(dto.items) ? dto.items : [])
+    .map((rawItem) => {
+      const itemId = String(rawItem?.itemId || rawItem?.id || '').trim();
+      const resolved = items.find((entry) => String(entry.itemId) === itemId);
+      if (!resolved) return null;
+
+      const previousPrice = Number(rawItem?.price);
+      const nextPrice = Number(resolved.price);
+      if (!Number.isFinite(previousPrice) || previousPrice === nextPrice) return null;
+
+      return {
+        itemId,
+        name: resolved.name,
+        previousPrice,
+        price: nextPrice,
+      };
+    })
+    .filter(Boolean);
+
   return {
+    items,
+    priceChanges,
     pricing: {
       subtotal,
       tax,

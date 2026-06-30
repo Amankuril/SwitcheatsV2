@@ -45,6 +45,17 @@ export async function verifyPaymentController(req, res, next) {
     }
 }
 
+export async function abandonOnlinePaymentController(req, res, next) {
+    try {
+        const userId = req.user?.userId;
+        const orderId = req.params.orderId;
+        const result = await orderService.abandonOnlinePaymentOrder(userId, orderId);
+        return sendResponse(res, 200, 'Payment abandoned', result);
+    } catch (err) {
+        next(err);
+    }
+}
+
 export async function listOrdersUserController(req, res, next) {
     try {
         const userId = req.user?.userId;

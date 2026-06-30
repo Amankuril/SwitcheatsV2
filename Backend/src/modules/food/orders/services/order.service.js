@@ -30,7 +30,7 @@ import { fetchPolyline } from '../utils/googleMaps.js';
 import { getFirebaseDB } from '../../../../config/firebase.js';
 import * as foodTransactionService from './foodTransaction.service.js';
 import * as userWalletService from '../../user/services/userWallet.service.js';
-import { calculateOrderPricing } from './order-pricing.service.js';
+import { calculateOrderPricing, loadRestaurantForOrdering, assertRestaurantOpenForOrdering } from './order-pricing.service.js';
 import * as dispatchService from './order-dispatch.service.js';
 import * as deliveryService from './order-delivery.service.js';
 import * as paymentService from './order-payment.service.js';
@@ -77,6 +77,78 @@ async function getOrderAcceptanceWindowSeconds() {
   } catch (err) {
     logger.warn(`Failed to load order acceptance setting: ${err?.message || err}`);
     return ORDER_ACCEPTANCE_WINDOW_SECONDS;
+  }
+}
+
+const PENDING_PAYMENT_TTL_MS = 30 * 60 * 1000;
+
+function isAwaitingOnlinePaymentMethod(paymentMethod) {
+  const method = String(paymentMethod || "").toLowerCase();
+  return method === "razorpay" || method === "card";
+}
+
+async function incrementCouponUsageForOrder(order, userId) {
+  const couponCode = order?.pricing?.couponCode
+    ? String(order.pricing.couponCode).trim().toUpperCase()
+    : "";
+  if (!couponCode) return;
+
+  try {
+    const offer = await FoodOffer.findOne({ couponCode }).lean();
+    if (offer) {
+      await FoodOffer.updateOne({ _id: offer._id }, { $inc: { usedCount: 1 } });
+      await FoodOfferUsage.updateOne(
+        { offerId: offer._id, userId: toObjectId(userId, "User ID") },
+        { $inc: { count: 1 }, $set: { lastUsedAt: new Date() } },
+        { upsert: true },
+      );
+    }
+  } catch (err) {
+    logger.error(`Coupon usage update failed: ${err.message}`);
+  }
+}
+
+async function deletePendingPaymentOrder(orderLike) {
+  if (!orderLike?._id) return false;
+  if (String(orderLike.orderStatus || "").toLowerCase() !== "pending_payment") return false;
+
+  const payStatus = String(orderLike.payment?.status || "").toLowerCase();
+  if (payStatus === "paid" || payStatus === "refunded") return false;
+
+  await Promise.all([
+    FoodSupportTicket.updateMany(
+      { orderId: orderLike._id },
+      { $set: { orderId: null } },
+    ),
+    FoodTransaction.deleteOne({
+      $or: [
+        { orderId: orderLike._id },
+        { orderReadableId: String(orderLike._id.toString()) },
+      ],
+    }),
+    FoodOrder.deleteOne({ _id: orderLike._id }),
+  ]);
+  return true;
+}
+
+async function expireStalePendingPaymentOrders() {
+  const cutoff = new Date(Date.now() - PENDING_PAYMENT_TTL_MS);
+  const stale = await FoodOrder.find({
+    orderStatus: "pending_payment",
+    "payment.status": { $in: ["created", "pending"] },
+    createdAt: { $lte: cutoff },
+  })
+    .select("_id orderStatus payment")
+    .lean();
+
+  for (const doc of stale) {
+    try {
+      await deletePendingPaymentOrder(doc);
+    } catch (err) {
+      logger.warn(
+        `expireStalePendingPaymentOrders cleanup failed for ${doc._id}: ${err?.message || err}`,
+      );
+    }
   }
 }
 
@@ -361,7 +433,10 @@ export async function updateDispatchSettings(dispatchMode, adminId) {
 
 // ----- Calculate (validation + return pricing from payload) -----
 export async function calculateOrder(userId, dto) {
-  return calculateOrderPricing(userId, dto);
+  const at = dto.scheduledAt ? new Date(dto.scheduledAt) : new Date();
+  return calculateOrderPricing(userId, dto, {
+    at: Number.isNaN(at.getTime()) ? new Date() : at,
+  });
 }
 
 // Helper to safely convert string to ObjectId or throw ValidationError (400)
@@ -378,15 +453,13 @@ function toObjectId(id, fieldName = 'ID') {
 export async function createOrder(userId, dto) {
   try {
     const restaurantId = toObjectId(dto.restaurantId, 'Restaurant ID');
-    const restaurant = await FoodRestaurant.findById(restaurantId)
-      .select("status restaurantName zoneId location isAcceptingOrders")
-      .lean();
-    
-    if (!restaurant) throw new ValidationError("Restaurant not found");
-    if (restaurant.status !== "approved")
-      throw new ValidationError("Restaurant not accepting orders");
-    if (restaurant.isAcceptingOrders === false)
-      throw new ValidationError("Restaurant not accepting orders");
+    const restaurant = await loadRestaurantForOrdering(restaurantId);
+
+    const orderAt = dto.scheduledAt ? new Date(dto.scheduledAt) : new Date();
+    if (dto.scheduledAt && Number.isNaN(orderAt.getTime())) {
+      throw new ValidationError('Invalid scheduled time');
+    }
+    assertRestaurantOpenForOrdering(restaurant, orderAt);
 
     const settings = await getDispatchSettings();
     const dispatchMode = settings.dispatchMode;
@@ -411,41 +484,37 @@ export async function createOrder(userId, dto) {
     const isCash = paymentMethod === "cash";
     const isWallet = paymentMethod === "wallet";
 
-    // Ensure pricing is present and consistent.
-    const computedSubtotal = (dto.items || []).reduce((sum, item) => {
-      const price = Number(item?.price);
-      const qty = Number(item?.quantity);
-      if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum;
-      return sum + Math.max(0, price) * Math.max(0, qty);
-    }, 0);
-
-    const normalizedPricing = {
-      subtotal: Number(dto.pricing?.subtotal ?? computedSubtotal) || 0,
-      tax: Number(dto.pricing?.tax ?? 0) || 0,
-      packagingFee: Number(dto.pricing?.packagingFee ?? 0) || 0,
-      deliveryFee: Number(dto.pricing?.deliveryFee ?? 0) || 0,
-      platformFee: Number(dto.pricing?.platformFee ?? 0) || 0,
-      discount: Number(dto.pricing?.discount ?? 0) || 0,
-      couponCode: dto.pricing?.couponCode ? String(dto.pricing.couponCode).trim().toUpperCase() : null,
-      total: Number(dto.pricing?.total ?? 0) || 0,
-      currency: String(dto.pricing?.currency || "INR"),
-    };
-
-    const computedTotal = Math.max(
-      0,
-      (Number.isFinite(normalizedPricing.subtotal) ? normalizedPricing.subtotal : 0) +
-        (Number.isFinite(normalizedPricing.tax) ? normalizedPricing.tax : 0) +
-        (Number.isFinite(normalizedPricing.packagingFee) ? normalizedPricing.packagingFee : 0) +
-        (Number.isFinite(normalizedPricing.deliveryFee) ? normalizedPricing.deliveryFee : 0) +
-        (Number.isFinite(normalizedPricing.platformFee) ? normalizedPricing.platformFee : 0) -
-        (Number.isFinite(normalizedPricing.discount) ? normalizedPricing.discount : 0),
+    const pricingResult = await calculateOrderPricing(
+      userId,
+      {
+        restaurantId: String(restaurantId),
+        items: dto.items || [],
+        deliveryAddress,
+        couponCode: dto.pricing?.couponCode || undefined,
+      },
+      { at: orderAt, restaurant, skipAvailabilityCheck: true },
     );
 
+    const resolvedItems = pricingResult.items || [];
+    const normalizedPricing = {
+      subtotal: Number(pricingResult.pricing?.subtotal) || 0,
+      tax: Number(pricingResult.pricing?.tax) || 0,
+      packagingFee: Number(pricingResult.pricing?.packagingFee) || 0,
+      deliveryFee: Number(pricingResult.pricing?.deliveryFee) || 0,
+      platformFee: Number(pricingResult.pricing?.platformFee) || 0,
+      discount: Number(pricingResult.pricing?.discount) || 0,
+      couponCode: pricingResult.pricing?.couponCode
+        ? String(pricingResult.pricing.couponCode).trim().toUpperCase()
+        : null,
+      total: Number(pricingResult.pricing?.total) || 0,
+      currency: String(pricingResult.pricing?.currency || "INR"),
+    };
+
     if (!Number.isFinite(normalizedPricing.total) || normalizedPricing.total <= 0) {
-      normalizedPricing.total = Math.round(computedTotal * 100) / 100;
-    } else {
-      normalizedPricing.total = Math.round(normalizedPricing.total * 100) / 100;
+      throw new ValidationError("Order total must be greater than zero");
     }
+
+    normalizedPricing.total = Math.round(normalizedPricing.total * 100) / 100;
 
     const payment = {
       method: paymentMethod,
@@ -490,14 +559,15 @@ export async function createOrder(userId, dto) {
         riderEarning,
     );
 
-    const initialStatus = (paymentMethod === "razorpay" || paymentMethod === "card") ? "pending_payment" : "created";
+    const isAwaitingOnlinePayment = isAwaitingOnlinePaymentMethod(paymentMethod);
+    const initialStatus = isAwaitingOnlinePayment ? "pending_payment" : "created";
     const acceptanceWindowSeconds = await getOrderAcceptanceWindowSeconds();
 
     const order = new FoodOrder({
       userId: toObjectId(userId, 'User ID'),
       restaurantId: restaurantId,
       zoneId: dto.zoneId ? toObjectId(dto.zoneId, 'Zone ID') : toObjectId(restaurant.zoneId, 'Restaurant Zone ID'),
-      items: (dto.items || []).map(item => ({
+      items: resolvedItems.map(item => ({
         ...item,
         itemId: toObjectId(item.itemId, 'Item ID')
       })),
@@ -553,21 +623,24 @@ export async function createOrder(userId, dto) {
     }
 
     await order.save();
-    void addOrderJob(
-      {
-        action: "ORDER_ACCEPTANCE_TIMEOUT_CHECK",
-        orderMongoId: order._id?.toString?.(),
-        orderId: order._id.toString(),
-      },
-      {
-        delay: acceptanceWindowSeconds * 1000,
-        removeOnComplete: true,
-        removeOnFail: true,
-        jobId: `order-accept-timeout-${order._id?.toString?.()}`,
-      },
-    ).catch((err) => {
-      logger.warn(`Failed to enqueue acceptance timeout check: ${err?.message || err}`);
-    });
+
+    if (!isAwaitingOnlinePayment) {
+      void addOrderJob(
+        {
+          action: "ORDER_ACCEPTANCE_TIMEOUT_CHECK",
+          orderMongoId: order._id?.toString?.(),
+          orderId: order._id.toString(),
+        },
+        {
+          delay: acceptanceWindowSeconds * 1000,
+          removeOnComplete: true,
+          removeOnFail: true,
+          jobId: `order-accept-timeout-${order._id?.toString?.()}`,
+        },
+      ).catch((err) => {
+        logger.warn(`Failed to enqueue acceptance timeout check: ${err?.message || err}`);
+      });
+    }
 
     if (isWallet) {
       try {
@@ -578,20 +651,17 @@ export async function createOrder(userId, dto) {
       }
     }
 
-    // Phase 2: Create initial transaction (Non-blocking but logged)
-    try {
-      await foodTransactionService.createInitialTransaction(order);
-    } catch (err) {
-      logger.error(`[CRITICAL] Initial transaction failed for order ${order._id}: ${err.message}`);
-      // We don't throw here to avoid failing the whole order if transaction logging fails
+    // Phase 2: Create initial transaction after payment is confirmed (online) or immediately (cash/wallet).
+    if (!isAwaitingOnlinePayment) {
+      try {
+        await foodTransactionService.createInitialTransaction(order);
+      } catch (err) {
+        logger.error(`[CRITICAL] Initial transaction failed for order ${order._id}: ${err.message}`);
+      }
     }
 
     // Realtime + push notifications.
     try {
-      const isAwaitingOnlinePayment =
-        String(paymentMethod || "").toLowerCase() === "razorpay" &&
-        String(payment?.status || "").toLowerCase() !== "paid";
-        
       await notifyOwnersSafely([{ ownerType: "USER", ownerId: userId }], {
         title: isAwaitingOnlinePayment
           ? "Complete Payment to Confirm Order"
@@ -608,28 +678,15 @@ export async function createOrder(userId, dto) {
         },
       });
 
-      // Restaurant gets new-order request only when payment flow is eligible.
-      await notifyRestaurantNewOrder(order);
+      if (!isAwaitingOnlinePayment) {
+        await notifyRestaurantNewOrder(order);
+      }
     } catch (err) {
       logger.warn(`Notifications failed for order ${order._id}: ${err.message}`);
     }
 
-    // Handle Coupon usage
-    const couponCode = dto.pricing?.couponCode ? String(dto.pricing.couponCode).trim().toUpperCase() : "";
-    if (couponCode) {
-      try {
-        const offer = await FoodOffer.findOne({ couponCode }).lean();
-        if (offer) {
-          await FoodOffer.updateOne({ _id: offer._id }, { $inc: { usedCount: 1 } });
-          await FoodOfferUsage.updateOne(
-            { offerId: offer._id, userId: toObjectId(userId, 'User ID') },
-            { $inc: { count: 1 }, $set: { lastUsedAt: new Date() } },
-            { upsert: true },
-          );
-        }
-      } catch (err) {
-        logger.error(`Coupon usage update failed: ${err.message}`);
-      }
+    if (!isAwaitingOnlinePayment) {
+      await incrementCouponUsageForOrder(order, userId);
     }
 
     const saved = normalizeOrderForClient(order);
@@ -698,6 +755,14 @@ export async function verifyPayment(userId, dto) {
     logger.warn(`Failed to enqueue acceptance timeout check: ${err?.message || err}`);
   });
 
+  try {
+    await foodTransactionService.createInitialTransaction(order);
+  } catch (err) {
+    logger.error(`[CRITICAL] Initial transaction failed for order ${order._id}: ${err.message}`);
+  }
+
+  await incrementCouponUsageForOrder(order, userId);
+
   await foodTransactionService.updateTransactionStatus(order._id, 'captured', {
     status: 'captured',
     razorpayPaymentId: dto.razorpayPaymentId,
@@ -725,6 +790,25 @@ export async function verifyPayment(userId, dto) {
   return { order: normalizeOrderForClient(order), payment: order.payment };
 }
 
+export async function abandonOnlinePaymentOrder(userId, orderId) {
+  const identity = buildOrderIdentityFilter(orderId);
+  if (!identity) throw new ValidationError("Order id required");
+
+  const order = await FoodOrder.findOne({
+    ...identity,
+    userId: new mongoose.Types.ObjectId(userId),
+  });
+  if (!order) throw new NotFoundError("Order not found");
+  if (String(order.orderStatus || "").toLowerCase() !== "pending_payment") {
+    throw new ValidationError("Order is not awaiting payment");
+  }
+
+  const deleted = await deletePendingPaymentOrder(order);
+  if (!deleted) throw new ValidationError("Could not abandon payment");
+
+  return { deleted: true, orderId: order._id.toString() };
+}
+
 // ----- Auto-assign -----
 
 /**
@@ -745,6 +829,7 @@ export async function processDispatchTimeout(orderId, partnerId, options = {}) {
 
 // ----- User: list, get, cancel -----
 export async function listOrdersUser(userId, query) {
+  await expireStalePendingPaymentOrders();
   await expireUnacceptedOrders();
   const { page, limit, skip } = buildPaginationOptions(query);
   const filter = { 
@@ -1481,10 +1566,11 @@ export async function switchToCash(orderId, deliveryPartnerId) {
 
 // ----- Admin -----
 export async function listOrdersAdmin(query) {
+  await expireStalePendingPaymentOrders();
+
   const page = Math.max(parseInt(query.page, 10) || 1, 1);
   const limit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 2000);
   const skip = (page - 1) * limit;
-  // Admin should see every order in the database (no payment-status gate).
   const filter = {};
 
   const rawStatus =
@@ -1502,6 +1588,10 @@ export async function listOrdersAdmin(query) {
   const endDateRaw =
     typeof query.endDate === "string" ? query.endDate.trim() : "";
 
+  if (!rawStatus || rawStatus === "all") {
+    filter.orderStatus = { $ne: "pending_payment" };
+  }
+
   if (rawStatus && rawStatus !== "all") {
     const terminalCancelledStatuses = [
       "cancelled_by_user",
@@ -1516,11 +1606,11 @@ export async function listOrdersAdmin(query) {
         break;
       case "processing":
         // Active orders not delivered/cancelled, delivery partner not accepted yet.
-        // Includes pending_payment (online checkout started) and post-acceptance kitchen states.
         filter.orderStatus = {
           $nin: [
             "created",
             "delivered",
+            "pending_payment",
             ...terminalCancelledStatuses,
           ],
         };

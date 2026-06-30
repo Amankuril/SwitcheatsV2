@@ -2298,7 +2298,6 @@ export async function getRestaurantAnalytics(restaurantId) {
                                             'reached_pickup',
                                             'picked_up',
                                             'reached_drop',
-                                            'pending_payment',
                                         ],
                                     ],
                                 },

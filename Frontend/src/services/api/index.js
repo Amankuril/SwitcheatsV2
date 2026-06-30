@@ -2479,6 +2479,10 @@ export const orderAPI = {
     apiClient.post("/food/orders/verify-payment", body ?? {}, {
       contextModule: "user",
     }),
+  abandonOnlinePayment: (orderId) =>
+    apiClient.delete(`/food/orders/${String(orderId)}/pending-payment`, {
+      contextModule: "user",
+    }),
   getOrders: (() => {
     const inFlight = new Map();
     const cache = new Map();

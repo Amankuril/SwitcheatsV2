@@ -127,7 +127,7 @@ export default function Cart() {
     );
   }
 
-  const { cart, updateQuantity, addToCart, getCartCount, clearCart, cleanCartForRestaurant } = cartContext;
+  const { cart, updateQuantity, addToCart, getCartCount, clearCart, cleanCartForRestaurant, replaceCart } = cartContext;
   const { getDefaultAddress, getDefaultPaymentMethod, setDefaultAddress, addresses, paymentMethods, userProfile, vegMode } = useProfile()
   const { createOrder } = useOrders()
   const { openLocationSelector } = useLocationSelector()
@@ -230,6 +230,7 @@ export default function Cart() {
   const [availableCoupons, setAvailableCoupons] = useState([])
   const [loadingCoupons, setLoadingCoupons] = useState(false)
   const [userOrderCount, setUserOrderCount] = useState(0)
+  const [availabilityTick, setAvailabilityTick] = useState(() => Date.now())
 
   const suggestedAddons = useMemo(() => {
     if (!Array.isArray(addons) || addons.length === 0) return []
@@ -273,6 +274,25 @@ export default function Cart() {
       setSelectedPaymentMethod("razorpay")
     }
   }, [isCodEnabled, selectedPaymentMethod])
+
+  useEffect(() => {
+    const timer = setInterval(() => setAvailabilityTick(Date.now()), 60000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const scheduledOrderAt = useMemo(() => {
+    if (!isScheduled || !scheduledDate || !scheduledTime) return null
+    const scheduleDate = new Date(`${scheduledDate}T${scheduledTime}:00`)
+    return Number.isNaN(scheduleDate.getTime()) ? null : scheduleDate
+  }, [isScheduled, scheduledDate, scheduledTime])
+
+  const cartRestaurantAvailability = useMemo(() => {
+    if (!restaurantData) return { isOpen: false, reason: "loading" }
+    const targetDate = scheduledOrderAt || new Date(availabilityTick)
+    return getRestaurantAvailabilityStatus(restaurantData, targetDate)
+  }, [restaurantData, availabilityTick, scheduledOrderAt])
+
+  const canPlaceOrder = Boolean(restaurantData) && cartRestaurantAvailability.isOpen === true
 
 
   const availableTimeSlots = useMemo(() => {
@@ -754,6 +774,32 @@ export default function Cart() {
     fetchRestaurantData()
   }, [cart.length, cart[0]?.restaurantId, cart[0]?.restaurant])
 
+  // Keep restaurant online/offline status fresh while user stays on cart
+  useEffect(() => {
+    const cartRestaurantId = cart[0]?.restaurantId
+    if (!cartRestaurantId || cart.length === 0) return
+
+    const refreshRestaurantStatus = async () => {
+      try {
+        const response = await restaurantAPI.getRestaurantById(cartRestaurantId)
+        const data = response?.data?.data?.restaurant || response?.data?.restaurant
+        if (data) setRestaurantData(data)
+      } catch (error) {
+        debugWarn("Failed to refresh restaurant status:", error)
+      }
+    }
+
+    refreshRestaurantStatus()
+    const intervalId = setInterval(refreshRestaurantStatus, 60000)
+    const handleFocus = () => refreshRestaurantStatus()
+    window.addEventListener("focus", handleFocus)
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [cart.length, cart[0]?.restaurantId])
+
   // Fetch approved addons for the restaurant
   useEffect(() => {
     const fetchAddonsWithId = async (idToUse) => {
@@ -959,15 +1005,59 @@ export default function Cart() {
         const resolvedRestaurantId = restaurantData?.restaurantId || restaurantData?._id || restaurantId || undefined
         const resolvedCouponCode = appliedCoupon?.code || couponCode || undefined
 
-        const response = await orderAPI.calculateOrder({
+        const calculatePayload = {
           items,
           restaurantId: resolvedRestaurantId,
           deliveryAddress: defaultAddress,
-          couponCode: resolvedCouponCode
-        })
+          couponCode: resolvedCouponCode,
+        }
+
+        if (scheduledOrderAt) {
+          calculatePayload.scheduledAt = scheduledOrderAt.toISOString()
+        }
+
+        const response = await orderAPI.calculateOrder(calculatePayload)
 
         if (response?.data?.success && response?.data?.data?.pricing) {
           setPricing(response.data.data.pricing)
+
+          const resolvedItems = Array.isArray(response.data.data.items)
+            ? response.data.data.items
+            : []
+          if (resolvedItems.length > 0) {
+            const priceById = new Map(
+              resolvedItems.map((item) => [String(item.itemId), item]),
+            )
+            const nextCart = cart.map((cartItem) => {
+              const itemId = String(cartItem.itemId || cartItem.id || "")
+              const resolved = priceById.get(itemId)
+              if (!resolved) return cartItem
+
+              const nextPrice = Number(resolved.price)
+              if (!Number.isFinite(nextPrice) || nextPrice === Number(cartItem.price)) {
+                return cartItem
+              }
+
+              return {
+                ...cartItem,
+                name: resolved.name || cartItem.name,
+                price: nextPrice,
+                variantPrice: Number(resolved.variantPrice ?? nextPrice),
+                variantName: resolved.variantName || cartItem.variantName,
+              }
+            })
+
+            const pricesChanged = nextCart.some(
+              (item, index) => Number(item.price) !== Number(cart[index]?.price),
+            )
+            if (pricesChanged) {
+              replaceCart(nextCart)
+              const priceChanges = response.data.data.priceChanges || []
+              if (priceChanges.length > 0) {
+                toast.info("Cart prices were updated to match the latest menu")
+              }
+            }
+          }
 
           // Update applied coupon if backend returns one
           if (response.data.data.pricing.appliedCoupon && !appliedCoupon) {
@@ -978,6 +1068,20 @@ export default function Cart() {
           }
         }
       } catch (error) {
+        const apiMessage =
+          error?.response?.data?.message ||
+          error?.response?.data?.error?.message ||
+          error?.message ||
+          ""
+
+        if (
+          apiMessage.toLowerCase().includes("offline") ||
+          apiMessage.toLowerCase().includes("closed")
+        ) {
+          setPricing(null)
+          return
+        }
+
         // Network errors or 404 errors - silently handle, fallback to frontend calculation
         if (error.code !== 'ERR_NETWORK' && error.response?.status !== 404) {
           debugError("Error calculating pricing:", error)
@@ -990,7 +1094,7 @@ export default function Cart() {
     }
 
     calculatePricing()
-  }, [cart, defaultAddress, appliedCoupon, couponCode, restaurantId])
+  }, [cart, defaultAddress, appliedCoupon, couponCode, restaurantId, scheduledOrderAt, replaceCart])
 
   // Fetch wallet balance
   useEffect(() => {
@@ -1127,7 +1231,7 @@ export default function Cart() {
         : "Cash on Delivery"
 
   // Restaurant name from data or cart
-  const restaurantName = restaurantData?.name || cart[0]?.restaurant || "Restaurant"
+  const restaurantName = restaurantData?.name || restaurantData?.restaurantName || cart[0]?.restaurant || "Restaurant"
 
   const handleShare = async () => {
     const restaurantNameStr = restaurantName || companyName || "this restaurant"
@@ -1514,6 +1618,11 @@ export default function Cart() {
       return
     }
 
+    if (!canPlaceOrder) {
+      toast.error("Restaurant is currently offline. Please try again later.")
+      return
+    }
+
     setIsPlacingOrder(true)
 
     // Use API_BASE_URL from config (supports both dev and production)
@@ -1765,6 +1874,17 @@ export default function Cart() {
       debugLog("? Order created successfully:", orderResponse.data)
 
       const { order, razorpay } = orderResponse.data.data
+      const pendingOnlineOrderId = order?._id || order?.id || order?.orderMongoId || null
+
+      const cleanupAbandonedOnlinePayment = async () => {
+        if (!pendingOnlineOrderId) return
+        try {
+          await orderAPI.abandonOnlinePayment(pendingOnlineOrderId)
+          debugLog("Cleaned up abandoned online payment order:", pendingOnlineOrderId)
+        } catch (cleanupError) {
+          debugError("Failed to cleanup abandoned online payment order:", cleanupError)
+        }
+      }
 
       // Cash flow: order placed without online payment
       if (selectedPaymentMethod === "cash") {
@@ -1906,17 +2026,20 @@ export default function Cart() {
             setIsPlacingOrder(false)
           }
         },
-        onError: (error) => {
+        onError: async (error) => {
           debugError("? Razorpay payment error:", error)
           // Don't show alert for user cancellation
           if (error?.code !== 'PAYMENT_CANCELLED' && error?.message !== 'PAYMENT_CANCELLED') {
             const errorMessage = error?.description || error?.message || "Payment failed. Please try again."
             alert(errorMessage)
+          } else {
+            await cleanupAbandonedOnlinePayment()
           }
           setIsPlacingOrder(false)
         },
-        onClose: () => {
+        onClose: async () => {
           debugLog("?? Payment modal closed by user")
+          await cleanupAbandonedOnlinePayment()
           setIsPlacingOrder(false)
         }
       })
@@ -2049,6 +2172,16 @@ export default function Cart() {
           </div>
         </div>
       </div>
+
+      {!canPlaceOrder && cart.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 md:px-6 py-2.5">
+          <div className="max-w-7xl mx-auto">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              {restaurantName} is currently offline. You can keep items in your cart, but checkout will open once the restaurant is back online.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden pb-44 md:pb-52">
@@ -2675,7 +2808,12 @@ export default function Cart() {
             {/* Place Order Button */}
             <button
               onClick={handlePlaceOrder}
-              disabled={isPlacingOrder || (selectedPaymentMethod === "wallet" && walletBalance < total)}
+              disabled={
+                isPlacingOrder ||
+                loadingRestaurant ||
+                !canPlaceOrder ||
+                (selectedPaymentMethod === "wallet" && walletBalance < total)
+              }
               className="w-full text-white px-6 h-12 md:h-14 rounded-2xl font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between transition-transform active:scale-[0.98]"
               style={{
                 background: "linear-gradient(135deg, rgba(var(--module-theme-rgb,250,2,114),0.92), var(--module-theme-color,#FA0272))",
@@ -2691,6 +2829,10 @@ export default function Cart() {
               <div className="flex items-center gap-1 mx-auto text-sm md:text-lg tracking-wide">
                 {isPlacingOrder
                   ? "Processing..."
+                  : loadingRestaurant
+                    ? "Loading..."
+                  : !canPlaceOrder
+                    ? "Restaurant Offline"
                   : !hasSavedAddress
                     ? "Select Address"
                     : "Place Order"}
