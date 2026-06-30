@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Search, Download, ChevronDown, Eye, Settings, ArrowUpDown, Loader2, X, MapPin, Phone, Mail, Clock, Star, Building2, User, FileText, FileSpreadsheet, CreditCard, Calendar, Image as ImageIcon, ExternalLink, ShieldX, AlertTriangle, Trash2, Plus } from "lucide-react"
+import { Search, Download, ChevronDown, ChevronLeft, ChevronRight, Eye, Settings, ArrowUpDown, Loader2, X, MapPin, Phone, Mail, Clock, Star, Building2, User, FileText, FileSpreadsheet, CreditCard, Calendar, Image as ImageIcon, ExternalLink, ShieldX, AlertTriangle, Trash2, Plus } from "lucide-react"
 import { adminAPI, restaurantAPI, uploadAPI } from "@food/api"
 import { clearModuleAuth } from "@food/utils/auth"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@food/components/ui/dropdown-menu"
@@ -18,6 +18,63 @@ const debugError = (...args) => {}
 const PLACEHOLDER_40 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect fill='%23e2e8f0' width='40' height='40'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-size='12' font-family='sans-serif'%3E?%3C/text%3E%3C/svg%3E"
 const PLACEHOLDER_128 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Crect fill='%23e2e8f0' width='128' height='128'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-size='32' font-family='sans-serif'%3E?%3C/text%3E%3C/svg%3E"
 const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+const PAGE_SIZE = 20
+
+const zoneLabelFromRestaurant = (restaurant, zones = []) => {
+  const zid = restaurant?.zoneId
+  const zoneName =
+    (typeof zid === "object" ? (zid?.name || zid?.zoneName) : "") ||
+    ""
+  if (zoneName) return zoneName
+
+  const zoneIdString =
+    typeof zid === "string"
+      ? zid
+      : (zid?._id || zid?.id || "")
+  if (zoneIdString && Array.isArray(zones) && zones.length > 0) {
+    const match = zones.find((z) => (z?._id || z?.id) === zoneIdString)
+    const label = match?.name || match?.zoneName
+    if (label) return label
+  }
+
+  return (
+    restaurant?.zone ||
+    restaurant?.location?.area ||
+    restaurant?.location?.city ||
+    restaurant?.area ||
+    restaurant?.city ||
+    "N/A"
+  )
+}
+
+const mapRawRestaurant = (restaurant, index, zones) => ({
+  id: restaurant._id || restaurant.id || index + 1,
+  _id: restaurant._id,
+  name: restaurant.name || restaurant.restaurantName || "N/A",
+  ownerName: restaurant.ownerName || "N/A",
+  ownerPhone: restaurant.ownerPhone || restaurant.phone || "N/A",
+  zone: zoneLabelFromRestaurant(restaurant, zones),
+  approvalStatus: normalizeApprovalStatus(restaurant),
+  isActive: restaurant.isActive !== false && restaurant.status === "approved",
+  rating: restaurant.rating || restaurant.ratings?.average || 0,
+  logo: getPrimaryRestaurantImage(restaurant, PLACEHOLDER_40),
+  originalData: restaurant,
+})
+
+const getSortByParam = (sortConfig) => {
+  if (!sortConfig.key || sortConfig.key === "zone") return "created-desc"
+  const dir = sortConfig.direction === "asc" ? "asc" : "desc"
+  const fieldMap = {
+    sl: "created",
+    name: "name",
+    owner: "owner",
+    rating: "rating",
+    status: "active",
+  }
+  const field = fieldMap[sortConfig.key]
+  if (!field) return "created-desc"
+  return `${field}-${dir}`
+}
 
 const normalizeApprovalStatus = (restaurant) => {
   const raw = String(restaurant?.status || "").trim().toLowerCase()
@@ -103,10 +160,14 @@ const getPrimaryRestaurantImage = (restaurant, fallback = "") => {
 
 export default function RestaurantsList() {
   const navigate = useNavigate()
+  const [searchInput, setSearchInput] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [restaurants, setRestaurants] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [totalRestaurants, setTotalRestaurants] = useState(0)
+  const [restaurantStats, setRestaurantStats] = useState({ total: 0, active: 0, inactive: 0 })
+  const [page, setPage] = useState(1)
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
   const [restaurantDetails, setRestaurantDetails] = useState(null)
   const [restaurantOutletTimings, setRestaurantOutletTimings] = useState(null)
@@ -211,7 +272,13 @@ export default function RestaurantsList() {
         setLoading(true)
         setError(null)
 
-        const response = await adminAPI.getApprovedRestaurants({})
+        const response = await adminAPI.getApprovedRestaurants({
+          page,
+          limit: PAGE_SIZE,
+          ...(searchQuery && { search: searchQuery }),
+          sortBy: getSortByParam(sortConfig),
+          includeStats: page === 1,
+        })
 
         if (cancelled) return
 
@@ -225,50 +292,24 @@ export default function RestaurantsList() {
               ? body.restaurants
               : []
 
-        const zoneLabelFromRestaurant = (restaurant) => {
-          const zid = restaurant?.zoneId
-          const zoneName =
-            (typeof zid === "object" ? (zid?.name || zid?.zoneName) : "") ||
-            ""
-          if (zoneName) return zoneName
-
-          const zoneIdString =
-            typeof zid === "string"
-              ? zid
-              : (zid?._id || zid?.id || "")
-          if (zoneIdString && Array.isArray(zones) && zones.length > 0) {
-            const match = zones.find((z) => (z?._id || z?.id) === zoneIdString)
-            const label = match?.name || match?.zoneName
-            if (label) return label
-          }
-
-          return (
-            restaurant?.zone ||
-            restaurant?.location?.area ||
-            restaurant?.location?.city ||
-            restaurant?.area ||
-            restaurant?.city ||
-            "N/A"
-          )
-        }
-
         if (rawList.length > 0 || body?.success === true) {
-          const mappedRestaurants = rawList.map((restaurant, index) => ({
-            id: restaurant._id || restaurant.id || index + 1,
-            _id: restaurant._id,
-            name: restaurant.name || restaurant.restaurantName || "N/A",
-            ownerName: restaurant.ownerName || "N/A",
-            ownerPhone: restaurant.ownerPhone || restaurant.phone || "N/A",
-            zone: zoneLabelFromRestaurant(restaurant),
-            approvalStatus: normalizeApprovalStatus(restaurant),
-            isActive: restaurant.isActive !== false && restaurant.status === "approved",
-            rating: restaurant.rating || restaurant.ratings?.average || 0,
-            logo: getPrimaryRestaurantImage(restaurant, PLACEHOLDER_40),
-            originalData: restaurant,
-          }))
-          if (!cancelled) setRestaurants(mappedRestaurants)
-        } else {
-          if (!cancelled) setRestaurants([])
+          const mappedRestaurants = rawList.map((restaurant, index) =>
+            mapRawRestaurant(restaurant, index, zones)
+          )
+          if (!cancelled) {
+            setRestaurants(mappedRestaurants)
+            setTotalRestaurants(Number(data?.total) || mappedRestaurants.length)
+            if (data?.stats) {
+              setRestaurantStats({
+                total: Number(data.stats.total) || 0,
+                active: Number(data.stats.active) || 0,
+                inactive: Number(data.stats.inactive) || 0,
+              })
+            }
+          }
+        } else if (!cancelled) {
+          setRestaurants([])
+          setTotalRestaurants(Number(data?.total) || 0)
         }
       } catch (err) {
         if (cancelled) return
@@ -278,6 +319,7 @@ export default function RestaurantsList() {
         if (status === 401) {
           setError(serverMessage || "Session expired or not logged in. Please log in as admin.")
           setRestaurants([])
+          setTotalRestaurants(0)
           try {
             clearModuleAuth("admin")
           } catch (_) {}
@@ -286,111 +328,65 @@ export default function RestaurantsList() {
         }
         setError(serverMessage || err.message || "Failed to fetch restaurants")
         setRestaurants([])
+        setTotalRestaurants(0)
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
 
-    fetchRestaurants()
-    return () => { cancelled = true }
-  }, [])
+    const t = setTimeout(fetchRestaurants, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [page, searchQuery, sortConfig, zones, navigate])
+
+  const totalPages = Math.max(1, Math.ceil(totalRestaurants / PAGE_SIZE))
+  const showingFrom = totalRestaurants === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const showingTo = Math.min(page * PAGE_SIZE, totalRestaurants)
+
+  useEffect(() => {
+    if (!loading && page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [loading, page, totalPages])
+
+  const handleSearch = () => {
+    setPage(1)
+    setSearchQuery(searchInput.trim())
+  }
 
   const [searchParams] = useSearchParams()
   const restaurantIdFromUrl = searchParams.get("restaurantId")
 
   useEffect(() => {
-    if (restaurantIdFromUrl && restaurants.length > 0) {
-      const restaurant = restaurants.find(r => r.id === restaurantIdFromUrl || r._id === restaurantIdFromUrl)
-      if (restaurant) {
-        handleViewDetails(restaurant)
-      }
+    if (restaurantIdFromUrl) {
+      handleViewDetails({ _id: restaurantIdFromUrl, id: restaurantIdFromUrl })
     }
-  }, [restaurantIdFromUrl, restaurants])
-
-  const [filters, setFilters] = useState({
-    all: "All",
-    businessModel: "",
-    zone: "",
-  })
+  }, [restaurantIdFromUrl])
 
   const filteredRestaurants = useMemo(() => {
-    let result = [...restaurants]
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim()
-      result = result.filter(restaurant =>
-        restaurant.name.toLowerCase().includes(query) ||
-        restaurant.ownerName.toLowerCase().includes(query) ||
-        restaurant.ownerPhone.includes(query)
-      )
-    }
-
-    if (filters.all !== "All") {
-      if (filters.all === "Active") {
-        result = result.filter(restaurant => restaurant.isActive === true)
-      } else if (filters.all === "Inactive") {
-        result = result.filter(restaurant => restaurant.isActive !== true)
-      }
-    }
-
-    if (filters.zone) {
-      result = result.filter(restaurant => restaurant.zone === filters.zone)
-    }
-
-    // Apply Sorting
-    if (sortConfig.key) {
-      result.sort((a, b) => {
-        let aValue, bValue;
-
-        switch (sortConfig.key) {
-          case 'sl':
-            aValue = restaurants.indexOf(a);
-            bValue = restaurants.indexOf(b);
-            break;
-          case 'name':
-            aValue = a.name.toLowerCase();
-            bValue = b.name.toLowerCase();
-            break;
-          case 'owner':
-            aValue = a.ownerName.toLowerCase();
-            bValue = b.ownerName.toLowerCase();
-            break;
-          case 'zone':
-            aValue = a.zone.toLowerCase();
-            bValue = b.zone.toLowerCase();
-            break;
-          case 'rating':
-            aValue = Number(a.rating) || 0;
-            bValue = Number(b.rating) || 0;
-            break;
-          case 'status':
-            aValue = String(a.approvalStatus || "").toLowerCase();
-            bValue = String(b.approvalStatus || "").toLowerCase();
-            break;
-          default:
-            return 0;
-        }
-
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-
-    return result
-  }, [restaurants, searchQuery, filters, sortConfig])
+    if (sortConfig.key !== "zone") return restaurants
+    return [...restaurants].sort((a, b) => {
+      const aValue = a.zone.toLowerCase()
+      const bValue = b.zone.toLowerCase()
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1
+      return 0
+    })
+  }, [restaurants, sortConfig])
 
   const handleSort = (key) => {
     let direction = "asc"
     if (sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc"
     }
+    setPage(1)
     setSortConfig({ key, direction })
   }
 
-  const totalRestaurants = restaurants.length
-  const activeRestaurants = restaurants.filter(r => r.isActive === true).length
-  const inactiveRestaurants = restaurants.filter(r => r.isActive !== true).length
+  const activeRestaurants = restaurantStats.active
+  const inactiveRestaurants = restaurantStats.inactive
 
   // Show full phone number without masking
   const formatPhone = (phone) => {
@@ -1236,7 +1232,7 @@ export default function RestaurantsList() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-600 mb-1">Total restaurants</p>
-                <p className="text-2xl font-bold text-slate-900">{totalRestaurants}</p>
+                <p className="text-2xl font-bold text-slate-900">{restaurantStats.total || totalRestaurants}</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
                 <img src={locationIcon} alt="Location" className="w-8 h-8" />
@@ -1274,7 +1270,12 @@ export default function RestaurantsList() {
         {/* Restaurants List Section */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h2 className="text-xl font-bold text-slate-900">Restaurants List</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-900">Restaurants List</h2>
+              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-slate-100 text-slate-700">
+                {totalRestaurants}
+              </span>
+            </div>
 
             <div className="flex items-center gap-3">
               <button
@@ -1287,9 +1288,10 @@ export default function RestaurantsList() {
               <div className="relative flex-1 sm:flex-initial min-w-[250px]">
                 <input
                   type="text"
-                  placeholder="Ex: search by Restaurant n"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Ex: search by Restaurant name, owner, or phone"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   className="pl-10 pr-4 py-2.5 w-full text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1325,6 +1327,12 @@ export default function RestaurantsList() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+          </div>
+
+          <div className="text-sm text-slate-600 mb-4">
+            {loading
+              ? "Loading..."
+              : `Showing ${showingFrom}-${showingTo} of ${totalRestaurants} restaurants`}
           </div>
 
           {/* Table */}
@@ -1424,7 +1432,7 @@ export default function RestaurantsList() {
                         className="hover:bg-slate-50 transition-colors"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-medium text-slate-700">{index + 1}</span>
+                          <span className="text-sm font-medium text-slate-700">{(page - 1) * PAGE_SIZE + index + 1}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
@@ -1515,6 +1523,34 @@ export default function RestaurantsList() {
               </table>
             )}
           </div>
+
+          {!loading && totalRestaurants > PAGE_SIZE ? (
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 pt-4">
+              <p className="text-sm text-slate-600">
+                Page {page} of {totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-sm disabled:opacity-50 hover:bg-slate-50"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-sm disabled:opacity-50 hover:bg-slate-50"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

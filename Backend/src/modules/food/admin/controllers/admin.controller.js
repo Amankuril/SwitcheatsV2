@@ -203,6 +203,15 @@ export async function getRestaurantComplaints(req, res, next) {
     }
 }
 
+export async function getRestaurantComplaintStatsController(req, res, next) {
+    try {
+        const data = await adminService.getRestaurantComplaintStats(req.query || {});
+        res.status(200).json({ success: true, message: 'Restaurant complaint stats fetched successfully', data });
+    } catch (error) {
+        next(error);
+    }
+}
+
 export async function globalSearch(req, res, next) {
     try {
         const { query } = req.query;
@@ -781,6 +790,15 @@ export async function getSupportTicketsController(req, res, next) {
     try {
         const data = await adminService.getSupportTickets(req.query || {});
         res.status(200).json({ success: true, message: 'Support tickets fetched successfully', data });
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function getFoodSupportTicketStatsController(req, res, next) {
+    try {
+        const data = await adminService.getFoodSupportTicketStats(req.query || {});
+        res.status(200).json({ success: true, message: 'Support ticket stats fetched successfully', data });
     } catch (error) {
         next(error);
     }

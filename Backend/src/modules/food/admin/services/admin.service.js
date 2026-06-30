@@ -213,6 +213,22 @@ export async function getRestaurantComplaints(query = {}) {
     return { complaints, total, page, limit };
 }
 
+export async function getRestaurantComplaintStats(query = {}) {
+    const baseFilter = { type: 'order' };
+    if (query.complaintType && query.complaintType !== 'all') {
+        baseFilter.issueType = query.complaintType;
+    }
+
+    const [open, inProgress, resolved, total] = await Promise.all([
+        FoodSupportTicket.countDocuments({ ...baseFilter, status: 'open' }),
+        FoodSupportTicket.countDocuments({ ...baseFilter, status: 'in-progress' }),
+        FoodSupportTicket.countDocuments({ ...baseFilter, status: 'resolved' }),
+        FoodSupportTicket.countDocuments(baseFilter),
+    ]);
+
+    return { total, open, inProgress, resolved };
+}
+
 export async function globalSearch(query = '') {
     const term = String(query).trim();
     if (!term) return [];
@@ -313,7 +329,9 @@ export async function updateRestaurantComplaint(id, updateData) {
         throw new ValidationError('Invalid complaint ID');
     }
     const update = {};
-    if (updateData.status) update.status = updateData.status;
+    if (updateData.status && ['open', 'in-progress', 'resolved'].includes(String(updateData.status))) {
+        update.status = String(updateData.status);
+    }
     if (updateData.adminResponse !== undefined) update.adminResponse = updateData.adminResponse;
 
     const updated = await FoodSupportTicket.findByIdAndUpdate(
@@ -331,21 +349,79 @@ export async function getRestaurants(query) {
     const page = Math.max(parseInt(query.page, 10) || 1, 1);
     const skip = (page - 1) * limit;
     const status = query.status;
+    const search = String(query.search || '').trim();
+    const isActiveRaw = query.isActive;
+    const sortBy = String(query.sortBy || 'created-desc').trim();
+    const includeStats = query.includeStats === 'true' || query.includeStats === true;
+
     const filter = {};
     if (status && ['pending', 'approved', 'rejected'].includes(status)) {
         filter.status = status;
     }
-    const [restaurants, total] = await Promise.all([
-        FoodRestaurant.find(filter)
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .select('restaurantName slug location area city status ownerName ownerPhone primaryContactNumber zoneId profileImage coverImages menuImages rating totalRatings isActive')
-            .populate('zoneId', 'name zoneName')
-            .lean(),
-        FoodRestaurant.countDocuments(filter)
+    if (search) {
+        const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        filter.$or = [
+            { restaurantName: { $regex: escaped, $options: 'i' } },
+            { ownerName: { $regex: escaped, $options: 'i' } },
+            { ownerPhone: { $regex: escaped, $options: 'i' } },
+            { primaryContactNumber: { $regex: escaped, $options: 'i' } },
+        ];
+    }
+    if (isActiveRaw === 'true' || isActiveRaw === true) {
+        filter.isActive = true;
+    } else if (isActiveRaw === 'false' || isActiveRaw === false) {
+        filter.isActive = { $ne: true };
+    }
+
+    const sortMap = {
+        'created-desc': { createdAt: -1 },
+        'created-asc': { createdAt: 1 },
+        'name-asc': { restaurantName: 1 },
+        'name-desc': { restaurantName: -1 },
+        'owner-asc': { ownerName: 1 },
+        'owner-desc': { ownerName: -1 },
+        'rating-asc': { rating: 1 },
+        'rating-desc': { rating: -1 },
+        'active-asc': { isActive: 1 },
+        'active-desc': { isActive: -1 },
+    };
+    const sort = sortMap[sortBy] || { createdAt: -1 };
+
+    const listPromise = FoodRestaurant.find(filter)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .select('restaurantName slug location area city status ownerName ownerPhone primaryContactNumber zoneId profileImage coverImages menuImages rating totalRatings isActive')
+        .populate('zoneId', 'name zoneName')
+        .lean();
+    const countPromise = FoodRestaurant.countDocuments(filter);
+
+    const statsFilter = status && ['pending', 'approved', 'rejected'].includes(status)
+        ? { status }
+        : {};
+    const statsPromises = includeStats
+        ? [
+            FoodRestaurant.countDocuments(statsFilter),
+            FoodRestaurant.countDocuments({ ...statsFilter, isActive: true }),
+            FoodRestaurant.countDocuments({ ...statsFilter, isActive: { $ne: true } }),
+        ]
+        : [];
+
+    const [restaurants, total, statsTotal, statsActive, statsInactive] = await Promise.all([
+        listPromise,
+        countPromise,
+        ...statsPromises,
     ]);
-    return { restaurants, total, page, limit };
+
+    const result = { restaurants, total, page, limit };
+    if (includeStats) {
+        result.stats = {
+            total: Number(statsTotal || 0),
+            active: Number(statsActive || 0),
+            inactive: Number(statsInactive || 0),
+        };
+    }
+    return result;
 }
 
 
@@ -1232,19 +1308,72 @@ export async function getCustomers(query = {}) {
 
     const sort = {};
     const sortBy = String(query.sortBy || '').trim();
+    const needsOrderSort = sortBy === 'orders-asc' || sortBy === 'orders-desc';
     if (sortBy === 'name-asc') sort.name = 1;
     else if (sortBy === 'name-desc') sort.name = -1;
-    else sort.createdAt = -1;
+    else if (!needsOrderSort) sort.createdAt = -1;
 
-    const [docs, total] = await Promise.all([
-        FoodUser.find(filter)
-            .sort(sort)
-            .skip(skip)
-            .limit(limit)
-            .select('name email phone countryCode isVerified isActive createdAt profileImage')
-            .lean(),
-        FoodUser.countDocuments(filter)
-    ]);
+    let docs = [];
+    let total = 0;
+
+    if (needsOrderSort) {
+        const orderDir = sortBy === 'orders-asc' ? 1 : -1;
+        [docs, total] = await Promise.all([
+            FoodUser.aggregate([
+                { $match: filter },
+                {
+                    $lookup: {
+                        from: 'food_orders',
+                        let: { uid: '$_id' },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: { $eq: ['$userId', '$$uid'] },
+                                    orderStatus: 'delivered',
+                                },
+                            },
+                            { $project: { total: { $ifNull: ['$pricing.total', 0] } } },
+                        ],
+                        as: 'deliveredOrders',
+                    },
+                },
+                {
+                    $addFields: {
+                        totalOrder: { $size: '$deliveredOrders' },
+                        totalOrderAmount: { $sum: '$deliveredOrders.total' },
+                    },
+                },
+                { $sort: { totalOrder: orderDir, createdAt: -1 } },
+                { $skip: skip },
+                { $limit: limit },
+                {
+                    $project: {
+                        name: 1,
+                        email: 1,
+                        phone: 1,
+                        countryCode: 1,
+                        isVerified: 1,
+                        isActive: 1,
+                        createdAt: 1,
+                        profileImage: 1,
+                        totalOrder: 1,
+                        totalOrderAmount: 1,
+                    },
+                },
+            ]),
+            FoodUser.countDocuments(filter),
+        ]);
+    } else {
+        [docs, total] = await Promise.all([
+            FoodUser.find(filter)
+                .sort(sort)
+                .skip(skip)
+                .limit(limit)
+                .select('name email phone countryCode isVerified isActive createdAt profileImage')
+                .lean(),
+            FoodUser.countDocuments(filter),
+        ]);
+    }
 
     const sanitizeUrl = (s) => {
         if (!s) return '';
@@ -1252,7 +1381,7 @@ export async function getCustomers(query = {}) {
         return str.replace(/^`+|`+$/g, '').trim();
     };
 
-    const userIds = docs.map((u) => u._id).filter(Boolean);
+    const userIds = needsOrderSort ? [] : docs.map((u) => u._id).filter(Boolean);
     const orderStats = userIds.length > 0
         ? await FoodOrder.aggregate([
             {
@@ -1282,7 +1411,12 @@ export async function getCustomers(query = {}) {
     );
 
     let customers = docs.map((u) => {
-        const stats = orderStatsMap.get(String(u._id)) || { totalOrder: 0, totalOrderAmount: 0 };
+        const stats = needsOrderSort
+            ? {
+                totalOrder: Number(u.totalOrder || 0),
+                totalOrderAmount: Number(u.totalOrderAmount || 0),
+            }
+            : orderStatsMap.get(String(u._id)) || { totalOrder: 0, totalOrderAmount: 0 };
         return ({
         id: u._id,
         _id: u._id,
@@ -1376,6 +1510,8 @@ export async function getSupportTickets(query = {}) {
     const skip = (page - 1) * limit;
     const source = String(query.source || 'all').toLowerCase();
     const search = String(query.search || '').trim();
+    const type = query.type ? String(query.type) : '';
+    const category = query.category ? String(query.category) : '';
 
     const userFilter = {};
     const restaurantFilter = {};
@@ -1383,11 +1519,11 @@ export async function getSupportTickets(query = {}) {
         userFilter.status = String(query.status);
         restaurantFilter.status = String(query.status);
     }
-    if (query.type && ['order', 'restaurant', 'other'].includes(String(query.type))) {
-        userFilter.type = String(query.type);
+    if (type && ['order', 'restaurant', 'other'].includes(type)) {
+        userFilter.type = type;
     }
-    if (query.category && ['orders', 'payments', 'menu', 'restaurant', 'technical', 'other'].includes(String(query.category))) {
-        restaurantFilter.category = String(query.category);
+    if (category && ['orders', 'payments', 'menu', 'restaurant', 'technical', 'other'].includes(category)) {
+        restaurantFilter.category = category;
     }
 
     const userSearchOr = [];
@@ -1420,19 +1556,27 @@ export async function getSupportTickets(query = {}) {
         if (orderIds.length) {
             userSearchOr.push({ orderId: { $in: orderIds.map((o) => o._id) } });
         }
+        if (mongoose.Types.ObjectId.isValid(search)) {
+            userSearchOr.push({ _id: new mongoose.Types.ObjectId(search) });
+            restaurantSearchOr.push({ _id: new mongoose.Types.ObjectId(search) });
+        }
     }
     if (userSearchOr.length) userFilter.$or = userSearchOr;
     if (restaurantSearchOr.length) restaurantFilter.$or = restaurantSearchOr;
 
     const shouldFetchUser = source === 'all' || source === 'user';
-    const shouldFetchRestaurant = source === 'all' || source === 'restaurant';
+    const shouldFetchRestaurant =
+        (source === 'all' || source === 'restaurant') && !type;
+
+    const fetchCap = source === 'all' ? skip + limit : limit;
+    const fetchSkip = source === 'all' ? 0 : skip;
 
     const [userList, userTotal, restaurantList, restaurantTotal] = await Promise.all([
         shouldFetchUser
             ? FoodSupportTicket.find(userFilter)
                   .sort({ createdAt: -1 })
-                  .skip(source === 'all' ? 0 : skip)
-                  .limit(source === 'all' ? limit * page : limit)
+                  .skip(fetchSkip)
+                  .limit(fetchCap)
                   .populate('userId', 'name phone email')
                   .populate('restaurantId', 'restaurantName city area')
                   .populate({
@@ -1446,8 +1590,8 @@ export async function getSupportTickets(query = {}) {
         shouldFetchRestaurant
             ? FoodRestaurantSupportTicket.find(restaurantFilter)
                   .sort({ createdAt: -1 })
-                  .skip(source === 'all' ? 0 : skip)
-                  .limit(source === 'all' ? limit * page : limit)
+                  .skip(fetchSkip)
+                  .limit(fetchCap)
                   .populate('restaurantId', 'restaurantName city area')
                   .lean()
             : Promise.resolve([]),
@@ -1569,6 +1713,50 @@ export async function getSupportTickets(query = {}) {
     }
 
     return { tickets, total, page, limit };
+}
+
+export async function getFoodSupportTicketStats(query = {}) {
+    const source = String(query.source || 'all').toLowerCase();
+    const type = query.type ? String(query.type) : '';
+    const category = query.category ? String(query.category) : '';
+
+    const userFilter = {};
+    const restaurantFilter = {};
+    if (type && ['order', 'restaurant', 'other'].includes(type)) {
+        userFilter.type = type;
+    }
+    if (category && ['orders', 'payments', 'menu', 'restaurant', 'technical', 'other'].includes(category)) {
+        restaurantFilter.category = category;
+    }
+
+    const shouldFetchUser = source === 'all' || source === 'user';
+    const shouldFetchRestaurant =
+        (source === 'all' || source === 'restaurant') && !type;
+
+    const countStatuses = async (model, filter) => {
+        const [open, inProgress, resolved, total] = await Promise.all([
+            model.countDocuments({ ...filter, status: 'open' }),
+            model.countDocuments({ ...filter, status: 'in-progress' }),
+            model.countDocuments({ ...filter, status: 'resolved' }),
+            model.countDocuments(filter),
+        ]);
+        return { open, inProgress, resolved, total };
+    };
+
+    const empty = { open: 0, inProgress: 0, resolved: 0, total: 0 };
+    const [userCounts, restaurantCounts] = await Promise.all([
+        shouldFetchUser ? countStatuses(FoodSupportTicket, userFilter) : Promise.resolve(empty),
+        shouldFetchRestaurant
+            ? countStatuses(FoodRestaurantSupportTicket, restaurantFilter)
+            : Promise.resolve(empty),
+    ]);
+
+    return {
+        total: userCounts.total + restaurantCounts.total,
+        open: userCounts.open + restaurantCounts.open,
+        inProgress: userCounts.inProgress + restaurantCounts.inProgress,
+        resolved: userCounts.resolved + restaurantCounts.resolved,
+    };
 }
 
 export async function updateSupportTicket(id, body = {}) {

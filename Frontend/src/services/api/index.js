@@ -145,6 +145,11 @@ export const supportAPI = {
       params,
       contextModule: "admin",
     }),
+  getFoodSupportTicketStats: (params = {}) =>
+    apiClient.get("/food/admin/support-tickets/stats", {
+      params,
+      contextModule: "admin",
+    }),
   updateSupportTicketAdmin: (id, body = {}) =>
     apiClient.patch(`/food/admin/support-tickets/${String(id)}`, body ?? {}, {
       contextModule: "admin",
@@ -235,6 +240,11 @@ export const adminAPI = {
   /** List restaurant complaints (admin). */
   getRestaurantComplaints: (params = {}) =>
     apiClient.get("/food/admin/restaurants/complaints", {
+      params,
+      contextModule: "admin",
+    }),
+  getRestaurantComplaintStats: (params = {}) =>
+    apiClient.get("/food/admin/restaurants/complaints/stats", {
       params,
       contextModule: "admin",
     }),
@@ -899,7 +909,7 @@ export const adminAPI = {
   /** Backward-compatible alias used in UI */
   getApprovedRestaurants: (params = {}) =>
     apiClient.get("/food/admin/restaurants", {
-      params: { status: "approved", limit: 1000, ...params },
+      params: { status: "approved", ...params },
       contextModule: "admin",
     }),
 

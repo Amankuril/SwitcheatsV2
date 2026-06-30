@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
-import { Search, Download, ChevronDown, Calendar, Eye, FileDown, FileSpreadsheet, FileText, X, Mail, Phone, MapPin, Package, IndianRupee, Calendar as CalendarIcon, User, CheckCircle, XCircle } from "lucide-react"
+import { Search, Download, ChevronDown, ChevronLeft, ChevronRight, Calendar, Eye, FileDown, FileSpreadsheet, FileText, X, Mail, Phone, MapPin, Package, IndianRupee, Calendar as CalendarIcon, User, CheckCircle, XCircle } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@food/components/ui/dropdown-menu"
 import { exportCustomersToCSV, exportCustomersToExcel, exportCustomersToPDF } from "@food/components/admin/customers/customersExportUtils"
 import { adminAPI } from "@food/api"
@@ -10,12 +10,15 @@ const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
+const PAGE_SIZE = 20
 
 export default function Customers() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [searchInput, setSearchInput] = useState("")
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [totalCustomers, setTotalCustomers] = useState(0)
+  const [page, setPage] = useState(1)
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [userDetails, setUserDetails] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
@@ -28,63 +31,24 @@ export default function Customers() {
     chooseFirst: "",
   })
 
-  const filteredCustomers = useMemo(() => {
-    let result = [...customers]
+  const totalPages = Math.max(1, Math.ceil(totalCustomers / PAGE_SIZE))
+  const showingFrom = totalCustomers === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const showingTo = Math.min(page * PAGE_SIZE, totalCustomers)
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim()
-      result = result.filter(customer =>
-        customer.name.toLowerCase().includes(query) ||
-        customer.email.toLowerCase().includes(query) ||
-        customer.phone.includes(query)
-      )
+  useEffect(() => {
+    if (!loading && page > totalPages) {
+      setPage(totalPages)
     }
-
-    // Filter by order date when that field is available in the API payload.
-
-    // Filter by joining date
-    if (filters.joiningDate) {
-      result = result.filter(customer => {
-        // Parse joining date from format "17 Oct 2021"
-        const customerDate = new Date(customer.joiningDate)
-        const filterDate = new Date(filters.joiningDate)
-        return customerDate.toDateString() === filterDate.toDateString()
-      })
-    }
-
-    // Filter by status
-    if (filters.status) {
-      if (filters.status === "active") {
-        result = result.filter(customer => customer.status === true)
-      } else if (filters.status === "inactive") {
-        result = result.filter(customer => customer.status === false)
-      }
-    }
-
-    // Sort by options
-    if (filters.sortBy) {
-      if (filters.sortBy === "name-asc") {
-        result.sort((a, b) => a.name.localeCompare(b.name))
-      } else if (filters.sortBy === "name-desc") {
-        result.sort((a, b) => b.name.localeCompare(a.name))
-      } else if (filters.sortBy === "orders-asc") {
-        result.sort((a, b) => a.totalOrder - b.totalOrder)
-      } else if (filters.sortBy === "orders-desc") {
-        result.sort((a, b) => b.totalOrder - a.totalOrder)
-      }
-    }
-
-    // Limit results if "Choose First" is set
-    if (filters.chooseFirst && parseInt(filters.chooseFirst) > 0) {
-      result = result.slice(0, parseInt(filters.chooseFirst))
-    }
-
-    return result
-  }, [customers, searchQuery, filters])
+  }, [loading, page, totalPages])
 
   const handleFilterChange = (field, value) => {
+    setPage(1)
     setFilters(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleSearch = () => {
+    setPage(1)
+    setSearchQuery(searchInput.trim())
   }
 
   const formatDateTime = (value) => {
@@ -112,28 +76,28 @@ export default function Customers() {
     const fetchCustomers = async () => {
       try {
         setLoading(true)
+        const chooseFirst = parseInt(filters.chooseFirst, 10)
+        const useChooseFirst = Number.isFinite(chooseFirst) && chooseFirst > 0
         const params = {
-          limit: 1000,
-          page: 1,
+          limit: useChooseFirst ? chooseFirst : PAGE_SIZE,
+          page: useChooseFirst ? 1 : page,
           ...(searchQuery && { search: searchQuery }),
           ...(filters.status && { status: filters.status }),
           ...(filters.joiningDate && { joiningDate: filters.joiningDate }),
           ...(filters.sortBy && { sortBy: filters.sortBy }),
-          ...(filters.chooseFirst && { chooseFirst: filters.chooseFirst }),
+          ...(useChooseFirst && { chooseFirst }),
         }
 
         const response = await adminAPI.getCustomers(params)
-        const data = response?.data?.data || response?.data?.data || response?.data
+        const data = response?.data?.data || response?.data
 
         const list = data?.customers || data?.users || []
         if (!cancelled && Array.isArray(list)) {
           setCustomers(list)
-          setTotalCustomers(data?.total || list.length)
-        } else {
-          if (!cancelled) {
-            setCustomers([])
-            setTotalCustomers(0)
-          }
+          setTotalCustomers(Number(data?.total) || list.length)
+        } else if (!cancelled) {
+          setCustomers([])
+          setTotalCustomers(0)
         }
       } catch (error) {
         debugError('Error fetching customers:', error)
@@ -152,19 +116,16 @@ export default function Customers() {
       cancelled = true
       clearTimeout(t)
     }
-  }, [searchQuery, filters.status, filters.joiningDate, filters.sortBy, filters.chooseFirst])
+  }, [page, searchQuery, filters.status, filters.joiningDate, filters.sortBy, filters.chooseFirst])
 
   const [searchParams] = useSearchParams()
   const userIdFromUrl = searchParams.get("userId")
 
   useEffect(() => {
-    if (userIdFromUrl && customers.length > 0) {
-      const customer = customers.find(c => c.id === userIdFromUrl || c._id === userIdFromUrl)
-      if (customer) {
-        handleViewDetails(customer.id || customer.sl || customer._id)
-      }
+    if (userIdFromUrl) {
+      handleViewDetails(userIdFromUrl)
     }
-  }, [userIdFromUrl, customers])
+  }, [userIdFromUrl])
 
   const handleToggleStatus = async (customerId) => {
     try {
@@ -217,7 +178,7 @@ export default function Customers() {
   }
 
   const handleExport = (format) => {
-    if (filteredCustomers.length === 0) {
+    if (customers.length === 0) {
       toast.error("No customers to export")
       return
     }
@@ -226,15 +187,15 @@ export default function Customers() {
     try {
       switch (format) {
         case "csv":
-          exportCustomersToCSV(filteredCustomers, filename)
+          exportCustomersToCSV(customers, filename)
           toast.success("CSV export started")
           break
         case "excel":
-          exportCustomersToExcel(filteredCustomers, filename)
+          exportCustomersToExcel(customers, filename)
           toast.success("Excel export started")
           break
         case "pdf":
-          exportCustomersToPDF(filteredCustomers, filename)
+          exportCustomersToPDF(customers, filename)
           toast.success("PDF download started")
           break
         default:
@@ -340,18 +301,21 @@ export default function Customers() {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  // Filters are applied automatically via useMemo
-                }}
+                type="button"
+                onClick={handleSearch}
                 className="px-6 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all"
               >
                 Apply Filters
               </button>
               <button
+                type="button"
                 onClick={() => {
+                  setPage(1)
+                  setSearchInput("")
+                  setSearchQuery("")
                   setFilters({
                     orderDate: "",
                     joiningDate: "",
@@ -366,7 +330,9 @@ export default function Customers() {
               </button>
             </div>
             <div className="text-sm text-slate-600">
-              {loading ? 'Loading...' : `Showing ${filteredCustomers.length} of ${totalCustomers} customers`}
+              {loading
+                ? "Loading..."
+                : `Showing ${showingFrom}-${showingTo} of ${totalCustomers} customers`}
             </div>
           </div>
         </div>
@@ -377,7 +343,7 @@ export default function Customers() {
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-slate-900">Customer list</h2>
               <span className="px-3 py-1 rounded-full text-sm font-semibold bg-slate-100 text-slate-700">
-                {filteredCustomers.length}
+                {totalCustomers}
               </span>
             </div>
 
@@ -385,9 +351,10 @@ export default function Customers() {
               <div className="relative flex-1 sm:flex-initial min-w-[200px]">
                 <input
                   type="text"
-                  placeholder="Ex: Search by name"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Ex: Search by name, email, or phone"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   className="pl-10 pr-4 py-2.5 w-full text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400"
                 />
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -443,17 +410,19 @@ export default function Customers() {
                       <div className="text-sm text-slate-500">Loading customers...</div>
                     </td>
                   </tr>
-                ) : filteredCustomers.length === 0 ? (
+                ) : customers.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-8 text-center">
                       <div className="text-sm text-slate-500">No customers found</div>
                     </td>
                   </tr>
                 ) : (
-                  filteredCustomers.map((customer, index) => (
-                    <tr key={customer.id || customer.sl} className="hover:bg-slate-50 transition-colors">
+                  customers.map((customer, index) => (
+                    <tr key={customer.id || customer._id || customer.sl} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-slate-700">{index + 1}</span>
+                        <span className="text-sm font-medium text-slate-700">
+                          {(page - 1) * PAGE_SIZE + index + 1}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -523,6 +492,34 @@ export default function Customers() {
               </tbody>
             </table>
           </div>
+
+          {!loading && totalCustomers > PAGE_SIZE && !filters.chooseFirst ? (
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 pt-4">
+              <p className="text-sm text-slate-600">
+                Page {page} of {totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-sm disabled:opacity-50 hover:bg-slate-50"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-sm disabled:opacity-50 hover:bg-slate-50"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
