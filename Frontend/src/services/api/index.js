@@ -1177,17 +1177,12 @@ export const restaurantAPI = {
         contextModule: "restaurant",
       })
       .then((res) => res),
-  /** PATCH /food/restaurant/availability. Body: { isAcceptingOrders, outsideHoursOverride? } */
-  updateAcceptingOrders: (isAcceptingOrders, options = {}) =>
+  /** PATCH /food/restaurant/availability. Body: { isAcceptingOrders: boolean } */
+  updateAcceptingOrders: (isAcceptingOrders) =>
     apiClient
       .patch(
         "/food/restaurant/availability",
-        {
-          isAcceptingOrders: Boolean(isAcceptingOrders),
-          ...(options.outsideHoursOverride === true
-            ? { outsideHoursOverride: true }
-            : {}),
-        },
+        { isAcceptingOrders: Boolean(isAcceptingOrders) },
         { contextModule: "restaurant" },
       )
       .then((res) => res),

@@ -3,7 +3,6 @@ import { ValidationError } from '../../../../core/auth/errors.js';
 import { invalidateCache } from '../../../../middleware/cache.js';
 import { FoodRestaurantOutletTimings } from '../models/outletTimings.model.js';
 import { FoodRestaurant } from '../models/restaurant.model.js';
-import { getOutletScheduleStatus } from '../helpers/restaurantAvailability.helper.js';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -97,14 +96,6 @@ export async function upsertOutletTimingsForRestaurant(restaurantId, outletTimin
                 closingTime: todayData.closingTime,
                 openDays: timings.filter(t => t.isOpen).map(t => t.day)
             }
-        });
-    }
-
-    const clientShape = toClientShape(doc);
-    const schedule = getOutletScheduleStatus({ outletTimings: clientShape });
-    if (!schedule.isOpen) {
-        await FoodRestaurant.findByIdAndUpdate(restaurantId, {
-            $set: { isAcceptingOrders: false, outsideHoursOverride: false },
         });
     }
 

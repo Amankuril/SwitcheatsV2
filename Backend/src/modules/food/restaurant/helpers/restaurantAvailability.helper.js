@@ -224,6 +224,7 @@ export function getRestaurantAvailabilityStatus(restaurant, now = new Date(), op
   if (!restaurant) {
     return {
       isOpen: false,
+      isActive: false,
       isAcceptingOrders: false,
       isWithinTimings: false,
       reason: 'missing-restaurant',
@@ -232,46 +233,58 @@ export function getRestaurantAvailabilityStatus(restaurant, now = new Date(), op
 
   const ignoreOperationalStatus = options?.ignoreOperationalStatus === true;
   const isActive = restaurant.isActive !== false;
-  const operational = getRestaurantOperationalStatus(restaurant, now);
+  const isAcceptingOrders = restaurant.isAcceptingOrders !== false;
 
   if (!ignoreOperationalStatus && !isActive) {
     return {
       isOpen: false,
       isActive,
-      isAcceptingOrders: operational.isAcceptingOrders,
-      isWithinTimings: operational.isWithinTimings,
-      isEffectivelyOnline: false,
-      outsideHoursOverride: operational.outsideHoursOverride,
+      isAcceptingOrders,
+      isWithinTimings: false,
       reason: 'inactive',
     };
   }
 
-  if (!ignoreOperationalStatus && !operational.isEffectivelyOnline) {
+  if (!ignoreOperationalStatus && !isAcceptingOrders) {
     return {
       isOpen: false,
       isActive,
-      isAcceptingOrders: operational.isAcceptingOrders,
-      isWithinTimings: operational.isWithinTimings,
-      isEffectivelyOnline: false,
-      outsideHoursOverride: operational.outsideHoursOverride,
-      reason: operational.reason === 'not-accepting-orders'
-        ? 'not-accepting-orders'
-        : operational.isDayClosed
-          ? 'closed-day'
-          : 'outside-hours',
+      isAcceptingOrders,
+      isWithinTimings: false,
+      reason: 'not-accepting-orders',
     };
   }
 
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const today = checkDayWindow(restaurant, now, nowMinutes);
+  const yesterdayDate = new Date(now);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = checkDayWindow(restaurant, yesterdayDate, nowMinutes);
+
+  const yesterdayCrossesMidnight =
+    yesterday.openingMinutes !== null &&
+    yesterday.closingMinutes !== null &&
+    yesterday.closingMinutes < yesterday.openingMinutes;
+  const isYesterdayStillOpen =
+    yesterdayCrossesMidnight && nowMinutes <= yesterday.closingMinutes;
+  const isTodayOpen = today.isWithin;
+  const isOpenNow = isTodayOpen || isYesterdayStillOpen;
+  const activeWindow = isTodayOpen ? today : isYesterdayStillOpen ? yesterday : today;
+
   return {
-    isOpen: true,
+    isOpen: isOpenNow,
     isActive,
-    isAcceptingOrders: operational.isAcceptingOrders,
-    isWithinTimings: operational.isWithinTimings,
-    isEffectivelyOnline: true,
-    outsideHoursOverride: operational.outsideHoursOverride,
-    openingTime: operational.openingTime,
-    closingTime: operational.closingTime,
-    reason: operational.reason,
+    isAcceptingOrders,
+    isWithinTimings: isOpenNow,
+    openingTime: activeWindow?.openingTime || null,
+    closingTime: activeWindow?.closingTime || null,
+    reason: isOpenNow
+      ? isAcceptingOrders
+        ? 'open'
+        : 'open-by-timings'
+      : activeWindow?.hasWindow
+        ? 'outside-hours'
+        : 'no-timings',
   };
 }
 

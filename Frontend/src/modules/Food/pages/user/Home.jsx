@@ -2069,6 +2069,62 @@ export default function Home() {
           startTransition(() => {
             setRestaurantsData(sortRestaurantsForDisplay(transformedRestaurants));
           });
+
+          const restaurantsNeedingOutletTimings = transformedRestaurants.filter(
+            (restaurant) => restaurant.mongoId && !restaurant.outletTimings,
+          );
+
+          if (restaurantsNeedingOutletTimings.length > 0) {
+            void (async () => {
+              const resolvedOutletTimings = new Map();
+
+              for (const restaurant of restaurantsNeedingOutletTimings) {
+                try {
+                  const outletResponse =
+                    await restaurantAPI.getOutletTimingsByRestaurantId(
+                      restaurant.mongoId,
+                      { noCache: true },
+                    );
+                  const outletTimings =
+                    outletResponse?.data?.data?.outletTimings ||
+                    outletResponse?.data?.outletTimings ||
+                    null;
+
+                  if (outletTimings) {
+                    resolvedOutletTimings.set(restaurant.mongoId, outletTimings);
+                  }
+                } catch (_) {
+                  // Keep the existing restaurant data if enrichment fails.
+                }
+              }
+
+              if (
+                requestSeq !== restaurantsRequestSeqRef.current ||
+                resolvedOutletTimings.size === 0
+              ) {
+                return;
+              }
+
+              startTransition(() => {
+                setRestaurantsData((currentRestaurants) => {
+                  let hasChanges = false;
+                  const nextRestaurants = currentRestaurants.map((restaurant) => {
+                    if (!restaurant.mongoId) return restaurant;
+                    const outletTimings = resolvedOutletTimings.get(
+                      restaurant.mongoId,
+                    );
+                    if (!outletTimings) return restaurant;
+                    hasChanges = true;
+                    return { ...restaurant, outletTimings };
+                  });
+
+                  return hasChanges
+                    ? sortRestaurantsForDisplay(nextRestaurants)
+                    : currentRestaurants;
+                });
+              });
+            })();
+          }
         } else {
           debugWarn("Invalid API response structure:", response.data);
           setRestaurantsData([]);
