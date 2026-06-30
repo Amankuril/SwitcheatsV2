@@ -39,6 +39,7 @@ import { FoodDeliveryCashDeposit } from '../../delivery/models/foodDeliveryCashD
 import { FoodUnregisteredRestaurant } from '../../restaurant/models/unregisteredRestaurant.model.js';
 import { FoodAdmin } from '../../../../core/admin/admin.model.js';
 import { getAdminRestaurantSubscriptionHistory as getAdminRestaurantSubscriptionHistoryFromRestaurant } from '../../restaurant/services/subscriptionHistory.service.js';
+import { FoodRestaurantSubscriptionHistory } from '../../restaurant/models/subscriptionHistory.model.js';
 import { ADMIN_FULL_PERMISSIONS, isValidPermissionPayload, sanitizeAdminPermissions } from '../../../../constants/permissions.js';
 import {
     backfillLegacyCategoryWorkflow,
@@ -53,6 +54,7 @@ import {
     normalizeFoodVariantsInput,
     serializeFoodVariants
 } from './foodVariant.service.js';
+import { resolveDiscountSplit } from '../../shared/discountSplit.util.js';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -380,9 +382,10 @@ export async function getRestaurants(query) {
         filter.$or = or;
     }
     if (isActiveRaw === 'true' || isActiveRaw === true) {
-        filter.isActive = true;
+        // Treat missing isActive as active (legacy restaurants may not have the field).
+        filter.isActive = { $ne: false };
     } else if (isActiveRaw === 'false' || isActiveRaw === false) {
-        filter.isActive = { $ne: true };
+        filter.isActive = false;
     }
 
     const sortMap = {
@@ -2415,6 +2418,60 @@ export async function getRestaurantById(id) {
         .lean();
 }
 
+function formatSubscriptionPlanLabel(plan) {
+    const key = String(plan || '').trim().toLowerCase();
+    if (key === 'starter') return 'Starter';
+    if (key === 'growth') return 'Growth';
+    if (key === 'premium') return 'Premium';
+    if (!key) return 'Not assigned';
+    return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+function buildRestaurantSubscriptionSummary(restaurant, subscriptionHistoryAgg, lastSubscriptionPayment, subscriptionSettings) {
+    const planKey = String(restaurant?.subscriptionPlan || '').trim().toLowerCase();
+    const priceByPlan = {
+        starter: Number(subscriptionSettings?.starterPrice) || 999,
+        growth: Number(subscriptionSettings?.growthPrice) || 1999,
+        premium: Number(subscriptionSettings?.premiumPrice) || 2999,
+    };
+    const agg = subscriptionHistoryAgg?.[0] || {};
+    const cycleFee = Math.max(0, Number(restaurant?.subscriptionAmount) || priceByPlan[planKey] || 0);
+    const dueAmount = Math.max(0, Number(restaurant?.subscriptionDueAmount) || 0);
+    const paidOnRecord = Math.max(0, Number(restaurant?.subscriptionPaidAmount) || 0);
+    const autoDeductedOnRecord = Math.max(0, Number(restaurant?.subscriptionAutoDeductedAmount) || 0);
+    const totalCollected = Math.max(
+        Number(agg.totalPaidViaHistory) || 0,
+        paidOnRecord,
+        autoDeductedOnRecord,
+    );
+    const status = String(restaurant?.subscriptionStatus || 'due').toLowerCase() === 'paid' ? 'paid' : 'due';
+
+    return {
+        plan: planKey,
+        planLabel: formatSubscriptionPlanLabel(planKey),
+        cycleFee,
+        status,
+        statusLabel: status === 'paid' ? 'Paid for current cycle' : 'Due / pending payment',
+        validTill: restaurant?.subscriptionValidTill || null,
+        dueAmount,
+        paidAmount: paidOnRecord,
+        autoDeductedFromEarnings: autoDeductedOnRecord,
+        totalCollected,
+        manualPaymentsTotal: Math.max(0, Number(agg.totalManualPayments) || 0),
+        autoDeductedTotal: Math.max(0, Number(agg.totalAutoDeducted) || autoDeductedOnRecord),
+        paymentCount: Math.max(0, Number(agg.paymentCount) || 0),
+        lastPayment: lastSubscriptionPayment
+            ? {
+                amount: Math.max(0, Number(lastSubscriptionPayment.amount) || 0),
+                eventType: String(lastSubscriptionPayment.eventType || ''),
+                paymentType: String(lastSubscriptionPayment.paymentType || ''),
+                date: lastSubscriptionPayment.createdAt || null,
+                note: String(lastSubscriptionPayment.note || '').trim(),
+            }
+            : null,
+    };
+}
+
 export async function getRestaurantAnalytics(restaurantId) {
     if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) return null;
     const rId = new mongoose.Types.ObjectId(restaurantId);
@@ -2425,7 +2482,7 @@ export async function getRestaurantAnalytics(restaurantId) {
         ],
     };
 
-    const [restaurant, commissionDoc, orders, txRows, orderStatsRows] = await Promise.all([
+    const [restaurant, commissionDoc, orders, txRows, orderStatsRows, subscriptionHistoryAgg, lastSubscriptionPayment, subscriptionSettings, relevantOffers] = await Promise.all([
         FoodRestaurant.findById(rId).lean(),
         FoodRestaurantCommission.findOne({ restaurantId: rId, status: { $ne: false } }).lean(),
         FoodOrder.find(restaurantOrderMatch).lean(),
@@ -2509,6 +2566,64 @@ export async function getRestaurantAnalytics(restaurantId) {
                 },
             },
         ]),
+        FoodRestaurantSubscriptionHistory.aggregate([
+            { $match: { restaurantId: rId } },
+            {
+                $group: {
+                    _id: null,
+                    totalPaidViaHistory: {
+                        $sum: {
+                            $cond: [
+                                { $in: ['$eventType', ['subscription_payment', 'subscription_auto_deduct']] },
+                                { $ifNull: ['$amount', 0] },
+                                0,
+                            ],
+                        },
+                    },
+                    totalAutoDeducted: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$eventType', 'subscription_auto_deduct'] },
+                                { $ifNull: ['$amount', 0] },
+                                0,
+                            ],
+                        },
+                    },
+                    totalManualPayments: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$eventType', 'subscription_payment'] },
+                                { $ifNull: ['$amount', 0] },
+                                0,
+                            ],
+                        },
+                    },
+                    paymentCount: {
+                        $sum: {
+                            $cond: [
+                                { $in: ['$eventType', ['subscription_payment', 'subscription_auto_deduct']] },
+                                1,
+                                0,
+                            ],
+                        },
+                    },
+                },
+            },
+        ]),
+        FoodRestaurantSubscriptionHistory.findOne({
+            restaurantId: rId,
+            eventType: { $in: ['subscription_payment', 'subscription_auto_deduct'] },
+        })
+            .sort({ createdAt: -1 })
+            .lean(),
+        FoodRestaurantSubscriptionSettings.findOne().lean(),
+        FoodOffer.find({
+            $or: [
+                { restaurantScope: { $ne: 'selected' } },
+                { restaurantId: rId },
+                { restaurantIds: rId },
+            ],
+        }).lean(),
     ]);
 
     if (!restaurant) return null;
@@ -2537,6 +2652,19 @@ export async function getRestaurantAnalytics(restaurantId) {
         const packagingFee = Number(pricing?.packagingFee) || 0;
         const commission = Number(pricing?.restaurantCommission) || 0;
         return Math.max(0, subtotal + packagingFee - commission);
+    };
+    const getOrderFromRow = (row) => (row?.orderId && typeof row.orderId === 'object' ? row.orderId : row);
+    const getDiscountShares = (row) => {
+        const pricing = getPricing(row);
+        const amounts = row?.amounts || {};
+        const order = getOrderFromRow(row);
+        return resolveDiscountSplit({
+            order,
+            pricing,
+            amounts,
+            offers: relevantOffers,
+            restaurantId: rId,
+        });
     };
 
     const completedOrders = orders.filter(isCompletedOrder);
@@ -2653,8 +2781,8 @@ export async function getRestaurantAnalytics(restaurantId) {
         deliveryFee: sum(completedMoneyRows, (row) => getPricing(row)?.deliveryFee),
         platformFee: sum(completedMoneyRows, (row) => getPricing(row)?.platformFee),
         discount: sum(completedMoneyRows, (row) => getPricing(row)?.discount),
-        adminDiscountShare: sum(completedMoneyRows, (row) => getAmount(row, 'adminDiscountShare')),
-        restaurantDiscountShare: sum(completedMoneyRows, (row) => getAmount(row, 'restaurantDiscountShare')),
+        adminDiscountShare: sum(completedMoneyRows, (row) => getDiscountShares(row).adminDiscountShare),
+        restaurantDiscountShare: sum(completedMoneyRows, (row) => getDiscountShares(row).restaurantDiscountShare),
         total: totalRevenue,
         currency: 'INR',
 
@@ -2665,7 +2793,14 @@ export async function getRestaurantAnalytics(restaurantId) {
         platformNetProfit: sum(completedMoneyRows, (row) => getAmount(row, 'platformNetProfit') ?? row?.platformProfit),
     };
 
-    return { restaurant, analytics, paymentSummary };
+    const subscriptionSummary = buildRestaurantSubscriptionSummary(
+        restaurant,
+        subscriptionHistoryAgg,
+        lastSubscriptionPayment,
+        subscriptionSettings,
+    );
+
+    return { restaurant, analytics, paymentSummary, subscriptionSummary };
 }
 
 export async function getRestaurantMenuById(id) {
