@@ -160,8 +160,8 @@ const getPrimaryRestaurantImage = (restaurant, fallback = "") => {
 
 export default function RestaurantsList() {
   const navigate = useNavigate()
-  const [searchInput, setSearchInput] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const [restaurants, setRestaurants] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -275,7 +275,7 @@ export default function RestaurantsList() {
         const response = await adminAPI.getApprovedRestaurants({
           page,
           limit: PAGE_SIZE,
-          ...(searchQuery && { search: searchQuery }),
+          ...(debouncedSearchQuery && { search: debouncedSearchQuery }),
           sortBy: getSortByParam(sortConfig),
           includeStats: page === 1,
         })
@@ -339,7 +339,15 @@ export default function RestaurantsList() {
       cancelled = true
       clearTimeout(t)
     }
-  }, [page, searchQuery, sortConfig, zones, navigate])
+  }, [page, debouncedSearchQuery, sortConfig, zones, navigate])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim())
+      setPage(1)
+    }, 300)
+    return () => window.clearTimeout(timeoutId)
+  }, [searchQuery])
 
   const totalPages = Math.max(1, Math.ceil(totalRestaurants / PAGE_SIZE))
   const showingFrom = totalRestaurants === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
@@ -350,11 +358,6 @@ export default function RestaurantsList() {
       setPage(totalPages)
     }
   }, [loading, page, totalPages])
-
-  const handleSearch = () => {
-    setPage(1)
-    setSearchQuery(searchInput.trim())
-  }
 
   const [searchParams] = useSearchParams()
   const restaurantIdFromUrl = searchParams.get("restaurantId")
@@ -1289,9 +1292,8 @@ export default function RestaurantsList() {
                 <input
                   type="text"
                   placeholder="Ex: search by Restaurant name, owner, or phone"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 pr-4 py-2.5 w-full text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

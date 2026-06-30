@@ -12,8 +12,12 @@ const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
 
+import {
+  broadcastRestaurantOperationalStatus,
+  getRestaurantOperationalStatus,
+} from "@food/utils/restaurantOperationalStatus"
+
 const DELIVERY_STATUS_KEY = "restaurant_delivery_status"
-const RESTAURANT_ONLINE_STATUS_KEY = "restaurant_online_status"
 
 export default function DeliverySettings() {
   const navigate = useNavigate()
@@ -46,18 +50,14 @@ export default function DeliverySettings() {
     }
   }, [])
 
-  const syncStatusLocally = (status) => {
-    const value = Boolean(status)
+  const syncStatusLocally = (operational) => {
+    const value = Boolean(operational?.isEffectivelyOnline)
     try {
       localStorage.setItem(DELIVERY_STATUS_KEY, JSON.stringify(value))
-      localStorage.setItem(RESTAURANT_ONLINE_STATUS_KEY, JSON.stringify(value))
     } catch (error) {
       debugError("Error saving delivery status locally:", error)
     }
-
-    window.dispatchEvent(new CustomEvent("restaurantStatusChanged", {
-      detail: { isOnline: value }
-    }))
+    broadcastRestaurantOperationalStatus(operational)
   }
 
   // Load delivery status from backend on mount
@@ -66,15 +66,28 @@ export default function DeliverySettings() {
 
     const loadDeliveryStatus = async () => {
       try {
-        const response = await restaurantAPI.getCurrentRestaurant()
+        const [restaurantRes, timingsRes] = await Promise.all([
+          restaurantAPI.getCurrentRestaurant(),
+          restaurantAPI.getOutletTimings().catch(() => null),
+        ])
         const restaurant =
-          response?.data?.data?.restaurant ||
-          response?.data?.restaurant ||
+          restaurantRes?.data?.data?.restaurant ||
+          restaurantRes?.data?.restaurant ||
           null
-        const nextStatus = restaurant?.isAcceptingOrders === true
+        const outletTimings =
+          timingsRes?.data?.data?.outletTimings ||
+          timingsRes?.data?.outletTimings ||
+          restaurant?.outletTimings ||
+          null
+        const operational =
+          restaurant?.operationalStatus ||
+          getRestaurantOperationalStatus(
+            { ...restaurant, outletTimings },
+            new Date(),
+          )
         if (!cancelled) {
-          setDeliveryStatus(nextStatus)
-          syncStatusLocally(nextStatus)
+          setDeliveryStatus(operational.isEffectivelyOnline === true)
+          syncStatusLocally(operational)
         }
       } catch (error) {
         try {
@@ -147,23 +160,7 @@ export default function DeliverySettings() {
 
   const handleDeliveryStatusChange = (checked) => {
     if (savingStatus) return
-
-    // If turning ON and outside outlet timings, show warning
-    if (checked && !canEnableDelivery) {
-      setPendingStatus(checked)
-      setShowConfirmDialog(true)
-      return
-    }
-
-    // If turning OFF, show confirmation
-    if (!checked && deliveryStatus) {
-      setPendingStatus(checked)
-      setShowConfirmDialog(true)
-      return
-    }
-
-    // Otherwise, update directly
-    void saveDeliveryStatusToBackend(checked)
+    navigate("/restaurant/status")
   }
 
   const saveDeliveryStatusToBackend = async (status) => {

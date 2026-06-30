@@ -8,6 +8,82 @@ const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
 
+const ORDERS_PAGE_LIMIT = 10
+
+function FinanceOrderRow({ order }) {
+  return (
+    <div className="border-b border-gray-200 pb-3 last:border-b-0 last:pb-0">
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-gray-900 mb-1">
+            Order ID: {order.orderId || 'N/A'}
+          </p>
+          <p className="text-xs text-gray-600">
+            {order.foodNames || (order.items && order.items.map(item => item.name).join(', ')) || 'N/A'}
+          </p>
+          {Number(order.discount || 0) > 0 && (
+            <p className="mt-1 text-[11px] font-medium text-rose-600">
+              Discount ₹{Number(order.restaurantDiscountShare || order.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {Number(order.adminDiscountShare || 0) > 0
+                ? ` | Admin bear ₹${Number(order.adminDiscountShare || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : ""}
+              {Number(order.restaurantDiscountShare || 0) > 0 && Number(order.discount || 0) > Number(order.restaurantDiscountShare || 0)
+                ? ` | Total coupon ₹${Number(order.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : ""}
+            </p>
+          )}
+        </div>
+        <div className="text-right ml-4">
+          <p className="text-sm font-bold text-gray-900">
+            ₹{(order.payout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-xs text-gray-500">
+            Earning
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function OrdersPagination({ pagination, onPageChange }) {
+  if (!pagination || (pagination.totalPages || pagination.pages || 1) <= 1) return null
+
+  const page = pagination.page || 1
+  const limit = pagination.limit || ORDERS_PAGE_LIMIT
+  const total = pagination.total || 0
+  const totalPages = pagination.totalPages || pagination.pages || 1
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 pt-4 border-t border-gray-200">
+      <p className="text-xs text-gray-500">
+        Showing {total === 0 ? 0 : (page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} completed orders
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+          className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+        >
+          Previous
+        </button>
+        <span className="text-xs text-gray-600">
+          Page {page} of {totalPages}
+        </span>
+        <button
+          type="button"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
+          className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  )
+}
+
 
 export default function HubFinance() {
   const navigate = useNavigate()
@@ -68,13 +144,17 @@ export default function HubFinance() {
     : `Withdrawals are temporarily restricted because your starter cycle must keep ₹${subscriptionReserveAmount.toLocaleString('en-IN')} reserved until the threshold of ₹${starterThresholdAmount.toLocaleString('en-IN')} is reached. Current cycle GMV: ₹${starterCycleGmv.toLocaleString('en-IN')}.`
 
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false)
+  const [ordersPage, setOrdersPage] = useState(1)
 
-  // Fetch finance data on mount
+  // Fetch finance data on mount and when orders page changes
   useEffect(() => {
     const fetchFinanceData = async () => {
       try {
         setLoading(true)
-        const response = await restaurantAPI.getFinance()
+        const response = await restaurantAPI.getFinance({
+          ordersPage,
+          ordersLimit: ORDERS_PAGE_LIMIT
+        })
         if (response.data?.success && response.data?.data) {
           const data = response.data.data
           setFinanceData(data)
@@ -91,7 +171,7 @@ export default function HubFinance() {
     }
 
     fetchFinanceData()
-  }, [])
+  }, [ordersPage])
 
   useEffect(() => {
     const fetchWithdrawals = async () => {
@@ -357,7 +437,9 @@ export default function HubFinance() {
       
       const response = await restaurantAPI.getFinance({
         startDate: startDateISO,
-        endDate: endDateISO
+        endDate: endDateISO,
+        ordersPage,
+        ordersLimit: ORDERS_PAGE_LIMIT
       })
       if (response.data?.success && response.data?.data?.pastCycles) {
         setPastCyclesData(response.data.data.pastCycles)
@@ -378,7 +460,12 @@ export default function HubFinance() {
     }
   }
 
-  // Fetch past cycles data on mount and when date range changes
+  // Reset orders page when date range changes
+  useEffect(() => {
+    setOrdersPage(1)
+  }, [selectedDateRange])
+
+  // Fetch past cycles data on mount and when date range or orders page changes
   useEffect(() => {
     const dateRange = parseDateRange(selectedDateRange)
     if (dateRange && dateRange.startDate && dateRange.endDate) {
@@ -387,7 +474,7 @@ export default function HubFinance() {
       // If date range is invalid, don't fetch
       setPastCyclesData(null)
     }
-  }, [selectedDateRange])
+  }, [selectedDateRange, ordersPage])
 
 
   // Prepare report data from real finance data
@@ -948,7 +1035,7 @@ export default function HubFinance() {
                       ₹{currentCycleVisibleBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     <p className="text-sm text-gray-600 mb-4">
-                      {financeData?.currentCycle?.totalOrders || 0} {financeData?.currentCycle?.totalOrders === 1 ? 'order' : 'orders'}
+                      {financeData?.currentCycle?.totalOrders || 0} completed {financeData?.currentCycle?.totalOrders === 1 ? 'order' : 'orders'}
                     </p>
                     <button
                       onClick={() => {
@@ -1172,10 +1259,9 @@ export default function HubFinance() {
                                   <button
                                     key={index}
                                     onClick={() => {
+                                      setOrdersPage(1)
                                       setSelectedDateRange(option.range)
                                       setShowDateRangePicker(false)
-                                      // Fetch data for selected range
-                                      fetchPastCyclesData(option.startDate, option.endDate)
                                     }}
                                     className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-sm"
                                   >
@@ -1237,42 +1323,16 @@ export default function HubFinance() {
                     {pastCyclesData && pastCyclesData.orders && pastCyclesData.orders.length > 0 ? (
                       <div className="bg-white rounded-lg p-4 space-y-3">
                         {pastCyclesData.orders.map((order, index) => (
-                          <div key={order.orderId || index} className="border-b border-gray-200 pb-3 last:border-b-0 last:pb-0">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <p className="text-sm font-semibold text-gray-900 mb-1">
-                                  Order ID: {order.orderId || 'N/A'}
-                                </p>
-                                <p className="text-xs text-gray-600">
-                                  {order.foodNames || (order.items && order.items.map(item => item.name).join(', ')) || 'N/A'}
-                                </p>
-                                {Number(order.discount || 0) > 0 && (
-                                  <p className="mt-1 text-[11px] font-medium text-rose-600">
-                                    Discount ₹{Number(order.restaurantDiscountShare || order.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    {Number(order.adminDiscountShare || 0) > 0
-                                      ? ` | Admin bear ₹${Number(order.adminDiscountShare || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                      : ""}
-                                    {Number(order.restaurantDiscountShare || 0) > 0 && Number(order.discount || 0) > Number(order.restaurantDiscountShare || 0)
-                                      ? ` | Total coupon ₹${Number(order.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                      : ""}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-right ml-4">
-                                <p className="text-sm font-bold text-gray-900">
-                                  ₹{(order.payout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  Earning
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+                          <FinanceOrderRow key={order.orderId || index} order={order} />
                         ))}
+                        <OrdersPagination
+                          pagination={pastCyclesData.pagination}
+                          onPageChange={setOrdersPage}
+                        />
                       </div>
                     ) : (pastCyclesData && pastCyclesData.orders && pastCyclesData.orders.length === 0) ? (
                       <div className="bg-white rounded-lg p-8 text-center border border-dashed border-gray-300">
-                        <p className="text-sm text-gray-500 italic">No orders found for this selected range.</p>
+                        <p className="text-sm text-gray-500 italic">No completed orders found for this selected range.</p>
                       </div>
                     ) : null}
 
@@ -1280,38 +1340,12 @@ export default function HubFinance() {
                     {(!pastCyclesData || !pastCyclesData.orders) && !loadingPastCycles && financeData?.currentCycle?.orders && financeData.currentCycle.orders.length > 0 && (
                       <div className="bg-white rounded-lg p-4 space-y-3">
                         {financeData.currentCycle.orders.map((order, index) => (
-                          <div key={order.orderId || index} className="border-b border-gray-200 pb-3 last:border-b-0 last:pb-0">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <p className="text-sm font-semibold text-gray-900 mb-1">
-                                  Order ID: {order.orderId || 'N/A'}
-                                </p>
-                                <p className="text-xs text-gray-600">
-                                  {order.foodNames || (order.items && order.items.map(item => item.name).join(', ')) || 'N/A'}
-                                </p>
-                                {Number(order.discount || 0) > 0 && (
-                                  <p className="mt-1 text-[11px] font-medium text-rose-600">
-                                    Discount ₹{Number(order.restaurantDiscountShare || order.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    {Number(order.adminDiscountShare || 0) > 0
-                                      ? ` | Admin bear ₹${Number(order.adminDiscountShare || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                      : ""}
-                                    {Number(order.restaurantDiscountShare || 0) > 0 && Number(order.discount || 0) > Number(order.restaurantDiscountShare || 0)
-                                      ? ` | Total coupon ₹${Number(order.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                      : ""}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-right ml-4">
-                                <p className="text-sm font-bold text-gray-900">
-                                  ₹{(order.payout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  Earning
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+                          <FinanceOrderRow key={order.orderId || index} order={order} />
                         ))}
+                        <OrdersPagination
+                          pagination={financeData.currentCycle.pagination}
+                          onPageChange={setOrdersPage}
+                        />
                       </div>
                     )}
                     

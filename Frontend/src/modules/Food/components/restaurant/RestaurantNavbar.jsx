@@ -240,26 +240,31 @@ export default function RestaurantNavbar({
         if (savedStatus !== null) {
           const isOnline = JSON.parse(savedStatus)
           setStatus(isOnline ? "Online" : "Offline")
-        } else {
-          // If not stored yet, fallback to backend value (when available).
-          const isOnline = Boolean(restaurantData?.isAcceptingOrders)
-          setStatus(isOnline ? "Online" : "Offline")
+          return
         }
       } catch (error) {
         debugError("Error loading restaurant status:", error)
-        const isOnline = Boolean(restaurantData?.isAcceptingOrders)
-        setStatus(isOnline ? "Online" : "Offline")
       }
+
+      const operational = restaurantData?.operationalStatus
+      if (operational) {
+        setStatus(operational.isEffectivelyOnline ? "Online" : "Offline")
+        return
+      }
+
+      const isOnline = Boolean(restaurantData?.isAcceptingOrders)
+      setStatus(isOnline ? "Online" : "Offline")
     }
 
-    // Load initial status
     updateStatus()
 
-    // Listen for status changes from RestaurantStatus page
-  const handleStatusChange = (event) => {
-      const isOnline = event.detail?.isOnline || false
+    const handleStatusChange = (event) => {
+      const isOnline =
+        event.detail?.isEffectivelyOnline ??
+        event.detail?.isOnline ??
+        false
       setStatus(isOnline ? "Online" : "Offline")
-  }
+    }
 
     window.addEventListener('restaurantStatusChanged', handleStatusChange)
     

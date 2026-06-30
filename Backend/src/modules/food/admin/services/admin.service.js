@@ -359,13 +359,25 @@ export async function getRestaurants(query) {
         filter.status = status;
     }
     if (search) {
-        const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        filter.$or = [
+        const raw = search.slice(0, 80);
+        const escaped = raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const normalized = raw.toLowerCase().trim().replace(/\s+/g, ' ');
+        const phoneDigits = raw.replace(/\D/g, '');
+        const or = [
             { restaurantName: { $regex: escaped, $options: 'i' } },
             { ownerName: { $regex: escaped, $options: 'i' } },
+            { ownerEmail: { $regex: escaped, $options: 'i' } },
             { ownerPhone: { $regex: escaped, $options: 'i' } },
             { primaryContactNumber: { $regex: escaped, $options: 'i' } },
         ];
+        if (normalized.length >= 2) {
+            or.push({ restaurantNameNormalized: { $regex: normalized, $options: 'i' } });
+        }
+        if (phoneDigits.length >= 4) {
+            or.push({ ownerPhoneLast10: { $regex: phoneDigits } });
+            or.push({ ownerPhoneDigits: { $regex: phoneDigits } });
+        }
+        filter.$or = or;
     }
     if (isActiveRaw === 'true' || isActiveRaw === true) {
         filter.isActive = true;

@@ -150,7 +150,10 @@ export const updateRestaurantProfileController = async (req, res, next) => {
 export const updateRestaurantAcceptingOrdersController = async (req, res, next) => {
     try {
         const restaurantId = req.user?.userId;
-        const restaurant = await updateRestaurantAcceptingOrders(restaurantId, req.body?.isAcceptingOrders);
+        const restaurant = await updateRestaurantAcceptingOrders(restaurantId, {
+            isAcceptingOrders: req.body?.isAcceptingOrders,
+            outsideHoursOverride: req.body?.outsideHoursOverride,
+        });
         return sendResponse(res, 200, 'Restaurant availability updated successfully', { restaurant });
     } catch (error) {
         next(error);

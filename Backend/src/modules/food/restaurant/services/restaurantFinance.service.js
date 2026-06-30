@@ -5,6 +5,7 @@ import { FoodRestaurantWithdrawal } from '../models/foodRestaurantWithdrawal.mod
 import { FoodOffer } from '../../admin/models/offer.model.js';
 import { FEATURE_KEYS, isFeatureEnabled } from '../../admin/services/featureSettings.service.js';
 import { attemptAutoSettleSubscriptionDue, getStarterThresholdContext } from './subscriptionPlan.service.js';
+import { isCancelledOrder } from '../../orders/services/order.helpers.js';
 
 function toTwoDigitYearString(dateObj) {
     const y = String(dateObj.getFullYear());
@@ -125,13 +126,40 @@ function resolveDiscountSplit({ order, pricing, amounts, offers, restaurantId })
 }
 
 function isEarnedOrder(order) {
-    const orderStatus = String(order?.orderStatus || '').trim().toLowerCase();
+    if (isCancelledOrder(order)) return false;
+    const orderStatus = String(order?.orderStatus || order?.status || '').trim().toLowerCase();
     const deliveryPhase = String(order?.deliveryState?.currentPhase || '').trim().toLowerCase();
     return (
         orderStatus === 'delivered' ||
         deliveryPhase === 'delivered' ||
         deliveryPhase === 'completed'
     );
+}
+
+function parseOrdersPagination(query = {}) {
+    const page = Math.max(1, parseInt(query.ordersPage, 10) || parseInt(query.page, 10) || 1);
+    const limit = Math.min(Math.max(parseInt(query.ordersLimit, 10) || parseInt(query.limit, 10) || 10, 1), 50);
+    return { page, limit };
+}
+
+function paginateCompletedOrders(rawOrders, mapFinanceOrder, pagination) {
+    const completedOrders = rawOrders.filter(isEarnedOrder).map(mapFinanceOrder);
+    const total = completedOrders.length;
+    const totalPages = Math.max(1, Math.ceil(total / pagination.limit) || 1);
+    const page = Math.min(pagination.page, totalPages);
+    const skip = (page - 1) * pagination.limit;
+
+    return {
+        orders: completedOrders.slice(skip, skip + pagination.limit),
+        totalOrders: total,
+        pagination: {
+            page,
+            limit: pagination.limit,
+            total,
+            totalPages,
+            pages: totalPages
+        }
+    };
 }
 
 export async function getRestaurantFinance(restaurantId, query = {}) {
@@ -221,9 +249,11 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
         };
     };
 
-    const currentCycleOrders = currentOrders.map(mapFinanceOrder);
+    const ordersPagination = parseOrdersPagination(query);
+    const completedCurrentCycle = paginateCompletedOrders(currentOrders, mapFinanceOrder, ordersPagination);
+    const allCompletedCurrentCycle = currentOrders.filter(isEarnedOrder).map(mapFinanceOrder);
 
-    const currentCycleEstimatedPayout = currentCycleOrders.reduce(
+    const currentCycleEstimatedPayout = allCompletedCurrentCycle.reduce(
         (sum, o) => sum + (Number(o.payout) || 0),
         0
     );
@@ -281,24 +311,25 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
         estimatedPayout: currentCycleEstimatedPayout,
         withdrawableBalance: availableBalance,
         netAvailable: Math.max(0, availableBalance - subscriptionReserveAmount), // Net amount that is ACTUALLY withdrawable
-        totalOrders: currentCycleOrders.length,
+        totalOrders: completedCurrentCycle.totalOrders,
         payoutDate: null,
-        orders: currentCycleOrders
+        orders: completedCurrentCycle.orders,
+        pagination: completedCurrentCycle.pagination
     };
 
     // Invoice Summary (derived from current cycle or broader if needed)
     const invoiceSummary = {
-        count: currentCycleOrders.length,
-        subtotal: currentCycleOrders.reduce((sum, o) => sum + (Number(o.orderTotal) || 0), 0),
-        taxes: currentCycleOrders.reduce((sum, o) => sum + Math.max(0, (Number(o.totalAmount) || 0) - (Number(o.orderTotal) || 0)), 0),
-        gross: currentCycleOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0)
+        count: allCompletedCurrentCycle.length,
+        subtotal: allCompletedCurrentCycle.reduce((sum, o) => sum + (Number(o.orderTotal) || 0), 0),
+        taxes: allCompletedCurrentCycle.reduce((sum, o) => sum + Math.max(0, (Number(o.totalAmount) || 0) - (Number(o.orderTotal) || 0)), 0),
+        gross: allCompletedCurrentCycle.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0)
     };
 
     // Past cycles: build from provided startDate/endDate query.
     const startDate = parseISODateParam(query.startDate);
     const endDate = parseISODateParamEnd(query.endDate);
 
-    let pastCyclesResult = { orders: [], totalOrders: 0 };
+    let pastCyclesResult = { orders: [], totalOrders: 0, pagination: { page: 1, limit: ordersPagination.limit, total: 0, totalPages: 1, pages: 1 } };
     if (startDate && endDate) {
         const pastOrders = await FoodOrder.find({
             restaurantId: rid,
@@ -309,11 +340,12 @@ export async function getRestaurantFinance(restaurantId, query = {}) {
             .sort({ createdAt: -1 })
             .lean();
 
-        const pastCycleOrders = pastOrders.map(mapFinanceOrder);
+        const completedPastCycle = paginateCompletedOrders(pastOrders, mapFinanceOrder, ordersPagination);
 
         pastCyclesResult = {
-            orders: pastCycleOrders,
-            totalOrders: pastCycleOrders.length
+            orders: completedPastCycle.orders,
+            totalOrders: completedPastCycle.totalOrders,
+            pagination: completedPastCycle.pagination
         };
     }
 

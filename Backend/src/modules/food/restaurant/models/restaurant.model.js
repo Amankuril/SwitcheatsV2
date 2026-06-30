@@ -126,6 +126,11 @@ const restaurantSchema = new mongoose.Schema(
       default: true,
       index: true,
     },
+    /** When true, restaurant stays online outside configured outlet hours (manual extended shift). */
+    outsideHoursOverride: {
+      type: Boolean,
+      default: false,
+    },
     panNumber: {
       type: String,
     },

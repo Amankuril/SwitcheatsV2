@@ -24,6 +24,12 @@ import {
     resolvePlanPricingFromEligibility,
 } from './subscriptionPlan.service.js';
 import { logRestaurantSubscriptionHistory } from './subscriptionHistory.service.js';
+import {
+    getOutletScheduleStatus,
+    getRestaurantOperationalStatus,
+    shouldAutoTurnOffAcceptingOrders,
+} from '../helpers/restaurantAvailability.helper.js';
+import { getOutletTimingsForRestaurant } from './outletTimings.service.js';
 
 const normalizeName = (value) =>
     String(value || '')
@@ -426,6 +432,7 @@ const toRestaurantProfile = (doc) => {
             diningType: String(doc.diningSettings?.diningType || 'family-dining').trim() || 'family-dining'
         },
         isAcceptingOrders: doc.isAcceptingOrders !== false,
+        outsideHoursOverride: doc.outsideHoursOverride === true,
         subscriptionPlan: doc.subscriptionPlan || '',
         subscriptionAmount: Number.isFinite(Number(doc.subscriptionAmount)) ? Number(doc.subscriptionAmount) : 0,
         subscriptionPaidAmount: Number.isFinite(Number(doc.subscriptionPaidAmount)) ? Number(doc.subscriptionPaidAmount) : 0,
@@ -1175,6 +1182,7 @@ export const getCurrentRestaurantProfile = async (restaurantId) => {
                 'estimatedDeliveryTimeMinutes',
                 'diningSettings',
                 'isAcceptingOrders',
+                'outsideHoursOverride',
                 'subscriptionPlan',
                 'subscriptionAmount',
                 'subscriptionPaidAmount',
@@ -1193,8 +1201,30 @@ export const getCurrentRestaurantProfile = async (restaurantId) => {
             ].join(' ')
         )
         .lean();
-    const profile = toRestaurantProfile(doc);
+    let profile = toRestaurantProfile(doc);
     if (!profile) return null;
+
+    const { outletTimings } = await getOutletTimingsForRestaurant(restaurantId);
+    profile.outletTimings = outletTimings;
+
+    const restaurantForSchedule = {
+        ...doc,
+        outletTimings,
+    };
+
+    if (shouldAutoTurnOffAcceptingOrders(restaurantForSchedule)) {
+        const updated = await FoodRestaurant.findByIdAndUpdate(
+            restaurantId,
+            { $set: { isAcceptingOrders: false, outsideHoursOverride: false } },
+            { new: true, projection: 'isAcceptingOrders outsideHoursOverride' }
+        ).lean();
+        profile.isAcceptingOrders = updated?.isAcceptingOrders === true;
+        profile.outsideHoursOverride = updated?.outsideHoursOverride === true;
+        restaurantForSchedule.isAcceptingOrders = profile.isAcceptingOrders;
+        restaurantForSchedule.outsideHoursOverride = profile.outsideHoursOverride;
+    }
+
+    profile.operationalStatus = getRestaurantOperationalStatus(restaurantForSchedule);
     try {
         const settings = await getRestaurantSubscriptionSettings();
         const { eligibility } = await resolvePlanPricingFromEligibility(restaurantId, settings);
@@ -1210,14 +1240,54 @@ export const getCurrentRestaurantProfile = async (restaurantId) => {
     return profile;
 };
 
-export const updateRestaurantAcceptingOrders = async (restaurantId, isAcceptingOrders) => {
+export const updateRestaurantAcceptingOrders = async (restaurantId, payload) => {
     if (!restaurantId) {
         throw new ValidationError('Invalid restaurant id');
     }
-    const value = Boolean(isAcceptingOrders);
+
+    const isAcceptingOrders = Boolean(
+        typeof payload === 'object' && payload !== null
+            ? payload.isAcceptingOrders
+            : payload,
+    );
+    const outsideHoursOverride =
+        typeof payload === 'object' && payload !== null && payload.outsideHoursOverride === true;
+
+    const { outletTimings } = await getOutletTimingsForRestaurant(restaurantId);
+    const current = await FoodRestaurant.findById(restaurantId)
+        .select('isAcceptingOrders outsideHoursOverride openingTime closingTime openDays')
+        .lean();
+
+    const schedule = getOutletScheduleStatus(
+        { ...current, outletTimings },
+        new Date(),
+    );
+
+    let nextOverride = false;
+    if (isAcceptingOrders) {
+        if (schedule.isDayClosed) {
+            throw new ValidationError(
+                'Outlet is closed today. Update outlet timings before going online.',
+            );
+        }
+        if (!schedule.isOpen) {
+            if (!outsideHoursOverride) {
+                throw new ValidationError(
+                    'Outside outlet hours. Confirm extended hours to go online.',
+                );
+            }
+            nextOverride = true;
+        }
+    }
+
     const doc = await FoodRestaurant.findByIdAndUpdate(
         restaurantId,
-        { $set: { isAcceptingOrders: value } },
+        {
+            $set: {
+                isAcceptingOrders,
+                outsideHoursOverride: isAcceptingOrders ? nextOverride : false,
+            },
+        },
         {
             new: true,
             runValidators: true,
@@ -1251,13 +1321,20 @@ export const updateRestaurantAcceptingOrders = async (restaurantId, isAcceptingO
                 'openDays',
                 'diningSettings',
                 'isAcceptingOrders',
+                'outsideHoursOverride',
                 'status',
                 'createdAt',
                 'updatedAt'
             ].join(' ')
         }
     ).lean();
-    return toRestaurantProfile(doc);
+    const profile = toRestaurantProfile(doc);
+    profile.outletTimings = outletTimings;
+    profile.operationalStatus = getRestaurantOperationalStatus({
+        ...doc,
+        outletTimings,
+    });
+    return profile;
 };
 
 export const updateCurrentRestaurantDiningSettings = async (restaurantId, body = {}) => {
@@ -1341,6 +1418,7 @@ export const updateCurrentRestaurantDiningSettings = async (restaurantId, body =
                 'estimatedDeliveryTimeMinutes',
                 'diningSettings',
                 'isAcceptingOrders',
+                'outsideHoursOverride',
                 'status',
                 'createdAt',
                 'updatedAt'
