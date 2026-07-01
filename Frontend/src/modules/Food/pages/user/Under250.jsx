@@ -17,12 +17,20 @@ import offerImage from "@food/assets/offerimage.png"
 import switch99PromoBanner1 from "@food/assets/switch99_final_banner.png"
 import switch99PromoBanner2 from "@food/assets/switch99_banner_2.jpg"
 import AddToCartAnimation from "@food/components/user/AddToCartAnimation"
+import VariantSelector from "@food/components/user/VariantSelector"
 import OptimizedImage from "@food/components/OptimizedImage"
 import api from "@food/api"
 import { restaurantAPI, adminAPI } from "@food/api"
 import { isModuleAuthenticated } from "@food/utils/auth"
 import { calculateDistance, formatDistance } from "@food/utils/common"
 import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailability"
+import {
+  buildCartLineId,
+  getDefaultFoodVariant,
+  getFoodPriceLabel,
+  getFoodVariants,
+  hasFoodVariants,
+} from "@food/utils/foodVariants"
 const debugLog = (...args) => { }
 const debugWarn = (...args) => { }
 const debugError = (...args) => { }
@@ -196,6 +204,7 @@ export default function Under250() {
   const [under30MinsFilter, setUnder30MinsFilter] = useState(initialFiltersRef.current.under30MinsFilter)
   const [showItemDetail, setShowItemDetail] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
+  const [selectedVariantId, setSelectedVariantId] = useState("")
   const [itemDetailQuantity, setItemDetailQuantity] = useState(1)
   const [showShareOptions, setShowShareOptions] = useState(false)
   const { openSearch, closeSearch, setSearchValue } = useSearchOverlay()
@@ -210,6 +219,27 @@ export default function Under250() {
   }, [heroSearch, openSearch, setSearchValue])
   const [quantities, setQuantities] = useState({})
   const [bookmarkedItems, setBookmarkedItems] = useState(new Set())
+
+  const getLineItemIdForDish = (item, variant = null) =>
+    buildCartLineId(item?.id || item?._id || "", variant?.id || variant?._id || "")
+
+  const getVariantForDish = (item, preferredVariantId = "") => {
+    const variants = getFoodVariants(item)
+    if (variants.length === 0) return null
+    return variants.find((variant) => String(variant.id) === String(preferredVariantId || "")) || variants[0]
+  }
+
+  const getDishQuantity = (item, preferredVariantId = "") => {
+    const variant = getVariantForDish(item, preferredVariantId)
+    const lineItemId = getLineItemIdForDish(item, variant)
+    return quantities[lineItemId] || 0
+  }
+
+  const getTotalDishQuantity = (item) => {
+    const variants = getFoodVariants(item)
+    if (variants.length === 0) return getDishQuantity(item)
+    return variants.reduce((sum, variant) => sum + getDishQuantity(item, variant.id), 0)
+  }
 
   const formatSavedAddress = useCallback((address) => {
     if (!address) return "";
@@ -710,9 +740,18 @@ export default function Under250() {
   }, []);
 
   useEffect(() => {
+    if (!selectedItem) {
+      setSelectedVariantId("")
+      return
+    }
+    const defaultVariant = getDefaultFoodVariant(selectedItem)
+    setSelectedVariantId(defaultVariant?.id || "")
+  }, [selectedItem])
+
+  useEffect(() => {
     if (!selectedItem || !showItemDetail) return
 
-    const existingQuantity = quantities[selectedItem.id] || 0
+    const existingQuantity = getTotalDishQuantity(selectedItem)
     if (existingQuantity > 0) {
       setItemDetailQuantity(existingQuantity)
     }
@@ -819,8 +858,8 @@ export default function Under250() {
     }
   }, [])
 
-  // Helper function to update item quantity in bothlocal state and cart
-  const updateItemQuantity = (item, newQuantity, event = null, restaurantName = null) => {
+  // Helper function to update item quantity in both local state and cart
+  const updateItemQuantity = (item, newQuantity, event = null, preferredVariant = null) => {
     // Check authentication
     if (!isModuleAuthenticated('user')) {
       toast.error("Please login to add items to cart")
@@ -834,22 +873,31 @@ export default function Under250() {
       return
     }
 
+    const resolvedVariant = preferredVariant || getDefaultFoodVariant(item)
+    const lineItemId = getLineItemIdForDish(item, resolvedVariant)
+
     // Update local state
     setQuantities((prev) => ({
       ...prev,
-      [item.id]: newQuantity,
+      [lineItemId]: newQuantity,
     }))
 
-    // Find restaurant name from the item or use provided parameter
-    const restaurant = restaurantName || item.restaurant || "Switch 99"
+    const restaurant = item.restaurant || "Switch 99"
+    const validRestaurantId = item.restaurantId || item.restaurant_id || ""
 
     // Prepare cart item with all required properties
     const cartItem = {
-      id: item.id,
+      id: lineItemId,
+      lineItemId,
+      itemId: item.id,
       name: item.name,
-      price: item.price,
+      price: resolvedVariant?.price ?? item.price,
+      variantId: resolvedVariant?.id || "",
+      variantName: resolvedVariant?.name || "",
+      variantPrice: resolvedVariant?.price ?? item.price,
       image: item.image,
-      restaurant: restaurant,
+      restaurant,
+      restaurantId: validRestaurantId || undefined,
       description: item.description || "",
       originalPrice: item.originalPrice || item.price,
       foodType: item.foodType,
@@ -874,7 +922,7 @@ export default function Under250() {
           viewportY: rect.top + rect.height / 2,
           scrollX: scrollX,
           scrollY: scrollY,
-          itemId: item.id,
+          itemId: lineItemId,
         }
       }
     }
@@ -882,16 +930,16 @@ export default function Under250() {
     // Update cart context
     if (newQuantity <= 0) {
       const productInfo = {
-        id: item.id,
+        id: lineItemId,
         name: item.name,
         imageUrl: item.image,
       }
-      removeFromCart(item.id, sourcePosition, productInfo)
+      removeFromCart(lineItemId, sourcePosition, productInfo)
     } else {
-      const existingCartItem = getCartItem(item.id)
+      const existingCartItem = getCartItem(lineItemId)
       if (existingCartItem) {
         const productInfo = {
-          id: item.id,
+          id: lineItemId,
           name: item.name,
           imageUrl: item.image,
         }
@@ -903,12 +951,12 @@ export default function Under250() {
             return
           }
           if (newQuantity > existingCartItem.quantity + 1) {
-            updateQuantity(item.id, newQuantity)
+            updateQuantity(lineItemId, newQuantity)
           }
         } else if (newQuantity < existingCartItem.quantity && sourcePosition) {
-          updateQuantity(item.id, newQuantity, sourcePosition, productInfo)
+          updateQuantity(lineItemId, newQuantity, sourcePosition, productInfo)
         } else {
-          updateQuantity(item.id, newQuantity)
+          updateQuantity(lineItemId, newQuantity)
         }
       } else {
         const result = addToCart(cartItem, sourcePosition)
@@ -917,7 +965,7 @@ export default function Under250() {
           return
         }
         if (newQuantity > 1) {
-          updateQuantity(item.id, newQuantity)
+          updateQuantity(lineItemId, newQuantity)
         }
       }
     }
@@ -933,16 +981,31 @@ export default function Under250() {
     const itemWithRestaurant = {
       ...item,
       restaurant: restaurant.name,
+      restaurantId: restaurant.restaurantId || restaurant.id || "",
       restaurantSlug: restaurant.slug || restaurant.restaurantId || "",
       description: item.description || `${item.name} from ${restaurant.name}`,
       customisable: item.customisable || false,
       notEligibleForCoupons: item.notEligibleForCoupons || false,
     }
-    const existingQuantity = quantities[item.id] || 0
+    const existingQuantity = getTotalDishQuantity(itemWithRestaurant)
     setItemDetailQuantity(existingQuantity > 0 ? existingQuantity : 1)
     setSelectedItem(itemWithRestaurant)
     setShowShareOptions(false)
     setShowItemDetail(true)
+  }
+
+  const handleAddButtonClick = (item, restaurant, event) => {
+    if (hasFoodVariants(item) && getTotalDishQuantity(item) === 0) {
+      handleItemClick(item, restaurant)
+      return
+    }
+    const resolvedVariant = getDefaultFoodVariant(item)
+    updateItemQuantity(
+      { ...item, restaurant: restaurant.name, restaurantId: restaurant.restaurantId || restaurant.id || "" },
+      1,
+      event,
+      resolvedVariant,
+    )
   }
 
   const handleBookmarkClick = (itemId) => {
@@ -1298,7 +1361,7 @@ export default function Under250() {
                       }}
                     >
                       {restaurant.menuItems.map((item, itemIndex) => {
-                        const quantity = quantities[item.id] || 0
+                        const quantity = getTotalDishQuantity(item)
                         return (
                           <motion.div
                             key={item.id}
@@ -1363,7 +1426,7 @@ export default function Under250() {
                               <div className="flex items-center justify-between">
                                 <div>
                                   <p className="text-base md:text-lg lg:text-xl xl:text-2xl font-bold text-gray-900 dark:text-white">
-                                    {RUPEE_SYMBOL}{Math.round(item.price)}
+                                    {getFoodPriceLabel(item)}
                                   </p>
                                   {item.bestPrice && (
                                     <p className="text-xs md:text-sm lg:text-base text-gray-500 dark:text-gray-400">Best price</p>
@@ -1391,7 +1454,7 @@ export default function Under250() {
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       if (!shouldShowGrayscale) {
-                                        handleItemClick(item, restaurant)
+                                        handleAddButtonClick(item, restaurant, e)
                                       }
                                     }}
                                   >
@@ -1652,24 +1715,57 @@ export default function Under250() {
                     NOT ELIGIBLE FOR COUPONS
                   </p>
                 )}
+
+                {hasFoodVariants(selectedItem) && (
+                  <VariantSelector
+                    variants={getFoodVariants(selectedItem)}
+                    selectedVariantId={selectedVariantId}
+                    onSelectVariant={setSelectedVariantId}
+                    getVariantQuantity={(variantId) => getDishQuantity(selectedItem, variantId)}
+                  />
+                )}
               </div>
 
               {/* Bottom Action Bar */}
-              <div className="border-t dark:border-gray-800 border-gray-200 px-4 md:px-6 lg:px-8 xl:px-10 py-4 md:py-5 lg:py-6 bg-white dark:bg-[#1a1a1a]">
+              <div className={`border-t px-4 md:px-6 lg:px-8 xl:px-10 py-4 md:py-5 lg:py-6 bg-white dark:bg-[#1a1a1a] ${hasFoodVariants(selectedItem) ? "border-[#EB590E]/10 dark:border-[#EB590E]/20" : "border-gray-200 dark:border-gray-800"}`}>
+                {hasFoodVariants(selectedItem) && (
+                  <div className="mb-3 md:mb-4 flex items-center justify-between rounded-xl bg-gray-50 dark:bg-[#222222] px-3 md:px-4 py-2 md:py-2.5">
+                    <span className="text-xs md:text-sm font-medium text-gray-500 dark:text-gray-400">
+                      Adding to cart
+                    </span>
+                    <span className="text-sm md:text-base font-semibold text-gray-900 dark:text-white truncate max-w-[65%] text-right">
+                      {getVariantForDish(selectedItem, selectedVariantId)?.name || "Selected portion"}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center gap-4 md:gap-5 lg:gap-6">
                   {/* Quantity Selector */}
-                  <div className={`flex items-center gap-3 md:gap-4 lg:gap-5 border-2 rounded-lg md:rounded-xl px-3 md:px-4 lg:px-5 h-[44px] md:h-[50px] lg:h-[56px] ${shouldShowGrayscale
-                    ? 'border-gray-300 dark:border-gray-700 opacity-50'
-                    : 'border-gray-300 dark:border-gray-700'
-                    }`}>
+                  <div className={`flex items-center gap-3 md:gap-4 lg:gap-5 rounded-xl md:rounded-2xl px-3 md:px-4 lg:px-5 h-[44px] md:h-[50px] lg:h-[56px] ${hasFoodVariants(selectedItem)
+                    ? "border-2 border-[#EB590E]/25 bg-[#FFF7F2] dark:bg-[#EB590E]/5"
+                    : "border-2 border-gray-300 dark:border-gray-700"
+                    } ${shouldShowGrayscale ? "opacity-50" : ""}`}>
                     <button
                       onClick={(e) => {
                         if (!shouldShowGrayscale) {
                           e.stopPropagation()
-                          setItemDetailQuantity((prev) => Math.max(1, prev - 1))
+                          if (hasFoodVariants(selectedItem)) {
+                            updateItemQuantity(
+                              selectedItem,
+                              Math.max(0, getDishQuantity(selectedItem, selectedVariantId) - 1),
+                              e,
+                              getVariantForDish(selectedItem, selectedVariantId),
+                            )
+                          } else {
+                            setItemDetailQuantity((prev) => Math.max(1, prev - 1))
+                          }
                         }
                       }}
-                      disabled={itemDetailQuantity <= 1 || shouldShowGrayscale}
+                      disabled={
+                        shouldShowGrayscale ||
+                        (hasFoodVariants(selectedItem)
+                          ? getDishQuantity(selectedItem, selectedVariantId) === 0
+                          : itemDetailQuantity <= 1)
+                      }
                       className={`${shouldShowGrayscale
                         ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed'
@@ -1681,13 +1777,24 @@ export default function Under250() {
                       ? 'text-gray-400 dark:text-gray-600'
                       : 'text-gray-900 dark:text-white'
                       }`}>
-                      {itemDetailQuantity}
+                      {hasFoodVariants(selectedItem)
+                        ? getDishQuantity(selectedItem, selectedVariantId)
+                        : itemDetailQuantity}
                     </span>
                     <button
                       onClick={(e) => {
                         if (!shouldShowGrayscale) {
                           e.stopPropagation()
-                          setItemDetailQuantity((prev) => prev + 1)
+                          if (hasFoodVariants(selectedItem)) {
+                            updateItemQuantity(
+                              selectedItem,
+                              getDishQuantity(selectedItem, selectedVariantId) + 1,
+                              e,
+                              getVariantForDish(selectedItem, selectedVariantId),
+                            )
+                          } else {
+                            setItemDetailQuantity((prev) => prev + 1)
+                          }
                         }
                       }}
                       disabled={shouldShowGrayscale}
@@ -1702,27 +1809,40 @@ export default function Under250() {
 
                   {/* Add Item Button */}
                   <Button
-                    className={`flex-1 h-[44px] md:h-[50px] lg:h-[56px] rounded-lg md:rounded-xl font-semibold flex items-center justify-center gap-2 text-sm md:text-base lg:text-lg ${shouldShowGrayscale
-                      ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-600 cursor-not-allowed opacity-50'
-                      : 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white'
+                    className={`flex-1 h-[44px] md:h-[50px] lg:h-[56px] rounded-xl md:rounded-2xl font-semibold flex items-center justify-center gap-2 text-sm md:text-base lg:text-lg shadow-lg border-0 ${shouldShowGrayscale
+                      ? '!bg-gray-300 dark:!bg-gray-700 !text-gray-500 dark:!text-gray-600 cursor-not-allowed opacity-50 shadow-none'
+                      : hasFoodVariants(selectedItem)
+                        ? '!bg-[#EB590E] hover:!bg-[#D94F0C] !text-white shadow-[0_8px_20px_-8px_rgba(235,89,14,0.65)]'
+                        : '!bg-red-500 hover:!bg-red-600 dark:!bg-red-600 dark:hover:!bg-red-700 !text-white shadow-red-500/25'
                       }`}
                     onClick={(e) => {
                       if (!shouldShowGrayscale) {
-                        updateItemQuantity(selectedItem, itemDetailQuantity, e)
+                        if (hasFoodVariants(selectedItem)) {
+                          updateItemQuantity(
+                            selectedItem,
+                            getDishQuantity(selectedItem, selectedVariantId) + 1,
+                            e,
+                            getVariantForDish(selectedItem, selectedVariantId),
+                          )
+                        } else {
+                          updateItemQuantity(selectedItem, itemDetailQuantity, e)
+                        }
                         closeItemDetail()
                       }
                     }}
                     disabled={shouldShowGrayscale}
                   >
-                    <span>Add item</span>
-                    <div className="flex items-center gap-1 md:gap-2">
+                    <span>{hasFoodVariants(selectedItem) ? "Add to cart" : "Add item"}</span>
+                    <div className="flex items-center gap-1 md:gap-1.5 rounded-lg bg-white/15 px-2 py-0.5">
                       {selectedItem.originalPrice && selectedItem.originalPrice > selectedItem.price && (
-                        <span className="text-sm md:text-base lg:text-lg line-through text-red-200">
+                        <span className="text-xs md:text-sm line-through text-white/70">
                           {RUPEE_SYMBOL}{Math.round(selectedItem.originalPrice)}
                         </span>
                       )}
-                      <span className="text-base md:text-lg lg:text-xl font-bold">
-                        {RUPEE_SYMBOL}{Math.round(selectedItem.price)}
+                      <span className="text-sm md:text-base lg:text-lg font-bold tabular-nums">
+                        {hasFoodVariants(selectedItem)
+                          ? `${RUPEE_SYMBOL}${Math.round(getVariantForDish(selectedItem, selectedVariantId)?.price || selectedItem.price)}`
+                          : `${RUPEE_SYMBOL}${Math.round(selectedItem.price)}`}
                       </span>
                     </div>
                   </Button>

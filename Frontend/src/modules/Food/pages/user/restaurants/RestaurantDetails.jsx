@@ -44,6 +44,7 @@ import AnimatedPage from "@food/components/user/AnimatedPage"
 import { useCart } from "@food/context/CartContext"
 import { useProfile } from "@food/context/ProfileContext"
 import AddToCartAnimation from "@food/components/user/AddToCartAnimation"
+import VariantSelector from "@food/components/user/VariantSelector"
 import { getCompanyNameAsync } from "@food/utils/businessSettings"
 import { isModuleAuthenticated } from "@food/utils/auth"
 import { getRestaurantAvailabilityStatus } from "@food/utils/restaurantAvailability"
@@ -1672,6 +1673,14 @@ function RestaurantDetailsContent() {
     setShowItemDetail(true)
   }
 
+  const handleAddButtonClick = (item, event) => {
+    if (hasFoodVariants(item) && getDishQuantity(item) === 0) {
+      handleItemClick(item)
+      return
+    }
+    updateItemQuantity(item, 1, event)
+  }
+
   // Helper function to calculate final price after discount
   const getFinalPrice = (item) => {
     // If discount exists, calculate from originalPrice, otherwise use price directly
@@ -2612,7 +2621,7 @@ function RestaurantDetailsContent() {
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     if (!shouldShowGrayscale) {
-                                      updateItemQuantity(item, 1, e)
+                                      handleAddButtonClick(item, e)
                                     }
                                   }}
                                   disabled={shouldShowGrayscale}
@@ -2839,7 +2848,7 @@ function RestaurantDetailsContent() {
                                             onClick={(e) => {
                                               e.stopPropagation()
                                               if (!shouldShowGrayscale) {
-                                                updateItemQuantity(item, 1, e)
+                                                handleAddButtonClick(item, e)
                                               }
                                             }}
                                             disabled={shouldShowGrayscale}
@@ -3524,36 +3533,33 @@ function RestaurantDetailsContent() {
                     )}
 
                     {hasFoodVariants(selectedItem) && (
-                      <div className="mb-4">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Choose a variant</p>
-                        <div className="flex flex-wrap gap-2">
-                          {getFoodVariants(selectedItem).map((variant) => (
-                            <button
-                              key={variant.id}
-                              type="button"
-                              onClick={() => setSelectedVariantId(variant.id)}
-                              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                                String(selectedVariantId || "") === String(variant.id)
-                                  ? "border-red-500 bg-red-50 text-red-600 dark:border-red-400 dark:bg-red-900/30 dark:text-red-200"
-                                  : "border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-[#2a2a2a] dark:text-gray-300"
-                              }`}
-                            >
-                              {variant.name} · {RUPEE_SYMBOL}{Math.round(variant.price)}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      <VariantSelector
+                        variants={getFoodVariants(selectedItem)}
+                        selectedVariantId={selectedVariantId}
+                        onSelectVariant={setSelectedVariantId}
+                        getVariantQuantity={(variantId) => getDishQuantity(selectedItem, variantId)}
+                      />
                     )}
                   </div>
 
                   {/* Bottom Action Bar */}
-                  <div className="border-t border-gray-200 dark:border-gray-800 px-4 py-4 bg-white dark:bg-[#1a1a1a]">
+                  <div className={`border-t px-4 py-4 bg-white dark:bg-[#1a1a1a] ${hasFoodVariants(selectedItem) ? "border-[#EB590E]/10 dark:border-[#EB590E]/20" : "border-gray-200 dark:border-gray-800"}`}>
+                    {hasFoodVariants(selectedItem) && (
+                      <div className="mb-3 flex items-center justify-between rounded-xl bg-gray-50 dark:bg-[#222222] px-3 py-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          Adding to cart
+                        </span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white truncate max-w-[65%] text-right">
+                          {getVariantForDish(selectedItem, selectedVariantId)?.name || "Selected portion"}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-4">
                       {/* Quantity Selector */}
-                      <div className={`flex items-center gap-3 border-2 rounded-lg px-3 h-[44px] bg-white dark:bg-[#2a2a2a] ${shouldShowGrayscale
-                        ? 'border-gray-300 dark:border-gray-700 opacity-50'
-                        : 'border-gray-300 dark:border-gray-700'
-                        }`}>
+                      <div className={`flex items-center gap-3 rounded-xl px-3 h-[44px] ${hasFoodVariants(selectedItem)
+                        ? "border-2 border-[#EB590E]/25 bg-[#FFF7F2] dark:bg-[#EB590E]/5"
+                        : "border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-[#2a2a2a]"
+                        } ${shouldShowGrayscale ? "opacity-50" : ""}`}>
                         <button
                           onClick={(e) => {
                             if (!shouldShowGrayscale) {
@@ -3602,9 +3608,11 @@ function RestaurantDetailsContent() {
 
                       {/* Add Item Button */}
                       <Button
-                        className={`flex-1 h-[44px] rounded-lg font-semibold flex items-center justify-center gap-2 ${shouldShowGrayscale
-                          ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-600 cursor-not-allowed opacity-50'
-                          : 'bg-red-500 hover:bg-red-600 text-white'
+                        className={`flex-1 h-[44px] rounded-xl font-semibold flex items-center justify-center gap-2 shadow-lg border-0 ${shouldShowGrayscale
+                          ? '!bg-gray-300 dark:!bg-gray-700 !text-gray-500 dark:!text-gray-600 cursor-not-allowed opacity-50 shadow-none'
+                          : hasFoodVariants(selectedItem)
+                            ? '!bg-[#EB590E] hover:!bg-[#D94F0C] !text-white shadow-[0_8px_20px_-8px_rgba(235,89,14,0.65)]'
+                            : '!bg-red-500 hover:!bg-red-600 !text-white shadow-red-500/25'
                           }`}
                         onClick={(e) => {
                           if (!shouldShowGrayscale) {
@@ -3619,16 +3627,16 @@ function RestaurantDetailsContent() {
                         }}
                         disabled={shouldShowGrayscale}
                       >
-                        <span>Add item</span>
-                        <div className="flex items-center gap-1">
+                        <span>{hasFoodVariants(selectedItem) ? "Add to cart" : "Add item"}</span>
+                        <div className="flex items-center gap-1.5 rounded-lg bg-white/15 px-2 py-0.5">
                           {selectedItem.originalPrice && selectedItem.originalPrice > selectedItem.price && (
-                            <span className="text-sm line-through text-red-200">
+                            <span className="text-xs line-through text-white/70">
                               {RUPEE_SYMBOL}{Math.round(selectedItem.originalPrice)}
                             </span>
                           )}
-                          <span className="text-base font-bold">
+                          <span className="text-sm font-bold tabular-nums">
                             {hasFoodVariants(selectedItem)
-                              ? `${getVariantForDish(selectedItem, selectedVariantId)?.name || "Default"} · ${RUPEE_SYMBOL}${Math.round(getVariantForDish(selectedItem, selectedVariantId)?.price || selectedItem.price)}`
+                              ? `${RUPEE_SYMBOL}${Math.round(getVariantForDish(selectedItem, selectedVariantId)?.price || selectedItem.price)}`
                               : `${RUPEE_SYMBOL}${Math.round(selectedItem.price)}`}
                           </span>
                         </div>
