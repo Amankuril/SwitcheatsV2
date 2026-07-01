@@ -8,6 +8,7 @@ import * as feedbackExperienceController from '../controllers/feedbackExperience
 import * as notificationBroadcastController from '../controllers/notificationBroadcast.controller.js';
 import * as diningAdminController from '../../dining/controllers/diningAdmin.controller.js';
 import * as orderController from '../../orders/controllers/order.controller.js';
+import { listUserCartsAdminController } from '../controllers/userCartAdmin.controller.js';
 import { getAdminPageController, upsertAdminPageController } from '../controllers/pageContent.controller.js';
 import { upload } from '../../../../middleware/upload.js';
 import { FoodAdmin } from '../../../../core/admin/admin.model.js';
@@ -54,6 +55,7 @@ const resolveSectionFromRequest = (path = '', method = '') => {
     if (/^\/restaurants\/[^/]+$/.test(path) && String(method).toUpperCase() === 'GET') return null;
     if (/^\/restaurants\/[^/]+\/analytics$/.test(path) && String(method).toUpperCase() === 'GET') return null;
     if (path === '/orders' && String(method).toUpperCase() === 'GET') return null;
+    if (path === '/orders/user-carts' && String(method).toUpperCase() === 'GET') return null;
     if (
         path.startsWith('/restaurants') ||
         path.startsWith('/restaurant-settings') ||
@@ -386,6 +388,14 @@ router.get(
         { section: 'report_management', action: 'view' },
     ]),
     orderController.listOrdersAdminController
+);
+router.get(
+    '/orders/user-carts',
+    requireAnyAdminPermission([
+        { section: 'order_management', action: 'view' },
+        { section: 'report_management', action: 'view' },
+    ]),
+    listUserCartsAdminController
 );
 router.get('/orders/:orderId', orderController.getOrderByIdAdminController);
 router.patch('/orders/:orderId/accept', orderController.acceptOrderAdminController);

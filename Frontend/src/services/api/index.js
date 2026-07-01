@@ -733,6 +733,11 @@ export const adminAPI = {
     apiClient.delete(`/food/admin/orders/${String(orderId)}`, {
       contextModule: "admin",
     }),
+  getUserCarts: (params = {}) =>
+    apiClient.get("/food/admin/orders/user-carts", {
+      params: { limit: 20, page: 1, ...params },
+      contextModule: "admin",
+    }),
   /** Dispatch settings – auto vs manual assign (global) */
   /** Create restaurant (admin). Single API: POST /food/admin/restaurants. Body: JSON with image URLs. */
   createRestaurant: (body) =>
@@ -2444,6 +2449,9 @@ export const userAPI = {
       params: params ?? {},
       contextModule: "user",
     }),
+  /** PUT /food/user/cart (Bearer USER) */
+  syncCart: (body) =>
+    apiClient.put("/food/user/cart", body ?? {}, { contextModule: "user" }),
   /**
    * Legacy UI compatibility: update "current user location".
    * We already persist the user's selected location in localStorage in the UI.

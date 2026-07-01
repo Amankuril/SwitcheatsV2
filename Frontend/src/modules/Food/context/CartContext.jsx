@@ -1,6 +1,7 @@
 // src/context/cart-context.jsx
-import { createContext, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { buildCartLineId } from "@food/utils/foodVariants"
+import { userAPI } from "@/services/api"
 const debugLog = (...args) => {}
 const debugWarn = (...args) => {}
 const debugError = (...args) => {}
@@ -181,6 +182,34 @@ export function CartProvider({ children }) {
       }
     } catch {
       // ignore storage errors (private mode, quota, etc.)
+    }
+  }, [cart])
+
+  const cartSyncTimerRef = useRef(null)
+
+  // Sync cart to server for admin visibility (authenticated users only)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const isAuthenticated =
+      localStorage.getItem("user_authenticated") === "true" ||
+      !!localStorage.getItem("user_accessToken")
+
+    if (!isAuthenticated) return
+
+    if (cartSyncTimerRef.current) {
+      clearTimeout(cartSyncTimerRef.current)
+    }
+
+    cartSyncTimerRef.current = setTimeout(() => {
+      const items = normalizeCartData(cart)
+      userAPI.syncCart({ items }).catch(() => {})
+    }, 1200)
+
+    return () => {
+      if (cartSyncTimerRef.current) {
+        clearTimeout(cartSyncTimerRef.current)
+      }
     }
   }, [cart])
 

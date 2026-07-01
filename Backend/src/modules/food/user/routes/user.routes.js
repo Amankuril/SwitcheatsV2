@@ -30,6 +30,7 @@ import {
     createSupportTicketController,
     listMySupportTicketsController
 } from '../controllers/supportTicket.controller.js';
+import { syncUserCartController } from '../controllers/userCart.controller.js';
 
 const router = express.Router();
 
@@ -60,5 +61,7 @@ router.post('/addresses', addAddressController);
 router.patch('/addresses/:addressId', updateAddressController);
 router.delete('/addresses/:addressId', deleteAddressController);
 router.patch('/addresses/:addressId/default', setDefaultAddressController);
+
+router.put('/cart', syncUserCartController);
 
 export default router;
