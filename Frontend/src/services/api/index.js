@@ -738,6 +738,10 @@ export const adminAPI = {
       params: { limit: 20, page: 1, ...params },
       contextModule: "admin",
     }),
+  getUserCartPricing: (cartId) =>
+    apiClient.get(`/food/admin/orders/user-carts/${String(cartId)}/pricing`, {
+      contextModule: "admin",
+    }),
   /** Dispatch settings – auto vs manual assign (global) */
   /** Create restaurant (admin). Single API: POST /food/admin/restaurants. Body: JSON with image URLs. */
   createRestaurant: (body) =>

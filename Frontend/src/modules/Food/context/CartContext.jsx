@@ -1,5 +1,5 @@
 // src/context/cart-context.jsx
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { buildCartLineId } from "@food/utils/foodVariants"
 import { userAPI } from "@/services/api"
 const debugLog = (...args) => {}
@@ -187,8 +187,7 @@ export function CartProvider({ children }) {
 
   const cartSyncTimerRef = useRef(null)
 
-  // Sync cart to server for admin visibility (authenticated users only)
-  useEffect(() => {
+  const scheduleCartSync = useCallback(() => {
     if (typeof window === "undefined") return
 
     const isAuthenticated =
@@ -203,15 +202,34 @@ export function CartProvider({ children }) {
 
     cartSyncTimerRef.current = setTimeout(() => {
       const items = normalizeCartData(cart)
-      userAPI.syncCart({ items }).catch(() => {})
+      let pricing = null
+      try {
+        const rawPricing = sessionStorage.getItem("food_cart_pricing_snapshot")
+        if (rawPricing) pricing = JSON.parse(rawPricing)
+      } catch {
+        pricing = null
+      }
+      userAPI.syncCart({ items, pricing }).catch(() => {})
     }, 1200)
+  }, [cart])
+
+  // Sync cart to server for admin visibility (authenticated users only)
+  useEffect(() => {
+    scheduleCartSync()
+
+    const handlePricingUpdated = () => {
+      scheduleCartSync()
+    }
+
+    window.addEventListener("food_cart_pricing_updated", handlePricingUpdated)
 
     return () => {
+      window.removeEventListener("food_cart_pricing_updated", handlePricingUpdated)
       if (cartSyncTimerRef.current) {
         clearTimeout(cartSyncTimerRef.current)
       }
     }
-  }, [cart])
+  }, [scheduleCartSync])
 
   const addToCart = (item, sourcePosition = null) => {
     const safeCart = normalizeCartData(cart)

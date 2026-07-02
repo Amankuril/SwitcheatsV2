@@ -94,6 +94,92 @@ const haversineKm = (lat1, lon1, lat2, lon2) => {
   return R * c
 }
 
+const buildEffectiveCartPricing = ({
+  cart = [],
+  pricing = null,
+  feeSettings = {},
+  defaultAddress = null,
+  restaurantData = null,
+  appliedCoupon = null,
+}) => {
+  const subtotal =
+    pricing?.subtotal ||
+    cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0)
+
+  const fallbackDeliveryFee = (() => {
+    if (appliedCoupon?.freeDelivery) return 0
+
+    const ranges = Array.isArray(feeSettings.deliveryFeeRanges)
+      ? [...feeSettings.deliveryFeeRanges]
+      : []
+
+    if (ranges.length > 0) {
+      let distanceKm = null
+      if (
+        restaurantData?.location?.coordinates?.length === 2 &&
+        defaultAddress?.location?.coordinates?.length === 2
+      ) {
+        const [rLng, rLat] = restaurantData.location.coordinates
+        const [dLng, dLat] = defaultAddress.location.coordinates
+        distanceKm = haversineKm(rLat, rLng, dLat, dLng)
+      }
+
+      if (Number.isFinite(distanceKm)) {
+        const sortedRanges = ranges.sort((a, b) => Number(a.min) - Number(b.min))
+        for (let i = 0; i < sortedRanges.length; i += 1) {
+          const range = sortedRanges[i]
+          const min = Number(range.min)
+          const max = Number(range.max)
+          const fee = Number(range.fee)
+          const isLastRange = i === sortedRanges.length - 1
+          const inRange = isLastRange
+            ? distanceKm >= min && distanceKm <= max
+            : distanceKm >= min && distanceKm < max
+
+          if (inRange) return fee
+        }
+      }
+    }
+
+    const threshold = Number(feeSettings.freeDeliveryThreshold)
+    if (Number.isFinite(threshold) && threshold > 0 && subtotal >= threshold) {
+      return 0
+    }
+
+    return Number(feeSettings.deliveryFee || 0)
+  })()
+
+  const deliveryFee =
+    pricing != null ? Number(pricing.deliveryFee) || fallbackDeliveryFee : fallbackDeliveryFee
+  const platformFee = pricing?.platformFee ?? Number(feeSettings.platformFee || 0)
+  const gstCharges =
+    pricing?.tax ?? Math.round(subtotal * (Number(feeSettings.gstRate || 0) / 100))
+  const discount =
+    pricing?.discount ??
+    (appliedCoupon ? Math.min(Number(appliedCoupon.discount) || 0, subtotal * 0.5) : 0)
+  const totalBeforeDiscount =
+    subtotal +
+    (deliveryFee === 0 ? Number(feeSettings.deliveryFee ?? 25) : deliveryFee) +
+    platformFee +
+    gstCharges
+  const total = subtotal + deliveryFee + platformFee + gstCharges - discount
+  const savings = pricing?.savings ?? Math.max(0, totalBeforeDiscount - total)
+
+  return {
+    subtotal,
+    tax: gstCharges,
+    packagingFee: Number(pricing?.packagingFee) || 0,
+    deliveryFee,
+    platformFee,
+    discount,
+    total,
+    savings,
+    couponCode: pricing?.couponCode || pricing?.appliedCoupon?.code || appliedCoupon?.code || "",
+    deliveryFeeBreakdown: pricing?.deliveryFeeBreakdown || null,
+    appliedCoupon: pricing?.appliedCoupon || appliedCoupon || null,
+  }
+}
+
 export default function Cart() {
   const companyName = useCompanyName()
   const navigate = useNavigate()
@@ -1096,6 +1182,29 @@ export default function Cart() {
     calculatePricing()
   }, [cart, defaultAddress, appliedCoupon, couponCode, restaurantId, scheduledOrderAt, replaceCart])
 
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!Array.isArray(cart) || cart.length === 0) {
+      sessionStorage.removeItem("food_cart_pricing_snapshot")
+      return
+    }
+
+    try {
+      const snapshot = buildEffectiveCartPricing({
+        cart,
+        pricing,
+        feeSettings,
+        defaultAddress,
+        restaurantData,
+        appliedCoupon,
+      })
+      sessionStorage.setItem("food_cart_pricing_snapshot", JSON.stringify(snapshot))
+      window.dispatchEvent(new CustomEvent("food_cart_pricing_updated"))
+    } catch {
+      // ignore storage errors
+    }
+  }, [cart, pricing, feeSettings, defaultAddress, restaurantData, appliedCoupon])
+
   // Fetch wallet balance
   useEffect(() => {
     const fetchWalletBalance = async () => {
@@ -1162,67 +1271,37 @@ export default function Cart() {
     return () => window.removeEventListener("businessSettingsUpdated", handleSettingsUpdate)
   }, [])
 
-  // Use backend pricing if available, otherwise fallback to database fee settings
-  const subtotal = pricing?.subtotal || cart.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
-  const fallbackDeliveryFee = (() => {
-    if (appliedCoupon?.freeDelivery) {
-      return 0
-    }
-
-    const ranges = Array.isArray(feeSettings.deliveryFeeRanges) ? [...feeSettings.deliveryFeeRanges] : []
-    
-    // Priority 1: Distance-based ranges
-    if (ranges.length > 0) {
-      let distanceKm = null
-      if (
-        restaurantData?.location?.coordinates?.length === 2 &&
-        defaultAddress?.location?.coordinates?.length === 2
-      ) {
-        const [rLng, rLat] = restaurantData.location.coordinates
-        const [dLng, dLat] = defaultAddress.location.coordinates
-        distanceKm = haversineKm(rLat, rLng, dLat, dLng)
-      }
-
-      if (Number.isFinite(distanceKm)) {
-        const sortedRanges = ranges.sort((a, b) => Number(a.min) - Number(b.min))
-        for (let i = 0; i < sortedRanges.length; i += 1) {
-          const range = sortedRanges[i]
-          const min = Number(range.min)
-          const max = Number(range.max)
-          const fee = Number(range.fee)
-          const isLastRange = i === sortedRanges.length - 1
-          const inRange = isLastRange
-            ? distanceKm >= min && distanceKm <= max
-            : distanceKm >= min && distanceKm < max
-
-          if (inRange) return fee
-        }
-      }
-    }
-
-    // Priority 2: Free Delivery Threshold (Only if explicitly set > 0)
-    const threshold = Number(feeSettings.freeDeliveryThreshold)
-    if (Number.isFinite(threshold) && threshold > 0 && subtotal >= threshold) {
-      return 0
-    }
-
-    // Priority 3: Default Base Fee
-    return Number(feeSettings.deliveryFee || 0)
-  })()
-  const deliveryFee = pricing?.deliveryFee || fallbackDeliveryFee
-  const deliveryFeeBreakdown = pricing?.deliveryFeeBreakdown || null
+  const effectivePricing = useMemo(
+    () =>
+      buildEffectiveCartPricing({
+        cart,
+        pricing,
+        feeSettings,
+        defaultAddress,
+        restaurantData,
+        appliedCoupon,
+      }),
+    [cart, pricing, feeSettings, defaultAddress, restaurantData, appliedCoupon],
+  )
+  const subtotal = effectivePricing.subtotal
+  const deliveryFee = effectivePricing.deliveryFee
+  const deliveryFeeBreakdown = effectivePricing.deliveryFeeBreakdown
   const hasDistanceDeliveryBreakdown =
     deliveryFeeBreakdown?.source === "distance" &&
     Number.isFinite(Number(deliveryFeeBreakdown?.distanceKm))
   const deliveryFeeBreakdownText = hasDistanceDeliveryBreakdown
     ? deliveryFeeBreakdown.message || `Distance: ${Number(deliveryFeeBreakdown.distanceKm).toFixed(1)} km`
     : null
-  const platformFee = pricing?.platformFee || feeSettings.platformFee
-  const gstCharges = pricing?.tax || Math.round(subtotal * (feeSettings.gstRate / 100))
-  const discount = pricing?.discount || (appliedCoupon ? Math.min(appliedCoupon.discount, subtotal * 0.5) : 0)
-  const totalBeforeDiscount = subtotal + (deliveryFee === 0 ? (feeSettings.deliveryFee ?? 25) : deliveryFee) + platformFee + gstCharges
-  const total = subtotal + deliveryFee + platformFee + gstCharges - (pricing?.discount || discount)
-  const savings = pricing?.savings ?? Math.max(0, totalBeforeDiscount - total)
+  const platformFee = effectivePricing.platformFee
+  const gstCharges = effectivePricing.tax
+  const discount = effectivePricing.discount
+  const totalBeforeDiscount =
+    subtotal +
+    (deliveryFee === 0 ? Number(feeSettings.deliveryFee ?? 25) : deliveryFee) +
+    platformFee +
+    gstCharges
+  const total = effectivePricing.total
+  const savings = effectivePricing.savings
   const selectedPaymentLabel =
     selectedPaymentMethod === "wallet"
       ? "Wallet"

@@ -8,7 +8,7 @@ import * as feedbackExperienceController from '../controllers/feedbackExperience
 import * as notificationBroadcastController from '../controllers/notificationBroadcast.controller.js';
 import * as diningAdminController from '../../dining/controllers/diningAdmin.controller.js';
 import * as orderController from '../../orders/controllers/order.controller.js';
-import { listUserCartsAdminController } from '../controllers/userCartAdmin.controller.js';
+import { listUserCartsAdminController, getUserCartPricingAdminController } from '../controllers/userCartAdmin.controller.js';
 import { getAdminPageController, upsertAdminPageController } from '../controllers/pageContent.controller.js';
 import { upload } from '../../../../middleware/upload.js';
 import { FoodAdmin } from '../../../../core/admin/admin.model.js';
@@ -396,6 +396,14 @@ router.get(
         { section: 'report_management', action: 'view' },
     ]),
     listUserCartsAdminController
+);
+router.get(
+    '/orders/user-carts/:cartId/pricing',
+    requireAnyAdminPermission([
+        { section: 'order_management', action: 'view' },
+        { section: 'report_management', action: 'view' },
+    ]),
+    getUserCartPricingAdminController
 );
 router.get('/orders/:orderId', orderController.getOrderByIdAdminController);
 router.patch('/orders/:orderId/accept', orderController.acceptOrderAdminController);

@@ -34,6 +34,22 @@ const userCartSchema = new mongoose.Schema(
         },
         itemCount: { type: Number, min: 0, default: 0 },
         subtotal: { type: Number, min: 0, default: 0 },
+        pricing: {
+            type: {
+                subtotal: { type: Number, min: 0, default: 0 },
+                tax: { type: Number, min: 0, default: 0 },
+                packagingFee: { type: Number, min: 0, default: 0 },
+                deliveryFee: { type: Number, min: 0, default: 0 },
+                platformFee: { type: Number, min: 0, default: 0 },
+                discount: { type: Number, min: 0, default: 0 },
+                total: { type: Number, min: 0, default: 0 },
+                savings: { type: Number, min: 0, default: 0 },
+                couponCode: { type: String, default: '' },
+                deliveryFeeBreakdown: { type: mongoose.Schema.Types.Mixed, default: null },
+                appliedCoupon: { type: mongoose.Schema.Types.Mixed, default: null },
+            },
+            default: null,
+        },
     },
     {
         collection: 'food_user_carts',
