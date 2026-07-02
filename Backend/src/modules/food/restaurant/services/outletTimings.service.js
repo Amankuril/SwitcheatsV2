@@ -3,6 +3,7 @@ import { ValidationError } from '../../../../core/auth/errors.js';
 import { invalidateCache } from '../../../../middleware/cache.js';
 import { FoodRestaurantOutletTimings } from '../models/outletTimings.model.js';
 import { FoodRestaurant } from '../models/restaurant.model.js';
+import { getRestaurantLocalTimeParts } from '../../../../utils/timezone.js';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -85,8 +86,7 @@ export async function upsertOutletTimingsForRestaurant(restaurantId, outletTimin
         { upsert: true, new: true, setDefaultsOnInsert: true, projection: 'timings updatedAt' }
     ).lean();
 
-    // Sync to main restaurant document for basic visibility/fallback
-    const currentDayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()];
+    const { dayName: currentDayName } = getRestaurantLocalTimeParts(new Date());
     const todayData = timings.find(t => t.day === currentDayName) || timings.find(t => t.isOpen) || timings[0];
 
     if (todayData) {
@@ -107,7 +107,7 @@ export async function upsertOutletTimingsForRestaurant(restaurantId, outletTimin
     return { outletTimings: toClientShape(doc) };
 }
 
-export async function getOutletTimingsMapForRestaurants(restaurantIds = []) {
+export async function getOutletTimingsMapForRestaurants(restaurantIds = [], options = {}) {
     const ids = [
         ...new Set(
             (restaurantIds || [])
@@ -118,24 +118,27 @@ export async function getOutletTimingsMapForRestaurants(restaurantIds = []) {
 
     if (!ids.length) return new Map();
 
+    const useDefaults = options?.useDefaults !== false;
     const defaultShape = toClientShape({ timings: defaultTimings() });
     const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
     const docs = await FoodRestaurantOutletTimings.find({ restaurantId: { $in: objectIds } })
         .select('restaurantId timings')
         .lean();
 
-    const map = new Map(ids.map((id) => [id, defaultShape]));
+    const map = useDefaults ? new Map(ids.map((id) => [id, defaultShape])) : new Map();
     for (const doc of docs) {
         map.set(String(doc.restaurantId), toClientShape(doc));
     }
     return map;
 }
 
-export async function attachOutletTimingsToRestaurants(restaurants = []) {
+export async function attachOutletTimingsToRestaurants(restaurants = [], options = {}) {
     if (!Array.isArray(restaurants) || restaurants.length === 0) return restaurants;
 
+    const useDefaults = options?.useDefaults !== false;
     const map = await getOutletTimingsMapForRestaurants(
-        restaurants.map((r) => r._id || r.id || r.restaurantId)
+        restaurants.map((r) => r._id || r.id || r.restaurantId),
+        { useDefaults },
     );
 
     return restaurants.map((r) => {

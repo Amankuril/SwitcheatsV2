@@ -24,7 +24,9 @@ export async function loadRestaurantForOrdering(restaurantId) {
   if (!doc) throw new ValidationError('Restaurant not found');
   if (doc.status !== 'approved') throw new ValidationError('Restaurant not available');
 
-  const [withTimings] = await attachOutletTimingsToRestaurants([doc]);
+  const [withTimings] = await attachOutletTimingsToRestaurants([doc], {
+    useDefaults: false,
+  });
   return withTimings;
 }
 

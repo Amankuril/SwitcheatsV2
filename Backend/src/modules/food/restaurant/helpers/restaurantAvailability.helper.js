@@ -1,3 +1,8 @@
+import {
+  getPreviousDayName,
+  getRestaurantLocalTimeParts,
+} from '../../../../utils/timezone.js';
+
 const DAY_NAMES = [
   'Sunday',
   'Monday',
@@ -90,8 +95,7 @@ const isWithinTimeWindow = (nowMinutes, openingMinutes, closingMinutes) => {
   return nowMinutes >= openingMinutes || nowMinutes <= closingMinutes;
 };
 
-const checkDayWindow = (restaurant, targetDate, nowMinutes) => {
-  const dayName = DAY_NAMES[targetDate.getDay()];
+const checkDayWindow = (restaurant, dayName, nowMinutes) => {
   const timing = getTodayTiming(restaurant, dayName);
   const openDays = Array.isArray(restaurant?.openDays) ? restaurant.openDays : [];
 
@@ -164,11 +168,13 @@ export function getOutletScheduleStatus(restaurant, now = new Date()) {
     };
   }
 
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const today = checkDayWindow(restaurant, now, nowMinutes);
-  const yesterdayDate = new Date(now);
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterday = checkDayWindow(restaurant, yesterdayDate, nowMinutes);
+  const { dayName, nowMinutes } = getRestaurantLocalTimeParts(now);
+  const today = checkDayWindow(restaurant, dayName, nowMinutes);
+  const yesterday = checkDayWindow(
+    restaurant,
+    getPreviousDayName(dayName),
+    nowMinutes,
+  );
 
   const yesterdayCrossesMidnight =
     yesterday.openingMinutes !== null &&
@@ -187,7 +193,7 @@ export function getOutletScheduleStatus(restaurant, now = new Date()) {
     hasConfiguredHours: Boolean(activeWindow?.hasWindow),
     openingTime: activeWindow?.openingTime || null,
     closingTime: activeWindow?.closingTime || null,
-    dayName: activeWindow?.dayName || DAY_NAMES[now.getDay()],
+    dayName: activeWindow?.dayName || dayName,
     reason: scheduleOpen
       ? 'within-hours'
       : today.isDayClosed
@@ -255,11 +261,13 @@ export function getRestaurantAvailabilityStatus(restaurant, now = new Date(), op
     };
   }
 
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const today = checkDayWindow(restaurant, now, nowMinutes);
-  const yesterdayDate = new Date(now);
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterday = checkDayWindow(restaurant, yesterdayDate, nowMinutes);
+  const { dayName, nowMinutes } = getRestaurantLocalTimeParts(now);
+  const today = checkDayWindow(restaurant, dayName, nowMinutes);
+  const yesterday = checkDayWindow(
+    restaurant,
+    getPreviousDayName(dayName),
+    nowMinutes,
+  );
 
   const yesterdayCrossesMidnight =
     yesterday.openingMinutes !== null &&
